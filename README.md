@@ -184,6 +184,152 @@ Every log generated in the framework passes through a clear and consistent proce
                                     Output in ECS format
 ```
 
+## The Audit Platform: Doctor & Auditor
+
+SyntropyLog includes a powerful command-line tool, the **Doctor & Auditor**, designed to validate your configuration files, enforce best practices, and prevent deployment errors. It's a professional-grade feature, especially useful for DevOps teams and for ensuring robustness in production environments.
+
+### The Philosophy
+
+The platform is divided into two main commands with distinct purposes:
+
+* **`syntropylog doctor`**: A tool for the developer. It performs a quick, on-the-fly analysis of a single configuration file, providing instant feedback.
+* **`syntropylog audit`**: A tool for continuous integration (CI/CD). It executes a complete audit plan against multiple configuration files, using different sets of rules for each environment (e.g., `staging` vs. `production`).
+
+### The Professional Workflow
+
+Here’s how a team would make the most of the audit platform:
+
+#### Step 1: Initialize the Manifests
+
+First, use the `init` command to generate the necessary configuration files. The CLI will intelligently detect if your project uses TypeScript/JavaScript and ESM/CommonJS.
+
+```bash
+# In your project's root directory, run:
+npx syntropylog init --rules --audit
+```
+
+This command generates two key files:
+
+* `syntropylog.doctor.ts`: A manifest to define and compose diagnostic rule sets.
+* `syntropylog.audit.ts`: A plan that defines which rule sets to run against which configuration files.
+
+#### Step 2: Define Custom Rules (Optional but Powerful)
+
+This is where the real magic happens. You can create your own diagnostic rules tailored to your company's policies.
+
+**Example: `my-checks/security-rules.ts`**
+```typescript
+import type { DiagnosticRule } from 'syntropylog/doctor';
+import type { SyntropyLogConfig } from 'syntropylog';
+
+export const securityRules: DiagnosticRule[] = [
+  {
+    id: 'corp-no-http-in-prod',
+    description: 'Ensures all external URLs use HTTPS in production.',
+    check: (config: SyntropyLogConfig) => {
+      const httpInstances = config.http?.instances ?? [];
+      const insecureInstances = httpInstances.filter(
+        (i) => i.config?.baseURL?.startsWith('http://')
+      );
+      if (insecureInstances.length > 0) {
+        return [{
+          level: 'ERROR',
+          title: 'Insecure BaseURL in Production',
+          message: `Found HTTP instances with a non-HTTPS baseURL: ${insecureInstances.map(i => i.instanceName).join(', ')}`,
+          recommendation: 'All external API endpoints must use HTTPS in production.'
+        }];
+      }
+      return [];
+    }
+  }
+];
+```
+
+#### Step 3: Compose Your Audit Plan
+
+Now, edit the generated `syntropylog.audit.ts` file to define your validation strategy.
+
+**Example: `syntropylog.audit.ts`**
+```typescript
+/**
+ * SYNTROPYLOG AUDIT PLAN
+ * ----------------------
+ * This file defines the audit plan for your project's configurations.
+ * The `syntropylog audit` command will execute each job defined in this array.
+ */
+import { coreRules } from 'syntropylog/doctor';
+import type { DiagnosticRule } from 'syntropylog/doctor';
+
+// Import your custom rules
+import { securityRules } from './my-checks/security-rules';
+
+export default [
+  {
+    name: 'Production Config Audit',
+    configFile: './config/production.yaml',
+    // For production, we want all core rules plus our custom security rules.
+    rules: [
+        ...coreRules,
+        ...securityRules
+    ],
+  },
+  {
+    name: 'Staging Config Audit',
+    configFile: './config/staging.yaml',
+    // For staging, we might want to be less strict and disable some rules.
+    rules: coreRules.filter(rule => rule.id !== 'prod-log-level'),
+  },
+];
+```
+
+#### Step 4: Integrate into Your CI/CD Pipeline
+
+This is the final and most crucial step for DevOps teams. Add a single command to your pipeline to run the full audit.
+
+**Example: `.github/workflows/ci.yml` (for GitHub Actions)**
+```yaml
+name: Build, Test and Audit
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Unit & Integration Tests
+        run: npm test
+
+      - name: 🕵️‍♂️ Run SyntropyLog Configuration Audit
+        run: npx syntropylog audit
+```
+
+### How It Works
+
+* **The Command**: The `npx syntropylog audit` command in your pipeline needs no arguments.
+* **Execution**: It automatically finds and loads your `syntropylog.audit.ts` manifest.
+* **The Audit**: It runs each "job" sequentially.
+* **The Result**: If any rule in any job returns an `ERROR`-level result, the `npx syntropylog audit` command will exit with a non-zero status code. This **automatically fails the CI pipeline step**, preventing the faulty configuration from being merged or deployed. The developer gets instant, clear feedback directly in their Pull Request.
+
+This transforms the Doctor from a simple utility into a powerful, automated quality gate for your application's configuration.
+
+
 ## 💡 Frequently Asked Questions (FAQ)
 
 * **What happens if a transport (e.g., an external service) goes down?**
