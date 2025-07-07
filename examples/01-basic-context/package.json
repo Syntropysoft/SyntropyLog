@@ -9,9 +9,9 @@
     "start": "node index.js",
     "start-2": "node index2.js",
     "start-3": "node index3.js"
-
   },
   "dependencies": {
+   "rotating-file-stream": "^3.2.1",
     "syntropylog": "file:../.."
   }
 }
