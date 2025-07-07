@@ -1,0 +1,5 @@
+{
+  "module":"NodeNext",
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "dist", "tests","examples"]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "beaconlog-example-01-basic-context",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A simple example demonstrating the basic usage of the ContextManager and automatic context in logs.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "beaconlog": "file:../.."
+  }
+}

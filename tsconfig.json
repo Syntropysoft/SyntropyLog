@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    /* Opciones Básicas de Módulo y Target */
+    "target": "ES2022",
+    "module": "NodeNext", // 'NodeNext' es ideal para librerías con "exports" en package.json
+    "moduleResolution": "NodeNext",
+
+    /* Rutas y Estructura */
+    "rootDir": "src",
+
+    /* ¡AQUÍ ESTÁ LA CLAVE! */
+    "declaration": true,
+    "declarationDir": "./dist/types",
+    "declarationMap": true, // Muy útil para "Go to Definition" en los editores
+    "sourceMap": true,
+
+    /* Strictness y Calidad de Código */
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "allowSyntheticDefaultImports": true
+  },
+  // La configuración principal ahora solo se preocupa por el código fuente.
+  // La configuración de los tests la manejará `vitest.config.ts`.
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "tests","examples"]
+}

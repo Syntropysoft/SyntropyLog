@@ -1,0 +1,28 @@
+# 04-fetch
+
+This example demonstrates how to use `beaconlog` to automatically add correlation IDs to `fetch` requests.
+
+## Prerequisites
+
+Before running this example, you must first build the main `beaconlog` library from the project's root directory:
+
+```bash
+# From the project root
+npm run build
+```
+
+This step ensures that the local `beaconlog` dependency used by this example is up-to-date. After building, you can proceed with installing the example's dependencies.
+
+## Running the Example
+
+ **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Run the example:**
+   ```bash
+   npm start
+   ```
+
+This will execute the `index.ts` file, which makes a `fetch` request within a `beaconlog` context.

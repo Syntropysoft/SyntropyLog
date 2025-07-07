@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true, // Mantenemos esto para solo generar .d.ts
+    "outDir": "./dist"          // Cambiamos para que los .d.ts vayan a la raíz de dist
+  },
+  "include": ["src"]
+}
