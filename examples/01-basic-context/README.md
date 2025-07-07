@@ -2,7 +2,7 @@
 
 This example demonstrates the core features of `syntropyLog`, including automatic context propagation and the flexibility of its transport system.
 
-It includes four different entry points, each showcasing a different way to format and output logs.
+It includes five different entry points, each showcasing a different way to format and output logs.
 
 ## Prerequisites
 
@@ -46,6 +46,11 @@ This step ensures that the local `syntropylog` dependency used by this example i
     * **To see a custom file transport in action:**
         ```bash
         node index4.js
+        ```
+
+    * **For production-ready, raw JSON output:**
+        ```bash
+        node index5.js
         ```
 
 ## Understanding the Examples
@@ -98,6 +103,20 @@ This is a balanced transport, providing colored, readable output for the main me
   └─ context={"x-correlation-id":"..."}
 ```
 
+### `index5.js`: The `ConsoleTransport` (Production Output)
+
+This is the most fundamental transport. It outputs **raw, uncolored JSON strings**. This format is not designed for human eyes but for machines. It's the ideal choice for production environments where logs are collected by agents (like Fluentd, Vector, or Datadog Agent) that expect structured, parsable JSON.
+
+**Expected Output:**
+```json
+{"level":"info","msg":"SyntropyLog framework initialized successfully.","context":{},"timestamp":"...","service":"my-awesome-app"}
+--- Starting operation with Correlation ID: ... ---
+{"level":"info","msg":"Processing order...","context":{"X-Correlation-ID":"..."},"timestamp":"...","service":"my-awesome-app"}
+{"level":"info","msg":"Checking inventory for the order.","context":{"X-Correlation-ID":"..."},"timestamp":"...","service":"my-awesome-app"}
+--- Operation finished. Context is now empty. ---
+{"level":"info","msg":"This log is outside the context and will not have a correlationId.","context":{},"timestamp":"...","service":"my-awesome-app"}
+```
+
 ---
 
 ## Creating Your Own Transport (`index4.js`)
@@ -114,7 +133,7 @@ import fs from 'fs';
 
 class CustomFileTransport extends Transport {
   async log(entry) {
-    const logString = JSON.stringify(entry) + '\n';
+    const logString = JSON.stringify(entry) + '\\n';
     fs.appendFile('app.log', logString, (err) => {
       if (err) console.error('Failed to write to log file', err);
     });
