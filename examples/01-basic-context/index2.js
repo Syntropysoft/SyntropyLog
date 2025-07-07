@@ -38,7 +38,7 @@ async function main() {
       transports: [
         process.env.NODE_ENV === 'production'
           ? new ConsoleTransport() // Raw JSON for production
-          : new PrettyConsoleTransport(), // Colored logs for development
+          : new ClassicConsoleTransport(), // Colored logs for development
       ],
       // Define how to transform complex objects into readable text.
       serializers: {

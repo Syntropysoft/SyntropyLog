@@ -4,19 +4,21 @@
  * It exports the singleton instance of the framework and key types for users.
  */
 
-// Export the singleton instance of the framework, which is the primary interaction point.
 export { syntropyLog } from './SyntropyLog';
 
 // --- Core Types for Configuration and Usage ---
-// We use a type alias during the transition from BeaconLog to SyntropyLog
 export type { SyntropyLogConfig } from './config';
 export type { ILogger } from './logger/ILogger';
+export type { IContextManager } from './context';
 
-// --- Transport Classes for Custom Configuration ---
+// --- Transport Classes and Interfaces for Custom Configuration ---
 export { Transport } from './logger/transports/Transport';
 export { ConsoleTransport } from './logger/transports/ConsoleTransport';
+export { PrettyConsoleTransport } from './logger/transports/PrettyConsoleTransport';
+export { CompactConsoleTransport } from './logger/transports/CompactConsoleTransport';
+export { ClassicConsoleTransport } from './logger/transports/ClassicConsoleTransport'; // <-- ADDED
 export { SpyTransport } from './logger/transports/SpyTransport';
-// We will export PrettyConsoleTransport once we create it in Step 2.
+export type { LogFormatter } from './logger/transports/formatters/LogFormatter';
 
 // --- Interfaces for Instrumented Clients ---
 export type { IBeaconRedis } from './redis/IBeaconRedis';
