@@ -47,7 +47,7 @@ async function main() {
     },
     // Define the header for the correlation ID.
     context: {
-      correlationIdHeader: 'X-Correlation-ID',
+      correlationIdHeader: 'X-something-else-ID',
     },
     // SINGLE SOURCE OF TRUTH for data masking.
     masking: {

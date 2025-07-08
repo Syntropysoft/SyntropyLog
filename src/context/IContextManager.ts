@@ -11,6 +11,13 @@ must implement this interface.
 
 export interface IContextManager {
   /**
+   * Configures the context manager with specific options.
+   * This should be called once during initialization.
+   * @param headerName The custom header name to use for the correlation ID.
+   */
+  configure(headerName?: string): void;
+
+  /**
    * Executes a function within a new, isolated asynchronous context.
    * @param callback The function to execute.
    */

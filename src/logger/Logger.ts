@@ -6,6 +6,7 @@ import { logLevels, LogLevelName } from './levels';
 import { Transport } from './transports/Transport';
 import { SerializerRegistry } from '../serialization/SerializerRegistry';
 import { MaskingEngine } from '../masking/MaskingEngine';
+import { SanitizationEngine } from '../sanitization/SanitizationEngine';
 
 export interface LoggerOptions {
   contextManager: IContextManager;
@@ -16,6 +17,7 @@ export interface LoggerOptions {
   // Engines are now required dependencies for the logger
   serializerRegistry: SerializerRegistry;
   maskingEngine: MaskingEngine;
+  sanitizationEngine: SanitizationEngine;
 }
 
 export class Logger implements ILogger {

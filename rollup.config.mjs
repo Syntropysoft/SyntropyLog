@@ -4,18 +4,20 @@ import resolve from '@rollup/plugin-node-resolve';
 import json from '@rollup/plugin-json';
 import dts from 'rollup-plugin-dts';
 import { builtinModules } from 'node:module';
-import pkg from './package.json' assert { type: 'json' };
+// --- THE FIX IS HERE ---
+// Use the new, standard `with` syntax for JSON imports.
+// This is compatible with modern Node.js versions (including 20 and 22).
+import pkg from './package.json' with { type: 'json' };
 
-// Lista de dependencias externas que no deben ser incluidas en el bundle.
-// Incluye las dependencias de producción, las de pares y los módulos nativos de Node.js.
+// List of external dependencies that should not be bundled.
 const external = [
   ...Object.keys(pkg.dependencies || {}),
   ...Object.keys(pkg.peerDependencies || {}),
   ...builtinModules,
-  ...builtinModules.map((m) => `node:${m}`), // Para imports con prefijo 'node:'
+  ...builtinModules.map((m) => `node:${m}`),
 ];
 
-// Plugins comunes para todos los bundles de JavaScript.
+// Common plugins for all JavaScript bundles.
 const jsPlugins = [
   resolve(),
   commonjs(),
@@ -23,7 +25,7 @@ const jsPlugins = [
   typescript({ tsconfig: './tsconfig.rollup.json' }),
 ];
 
-// Configuración base para cada punto de entrada.
+// Base configuration for each entry point.
 const createEntryConfig = (inputFile, baseOutputName) => ({
   input: inputFile,
   output: [
@@ -42,21 +44,22 @@ const createEntryConfig = (inputFile, baseOutputName) => ({
   external,
 });
 
-// Configuración base para cada punto de entrada de tipos.
+// Base configuration for each type declaration entry point.
 const createDtsConfig = (inputFile, outputName) => ({
   input: inputFile,
   output: [{ file: outputName, format: 'es' }],
   plugins: [dts()],
+  external: [...Object.keys(pkg.peerDependencies || {})],
 });
 
-// Exportamos un array con todas las configuraciones de build.
+// Export an array with all build configurations.
 export default [
-  // --- Bundles de JavaScript ---
+  // --- JavaScript Bundles ---
   createEntryConfig('src/index.ts', './dist/index'),
   createEntryConfig('src/doctor.ts', './dist/doctor'),
   createEntryConfig('src/http.ts', './dist/http'),
 
-  // --- Bundles de Declaración de Tipos (.d.ts) ---
+  // --- Type Declaration Bundles (.d.ts) ---
   createDtsConfig('dist/types/index.d.ts', 'dist/index.d.ts'),
   createDtsConfig('dist/types/http.d.ts', 'dist/http.d.ts'),
 ];

@@ -64,7 +64,7 @@ async function main() {
       transports: [new WritableStreamTransport(stream)],
     },
     context: {
-      correlationIdHeader: 'X-Correlation-ID',
+      correlationIdHeader: 'X-TRACE-ID',
     },
   });
 
