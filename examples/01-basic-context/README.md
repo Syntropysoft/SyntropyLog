@@ -28,35 +28,59 @@ This step ensures that the local `syntropylog` dependency used by this example i
         ```bash
         node index.js
         ```
+        ![alt text](assets/image.png)
 
     * **For a classic, single-line, text-based format (Log4j style):**
         ```bash
         node index2.js
         ```
 
+        ![alt text](assets/image2.png)
+
     * **For a compact, developer-friendly, single-line metadata format:**
         ```bash
         node index3.js
         ```
-    
+
+    ![alt text](assets/image3.png)
+
     * **To see a custom file transport in action:**
         ```bash
         node index4.js
         ```
 
-    * **For production-ready, raw JSON output:**
+      ![alt text](assets/image4-1.png)
+
+      file: app.log
+
+   ```JSON
+   {"context":{},"timestamp":"2025-07-08T00:33:27.665Z","level":"debug","service":"redis-manager","msg":"No Redis configuration was provided or no instances were defined. RedisManager initialized empty."}
+   {"context":{},"timestamp":"2025-07-08T00:33:27.668Z","level":"info","service":"syntropylog-main","msg":"SyntropyLog framework initialized successfully."}
+   {"sku":"SYN-001","stock":42,"context":{"x-correlation-id":"0831c1b7-c5f5-4172-a247-b86fcf032513"},"timestamp":"2025-07-08T00:33:27.671Z","level":"info","service":"inventory-service","msg":"Checking inventory for the order."}
+   {"product":"SyntropyBook","quantity":1,"context":{"x-correlation-id":"0831c1b7-c5f5-4172-a247-b86fcf032513"},"timestamp":"2025-07-08T00:33:27.671Z","level":"info","service":"order-service","msg":"Processing order..."}
+   {"context":{},"timestamp":"2025-07-08T00:33:27.673Z","level":"info","service":"syntropylog-main","msg":"Shutting down SyntropyLog framework..."}
+   {"context":{},"timestamp":"2025-07-08T00:33:27.673Z","level":"info","service":"redis-manager","msg":"Cerrando todas las conexiones de Redis..."}
+   {"context":{},"timestamp":"2025-07-08T00:33:27.673Z","level":"info","service":"syntropylog-main","msg":"SyntropyLog shut down successfully."}
+   {"context":{},"timestamp":"2025-07-08T00:33:27.673Z","level":"info","service":"redis-manager","msg":"Todas las conexiones de Redis han sido cerradas."}
+   ```
+
+
+   * **For production-ready, raw JSON output:**
         ```bash
         node index5.js
         ```
-    
-    * **For advanced file logging with rotation:**
+
+      ![alt text](assets/image5.png)
+
+   * **For advanced file logging with rotation:**
         ```bash
         node index6.js
         ```
+        ![alt text](assets/image4-2.png)
+
+
 
 ## Understanding the Examples
-
-(Secciones para index.js, index2.js, index3.js, index5.js se mantienen igual)
 
 ---
 
