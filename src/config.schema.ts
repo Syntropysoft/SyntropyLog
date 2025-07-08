@@ -91,9 +91,13 @@ export const redisInstanceConfigSchema = z.discriminatedUnion('mode', [
     rootNodes: z.array(z.object({ host: z.string(), port: z.number() })),
     logging: z
       .object({
+        /** Level for successful commands. @default 'debug' */
         onSuccess: z.enum(['trace', 'debug', 'info']).default('debug'),
+        /** Level for failed commands. @default 'error' */
         onError: z.enum(['warn', 'error', 'fatal']).default('error'),
+        /** Whether to log command parameters. @default true */
         logCommandValues: z.boolean().default(true),
+        /** Whether to log the return value of commands. @default false */
         logReturnValue: z.boolean().default(false),
       })
       .optional(),
@@ -113,16 +117,52 @@ export const httpInstanceConfigSchema = z.discriminatedUnion('type', [
     type: z.literal('axios'),
     instanceName: z.string(),
     config: z.any().optional(),
+    // --- AÑADIR ESTE BLOQUE ---
+    logging: z
+      .object({
+        onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
+        onError: z.enum(['warn', 'error', 'fatal']).default('error'),
+        logSuccessBody: z.boolean().default(false),
+        logSuccessHeaders: z.boolean().default(false),
+        onRequest: z.enum(['trace', 'debug', 'info']).default('info'),
+        logRequestBody: z.boolean().default(false),
+        logRequestHeaders: z.boolean().default(false),
+      })
+      .optional(),
   }),
   z.object({
     type: z.literal('fetch'),
     instanceName: z.string(),
     config: z.any().optional(),
+    // --- AÑADIR ESTE BLOQUE ---
+    logging: z
+      .object({
+        onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
+        onError: z.enum(['warn', 'error', 'fatal']).default('error'),
+        logSuccessBody: z.boolean().default(false),
+        logSuccessHeaders: z.boolean().default(false),
+        onRequest: z.enum(['trace', 'debug', 'info']).default('info'),
+        logRequestBody: z.boolean().default(false),
+        logRequestHeaders: z.boolean().default(false),
+      })
+      .optional(),
   }),
   z.object({
     type: z.literal('got'),
     instanceName: z.string(),
     config: z.any().optional(),
+    // --- AÑADIR ESTE BLOQUE ---
+    logging: z
+      .object({
+        onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
+        onError: z.enum(['warn', 'error', 'fatal']).default('error'),
+        logSuccessBody: z.boolean().default(false),
+        logSuccessHeaders: z.boolean().default(false),
+        onRequest: z.enum(['trace', 'debug', 'info']).default('info'),
+        logRequestBody: z.boolean().default(false),
+        logRequestHeaders: z.boolean().default(false),
+      })
+      .optional(),
   }),
 ]);
 

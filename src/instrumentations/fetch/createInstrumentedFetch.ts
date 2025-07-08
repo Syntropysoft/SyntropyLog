@@ -4,8 +4,12 @@
  */
 import { ILogger } from '../../logger';
 import { IContextManager } from '../../context';
-import { SyntropyLogConfig } from '../../config';
+import { HttpClientInstanceConfig, SyntropyLogConfig } from '../../config';
 import { InstrumentedFetch } from '../../http/types';
+
+
+type FetchInstanceConfig = Extract<HttpClientInstanceConfig, { type: 'fetch' }>;
+
 
 /**
  * Creates an instrumented `fetch` function with logging and context propagation
@@ -20,7 +24,7 @@ export function createInstrumentedFetch(
   logger: ILogger,
   contextManager: IContextManager,
   globalConfig: SyntropyLogConfig,
-  instanceConfig?: RequestInit
+  instanceConfig: FetchInstanceConfig
 ): InstrumentedFetch {
   const fetchLogger = logger.withSource('fetch');
 
@@ -31,7 +35,7 @@ export function createInstrumentedFetch(
     const startTime = Date.now();
 
     // Merge instance config with call-specific config
-    const requestInit: RequestInit = { ...instanceConfig, ...init };
+    const requestInit: RequestInit = { ...instanceConfig.config, ...init };
     requestInit.headers = new Headers(requestInit.headers); // Ensure headers is a Headers object
 
     // Inject Correlation ID
@@ -48,48 +52,67 @@ export function createInstrumentedFetch(
     const method = requestInit.method?.toUpperCase() || 'GET';
 
     // Log the raw request object. The central pipeline will handle serialization and masking.
-    fetchLogger.info(
-      {
-        method,
-        url,
-        request: {
-          // Headers object will be serialized correctly by the pipeline
-          headers: requestInit.headers,
-          // The body can be of various types, let the serializer handle it
-          body: requestInit.body,
-        },
-      },
-      'Starting HTTP request (fetch)'
-    );
+    const logLevel = instanceConfig.logging?.onRequest ?? 'info';
+
+    const logPayload: Record<string, any> = {
+      method,
+      url,
+    };
+
+    if (
+      instanceConfig.logging?.logRequestHeaders ||
+      instanceConfig.logging?.logRequestBody
+    ) {
+      logPayload.request = {};
+      if (instanceConfig.logging.logRequestHeaders) {
+        logPayload.request.headers = requestInit.headers;
+      }
+      if (instanceConfig.logging.logRequestBody) {
+        logPayload.request.body = requestInit.body;
+      }
+    }
+
+    (fetchLogger as any)[logLevel](logPayload, 'Starting HTTP request (fetch)');
 
     try {
       const response = await fetch(input, requestInit);
       const durationMs = Date.now() - startTime;
 
-      // Clone the response to read the body without consuming it for the actual consumer.
-      const responseToLog = response.clone();
-      let responseBody: any;
-      try {
-        // Attempt to parse as JSON, fallback to text.
-        responseBody = await responseToLog.json();
-      } catch (e) {
+      // Lógica de logging condicional
+      const logLevel = instanceConfig.logging?.onSuccess ?? 'info';
+      const logPayload: Record<string, any> = {
+        statusCode: response.status,
+        url,
+        durationMs,
+      };
+
+      if (
+        instanceConfig.logging?.logSuccessHeaders ||
+        instanceConfig.logging?.logSuccessBody
+      ) {
+        const responseToLog = response.clone();
+        let responseBody: any;
         try {
-          responseBody = await responseToLog.text();
-        } catch (textError) {
-          responseBody = '[Unreadable response body]';
+          responseBody = await responseToLog.json();
+        } catch {
+          try {
+            responseBody = await responseToLog.text();
+          } catch {
+            responseBody = '[Unreadable response body]';
+          }
+        }
+
+        logPayload.response = {};
+        if (instanceConfig.logging.logSuccessHeaders) {
+          logPayload.response.headers = response.headers;
+        }
+        if (instanceConfig.logging.logSuccessBody) {
+          logPayload.response.body = responseBody;
         }
       }
 
-      fetchLogger.info(
-        {
-          statusCode: response.status,
-          url,
-          durationMs,
-          response: {
-            headers: response.headers,
-            body: responseBody,
-          },
-        },
+      (fetchLogger as any)[logLevel](
+        logPayload,
         'HTTP response received (fetch)'
       );
 

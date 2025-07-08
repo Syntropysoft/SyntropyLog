@@ -5,8 +5,7 @@
 
 import { createClient, RedisClusterOptions } from 'redis';
 import { ILogger } from '../logger/ILogger';
-import { LoggerFactory } from '../logger/LoggerFactory';
-import { BeaconRedisConfig, RedisInstanceConfig, RedisInstanceReconfigurableConfig } from '../config'; // Importar desde la configuración central
+import { SyntropyRedisConfig, RedisInstanceConfig, RedisInstanceReconfigurableConfig } from '../config'; // Import from the central configuration
 import { createFailingRedisClient } from '../utils/createFailingClient';
 import { BeaconRedis } from './BeaconRedis';
 import type { IBeaconRedis } from './IBeaconRedis';
@@ -15,10 +14,10 @@ import { RedisConnectionManager } from './RedisConnectionManager';
 import { RedisCommandExecutor } from './RedisCommandExecutor';
 
 export interface RedisManagerOptions {
-  config?: BeaconRedisConfig;
+  config?: SyntropyRedisConfig;
   sensitiveCommandValueFields?: string[];
   sensitiveCommandValuePatterns?: (string | RegExp)[];
-  logger: ILogger; // El logger es la única propiedad obligatoria
+  logger: ILogger; // The logger is the only mandatory property
 }
 
 
@@ -66,26 +65,24 @@ export class RedisManager {
           instance: instanceConfig.instanceName,
         });
 
-        // 1. Creamos el ConnectionManager pasándole la configuración de la instancia
+        // 1. We create the ConnectionManager, passing it the instance configuration
         const connectionManager = new RedisConnectionManager(
           instanceConfig,
           childLogger
         );
 
-        // 2. Le pedimos al ConnectionManager el cliente nativo que acaba de crear
+        // 2. We ask the ConnectionManager for the native client it just created
         const nativeClient = connectionManager.getNativeClient();
 
-        // 3. Creamos el CommandExecutor con ese cliente
+        // 3. We create the CommandExecutor with that client
         const commandExecutor = new RedisCommandExecutor(nativeClient);
 
-        // 4. Ensamblamos BeaconRedis con todas las piezas
+        // 4. We assemble BeaconRedis with all the pieces
         const beaconRedis = new BeaconRedis(
           instanceConfig,
           connectionManager,
           commandExecutor,
-          childLogger,
-          this.sensitiveCommandValueFields,
-          this.sensitiveCommandValuePatterns
+          childLogger
         );
 
         this.instances.set(instanceConfig.instanceName, beaconRedis);
@@ -148,11 +145,11 @@ export class RedisManager {
    * Gracefully shuts down all managed Redis connections.
    */
   public async shutdown(): Promise<void> {
-    this.logger.info('Cerrando todas las conexiones de Redis...');
+    this.logger.info('Closing all Redis connections...');
     const shutdownPromises = Array.from(this.instances.values()).map(
       (instance) => instance.quit()
     );
     await Promise.allSettled(shutdownPromises);
-    this.logger.info('Todas las conexiones de Redis han sido cerradas.');
+    this.logger.info('All Redis connections have been closed.');
   }
 }

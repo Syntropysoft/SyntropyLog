@@ -96,21 +96,21 @@ export class HttpManager {
           childLogger,
           this.contextManager,
           this.globalConfig,
-          instanceConfig.config
+          instanceConfig
         );
       case 'fetch':
         return createInstrumentedFetch(
           childLogger,
           this.contextManager,
           this.globalConfig,
-          instanceConfig.config
+          instanceConfig
         );
       case 'got':
         return createInstrumentedGot(
           childLogger,
           this.contextManager,
           this.globalConfig,
-          instanceConfig.config
+          instanceConfig
         );
       default: {
         const _exhaustiveCheck: never = instanceConfig;

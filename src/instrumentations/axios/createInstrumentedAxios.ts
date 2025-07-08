@@ -11,12 +11,13 @@ import axios, {
 } from 'axios';
 import { ILogger } from '../../logger';
 import { IContextManager } from '../../context';
-import { SyntropyLogConfig } from '../../config'; // Using the main config type
+import { HttpClientInstanceConfig, SyntropyLogConfig } from '../../config'; // Using the main config type
 
 
 interface InstrumentedAxiosRequestConfig extends InternalAxiosRequestConfig {
   syntropy_startTime?: number;
 }
+type AxiosInstanceConfig = Extract<HttpClientInstanceConfig, { type: 'axios' }>;
 
 /**
  * Creates an instrumented Axios instance with built-in logging and context propagation.
@@ -30,11 +31,10 @@ export function createInstrumentedAxios(
   logger: ILogger,
   contextManager: IContextManager,
   globalConfig: SyntropyLogConfig, // We now receive the global config
-  instanceConfig?: AxiosRequestConfig
+  instanceConfig: AxiosInstanceConfig
 ): AxiosInstance {
-  const instance = axios.create(instanceConfig);
+  const instance = axios.create(instanceConfig.config);
   const axiosLogger = logger.withSource('axios');
-
 
   // --- Request Interceptor ---
   instance.interceptors.request.use(
@@ -48,17 +48,28 @@ export function createInstrumentedAxios(
           correlationId;
       }
 
-      // The log payload contains the raw objects.
-      // The central SerializerRegistry and MaskingEngine will process them.
-      axiosLogger.info(
-        {
-          method: config.method?.toUpperCase(),
-          url: axios.getUri(config),
-          request: {
-            headers: config.headers,
-            body: config.data,
-          },
-        },
+      const logLevel = instanceConfig.logging?.onRequest ?? 'info';
+
+      const logPayload: Record<string, any> = {
+        method: config.method?.toUpperCase(),
+        url: axios.getUri(config),
+      };
+
+      if (
+        instanceConfig.logging?.logRequestHeaders ||
+        instanceConfig.logging?.logRequestBody
+      ) {
+        logPayload.request = {};
+        if (instanceConfig.logging.logRequestHeaders) {
+          logPayload.request.headers = config.headers;
+        }
+        if (instanceConfig.logging.logRequestBody) {
+          logPayload.request.body = config.data;
+        }
+      }
+
+      (axiosLogger as any)[logLevel](
+        logPayload,
         'Starting HTTP request (axios)'
       );
 
@@ -74,21 +85,33 @@ export function createInstrumentedAxios(
         ? Date.now() - config.syntropy_startTime
         : -1;
 
+      // Lógica de logging condicional
+      const logLevel = instanceConfig.logging?.onSuccess ?? 'info';
+      const logPayload: Record<string, any> = {
+        statusCode: response.status,
+        url: axios.getUri(response.config),
+        durationMs,
+      };
 
-        axiosLogger.info(
-          {
-            statusCode: response.status,
-            url: axios.getUri(response.config),
-            durationMs,
-            response: {
-              headers: response.headers,
-              body: response.data,
-            },
-          },
-          'HTTP response received (axios)'
-        );
+      if (
+        instanceConfig.logging?.logSuccessHeaders ||
+        instanceConfig.logging?.logSuccessBody
+      ) {
+        logPayload.response = {};
+        if (instanceConfig.logging.logSuccessHeaders) {
+          logPayload.response.headers = response.headers;
+        }
+        if (instanceConfig.logging.logSuccessBody) {
+          logPayload.response.body = response.data;
+        }
+      }
 
-        return response;
+      (axiosLogger as any)[logLevel](
+        logPayload,
+        'HTTP response received (axios)'
+      );
+
+      return response;
     },
     (error: AxiosError) => {
       const config = error.config as InstrumentedAxiosRequestConfig;
@@ -96,23 +119,23 @@ export function createInstrumentedAxios(
         ? Date.now() - config.syntropy_startTime
         : -1;
 
-        axiosLogger.error(
-          {
-            err: error,
-            url: axios.getUri(error.config),
-            durationMs,
-            response: error.response
-              ? {
-                  statusCode: error.response.status,
-                  headers: error.response.headers,
-                  body: error.response.data,
-                }
-              : 'No response',
-          },
-          `HTTP request failed (axios): ${error.message}`
-        );
+      axiosLogger.error(
+        {
+          err: error,
+          url: axios.getUri(error.config),
+          durationMs,
+          response: error.response
+            ? {
+                statusCode: error.response.status,
+                headers: error.response.headers,
+                body: error.response.data,
+              }
+            : 'No response',
+        },
+        `HTTP request failed (axios): ${error.message}`
+      );
 
-        return Promise.reject(error);
+      return Promise.reject(error);
     }
   );
 
