@@ -83,19 +83,19 @@ npm run start
 
 --- OPERATION START ---
 --------------------------------------------------------------------------------
->> [Main Operation] Context created. ID: d419c1a7-116f-4c60-83da-98dae47418af  (via console.log)
+>> [Main Operation] Context created. ID: 0aa90098-43c6-4645-86c8-a755d3c57315  (via console.log)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
   -> Entering "doSomethingImportant" function...
-     [doSomethingImportant] ID retrieved from context: d419c1a7-116f-4c60-83da-98dae47418af
+     [doSomethingImportant] ID retrieved from context: 0aa90098-43c6-4645-86c8-a755d3c57315
      [doSomethingImportant] Performing asynchronous work...
-{"context":{},"timestamp":"2025-07-08T19:10:29.406Z","level":"info","service":"syntropylog-main","msg":"SyntropyLog framework initialized successfully."}
-{"context":{"x-trace-id":"d419c1a7-116f-4c60-83da-98dae47418af"},"timestamp":"2025-07-08T19:10:29.409Z","level":"info","service":"main-executeOperation","msg":">> [Main Operation] Context created. ID: d419c1a7-116f-4c60-83da-98dae47418af { note: 'via beaconlog logger.info' }"}
+{"context":{},"timestamp":"2025-07-08T19:18:34.695Z","level":"info","service":"syntropylog-main","msg":"SyntropyLog framework initialized successfully."}
+{"context":{"x-trace-id":"0aa90098-43c6-4645-86c8-a755d3c57315"},"timestamp":"2025-07-08T19:18:34.697Z","level":"info","service":"main-executeOperation","msg":">> [Main Operation] Context created. ID: 0aa90098-43c6-4645-86c8-a755d3c57315 { note: 'via syntropyLog logger.info' }"}
   <- Exiting "doSomethingImportant".
---- CONTEXT END (Duration: 53.31ms) ---
-{"context":{"x-trace-id":"d419c1a7-116f-4c60-83da-98dae47418af"},"timestamp":"2025-07-08T19:10:29.459Z","level":"info","service":"main-executeOperation","msg":"Operation within context finished. { duration_ms: 53.30691700000011 }"}
+--- CONTEXT END (Duration: 53.10ms) ---
+{"context":{"x-trace-id":"0aa90098-43c6-4645-86c8-a755d3c57315"},"timestamp":"2025-07-08T19:18:34.747Z","level":"info","service":"main-executeOperation","msg":"Operation within context finished. { duration_ms: 53.10008300000004 }"}
 --- OPERATION END ---
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-{"context":{},"timestamp":"2025-07-08T19:10:29.459Z","level":"info","service":"main-executeOperation","msg":"Outside the context, the ID is: undefined. { note: 'via beaconlog logger.info' }"}
+{"context":{},"timestamp":"2025-07-08T19:18:34.747Z","level":"info","service":"main-executeOperation","msg":"Outside the context, the ID is: undefined. { note: 'via syntropyLog logger.info' }"}
 ```

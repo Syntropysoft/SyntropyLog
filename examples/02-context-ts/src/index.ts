@@ -68,7 +68,7 @@ async function executeOperation() {
     );
     loggerExample.info(
       `>> [Main Operation] Context created. ID: ${newCorrelationId}`,
-      { note: 'via beaconlog logger.info' }
+      { note: 'via syntropyLog logger.info' }
     );
     console.log(
       '--------------------------------------------------------------------------------'
@@ -93,7 +93,7 @@ async function executeOperation() {
     '--------------------------------------------------------------------------------'
   );
   loggerExample.info(`Outside the context, the ID is: ${idOutsideContext}.`, {
-    note: 'via beaconlog logger.info',
+    note: 'via syntropyLog logger.info',
   });
   console.log(
     '--------------------------------------------------------------------------------'
