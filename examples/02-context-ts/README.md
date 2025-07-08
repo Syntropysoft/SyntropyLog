@@ -38,8 +38,7 @@ syntropyLog.init({
   logger: {
     level: 'info',
     serviceName: 'example-2',
-    serializerTimeoutMs: 100,
-    transports: [new ClassicConsoleTransport()],
+    serializerTimeoutMs: 100
   },
 });
 ```
@@ -77,24 +76,26 @@ This balance is so critical that the framework enforces it: **setting `serialize
 When you run the script, you will see how the logger automatically includes the `context` object (containing the `x-trace-id`) for logs made inside the `contextManager.run()` block. Logs created outside this block will not have this context, demonstrating the isolation.
 
 ```console
+npm run start
+
 > 02-express@1.0.0 start
 > tsx src/index.ts
 
 --- OPERATION START ---
 --------------------------------------------------------------------------------
->> [Main Operation] Context created. ID: cbc40e32-8452-4004-8078-6301851743f4  (via console.log)
+>> [Main Operation] Context created. ID: d419c1a7-116f-4c60-83da-98dae47418af  (via console.log)
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
   -> Entering "doSomethingImportant" function...
-     [doSomethingImportant] ID retrieved from context: cbc40e32-8452-4004-8078-6301851743f4
+     [doSomethingImportant] ID retrieved from context: d419c1a7-116f-4c60-83da-98dae47418af
      [doSomethingImportant] Performing asynchronous work...
-2025-07-08 15:36:17 INFO  [syntropylog-main]  :: SyntropyLog framework initialized successfully.
-2025-07-08 15:36:17 INFO  [main-executeOperation] [x-trace-id="cbc40e32-8452-4004-8078-6301851743f4"] :: >> [Main Operation] Context created. ID: cbc40e32-8452-4004-8078-6301851743f4 { note: 'via beaconlog logger.info' }
+{"context":{},"timestamp":"2025-07-08T19:10:29.406Z","level":"info","service":"syntropylog-main","msg":"SyntropyLog framework initialized successfully."}
+{"context":{"x-trace-id":"d419c1a7-116f-4c60-83da-98dae47418af"},"timestamp":"2025-07-08T19:10:29.409Z","level":"info","service":"main-executeOperation","msg":">> [Main Operation] Context created. ID: d419c1a7-116f-4c60-83da-98dae47418af { note: 'via beaconlog logger.info' }"}
   <- Exiting "doSomethingImportant".
---- CONTEXT END (Duration: 52.62ms) ---
-2025-07-08 15:36:17 INFO  [main-executeOperation] [x-trace-id="cbc40e32-8452-4004-8078-6301851743f4"] :: Operation within context finished. { duration_ms: 52.617000000000075 }
+--- CONTEXT END (Duration: 53.31ms) ---
+{"context":{"x-trace-id":"d419c1a7-116f-4c60-83da-98dae47418af"},"timestamp":"2025-07-08T19:10:29.459Z","level":"info","service":"main-executeOperation","msg":"Operation within context finished. { duration_ms: 53.30691700000011 }"}
 --- OPERATION END ---
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
-2025-07-08 15:36:17 INFO  [main-executeOperation]  :: Outside the context, the ID is: undefined. { note: 'via beaconlog logger.info' }
+{"context":{},"timestamp":"2025-07-08T19:10:29.459Z","level":"info","service":"main-executeOperation","msg":"Outside the context, the ID is: undefined. { note: 'via beaconlog logger.info' }"}
 ```

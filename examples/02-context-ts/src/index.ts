@@ -103,6 +103,7 @@ async function executeOperation() {
 // --- Configuration and Execution ---
 
 // The library must be initialized once in your application.
+// If a transport is not added, the production transport is used, which is in JSON format for the collection tools.
 syntropyLog.init({
   context: {
     correlationIdHeader: 'x-trace-id', // Use a custom header name for the correlation ID
@@ -111,7 +112,7 @@ syntropyLog.init({
     level: 'info',
     serviceName: 'example-2',
     serializerTimeoutMs: 100, // 50ms recommended
-    transports: [new ClassicConsoleTransport()],
+    // transports: [new CompactConsoleTransport()]  // If a transport is not added, the production transport is used, which is in JSON format for the collection tools.
   },
 });
 
