@@ -5,7 +5,11 @@
 import { LogEntry } from '../../types';
 import { Transport, TransportOptions } from './Transport';
 import { LogLevelName } from '../levels';
-import chalk, { type ChalkInstance } from 'chalk'; // Corrected import for chalk v5+
+import { Chalk, type ChalkInstance } from 'chalk';
+
+
+// Instantiate Chalk directly
+const chalk = new Chalk();
 
 // Define a color map for each log level for easy styling.
 // The map excludes 'silent' as it will be handled separately.

@@ -1,4 +1,10 @@
-import { beaconLog } from '../../../src';
+import {
+  syntropyLog,
+  CompactConsoleTransport,
+  ConsoleTransport,
+  ClassicConsoleTransport,
+  PrettyConsoleTransport,
+} from 'syntropylog';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -7,7 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
  */
 async function doSomethingImportant() {
   console.log('  -> Entering "doSomethingImportant" function...');
-  const contextManager = beaconLog.getContextManager();
+  const contextManager = syntropyLog.getContextManager();
 
   // 2. RETRIEVE the ID from the context. It doesn't need to know where it came from.
   const currentId = contextManager.getCorrelationId();
@@ -28,7 +34,7 @@ async function executeOperation() {
   console.log('--- OPERATION START ---');
 
   // Get the context manager from the library.
-  const contextManager = beaconLog.getContextManager();
+  const contextManager = syntropyLog.getContextManager();
 
   // Get a logger instance. The name ('main-executeOperation') is a key to retrieve this specific
   // logger from anywhere in the application. If it doesn't exist, it's created.
@@ -37,7 +43,7 @@ async function executeOperation() {
   // as the logger's name in the output. The name provided here ('main-executeOperation') is
   // primarily for retrieval and acts as a fallback name if 'serviceName'
   // is not set.
-  const loggerExample = beaconLog.getLogger('main-executeOperation');
+  const loggerExample = syntropyLog.getLogger('main-executeOperation');
   // 1. START a new context for this operation.
   // Everything executed within the 'run' callback will share this context.
   await contextManager.run(async () => {
@@ -86,10 +92,9 @@ async function executeOperation() {
   console.log(
     '--------------------------------------------------------------------------------'
   );
-  loggerExample.info(
-    `Outside the context, the ID is: ${idOutsideContext}.`,
-    { note: 'via beaconlog logger.info' }
-  );
+  loggerExample.info(`Outside the context, the ID is: ${idOutsideContext}.`, {
+    note: 'via beaconlog logger.info',
+  });
   console.log(
     '--------------------------------------------------------------------------------'
   );
@@ -98,11 +103,16 @@ async function executeOperation() {
 // --- Configuration and Execution ---
 
 // The library must be initialized once in your application.
-beaconLog.init({
+syntropyLog.init({
   context: {
     correlationIdHeader: 'x-trace-id', // Use a custom header name for the correlation ID
   },
-  logger: { level: 'info', serviceName: 'example-2' }, // Configure logger settings
+  logger: {
+    level: 'info',
+    serviceName: 'example-2',
+    serializerTimeoutMs: 100, // 50ms recommended
+    transports: [new ClassicConsoleTransport()],
+  },
 });
 
 // Execute the example

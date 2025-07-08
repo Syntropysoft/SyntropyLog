@@ -5,7 +5,10 @@
 import { LogEntry } from '../../types';
 import { Transport, TransportOptions } from './Transport';
 import { LogLevelName } from '../levels';
-import chalk, { type ChalkInstance } from 'chalk';
+import { Chalk, type ChalkInstance } from 'chalk';
+
+// Instantiate Chalk directly
+const chalk = new Chalk();
 
 const levelColorMap: Record<Exclude<LogLevelName, 'silent'>, ChalkInstance> = {
   fatal: chalk.bgRed.white.bold,
