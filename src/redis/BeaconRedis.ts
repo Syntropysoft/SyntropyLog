@@ -12,15 +12,11 @@ import {
 import { ILogger } from '../logger/ILogger';
 import { RedisCommandExecutor } from './RedisCommandExecutor';
 import { RedisConnectionManager } from './RedisConnectionManager';
-import { NodeRedisClient, RedisZMember } from './redis.types';
-import { RedisClientType } from 'redis';
-
+import { RedisZMember } from './redis.types';
 /**
  * The primary implementation of the `IBeaconRedis` interface.
- * This class wraps a native `redis` client (from the `redis` package) and provides
- * a layer of instrumentation for logging, metrics, and centralized command execution.
- * It ensures that all commands are logged, timed, and that their parameters and
- * return values are sanitized according to the provided configuration.
+ * This class wraps a native `redis` client and uses the central SyntropyLog logger
+ * to provide instrumentation.
  */
 export class BeaconRedis implements IBeaconRedis {
   private readonly logger: ILogger;
@@ -135,6 +131,9 @@ export class BeaconRedis implements IBeaconRedis {
       throw error;
     }
   }
+
+  // --- Public Command Methods ---
+  // Each command now simply calls _executeCommand. The structure remains the same.
   public async get(key: string): Promise<string | null> {
     return this._executeCommand(
       'GET',
@@ -479,14 +478,7 @@ export class BeaconRedis implements IBeaconRedis {
     );
   }
 
-  /**
-   * Executes the Redis PING command.
-   * Provides a fallback for cluster mode, as PING is not a standard cluster command.
-   * @param message Optional message to include in the PING.
-   * @returns The response from the server, or 'PONG'/'message' in cluster mode.
-   */
   public async ping(message?: string): Promise<string> {
-    // Envuelve la llamada al connectionManager para obtener el logging.
     return this._executeCommand(
       'PING',
       () => this.connectionManager.ping(message),
@@ -494,12 +486,6 @@ export class BeaconRedis implements IBeaconRedis {
     );
   }
 
-  /**
-   * Executes the Redis INFO command.
-   * Provides a fallback for cluster mode, as INFO is not a standard cluster command.
-   * @param section Optional section of the info to retrieve.
-   * @returns The server information string, or a default message in cluster mode.
-   */
   public async info(section?: string): Promise<string> {
     return this._executeCommand(
       'INFO',

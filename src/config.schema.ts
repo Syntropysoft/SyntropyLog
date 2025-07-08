@@ -40,10 +40,12 @@ const loggerOptionsSchema = z
   .optional();
 
 /** Reusable schema for retry options. */
-const retryOptionsSchema = z.object({
-  maxRetries: z.number().int().positive().optional(),
-  retryDelay: z.number().int().positive().optional(),
-}).optional();
+const retryOptionsSchema = z
+  .object({
+    maxRetries: z.number().int().positive().optional(),
+    retryDelay: z.number().int().positive().optional(),
+  })
+  .optional();
 
 /** Schema for a single Redis instance, using a discriminated union for different modes. */
 export const redisInstanceConfigSchema = z.discriminatedUnion('mode', [
@@ -53,7 +55,8 @@ export const redisInstanceConfigSchema = z.discriminatedUnion('mode', [
     url: z.string().url(),
     retryOptions: retryOptionsSchema,
     // --- NEW: Granular Logging Configuration for Redis ---
-    logging: z.object({
+    logging: z
+      .object({
         /** Level for successful commands. @default 'debug' */
         onSuccess: z.enum(['trace', 'debug', 'info']).default('debug'),
         /** Level for failed commands. @default 'error' */
@@ -62,7 +65,8 @@ export const redisInstanceConfigSchema = z.discriminatedUnion('mode', [
         logCommandValues: z.boolean().default(true),
         /** Whether to log the return value of commands. @default false */
         logReturnValue: z.boolean().default(false),
-    }).optional(),
+      })
+      .optional(),
   }),
   // Apply the same 'logging' object structure to 'sentinel' and 'cluster' modes
   z.object({
@@ -72,38 +76,54 @@ export const redisInstanceConfigSchema = z.discriminatedUnion('mode', [
     sentinels: z.array(z.object({ host: z.string(), port: z.number() })),
     sentinelPassword: z.string().optional(),
     retryOptions: retryOptionsSchema,
-    logging: z.object({
+    logging: z
+      .object({
         onSuccess: z.enum(['trace', 'debug', 'info']).default('debug'),
         onError: z.enum(['warn', 'error', 'fatal']).default('error'),
         logCommandValues: z.boolean().default(true),
         logReturnValue: z.boolean().default(false),
-    }).optional(),
+      })
+      .optional(),
   }),
   z.object({
     mode: z.literal('cluster'),
     instanceName: z.string(),
     rootNodes: z.array(z.object({ host: z.string(), port: z.number() })),
-    logging: z.object({
+    logging: z
+      .object({
         onSuccess: z.enum(['trace', 'debug', 'info']).default('debug'),
         onError: z.enum(['warn', 'error', 'fatal']).default('error'),
         logCommandValues: z.boolean().default(true),
         logReturnValue: z.boolean().default(false),
-    }).optional(),
+      })
+      .optional(),
   }),
 ]);
 
 /** Schema for the main Redis configuration block. */
-export const redisConfigSchema = z.object({
-  instances: z.array(redisInstanceConfigSchema),
-}).optional();
-
-
+export const redisConfigSchema = z
+  .object({
+    instances: z.array(redisInstanceConfigSchema),
+  })
+  .optional();
 
 /** Schema for a single HTTP client instance. */
 export const httpInstanceConfigSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('axios'), instanceName: z.string(), config: z.any().optional() }),
-  z.object({ type: z.literal('fetch'), instanceName: z.string(), config: z.any().optional() }),
-  z.object({ type: z.literal('got'), instanceName: z.string(), config: z.any().optional() }),
+  z.object({
+    type: z.literal('axios'),
+    instanceName: z.string(),
+    config: z.any().optional(),
+  }),
+  z.object({
+    type: z.literal('fetch'),
+    instanceName: z.string(),
+    config: z.any().optional(),
+  }),
+  z.object({
+    type: z.literal('got'),
+    instanceName: z.string(),
+    config: z.any().optional(),
+  }),
 ]);
 
 /**
@@ -119,8 +139,6 @@ export const httpConfigSchema = z
     // This will be controlled by the global `logging` and `masking` configurations.
   })
   .optional();
-
-
 
 // --- UPDATED: Centralized Masking Configuration Schema ---
 /** Schema for a single field's masking configuration. */
