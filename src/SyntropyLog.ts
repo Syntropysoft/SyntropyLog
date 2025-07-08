@@ -15,8 +15,8 @@ import type { IBeaconRedis } from './redis/IBeaconRedis';
 import { sanitizeConfig } from './utils/sanitizeConfig';
 import { checkPeerDependencies } from './utils/dependencyCheck';
 // We will need an HttpManager similar to RedisManager
-// import { HttpManager } from './http/HttpManager';
-// import { InstrumentedHttpClient } from './http/types';
+import { HttpManager } from './http/HttpManager';
+import { InstrumentedHttpClient } from './http/types';
 
 /**
  * The main class for the SyntropyLog framework.
@@ -28,7 +28,7 @@ export class SyntropyLog {
 
   private loggerFactory!: LoggerFactory;
   private redisManager!: RedisManager;
-  // private httpManager!: HttpManager;
+  private httpManager!: HttpManager;
 
   private constructor() {}
 
@@ -60,7 +60,12 @@ export class SyntropyLog {
         logger: this.loggerFactory.getLogger('redis-manager'),
       });
 
-      // this.httpManager = new HttpManager({ ... });
+      // Instantiate HttpManager
+      this.httpManager = new HttpManager({
+        config: sanitizedConfig,
+        loggerFactory: this.loggerFactory,
+        contextManager: this.loggerFactory.getContextManager(),
+      });
 
       this._isInitialized = true;
       mainLogger.info('SyntropyLog framework initialized successfully.');
@@ -85,6 +90,16 @@ export class SyntropyLog {
   public getRedis(name: string): IBeaconRedis {
     this.ensureInitialized();
     return this.redisManager.getInstance(name);
+  }
+
+  /**
+   * Retrieves a named, instrumented HTTP client instance.
+   * @param name The name of the HTTP instance as defined in the configuration.
+   * @returns An instrumented HTTP client.
+   */
+  public getHttp<T extends InstrumentedHttpClient>(name: string): T {
+    this.ensureInitialized();
+    return this.httpManager.getInstance(name);
   }
 
   /**
