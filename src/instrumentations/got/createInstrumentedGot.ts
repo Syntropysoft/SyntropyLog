@@ -54,18 +54,14 @@ export function createInstrumentedGot(
             options.headers[contextManager.getCorrelationIdHeaderName()] =
               correlationId;
           }
-          // ... (logic for other trace headers if needed)
 
-          // 1. Leer el nivel de log para la petición
           const logLevel = instanceConfig.logging?.onRequest ?? 'info';
 
-          // 2. Construir el payload base
           const logPayload: Record<string, any> = {
             method: options.method,
             url: options.url?.toString(),
           };
 
-          // 3. Añadir detalles verbosos si la configuración lo indica
           if (
             instanceConfig.logging?.logRequestHeaders ||
             instanceConfig.logging?.logRequestBody
@@ -79,7 +75,6 @@ export function createInstrumentedGot(
             }
           }
 
-          // 4. Registrar con el nivel y payload dinámicos
           (gotLogger as any)[logLevel](
             logPayload,
             'Starting HTTP request (got)'
@@ -88,23 +83,31 @@ export function createInstrumentedGot(
       ],
       afterResponse: [
         (response: Response) => {
+          // =================================================================
+          //  SOLUCIÓN 1: PREVENIR LOGS DUPLICADOS PARA ERRORES HTTP
+          //  Si la respuesta no es 'ok' (ej. status 4xx o 5xx), no hacemos
+          //  nada aquí. Devolvemos la respuesta para que 'got' la procese
+          //  como un error y active el hook 'beforeError', que es el lugar
+          //  correcto para registrar este tipo de fallos.
+          // =================================================================
+          if (!response.ok) {
+            return response;
+          }
+
           const context = response.request.options
             .context as InstrumentedGotContext;
           const durationMs = context.syntropy_startTime
             ? Date.now() - context.syntropy_startTime
             : -1;
 
-          // 1. Leer el nivel de log desde la configuración de la instancia local.
           const logLevel = instanceConfig.logging?.onSuccess ?? 'info';
 
-          // 2. Construir el objeto de log base.
           const logPayload: Record<string, any> = {
             statusCode: response.statusCode,
             url: response.url,
             durationMs,
           };
 
-          // 3. Añadir detalles verbosos si la instancia lo requiere.
           if (
             instanceConfig.logging?.logSuccessHeaders ||
             instanceConfig.logging?.logSuccessBody
@@ -118,7 +121,6 @@ export function createInstrumentedGot(
             }
           }
 
-          // 4. Pasar el objeto preparado al logger. El logger hace el resto.
           (gotLogger as any)[logLevel](
             logPayload,
             'HTTP response received (got)'
@@ -136,6 +138,13 @@ export function createInstrumentedGot(
             ? Date.now() - context.syntropy_startTime
             : -1;
 
+          // =================================================================
+          //  SOLUCIÓN 2: SIMPLIFICAR EL MENSAJE PRINCIPAL DEL LOG DE ERROR
+          //  El mensaje principal ahora es estático. Los detalles del error
+          //  se pasan en el primer argumento (el objeto), donde tu
+          //  serializador personalizado para la clave 'err' se encargará
+          //  de crear el resumen conciso.
+          // =================================================================
           gotLogger.error(
             {
               err: error,
@@ -150,7 +159,7 @@ export function createInstrumentedGot(
                   }
                 : 'No response',
             },
-            `HTTP request failed (got): ${error.message}`
+            'HTTP request failed (got)' // Mensaje principal simple y estático
           );
 
           return error;

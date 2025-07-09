@@ -33,7 +33,18 @@ async function main() {
       level: 'info',
       serviceName: 'http-client-example',
       serializerTimeoutMs: 50,
-      transports: [new ClassicConsoleTransport()]
+      transports: [new ClassicConsoleTransport()],
+      serializers: {
+        err: (e: any) => {
+          // Para errores de Axios, Got, Nock, etc., que tienen un código y mensaje.
+          if (e.code && e.message) {
+            // Crea un resumen de una sola línea.
+            return `[${e.name || 'Error'}] (${e.code}) ${e.message.split('\n')[0]}`;
+          }
+          // Para errores genéricos.
+          return `[${e.name || 'Error'}] ${e.message}`;
+        },
+      },
     },
     context: {
       correlationIdHeader: 'X-something-ID',
@@ -45,9 +56,8 @@ async function main() {
           type: 'got',
           config: {
             prefixUrl: MOCK_API_URL,
-          }
-        
-        }
+          },
+        },
       ],
     },
   });
@@ -87,7 +97,12 @@ async function main() {
 
     // The correlation ID will be injected into the headers automatically.
     await (gotClient as typeof got).get('users/1');
-    await (gotClient as typeof got).get('product/1');
+    try {
+
+      await (gotClient as typeof got).get('product/1');
+    } catch (err) { 
+      syntropyLog.getLogger('main').error(`Error: ${err.message}`)
+    }
 
   });
 
@@ -103,6 +118,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Error running example:', error);
+  console.error(`Error running example: ${error.message}`);
   process.exit(1);
 });
