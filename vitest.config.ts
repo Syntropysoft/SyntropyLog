@@ -2,21 +2,21 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    globals: true, // Para no tener que importar describe, it, etc. de 'vitest'
-    environment: 'node', // O 'jsdom' si necesitas simular un navegador
-    include: ['tests/**/*.{test,spec}.?(c|m)[jt]s?(x)'], // Busca tests solo en la carpeta 'tests'
+    globals: true, // To avoid having to import describe, it, etc. from 'vitest'
+    environment: 'node', // Or 'jsdom' if you need to simulate a browser
+    include: ['tests/**/*.{test,spec}.?(c|m)[jt]s?(x)'], // Search for tests only in the 'tests' folder
     coverage: {
-      provider: 'v8', // o 'istanbul'
-      reporter: ['text', 'json', 'html', 'lcov'], // lcov es útil para Codecov y similares
-      include: ['src/**/*.ts'], // Mide la cobertura en todos los archivos .ts de la carpeta src
+      provider: 'v8', // or 'istanbul'
+      reporter: ['text', 'json', 'html', 'lcov'], // lcov is useful for Codecov and similar tools
+      include: ['src/**/*.ts'], // Measures coverage on all .ts files in the src folder
       exclude: [
-        // Excluye del coverage lo que no sea código fuente relevante
+        // Exclude from coverage what is not relevant source code
         'src/**/{*.d.ts,*.test.ts,*.spec.ts}',
         'src/**/__tests__/**',
       ],
     },
     deps: {
-      inline: ['nock'], // Ojo: esto es para casos más específicos
+      inline: ['nock'], // Note: this is for more specific cases
     },
   },
 });

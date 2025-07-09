@@ -21,6 +21,15 @@ interface InstrumentedGotContext extends Record<string, unknown> {
 type GotInstanceConfig = Extract<HttpClientInstanceConfig, { type: 'got' }>;
 
 /**
+ * Calculates the duration of a request from the start time stored in the context.
+ * @param context The instrumented 'got' context.
+ * @returns The duration in milliseconds, or -1 if the start time is not available.
+ */
+function calculateDuration(context: InstrumentedGotContext | undefined): number {
+  return context?.syntropy_startTime ? Date.now() - context.syntropy_startTime : -1;
+}
+
+/**
  * Creates an instrumented 'got' instance with logging and context propagation
  * handled by the central SyntropyLog framework.
  * @param logger - The logger instance (pre-configured).
@@ -84,11 +93,11 @@ export function createInstrumentedGot(
       afterResponse: [
         (response: Response) => {
           // =================================================================
-          //  SOLUCIÓN 1: PREVENIR LOGS DUPLICADOS PARA ERRORES HTTP
-          //  Si la respuesta no es 'ok' (ej. status 4xx o 5xx), no hacemos
-          //  nada aquí. Devolvemos la respuesta para que 'got' la procese
-          //  como un error y active el hook 'beforeError', que es el lugar
-          //  correcto para registrar este tipo de fallos.
+          //  SOLUTION 1: PREVENT DUPLICATE LOGS FOR HTTP ERRORS
+          //  If the response is not 'ok' (e.g., status 4xx or 5xx), we do
+          //  nothing here. We return the response so that 'got' processes
+          //  it as an error and triggers the 'beforeError' hook, which is
+          //  the correct place to log this type of failure.
           // =================================================================
           if (!response.ok) {
             return response;
@@ -96,9 +105,7 @@ export function createInstrumentedGot(
 
           const context = response.request.options
             .context as InstrumentedGotContext;
-          const durationMs = context.syntropy_startTime
-            ? Date.now() - context.syntropy_startTime
-            : -1;
+          const durationMs = calculateDuration(context);
 
           const logLevel = instanceConfig.logging?.onSuccess ?? 'info';
 
@@ -134,17 +141,8 @@ export function createInstrumentedGot(
           const context = error.request?.options.context as
             | InstrumentedGotContext
             | undefined;
-          const durationMs = context?.syntropy_startTime
-            ? Date.now() - context.syntropy_startTime
-            : -1;
+          const durationMs = calculateDuration(context);
 
-          // =================================================================
-          //  SOLUCIÓN 2: SIMPLIFICAR EL MENSAJE PRINCIPAL DEL LOG DE ERROR
-          //  El mensaje principal ahora es estático. Los detalles del error
-          //  se pasan en el primer argumento (el objeto), donde tu
-          //  serializador personalizado para la clave 'err' se encargará
-          //  de crear el resumen conciso.
-          // =================================================================
           gotLogger.error(
             {
               err: error,
@@ -159,7 +157,7 @@ export function createInstrumentedGot(
                   }
                 : 'No response',
             },
-            'HTTP request failed (got)' // Mensaje principal simple y estático
+            'HTTP request failed (got)' // Simple and static main message
           );
 
           return error;
