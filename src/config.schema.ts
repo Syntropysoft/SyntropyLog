@@ -7,6 +7,7 @@
 import { z } from 'zod';
 import { Transport } from './logger/transports/Transport';
 import { IHttpClientAdapter } from './http/adapters/adapter.types'; 
+import { IBrokerAdapter } from './brokers/adapter.types';
 
 
 /** Schema for logger options, including serialization and pretty printing. */
@@ -182,11 +183,39 @@ const maskingConfigSchema = z
   })
   .optional();
 
+  
+  // --- NUEVO: Esquema de Configuración para Brokers ---
+  
+  /**
+   * Schema for a single broker client instance.
+   * It validates that a valid adapter is provided.
+  */
+ export const brokerInstanceConfigSchema = z.object({
+  instanceName: z.string(),
+  adapter: z.custom<IBrokerAdapter>((val) => {
+    return (
+      typeof val === 'object' &&
+      val !== null &&
+      typeof (val as any).publish === 'function' &&
+      typeof (val as any).subscribe === 'function'
+    );
+  }, 'El adaptador de broker proporcionado no es válido.'),
+});
+
+/**
+ * Schema for the main broker configuration block.
+*/
+export const brokerConfigSchema = z.object({
+  instances: z.array(brokerInstanceConfigSchema),
+}).optional();
+
+
 /** The main schema for the entire SyntropyLog configuration. */
 export const syntropyLogConfigSchema = z.object({
   logger: loggerOptionsSchema,
   redis: redisConfigSchema,
   http: httpConfigSchema,
+  brokers: brokerConfigSchema,
 
   /** Centralized data masking configuration. */
   masking: maskingConfigSchema,

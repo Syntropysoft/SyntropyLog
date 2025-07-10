@@ -1,5 +1,5 @@
 {
-  "name": "04-fetch",
+  "name": "04-brokers",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -12,9 +12,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "beaconlog-v2": "file:../..",
-    "remove": "^0.1.5",
-    "undici": "^7.11.0"
+    "kafkajs": "^2.2.4",
+    "syntropylog": "file:../.."
   },
   "devDependencies": {
     "nock": "^13.5.6",

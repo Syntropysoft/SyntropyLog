@@ -58,8 +58,10 @@ export default [
   createEntryConfig('src/index.ts', './dist/index'),
   createEntryConfig('src/doctor.ts', './dist/doctor'),
   createEntryConfig('src/http/index.ts', './dist/http/index'),
+  createEntryConfig('src/brokers/index.ts', './dist/brokers/index'),
 
   // --- Type Declaration Bundles (.d.ts) ---
   createDtsConfig('dist/types/index.d.ts', 'dist/index.d.ts'),
   createDtsConfig('dist/types/http/index.d.ts', 'dist/http/index.d.ts'),
+  createDtsConfig('dist/types/brokers/index.d.ts', 'dist/brokers/index.d.ts'),
 ];

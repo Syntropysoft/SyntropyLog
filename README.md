@@ -14,6 +14,38 @@
 </p>
 -->
 
+Instrumentación y logging declarativo, listo para compliance y multi-transporte en segundos.
+
+```ts
+import { syntropyLog, ConsoleTransport, FileTransport } from 'syntropylog';
+
+// 1. Inicializa SyntropyLog con tus transportes preferidos
+syntropyLog.init({
+  transports: [
+    new ConsoleTransport(), // Logs a consola (JSON o pretty)
+    new FileTransport({ filename: 'logs.log' }), // Logs a archivo local
+  ],
+  masking: { fields: ['password', 'credit_card'] }, // Ofuscación automática
+});
+
+// 2. Crea un logger de contexto (ejemplo: módulo "Auth")
+const logger = syntropyLog.getLogger('Auth');
+
+// 3. Loguea eventos con contexto, metadata y compliance (opcional)
+logger
+  .withTransactionId('TX123')
+  .info('User login success', {
+    userId: 42,
+    email: 'user@mail.com',
+    credit_card: '4111-1111-1111-1111', // será ofuscado automáticamente
+    meta: { retention_days: 30, compliance: ['PCI'] },
+  });
+
+// 4. Usa shutdown en producción para asegurar que no se pierdan logs
+await syntropyLog.shutdown();
+```
+
+
 **SyntropyLog** is a unified and declarative observability framework for Node.js, designed to maximize developer productivity, ensure data security, and provide production-grade resilience out of the box.
 
 # Requirements: Node.js >= 18

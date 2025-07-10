@@ -34,6 +34,16 @@
         "types": "./dist/http/index.d.ts",
         "default": "./dist/http/index.cjs"
       }
+    },
+    "./brokers":{
+      "import": {
+        "types": "./dist/brokers/index.d.ts",
+        "default": "./dist/brokers/index.mjs"
+      },
+      "require": {
+        "types":"./dist/brokers/index.d.ts",
+        "default":"./dist/brokers/index.cjs"
+      }
     }
   },
   "files": [

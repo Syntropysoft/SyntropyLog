@@ -1,7 +1,7 @@
-// =================================================================
-//  ARCHIVO CORREGIDO: src/SyntropyLog.ts
-// =================================================================
-
+/**
+ * FILE: src/SyntropyLog.ts (MODIFICADO)
+ * DESCRIPTION: Integramos el nuevo BrokerManager en el ciclo de vida del framework.
+ */
 import { ZodError } from 'zod';
 import { SyntropyLogConfig } from './config';
 import { syntropyLogConfigSchema } from './config.schema';
@@ -11,11 +11,11 @@ import { LoggerFactory } from './logger/LoggerFactory';
 import { RedisManager } from './redis/RedisManager';
 import type { IBeaconRedis } from './redis/IBeaconRedis';
 import { sanitizeConfig } from './utils/sanitizeConfig';
-// El dependencyCheck ya no es necesario con la nueva arquitectura de adaptadores
-// import { checkPeerDependencies } from './utils/dependencyCheck';
 import { HttpManager } from './http/HttpManager';
-// Importamos el nuevo cliente instrumentado
 import { InstrumentedHttpClient } from './http/InstrumentedHttpClient';
+// --- NUEVO: Importamos el BrokerManager y el cliente instrumentado ---
+import { BrokerManager } from './brokers/BrokerManager';
+import { InstrumentedBrokerClient } from './brokers/InstrumentedBrokerClient';
 
 export class SyntropyLog {
   private static instance: SyntropyLog;
@@ -24,6 +24,8 @@ export class SyntropyLog {
   private loggerFactory!: LoggerFactory;
   private redisManager!: RedisManager;
   private httpManager!: HttpManager;
+  // --- AÑADIDO: Propiedad para el nuevo manager ---
+  private brokerManager!: BrokerManager;
 
   private constructor() {}
 
@@ -61,6 +63,12 @@ export class SyntropyLog {
         contextManager: this.loggerFactory.getContextManager(),
       });
 
+      this.brokerManager = new BrokerManager({
+        config: sanitizedConfig,
+        loggerFactory: this.loggerFactory,
+        contextManager: this.loggerFactory.getContextManager(),
+      });
+
       this._isInitialized = true;
       mainLogger.info('SyntropyLog framework initialized successfully.');
     } catch (error) {
@@ -86,10 +94,6 @@ export class SyntropyLog {
     return this.redisManager.getInstance(name);
   }
 
-  // =================================================================
-  //  CORRECCIÓN: El método getHttp ya no es genérico. Devuelve siempre
-  //  nuestro cliente unificado.
-  // =================================================================
   public getHttp(name: string): InstrumentedHttpClient {
     this.ensureInitialized();
     return this.httpManager.getInstance(name);
@@ -98,6 +102,11 @@ export class SyntropyLog {
   public getContextManager(): IContextManager {
     this.ensureInitialized();
     return this.loggerFactory.getContextManager();
+  }
+
+  public getBroker(name: string): InstrumentedBrokerClient {
+    this.ensureInitialized();
+    return this.brokerManager.getInstance(name);
   }
 
   public async shutdown(): Promise<void> {
@@ -117,7 +126,8 @@ export class SyntropyLog {
     try {
       const shutdownWork = Promise.allSettled([
         this.redisManager.shutdown(),
-        // this.httpManager.shutdown(),
+        this.httpManager.shutdown(),
+        this.brokerManager.shutdown(), 
         this.loggerFactory.flushAllTransports(),
       ]);
 

@@ -5,6 +5,7 @@
 
 import { Transport } from '../logger/transports/Transport';
 import { IHttpClientAdapter } from '../http/adapters/adapter.types';
+import { IBrokerAdapter } from '../brokers';
 
 const MASK = '[CONFIG_MASKED]';
 
@@ -43,6 +44,19 @@ function isSpecialInstance(
   ) {
     return true;
   }
+
+  // =================================================================
+  //  CORRECCIÓN: Si tiene un método 'publish', asumimos que es un
+  //  adaptador de broker y tampoco lo tocamos.
+  // =================================================================
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as IBrokerAdapter).publish === 'function'
+  ) {
+    return true;
+  }
+  
   return false;
 }
 
