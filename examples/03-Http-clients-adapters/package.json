@@ -16,6 +16,7 @@
     "axios": "^1.10.0",
     "got": "^14.4.7",
     "node-fetch": "^3.3.2",
+    "request": "^2.88.2",
     "syntropylog": "file:../.."
   },
   "devDependencies": {

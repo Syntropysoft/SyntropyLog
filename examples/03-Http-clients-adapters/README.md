@@ -2,9 +2,9 @@
 
 This example demonstrates the powerful **adapter-based architecture** for instrumenting HTTP clients in `syntropylog`.
 
-Instead of being limited to pre-defined client types, this new approach allows you to create and inject your own adapters. This gives you the freedom to use **any** HTTP client library (like `axios`, `got`, `node-fetch`, or a custom one) while benefiting from `syntropylog`'s automatic context propagation, logging, and instrumentation.
+Instead of being limited to pre-defined client types, this new approach allows you to create and inject your own adapters. This gives you the freedom to use **any** HTTP client library—like `axios`, `got`, `node-fetch`, or even a **deprecated one like `request`**—while benefiting from `syntropylog`'s automatic context propagation, logging, and instrumentation.
 
-This example shows how to instrument `axios`, `got`, and `node-fetch` side-by-side using this pattern.
+This example shows how to instrument all four clients side-by-side using this pattern.
 
 ## Prerequisites
 
@@ -165,28 +165,34 @@ main().catch((error) => {
 ```log
 npm run start
 
-> 03-fetch_and_got@1.0.0 start
+> 03-Http-clients-adapters@1.0.0 start
 > tsx src/index.ts
 
 --- Running Adapter-based HTTP Client Example ---
-2025-07-10 17:03:30 DEBUG [redis-manager]  :: No Redis configuration was provided or no instances were defined. RedisManager initialized empty.
-2025-07-10 17:03:30 INFO  [http-manager]  :: HTTP client instance "myAxiosApi" created successfully via adapter.
-2025-07-10 17:03:30 INFO  [http-manager]  :: HTTP client instance "myFetchApi" created successfully via adapter.
-2025-07-10 17:03:30 INFO  [http-manager]  :: HTTP client instance "myGotApi" created successfully via adapter.
-2025-07-10 17:03:30 INFO  [syntropylog-main]  :: SyntropyLog framework initialized successfully.
-2025-07-10 17:03:30 INFO  [main] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69"] :: --- Testing the Axios-based client ---
-2025-07-10 17:03:30 INFO  [myAxiosApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" method="GET" url="/users/1"] :: Starting HTTP request
-2025-07-10 17:03:30 INFO  [myAxiosApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" statusCode=200 url="/users/1" method="GET" durationMs=14] :: HTTP response received
-2025-07-10 17:03:30 INFO  [main] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69"] :: --- Testing the Got-based client ---
-2025-07-10 17:03:30 INFO  [myGotApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" method="GET" url="products/123"] :: Starting HTTP request
-2025-07-10 17:03:30 INFO  [myGotApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" statusCode=200 url="products/123" method="GET" durationMs=8] :: HTTP response received
-2025-07-10 17:03:30 INFO  [main] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69"] :: --- Testing the Fetch-based client ---
-2025-07-10 17:03:30 INFO  [myFetchApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" method="GET" url="https://api.example.com/inventory/1"] :: Starting HTTP request
-2025-07-10 17:03:30 INFO  [myFetchApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" statusCode=200 url="https://api.example.com/inventory/1" method="GET" durationMs=11] :: HTTP response received
-2025-07-10 17:03:30 INFO  [syntropylog-main]  :: Shutting down SyntropyLog framework...
-2025-07-10 17:03:30 INFO  [redis-manager]  :: Closing all Redis connections...
-2025-07-10 17:03:30 INFO  [redis-manager]  :: All Redis connections have been closed.
-2025-07-10 17:03:30 INFO  [syntropylog-main]  :: SyntropyLog shut down successfully.
+2025-07-10 17:30:16 INFO  [http-manager]  :: HTTP client instance "myAxiosApi" created successfully via adapter.
+2025-07-10 17:30:16 INFO  [http-manager]  :: HTTP client instance "myFetchApi" created successfully via adapter.
+2025-07-10 17:30:16 INFO  [http-manager]  :: HTTP client instance "myGotApi" created successfully via adapter.
+2025-07-10 17:30:16 INFO  [http-manager]  :: HTTP client instance "myLegacyApi" created successfully via adapter.
+2025-07-10 17:30:16 INFO  [syntropylog-main]  :: SyntropyLog framework initialized successfully.
+2025-07-10 17:30:16 INFO  [main] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3"] :: --- Testing Axios-based client ---
+2025-07-10 17:30:16 INFO  [myAxiosApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" method="GET" url="/users/1"] :: Starting HTTP request
+2025-07-10 17:30:16 INFO  [myAxiosApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" statusCode=200 url="/users/1" method="GET" durationMs=17] :: HTTP response received
+2025-07-10 17:30:16 INFO  [main] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3"] :: 
+--- Testing Got-based client ---
+2025-07-10 17:30:16 INFO  [myGotApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" method="GET" url="products/123"] :: Starting HTTP request
+2025-07-10 17:30:16 INFO  [myGotApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" statusCode=200 url="products/123" method="GET" durationMs=9] :: HTTP response received
+2025-07-10 17:30:16 INFO  [main] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3"] :: 
+--- Testing Fetch-based client ---
+2025-07-10 17:30:16 INFO  [myFetchApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" method="GET" url="https://api.example.com/inventory/1"] :: Starting HTTP request
+2025-07-10 17:30:16 INFO  [myFetchApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" statusCode=200 url="https://api.example.com/inventory/1" method="GET" durationMs=9] :: HTTP response received
+2025-07-10 17:30:16 INFO  [main] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3"] :: 
+--- Testing deprecated client (request) ---
+2025-07-10 17:30:16 INFO  [myLegacyApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" method="GET" url="https://api.example.com/legacy/data"] :: Starting HTTP request
+2025-07-10 17:30:16 INFO  [myLegacyApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" statusCode=200 url="https://api.example.com/legacy/data" method="GET" durationMs=8] :: HTTP response received
+2025-07-10 17:30:16 INFO  [syntropylog-main]  :: Shutting down SyntropyLog framework...
+2025-07-10 17:30:16 INFO  [redis-manager]  :: Closing all Redis connections...
+2025-07-10 17:30:16 INFO  [redis-manager]  :: All Redis connections have been closed.
+2025-07-10 17:30:16 INFO  [syntropylog-main]  :: SyntropyLog shut down successfully.
 
-✅ Adapter-based example finished successfully.
+✅ McLaren example finished successfully.
 ```

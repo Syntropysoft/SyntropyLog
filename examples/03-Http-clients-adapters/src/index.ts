@@ -1,24 +1,26 @@
 /**
  * EXAMPLE: THE NEW HTTP CLIENT ARCHITECTURE (WITH ADAPTERS)
  *
- * This example demonstrates the power of the new Inversion of Control (IoC) architecture.
- * Instead of configuring a client "type," we now inject an "adapter."
- * This gives us the freedom to use ANY HTTP client, regardless of its version,
- * in a consistent manner.
+ * This example demonstrates the power of the new Inversion of Control architecture,
+ * instrumenting modern clients (Axios, Got, Fetch) and a deprecated
+ * "Precambrian-era" client (request) with the exact same logic.
  */
 
 import axios from 'axios';
 import got, { Got, RequestError as GotRequestError } from 'got';
 import nock from 'nock';
 import { randomUUID } from 'node:crypto';
-import { ClassicConsoleTransport, syntropyLog } from 'syntropylog';
-import type { IncomingHttpHeaders } from 'node:http';
+import { syntropyLog, ClassicConsoleTransport } from 'syntropylog';
+import type { IncomingHttpHeaders } from 'http';
+import fetch from 'node-fetch';
+import type { RequestInfo, RequestInit } from 'node-fetch';
 
 // =================================================================
-//  CORRECCIÓN: Importamos 'node-fetch' para asegurar la compatibilidad con nock.
+//  CORRECTION: We change the import syntax for the legacy 'request' library.
+//  `import = require()` is the most robust way to import a CommonJS module
+//  in a modern TypeScript environment.
 // =================================================================
-import fetch from 'node-fetch';
-import type { RequestInfo, RequestInit, Response } from 'node-fetch';
+const requestLib = require('request');
 
 // --- STEP 1: Import or create the adapters ---
 
@@ -38,7 +40,7 @@ class FetchAdapter implements IHttpClientAdapter {
     const response = await fetch(request.url as RequestInfo, {
       method: request.method,
       headers: request.headers as Record<string, string>,
-      body: request.body as string | undefined, // Ensure body is string for node-fetch
+      body: JSON.stringify(request.body),
     });
     const data = (await response.json()) as T;
     return {
@@ -49,6 +51,7 @@ class FetchAdapter implements IHttpClientAdapter {
   }
 }
 
+// Helper function and adapter for Got (unchanged)
 function normalizeGotHeaders(
   headers: IncomingHttpHeaders
 ): Record<string, string | number | string[]> {
@@ -63,15 +66,11 @@ function normalizeGotHeaders(
   }
   return normalized;
 }
-
-// Adapter for Got
 class GotAdapter implements IHttpClientAdapter {
   private readonly gotInstance: Got;
-
   constructor(instance: Got) {
     this.gotInstance = instance;
   }
-
   async request<T>(
     request: AdapterHttpRequest
   ): Promise<AdapterHttpResponse<T>> {
@@ -83,7 +82,6 @@ class GotAdapter implements IHttpClientAdapter {
         searchParams: request.queryParams,
         throwHttpErrors: false,
       });
-
       if (!response.ok) {
         throw new GotRequestError(
           response.statusMessage || 'HTTP Error',
@@ -91,7 +89,6 @@ class GotAdapter implements IHttpClientAdapter {
           response.request
         );
       }
-
       return {
         statusCode: response.statusCode,
         data: response.body,
@@ -120,6 +117,69 @@ class GotAdapter implements IHttpClientAdapter {
   }
 }
 
+function normalizeLegacyHeaders(
+  headers: requestLib.Headers
+): Record<string, string | number | string[]> {
+  const normalized: Record<string, string | number | string[]> = {};
+  for (const key in headers) {
+    if (Object.prototype.hasOwnProperty.call(headers, key)) {
+      const value = headers[key];
+      if (value !== undefined) {
+        normalized[key] = value;
+      }
+    }
+  }
+  return normalized;
+}
+
+// --- THE ADAPTER FOR THE DINOSAUR! ---
+class RequestAdapter implements IHttpClientAdapter {
+  request<T>(request: AdapterHttpRequest): Promise<AdapterHttpResponse<T>> {
+    return new Promise((resolve, reject) => {
+      const options: requestLib.Options = {
+        uri: request.url,
+        method: request.method,
+        headers: request.headers,
+        json: true,
+        body: request.body,
+      };
+
+      // Now 'requestLib' is the function we expect it to be.
+      requestLib(options, (error, response, body) => {
+        if (error) {
+          const normalizedError: AdapterHttpError = {
+            name: 'AdapterHttpError',
+            message: error.message,
+            stack: error.stack,
+            isAdapterError: true,
+            request,
+          };
+          return reject(normalizedError);
+        }
+
+        const responseData: AdapterHttpResponse<T> = {
+          statusCode: response.statusCode,
+          data: body,
+          headers: normalizeLegacyHeaders(response.headers),
+        };
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          const normalizedError: AdapterHttpError = {
+            name: 'AdapterHttpError',
+            message: `Response code ${response.statusCode}`,
+            isAdapterError: true,
+            request,
+            response: responseData,
+          };
+          return reject(normalizedError);
+        }
+
+        resolve(responseData);
+      });
+    });
+  }
+}
+
 // --- Mock Server Setup ---
 const MOCK_API_URL = 'https://api.example.com';
 
@@ -128,12 +188,12 @@ async function main() {
 
   syntropyLog.init({
     logger: {
-      level: 'trace',
-      serviceName: 'adapter-based-example',
+      level: 'info',
+      serviceName: 'mclaren-example',
       transports: [new ClassicConsoleTransport()],
       serializerTimeoutMs: 50,
       serializers: {
-        err: (e: any) => `[${e.name || 'Error'}] ${e.message?.split('\n')[0]}`,
+        err: (e: any) => `[${e.name || 'Error'}] ${e.message.split('\n')[0]}`,
       },
     },
     context: {
@@ -145,14 +205,12 @@ async function main() {
           instanceName: 'myAxiosApi',
           adapter: new AxiosAdapter(axios.create({ baseURL: MOCK_API_URL })),
         },
-        {
-          instanceName: 'myFetchApi',
-          adapter: new FetchAdapter(),
-        },
+        { instanceName: 'myFetchApi', adapter: new FetchAdapter() },
         {
           instanceName: 'myGotApi',
           adapter: new GotAdapter(got.extend({ prefixUrl: MOCK_API_URL })),
         },
+        { instanceName: 'myLegacyApi', adapter: new RequestAdapter() },
       ],
     },
   });
@@ -169,6 +227,7 @@ async function main() {
     const axiosClient = syntropyLog.getHttp('myAxiosApi');
     const gotClient = syntropyLog.getHttp('myGotApi');
     const fetchClient = syntropyLog.getHttp('myFetchApi');
+    const legacyClient = syntropyLog.getHttp('myLegacyApi');
 
     // Mock the responses
     nock(MOCK_API_URL)
@@ -177,29 +236,38 @@ async function main() {
     nock(MOCK_API_URL)
       .get('/products/123')
       .reply(200, { id: 123, name: 'Product via Got' });
+    nock(MOCK_API_URL).get('/inventory/1').reply(200, { id: 1, stock: 100 });
     nock(MOCK_API_URL)
-      .get('/inventory/1')
-      .reply(200, { id: 1, stock: 100 });
+      .get('/legacy/data')
+      .reply(200, { data: 'from the past' });
 
-    logger.info('--- Testing the Axios-based client ---');
+    logger.info('--- Testing Axios-based client ---');
     await axiosClient.request({ method: 'GET', url: '/users/1', headers: {} });
 
-    logger.info('--- Testing the Got-based client ---');
+    logger.info('\n--- Testing Got-based client ---');
     await gotClient.request({
       method: 'GET',
       url: 'products/123',
       headers: {},
     });
 
-    logger.info('--- Testing the Fetch-based client ---');
+    logger.info('\n--- Testing Fetch-based client ---');
     await fetchClient.request({
       method: 'GET',
       url: `${MOCK_API_URL}/inventory/1`,
       headers: {},
     });
+
+    logger.info('\n--- Testing deprecated client (request) ---');
+    await legacyClient.request({
+      method: 'GET',
+      url: `${MOCK_API_URL}/legacy/data`,
+      headers: {},
+    });
   });
+
   await syntropyLog.shutdown();
-  console.log('\n✅ Adapter-based example finished successfully.');
+  console.log('\n✅ McLaren example finished successfully.');
 }
 
 main().catch((error) => {
