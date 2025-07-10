@@ -6,6 +6,8 @@
 
 import { z } from 'zod';
 import { Transport } from './logger/transports/Transport';
+import { IHttpClientAdapter } from './http/adapters/adapter.types'; 
+
 
 /** Schema for logger options, including serialization and pretty printing. */
 const loggerOptionsSchema = z
@@ -112,59 +114,36 @@ export const redisConfigSchema = z
   .optional();
 
 /** Schema for a single HTTP client instance. */
-export const httpInstanceConfigSchema = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('axios'),
-    instanceName: z.string(),
-    config: z.any().optional(),
-    // --- AÑADIR ESTE BLOQUE ---
-    logging: z
-      .object({
-        onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
-        onError: z.enum(['warn', 'error', 'fatal']).default('error'),
-        logSuccessBody: z.boolean().default(false),
-        logSuccessHeaders: z.boolean().default(false),
-        onRequest: z.enum(['trace', 'debug', 'info']).default('info'),
-        logRequestBody: z.boolean().default(false),
-        logRequestHeaders: z.boolean().default(false),
-      })
-      .optional(),
-  }),
-  z.object({
-    type: z.literal('fetch'),
-    instanceName: z.string(),
-    config: z.any().optional(),
-    // --- AÑADIR ESTE BLOQUE ---
-    logging: z
-      .object({
-        onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
-        onError: z.enum(['warn', 'error', 'fatal']).default('error'),
-        logSuccessBody: z.boolean().default(false),
-        logSuccessHeaders: z.boolean().default(false),
-        onRequest: z.enum(['trace', 'debug', 'info']).default('info'),
-        logRequestBody: z.boolean().default(false),
-        logRequestHeaders: z.boolean().default(false),
-      })
-      .optional(),
-  }),
-  z.object({
-    type: z.literal('got'),
-    instanceName: z.string(),
-    config: z.any().optional(),
-    // --- AÑADIR ESTE BLOQUE ---
-    logging: z
-      .object({
-        onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
-        onError: z.enum(['warn', 'error', 'fatal']).default('error'),
-        logSuccessBody: z.boolean().default(false),
-        logSuccessHeaders: z.boolean().default(false),
-        onRequest: z.enum(['trace', 'debug', 'info']).default('info'),
-        logRequestBody: z.boolean().default(false),
-        logRequestHeaders: z.boolean().default(false),
-      })
-      .optional(),
-  }),
-]);
+export const httpInstanceConfigSchema = z.object({
+  instanceName: z.string(),
+
+  adapter: z.custom<IHttpClientAdapter>((val) => {
+    return (
+      typeof val === 'object' &&
+      val !== null &&
+      'request' in val &&
+      typeof (val as any).request === 'function'
+    );
+  }, 'El adaptador proporcionado no es válido. Debe ser un objeto con un método `request`.'),
+
+  // =================================================================
+  //  CORRECCIÓN: Añadimos .partial() para hacer que todas las
+  //  propiedades internas de 'logging' sean opcionales.
+  // =================================================================
+  logging: z
+    .object({
+      onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
+      onError: z.enum(['warn', 'error', 'fatal']).default('error'),
+      logSuccessBody: z.boolean().default(false),
+      logSuccessHeaders: z.boolean().default(false),
+      onRequest: z.enum(['trace', 'debug', 'info']).default('info'),
+      logRequestBody: z.boolean().default(false),
+      logRequestHeaders: z.boolean().default(false),
+    })
+    .partial() // <--- ¡AQUÍ ESTÁ LA MAGIA!
+    .optional(),
+});
+
 
 /**
  * Schema for the main HTTP configuration block.

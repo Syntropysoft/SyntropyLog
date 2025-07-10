@@ -27,12 +27,12 @@
     },
     "./http": {
       "import": {
-        "types": "./dist/http.d.ts",
-        "default": "./dist/http.mjs"
+        "types": "./dist/http/index.d.ts",
+        "default": "./dist/http/index.mjs"
       },
       "require": {
-        "types": "./dist/http.d.ts",
-        "default": "./dist/http.cjs"
+        "types": "./dist/http/index.d.ts",
+        "default": "./dist/http/index.cjs"
       }
     }
   },

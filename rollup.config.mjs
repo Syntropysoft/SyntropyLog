@@ -57,9 +57,9 @@ export default [
   // --- JavaScript Bundles ---
   createEntryConfig('src/index.ts', './dist/index'),
   createEntryConfig('src/doctor.ts', './dist/doctor'),
-  createEntryConfig('src/http.ts', './dist/http'),
+  createEntryConfig('src/http/index.ts', './dist/http/index'),
 
   // --- Type Declaration Bundles (.d.ts) ---
   createDtsConfig('dist/types/index.d.ts', 'dist/index.d.ts'),
-  createDtsConfig('dist/types/http.d.ts', 'dist/http.d.ts'),
+  createDtsConfig('dist/types/http/index.d.ts', 'dist/http/index.d.ts'),
 ];

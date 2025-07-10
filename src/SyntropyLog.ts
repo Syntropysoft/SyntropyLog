@@ -1,11 +1,9 @@
-/**
- * FILE: src/SyntropyLog.ts
- * DESCRIPTION: The main facade for the SyntropyLog framework.
- * It provides a singleton instance to initialize and access all framework components.
- */
+// =================================================================
+//  ARCHIVO CORREGIDO: src/SyntropyLog.ts
+// =================================================================
 
 import { ZodError } from 'zod';
-import { SyntropyLogConfig } from './config'; // Assuming we rename BeaconLogConfig to SyntropyLogConfig
+import { SyntropyLogConfig } from './config';
 import { syntropyLogConfigSchema } from './config.schema';
 import { IContextManager } from './context';
 import { ILogger } from './logger';
@@ -13,15 +11,12 @@ import { LoggerFactory } from './logger/LoggerFactory';
 import { RedisManager } from './redis/RedisManager';
 import type { IBeaconRedis } from './redis/IBeaconRedis';
 import { sanitizeConfig } from './utils/sanitizeConfig';
-import { checkPeerDependencies } from './utils/dependencyCheck';
-// We will need an HttpManager similar to RedisManager
+// El dependencyCheck ya no es necesario con la nueva arquitectura de adaptadores
+// import { checkPeerDependencies } from './utils/dependencyCheck';
 import { HttpManager } from './http/HttpManager';
-import { InstrumentedHttpClient } from './http/types';
+// Importamos el nuevo cliente instrumentado
+import { InstrumentedHttpClient } from './http/InstrumentedHttpClient';
 
-/**
- * The main class for the SyntropyLog framework.
- * It follows a singleton pattern and acts as the central point for configuration and client access.
- */
 export class SyntropyLog {
   private static instance: SyntropyLog;
   private _isInitialized = false;
@@ -50,7 +45,7 @@ export class SyntropyLog {
     try {
       const parsedConfig = syntropyLogConfigSchema.parse(config);
       const sanitizedConfig = sanitizeConfig(parsedConfig);
-      checkPeerDependencies(sanitizedConfig);
+      // checkPeerDependencies(sanitizedConfig); // Ya no es necesario
 
       this.loggerFactory = new LoggerFactory(sanitizedConfig);
       const mainLogger = this.loggerFactory.getLogger('syntropylog-main');
@@ -60,7 +55,6 @@ export class SyntropyLog {
         logger: this.loggerFactory.getLogger('redis-manager'),
       });
 
-      // Instantiate HttpManager
       this.httpManager = new HttpManager({
         config: sanitizedConfig,
         loggerFactory: this.loggerFactory,
@@ -92,24 +86,17 @@ export class SyntropyLog {
     return this.redisManager.getInstance(name);
   }
 
-  /**
-   * Retrieves a named, instrumented HTTP client instance.
-   * @param name The name of the HTTP instance as defined in the configuration.
-   * @returns An instrumented HTTP client.
-   */
-  public getHttp<T extends InstrumentedHttpClient>(name: string): T {
+  // =================================================================
+  //  CORRECCIÓN: El método getHttp ya no es genérico. Devuelve siempre
+  //  nuestro cliente unificado.
+  // =================================================================
+  public getHttp(name: string): InstrumentedHttpClient {
     this.ensureInitialized();
     return this.httpManager.getInstance(name);
   }
 
-  /**
-   * Retrieves the shared ContextManager instance.
-   * Useful for manually creating and managing asynchronous contexts.
-   * @returns An IContextManager instance.
-   */
   public getContextManager(): IContextManager {
     this.ensureInitialized();
-    // The contextManager is created and managed by the LoggerFactory
     return this.loggerFactory.getContextManager();
   }
 

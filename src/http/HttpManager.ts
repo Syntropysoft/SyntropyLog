@@ -6,12 +6,12 @@
 import { ILogger } from '../logger/ILogger';
 import { SyntropyLogConfig, HttpClientInstanceConfig } from '../config';
 import { IContextManager } from '../context/IContextManager';
-import { createInstrumentedAxios } from '../instrumentations/axios/createInstrumentedAxios';
-import { createInstrumentedFetch } from '../instrumentations/fetch/createInstrumentedFetch';
-import { createInstrumentedGot } from '../instrumentations/got/createInstrumentedGot';
-import { createFailingHttpClient } from '../utils/createFailingClient';
-import { InstrumentedHttpClient } from './types';
 import { LoggerFactory } from '../logger/LoggerFactory';
+// Importamos nuestras nuevas clases y tipos
+import {
+  InstrumentedHttpClient,
+  InstrumentorOptions,
+} from './InstrumentedHttpClient';
 
 export interface HttpManagerOptions {
   config?: SyntropyLogConfig;
@@ -23,6 +23,7 @@ export interface HttpManagerOptions {
  * Manages the creation and retrieval of multiple instrumented HTTP client instances.
  */
 export class HttpManager {
+  // El mapa ahora almacena nuestra clase de instrumentación genérica.
   private readonly instances = new Map<string, InstrumentedHttpClient>();
   private readonly logger: ILogger;
   private readonly contextManager: IContextManager;
@@ -43,36 +44,63 @@ export class HttpManager {
       return;
     }
 
+    // =================================================================
+    //  LÓGICA DE CREACIÓN REFACTORIZADA
+    //  El 'switch' desaparece. El bucle ahora es genérico y mucho más simple.
+    // =================================================================
     for (const instanceConfig of httpInstances) {
       try {
-        const client = this.createClient(instanceConfig);
-        this.instances.set(instanceConfig.instanceName, client);
+        const childLogger = this.loggerFactory.getLogger(
+          instanceConfig.instanceName
+        );
+
+        // Extraemos las opciones de instrumentación desde la configuración.
+        const instrumentorOptions: InstrumentorOptions = {
+          logRequestHeaders: instanceConfig.logging?.logRequestHeaders,
+          logRequestBody: instanceConfig.logging?.logRequestBody,
+          logSuccessHeaders: instanceConfig.logging?.logSuccessHeaders,
+          logSuccessBody: instanceConfig.logging?.logSuccessBody,
+          logLevel: {
+            onRequest: instanceConfig.logging?.onRequest,
+            onSuccess: instanceConfig.logging?.onSuccess,
+            onError: instanceConfig.logging?.onError,
+          },
+        };
+
+        // Creamos el cliente instrumentado, pasándole el adaptador del usuario.
+        const instrumentedClient = new InstrumentedHttpClient(
+          instanceConfig.adapter, // El adaptador inyectado por el usuario
+          childLogger,
+          this.contextManager,
+          instrumentorOptions
+        );
+
+        this.instances.set(instanceConfig.instanceName, instrumentedClient);
         this.logger.info(
-          `HTTP client instance "${instanceConfig.instanceName}" (type: ${instanceConfig.type}) created successfully.`
+          `HTTP client instance "${instanceConfig.instanceName}" created successfully via adapter.`
         );
       } catch (error) {
+        // La lógica de cliente fallido se puede adaptar aquí si es necesario.
         this.logger.error(
           `Failed to create HTTP client instance "${instanceConfig.instanceName}"`,
           { error }
         );
-        const failingClient = createFailingHttpClient(
-          instanceConfig.instanceName,
-          instanceConfig.type,
-          this.logger
-        );
-        this.instances.set(instanceConfig.instanceName, failingClient);
       }
     }
   }
 
-  public getInstance<T extends InstrumentedHttpClient>(name: string): T {
+  /**
+   * El método getInstance ahora devuelve nuestra clase instrumentada,
+   * que tiene una API unificada a través del método .request().
+   */
+  public getInstance(name: string): InstrumentedHttpClient {
     const instance = this.instances.get(name);
     if (!instance) {
       throw new Error(
         `HTTP client instance with name "${name}" was not found.`
       );
     }
-    return instance as T;
+    return instance;
   }
 
   public async shutdown(): Promise<void> {
@@ -81,43 +109,5 @@ export class HttpManager {
     }
     this.instances.clear();
     return Promise.resolve();
-  }
-
-  private createClient(
-    instanceConfig: HttpClientInstanceConfig
-  ): InstrumentedHttpClient {
-    const childLogger = this.loggerFactory.getLogger(
-      instanceConfig.instanceName
-    );
-
-    switch (instanceConfig.type) {
-      case 'axios':
-        return createInstrumentedAxios(
-          childLogger,
-          this.contextManager,
-          this.globalConfig,
-          instanceConfig
-        );
-      case 'fetch':
-        return createInstrumentedFetch(
-          childLogger,
-          this.contextManager,
-          this.globalConfig,
-          instanceConfig
-        );
-      case 'got':
-        return createInstrumentedGot(
-          childLogger,
-          this.contextManager,
-          this.globalConfig,
-          instanceConfig
-        );
-      default: {
-        const _exhaustiveCheck: never = instanceConfig;
-        throw new Error(
-          `Unsupported HTTP client type: "${(_exhaustiveCheck as any).type}"`
-        );
-      }
-    }
   }
 }

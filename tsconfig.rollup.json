@@ -1,5 +1,6 @@
 {
-  "module":"NodeNext",
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "dist", "tests","examples"]
+  // La línea "module": "NodeNext" se elimina, ya que ahora hereda "ESNext"
+  // del archivo base, que es lo que Rollup espera para funcionar correctamente.
+  "exclude": ["node_modules", "dist", "tests", "examples"]
 }

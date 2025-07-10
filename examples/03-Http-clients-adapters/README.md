@@ -1,10 +1,14 @@
-# 03-got
+# 03-Http Clients adapters
 
-This example demonstrates how to use `beaconlog` to log events from a simple game.
+This example demonstrates the powerful **adapter-based architecture** for instrumenting HTTP clients in `syntropylog`.
+
+Instead of being limited to pre-defined client types, this new approach allows you to create and inject your own adapters. This gives you the freedom to use **any** HTTP client library (like `axios`, `got`, `node-fetch`, or a custom one) while benefiting from `syntropylog`'s automatic context propagation, logging, and instrumentation.
+
+This example shows how to instrument `axios`, `got`, and `node-fetch` side-by-side using this pattern.
 
 ## Prerequisites
 
-Before running this example, you must first build the main `beaconlog` library from the project's root directory:
+Before running this example, you must first build the main `syntropylog` library from the project's root directory:
 
 ```bash
 # From the project root
@@ -27,17 +31,16 @@ This step ensures that the local `beaconlog` dependency used by this example is 
 
 This will execute the `index.ts` file, which logs messages with an associated context.
 
-## exaample
+## Example
 
 ```ts
 /**
- * EXAMPLE: HTTP CLIENTS (GOT)
+ * EXAMPLE: THE NEW HTTP CLIENT ARCHITECTURE (WITH ADAPTERS)
  *
- * This example demonstrates how to configure and use instrumented HTTP clients.
- * syntropyLog automatically logs key information about each request and response.
- *
- * To run this example:
- * 1. Make sure you have installed the necessary peer dependencies: `npm install got`
+ * This example demonstrates the power of the new Inversion of Control (IoC) architecture.
+ * Instead of configuring a client "type," we now inject an "adapter."
+ * This gives us the freedom to use ANY HTTP client, regardless of its version,
+ * in a consistent manner.
  */
 
 import got from 'got';
@@ -88,6 +91,8 @@ async function main() {
           type: 'got',
           config: {
             prefixUrl: MOCK_API_URL,
+            // Disable retries to ensure predictable behavior for this example
+            retry: { limit: 0 },
           },
         },
       ],
@@ -122,17 +127,16 @@ async function main() {
     nock(MOCK_API_URL)
       .get('/users/1')
       .reply(200, { id: 1, name: 'Mocked User' });
-    
+
     nock(MOCK_API_URL)
-    .get('/product/1')
-    .reply(500, 'Internal Server Error' )
+      .get('/product/1')
+      .reply(500, { error: 'Internal Server Error' });
 
     // The correlation ID will be injected into the headers automatically.
     await (gotClient as typeof got).get('users/1');
     try {
-
       await (gotClient as typeof got).get('product/1');
-    } catch (err) { 
+    } catch (err) {
       syntropyLog.getLogger('main').error(`Error: ${err.message}`)
     }
 
@@ -158,35 +162,31 @@ main().catch((error) => {
 
 ## Output result
 
-```json
+```log
 npm run start
 
 > 03-fetch_and_got@1.0.0 start
 > tsx src/index.ts
 
---- Running HTTP Client Instrumentation Example ---
-2025-07-09 17:48:02 INFO  [http-manager]  :: HTTP client instance "myGot" (type: got) created successfully.
-2025-07-09 17:48:02 INFO  [syntropylog-main]  :: SyntropyLog framework initialized successfully.
-2025-07-09 17:48:02 INFO  [main] [X-something-ID="3957134b-fe46-4203-805e-cd3c9aac6e9b"] :: Context created. Making request with instrumented got...
-2025-07-09 17:48:02 INFO  [myGot] [X-something-ID="3957134b-fe46-4203-805e-cd3c9aac6e9b" source="got" method="GET" url="https://api.example.com/users/1"] :: Starting HTTP request (got)
-2025-07-09 17:48:02 INFO  [myGot] [X-something-ID="3957134b-fe46-4203-805e-cd3c9aac6e9b" source="got" statusCode=200 url="https://api.example.com/users/1" durationMs=10] :: HTTP response received (got)
-2025-07-09 17:48:02 INFO  [myGot] [X-something-ID="3957134b-fe46-4203-805e-cd3c9aac6e9b" source="got" method="GET" url="https://api.example.com/product/1"] :: Starting HTTP request (got)
-2025-07-09 17:48:04 INFO  [myGot] [X-something-ID="3957134b-fe46-4203-805e-cd3c9aac6e9b" source="got" method="GET" url="https://api.example.com/product/1"] :: Starting HTTP request (got)
-2025-07-09 17:48:04 ERROR [myGot] [X-something-ID="3957134b-fe46-4203-805e-cd3c9aac6e9b" source="got" err="[RequestError] (ERR_NOCK_NO_MATCH) Nock: No match for request {" url="https://api.example.com/product/1" method="GET" durationMs=25 response="No response"] :: HTTP request failed (got)
-2025-07-09 17:48:04 ERROR [main] [X-something-ID="3957134b-fe46-4203-805e-cd3c9aac6e9b"] :: Error: Nock: No match for request {
-  "method": "GET",
-  "url": "https://api.example.com/product/1",
-  "headers": {
-    "user-agent": "got (https://github.com/sindresorhus/got)",
-    "accept-encoding": "gzip, deflate, br",
-    "x-something-id": "3957134b-fe46-4203-805e-cd3c9aac6e9b"
-  }
-}
-2025-07-09 17:48:04 INFO  [syntropylog-main]  :: Shutting down SyntropyLog framework...
-2025-07-09 17:48:04 INFO  [redis-manager]  :: Closing all Redis connections...
-2025-07-09 17:48:04 INFO  [redis-manager]  :: All Redis connections have been closed.
-2025-07-09 17:48:04 INFO  [syntropylog-main]  :: SyntropyLog shut down successfully.
+--- Running Adapter-based HTTP Client Example ---
+2025-07-10 17:03:30 DEBUG [redis-manager]  :: No Redis configuration was provided or no instances were defined. RedisManager initialized empty.
+2025-07-10 17:03:30 INFO  [http-manager]  :: HTTP client instance "myAxiosApi" created successfully via adapter.
+2025-07-10 17:03:30 INFO  [http-manager]  :: HTTP client instance "myFetchApi" created successfully via adapter.
+2025-07-10 17:03:30 INFO  [http-manager]  :: HTTP client instance "myGotApi" created successfully via adapter.
+2025-07-10 17:03:30 INFO  [syntropylog-main]  :: SyntropyLog framework initialized successfully.
+2025-07-10 17:03:30 INFO  [main] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69"] :: --- Testing the Axios-based client ---
+2025-07-10 17:03:30 INFO  [myAxiosApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" method="GET" url="/users/1"] :: Starting HTTP request
+2025-07-10 17:03:30 INFO  [myAxiosApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" statusCode=200 url="/users/1" method="GET" durationMs=14] :: HTTP response received
+2025-07-10 17:03:30 INFO  [main] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69"] :: --- Testing the Got-based client ---
+2025-07-10 17:03:30 INFO  [myGotApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" method="GET" url="products/123"] :: Starting HTTP request
+2025-07-10 17:03:30 INFO  [myGotApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" statusCode=200 url="products/123" method="GET" durationMs=8] :: HTTP response received
+2025-07-10 17:03:30 INFO  [main] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69"] :: --- Testing the Fetch-based client ---
+2025-07-10 17:03:30 INFO  [myFetchApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" method="GET" url="https://api.example.com/inventory/1"] :: Starting HTTP request
+2025-07-10 17:03:30 INFO  [myFetchApi] [X-Correlation-ID="0dcfb0a4-28ea-4399-bbee-f471d09dde69" statusCode=200 url="https://api.example.com/inventory/1" method="GET" durationMs=11] :: HTTP response received
+2025-07-10 17:03:30 INFO  [syntropylog-main]  :: Shutting down SyntropyLog framework...
+2025-07-10 17:03:30 INFO  [redis-manager]  :: Closing all Redis connections...
+2025-07-10 17:03:30 INFO  [redis-manager]  :: All Redis connections have been closed.
+2025-07-10 17:03:30 INFO  [syntropylog-main]  :: SyntropyLog shut down successfully.
 
-✅ Example finished. Check the console output for the structured JSON logs.
-Each log entry for the HTTP requests should contain details like `http.method`, `http.url`, `http.status_code`, and `http.duration_ms`.
+✅ Adapter-based example finished successfully.
 ```

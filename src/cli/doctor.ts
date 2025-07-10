@@ -14,8 +14,10 @@ import path from 'path';
 import yaml from 'js-yaml';
 import chalk from 'chalk';
 import { ZodError } from 'zod';
-// We assume config.schema is in the parent directory, adjust if necessary
-import { beaconLogConfigSchema } from '../config.schema';
+// =================================================================
+//  CORRECCIÓN: Importamos el nombre correcto del esquema.
+// =================================================================
+import { syntropyLogConfigSchema } from '../config.schema';
 import { runAllChecks, CheckResult, DiagnosticRule, coreRules } from './checks';
 
 interface DoctorOptions {
@@ -64,7 +66,7 @@ export async function runDoctor(options: DoctorOptions): Promise<boolean> {
 
   let validatedConfig;
   try {
-    validatedConfig = beaconLogConfigSchema.parse(configData);
+    validatedConfig = syntropyLogConfigSchema.parse(configData);
     console.log(
       chalk.green(`✅ Config structure for "${configPath}" is valid.`)
     );

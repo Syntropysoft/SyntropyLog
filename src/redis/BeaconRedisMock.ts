@@ -8,7 +8,16 @@
  */
 import { IBeaconRedis, IBeaconRedisTransaction } from './IBeaconRedis';
 import { ILogger } from '../logger';
-import { LoggerFactory  } from '../logger/LoggerFactory';
+// =================================================================
+//  CORRECCIÓN: Importamos los componentes necesarios para crear un logger
+//  de prueba sin depender de una configuración completa.
+// =================================================================
+import { Logger } from '../logger/Logger';
+import { MockContextManager } from '../context/MockContextManager';
+import { SpyTransport } from '../logger/transports/SpyTransport';
+import { SerializerRegistry } from '../serialization/SerializerRegistry';
+import { MaskingEngine } from '../masking/MaskingEngine';
+import { SanitizationEngine } from '../sanitization/SanitizationEngine';
 import { RedisZMember, TransactionResult } from './redis.types';
 
 // --- Internal Mock Storage Types ---
@@ -217,7 +226,7 @@ class BeaconRedisMockTransaction implements IBeaconRedisTransaction {
  */
 export class BeaconRedisMock implements IBeaconRedis {
   /** The internal in-memory data store. */
-  private store: Store = new Map();
+  private store: Map<string, any> = new Map();
   private readonly logger: ILogger;
   private readonly instanceName: string;
 
@@ -226,14 +235,25 @@ export class BeaconRedisMock implements IBeaconRedis {
    * @param [instanceName='default_mock'] A name for this mock instance.
    * @param [parentLogger] An optional parent logger to create a child logger from.
    */
-  constructor(instanceName: string = 'default_mock', parentLogger?: ILogger) {
+  constructor(instanceName = 'default_mock', parentLogger?: ILogger) {
     this.instanceName = instanceName;
     if (parentLogger) {
       this.logger = parentLogger.child({
         component: `BeaconRedisMock[${this.instanceName}]`,
       });
     } else {
-      this.logger = LoggerFactory.getLogger(`BeaconRedisMock[${this.instanceName}]`);
+      // =================================================================
+      //  CORRECCIÓN: Creamos un logger funcional para el mock sin necesidad
+      //  de una configuración global. Usa un SpyTransport por defecto.
+      // =================================================================
+      this.logger = new Logger({
+        contextManager: new MockContextManager(),
+        transports: [new SpyTransport()],
+        serializerRegistry: new SerializerRegistry(),
+        maskingEngine: new MaskingEngine(),
+        sanitizationEngine: new SanitizationEngine(),
+        serviceName: `BeaconRedisMock[${this.instanceName}]`,
+      });
     }
   }
   /**

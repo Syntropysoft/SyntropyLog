@@ -1,11 +1,10 @@
 /**
  * FILE: src/utils/sanitizeConfig.ts
  * DESCRIPTION: Utilities for sanitizing the SyntropyLog configuration object.
- * This security layer acts BEFORE the configuration is stored or used,
- * removing credentials and other sensitive data to prevent accidental exposure.
  */
 
 import { Transport } from '../logger/transports/Transport';
+import { IHttpClientAdapter } from '../http/adapters/adapter.types';
 
 const MASK = '[CONFIG_MASKED]';
 
@@ -26,17 +25,40 @@ const SENSITIVE_KEYS = [
 ];
 
 /**
+ * Función de ayuda para detectar si un objeto es una instancia de una clase
+ * que no debemos clonar (como un Transport o un Adapter).
+ * @param value El valor a comprobar.
+ */
+function isSpecialInstance(
+  value: any
+): value is Transport | IHttpClientAdapter {
+  if (value instanceof Transport) {
+    return true;
+  }
+  // Si tiene un método 'request', asumimos que es un adaptador y no lo tocamos.
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as IHttpClientAdapter).request === 'function'
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Recursively sanitizes a configuration object.
  * It masks values for keys that are known to be sensitive.
- * It intelligently skips instances of Transport to preserve their methods.
+ * It intelligently skips special class instances to preserve their methods.
  * @param config The configuration object to sanitize.
  * @returns A new, sanitized configuration object.
  */
 export function sanitizeConfig<T extends object>(config: T): T {
-  // --- THE DEFINITIVE FIX IS HERE ---
-  // If the object is an instance of Transport, return it immediately without processing.
-  // This preserves the class instance and all its methods.
-  if (config instanceof Transport) {
+  // =================================================================
+  //  CORRECCIÓN: Usamos nuestra nueva función de ayuda aquí.
+  //  Si el objeto es una instancia especial, la devolvemos sin procesar.
+  // =================================================================
+  if (isSpecialInstance(config)) {
     return config;
   }
 
@@ -64,12 +86,11 @@ export function sanitizeConfig<T extends object>(config: T): T {
           (match, user, pass) => `${user}:${MASK}@`
         );
       } else if (
-        // Recurse only if it's a plain object, but NOT a RegExp.
-        // The Transport check is now handled at the top of the function.
         typeof value === 'object' &&
         value !== null &&
         !(value instanceof RegExp)
       ) {
+        // La llamada recursiva ahora respetará las instancias especiales.
         sanitized[key] = sanitizeConfig(value);
       } else {
         sanitized[key] = value;

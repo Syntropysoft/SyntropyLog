@@ -1,5 +1,5 @@
 {
-  "name": "03-fetch_and_got",
+  "name": "03-Http-clients-adapters",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -12,8 +12,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "syntropylog": "file:../..",
-    "got": "^14.4.7"
+    "@types/node-fetch": "^2.6.12",
+    "axios": "^1.10.0",
+    "got": "^14.4.7",
+    "node-fetch": "^3.3.2",
+    "syntropylog": "file:../.."
   },
   "devDependencies": {
     "nock": "^13.5.6",
