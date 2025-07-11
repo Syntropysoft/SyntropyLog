@@ -236,6 +236,11 @@ export class BeaconRedis implements IBeaconRedis {
   /** Executes the Redis HSET command. */
   public async hSet(
     key: string,
+    fieldsAndValues: Record<string, any>
+  ): Promise<number>;
+  public async hSet(key: string, field: string, value: any): Promise<number>;
+  public async hSet(
+    key: string,
     fieldOrFields: string | Record<string, any>,
     value?: any
   ): Promise<number> {
@@ -406,6 +411,11 @@ export class BeaconRedis implements IBeaconRedis {
     );
   }
   /** Executes the Redis ZADD command. */
+  public async zAdd(key: string, score: number, member: any): Promise<number>;
+  public async zAdd(
+    key: string,
+    members: { score: number; value: any }[]
+  ): Promise<number>;
   public async zAdd(
     key: string,
     scoreOrMembers: any,
@@ -413,7 +423,13 @@ export class BeaconRedis implements IBeaconRedis {
   ): Promise<number> {
     return this._executeCommand(
       'ZADD',
-      () => this.commandExecutor.zAdd(key, scoreOrMembers, member),
+      () => {
+        // Check if we are using the array overload for multiple members.
+        if (Array.isArray(scoreOrMembers)) {
+          return this.commandExecutor.zAdd(key, scoreOrMembers);
+        }
+        return this.commandExecutor.zAdd(key, scoreOrMembers, member);
+      },
       key,
       scoreOrMembers,
       member
