@@ -55,6 +55,14 @@ function isSpecialInstance(
   ) {
     return true;
   }
+
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as IBrokerAdapter).publish === 'function'
+  ) {
+    return true;
+  }
   
   return false;
 }

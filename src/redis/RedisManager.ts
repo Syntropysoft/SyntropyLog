@@ -99,6 +99,7 @@ export class RedisManager {
         // with the client will, with a clear message.
         const failingClient = createFailingRedisClient(
           instanceConfig.instanceName,
+          error as Error,
           this.logger
         );
         this.instances.set(instanceConfig.instanceName, failingClient);

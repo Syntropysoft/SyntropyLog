@@ -28,10 +28,11 @@ describe('createFailingClient', () => {
 
   describe('createFailingRedisClient', () => {
     const instanceName = 'my-redis';
+    const initializationError = new Error('Connection refused');
     let failingClient: IBeaconRedis;
 
     beforeEach(() => {
-      failingClient = createFailingRedisClient(instanceName, mockLogger);
+      failingClient = createFailingRedisClient(instanceName, initializationError, mockLogger);
     });
 
     it('should return the instance name correctly via special handler', () => {
@@ -40,7 +41,7 @@ describe('createFailingClient', () => {
     });
 
     it('should throw a synchronous error when calling "multi"', () => {
-      const expectedError = `The Redis client "${instanceName}" could not be initialized. Check the configuration and startup logs.`;
+      const expectedError = `The Redis client "${instanceName}" could not be initialized. Reason: ${initializationError.message}. Check the configuration and startup logs.`;
       expect(() => failingClient.multi()).toThrow(expectedError);
       expect(mockLogger.debug).toHaveBeenCalledWith(`Attempted to use method 'multi()' on a failing Redis client.`, {
         errorMessage: expectedError,
@@ -48,7 +49,7 @@ describe('createFailingClient', () => {
     });
 
     it('should reject with an error when calling a standard command like "get"', async () => {
-      const expectedError = `The Redis client "${instanceName}" could not be initialized. Check the configuration and startup logs.`;
+      const expectedError = `The Redis client "${instanceName}" could not be initialized. Reason: ${initializationError.message}. Check the configuration and startup logs.`;
 
       // The property access returns a function that returns a promise
       const promise = failingClient.get('my-key');
@@ -62,7 +63,7 @@ describe('createFailingClient', () => {
     });
 
     it('should reject with an error when calling a command with multiple arguments like "set"', async () => {
-      const expectedError = `The Redis client "${instanceName}" could not be initialized. Check the configuration and startup logs.`;
+      const expectedError = `The Redis client "${instanceName}" could not be initialized. Reason: ${initializationError.message}. Check the configuration and startup logs.`;
 
       const promise = failingClient.set('my-key', 'my-value', 'EX', 3600);
 

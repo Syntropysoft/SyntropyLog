@@ -8,16 +8,6 @@
  */
 import { IBeaconRedis, IBeaconRedisTransaction } from './IBeaconRedis';
 import { ILogger } from '../logger';
-// =================================================================
-//  CORRECCIÓN: Importamos los componentes necesarios para crear un logger
-//  de prueba sin depender de una configuración completa.
-// =================================================================
-import { Logger } from '../logger/Logger';
-import { MockContextManager } from '../context/MockContextManager';
-import { SpyTransport } from '../logger/transports/SpyTransport';
-import { SerializerRegistry } from '../serialization/SerializerRegistry';
-import { MaskingEngine } from '../masking/MaskingEngine';
-import { SanitizationEngine } from '../sanitization/SanitizationEngine';
 import { RedisZMember, TransactionResult } from './redis.types';
 
 // --- Internal Mock Storage Types ---
@@ -242,18 +232,21 @@ export class BeaconRedisMock implements IBeaconRedis {
         component: `BeaconRedisMock[${this.instanceName}]`,
       });
     } else {
-      // =================================================================
-      //  CORRECCIÓN: Creamos un logger funcional para el mock sin necesidad
-      //  de una configuración global. Usa un SpyTransport por defecto.
-      // =================================================================
-      this.logger = new Logger({
-        contextManager: new MockContextManager(),
-        transports: [new SpyTransport()],
-        serializerRegistry: new SerializerRegistry(),
-        maskingEngine: new MaskingEngine(),
-        sanitizationEngine: new SanitizationEngine(),
-        serviceName: `BeaconRedisMock[${this.instanceName}]`,
-      });
+      // If no logger is provided, create a lightweight, no-op mock logger
+      // to avoid pulling in the entire logging stack.
+      this.logger = {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        fatal: () => {},
+        trace: () => {},
+        child: () => this.logger,
+        withSource: () => this.logger,
+        setLevel: () => {},
+        withRetention: () => this.logger,
+        withTransactionId: () => this.logger,
+      };
     }
   }
   /**

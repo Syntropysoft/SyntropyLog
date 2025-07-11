@@ -46,8 +46,12 @@ function createFailingProxy(
  * @param logger The logger instance.
  * @returns An `IBeaconRedis` compliant object that will fail on every command.
  */
-export function createFailingRedisClient(instanceName: string, logger: ILogger): IBeaconRedis {
-  const errorMessage = `The Redis client "${instanceName}" could not be initialized. Check the configuration and startup logs.`;
+export function createFailingRedisClient(
+  instanceName: string,
+  initializationError: Error,
+  logger: ILogger
+): IBeaconRedis {
+  const errorMessage = `The Redis client "${instanceName}" could not be initialized. Reason: ${initializationError.message}. Check the configuration and startup logs.`;
   const specialHandlers = {
     getInstanceName: () => instanceName,
     // Methods that do not return promises, like `multi`, might need special handling,

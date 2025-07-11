@@ -20,14 +20,6 @@ function isRedisClientType(
 ): client is RedisClientType<RedisModules, RedisFunctions, RedisScripts> {
   return typeof (client as any).ping === 'function' && !('commands' in client);
 }
-// Type guard for RedisClusterType
-function isRedisClusterType(
-  client: NodeRedisClient
-): client is RedisClusterType<RedisModules, RedisFunctions, RedisScripts> {
-  return (
-    'commands' in client && typeof (client as any).commands?.ping === 'function'
-  );
-}
 
 /**
  * @class RedisConnectionManager
@@ -275,17 +267,9 @@ export class RedisConnectionManager {
       return false;
     }
     try {
-      let pong: string;
-      if (isRedisClientType(this.client)) {
-        pong = await this.client.ping();
-      } else if (isRedisClusterType(this.client)) {
-        pong = await (this.client as any).commands.ping();
-      } else {
-        this.logger.warn(
-          'PING command not available on this Redis client type. Assuming unhealthy.'
-        );
-        return false;
-      }
+      // By calling this.ping(), we reuse the logic that correctly handles
+      // single-node and cluster clients.
+      const pong = await this.ping();
       this.logger.debug(`PING response: ${pong}`);
       return pong === 'PONG';
     } catch (error) {
