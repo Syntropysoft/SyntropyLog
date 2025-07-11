@@ -1,81 +1,78 @@
 /**
- * FILE: src/logger/transports/CompactConsoleTransport.ts
- * DESCRIPTION: A transport that formats logs for a compact, human-readable console output.
+ * @file src/logger/transports/CompactConsoleTransport.ts
+ * @description A transport that formats logs for a compact, human-readable console output.
  */
-import { LogEntry } from '../../types';
-import { Transport, TransportOptions } from './Transport';
+import { TransportOptions } from './Transport';
 import { LogLevelName } from '../levels';
-import { Chalk, type ChalkInstance } from 'chalk';
-
-// Instantiate Chalk directly
-const chalk = new Chalk();
-
-const levelColorMap: Record<Exclude<LogLevelName, 'silent'>, ChalkInstance> = {
-  fatal: chalk.bgRed.white.bold,
-  error: chalk.red.bold,
-  warn: chalk.yellow.bold,
-  info: chalk.cyan.bold, // Changed to cyan for better contrast
-  debug: chalk.green,
-  trace: chalk.gray,
-};
+import { type ChalkInstance } from 'chalk';
+import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
 
 /**
+ * @class CompactConsoleTransport
  * A transport that writes logs to the console in a compact, single-line format
  * for metadata, optimized for developer productivity.
+ * @extends {BaseConsolePrettyTransport}
  */
-export class CompactConsoleTransport extends Transport {
+export class CompactConsoleTransport extends BaseConsolePrettyTransport {
+  private readonly levelColorMap: Record<
+    Exclude<LogLevelName, 'silent'>,
+    ChalkInstance
+  >;
+
+  /**
+   * @constructor
+   * @param {TransportOptions} [options] - Options for the transport, such as level or a formatter.
+   */
   constructor(options?: TransportOptions) {
     super(options);
+    this.levelColorMap = {
+      fatal: this.chalk.bgRed.white.bold,
+      error: this.chalk.red.bold,
+      warn: this.chalk.yellow.bold,
+      info: this.chalk.cyan.bold, // Using cyan for better contrast in compact view.
+      debug: this.chalk.green,
+      trace: this.chalk.gray,
+    };
   }
 
   /**
-   * Logs a structured entry to the console in a compact, pretty format.
-   * @param entry The log entry to process.
+   * Formats the log object into a compact, human-readable string.
+   * @param {Record<string, any>} logObject - The log object to format.
+   * @returns {string} The formatted string.
    */
-  public async log(entry: LogEntry): Promise<void> {
-    if (entry.level === 'silent') {
-      return;
-    }
-
-    const finalObject = this.formatter ? this.formatter.format(entry) : entry;
-    const { timestamp, level, service, msg, ...rest } = finalObject;
+  protected formatLogString(logObject: Record<string, any>): string {
+    const { timestamp, level, service, msg, ...rest } = logObject;
 
     const colorizer =
-      levelColorMap[level as Exclude<LogLevelName, 'silent'>] || chalk.white;
+      this.levelColorMap[level as Exclude<LogLevelName, 'silent'>] ||
+      this.chalk.white;
 
-    const time = chalk.gray(new Date(timestamp).toLocaleTimeString());
+    const time = this.chalk.gray(new Date(timestamp).toLocaleTimeString());
     const levelString = colorizer(`[${level.toUpperCase()}]`);
-    const serviceString = chalk.blue(`(${service})`);
+    const serviceString = this.chalk.blue(`(${service})`);
     const message = msg;
 
     let logString = `${time} ${levelString} ${serviceString}: ${message}`;
 
-    // Format metadata into a single, compact line
+    // Format metadata into a single, compact line.
     const metaKeys = Object.keys(rest);
     if (metaKeys.length > 0) {
       const metaString = metaKeys
         .map((key) => {
           const value = rest[key];
-          // Simple stringify for objects/arrays in metadata
+          // Simple stringify for objects/arrays in metadata.
           const formattedValue =
             typeof value === 'object' && value !== null
               ? JSON.stringify(value)
               : value;
-          return `${chalk.dim(key)}=${chalk.gray(formattedValue)}`;
+          return `${this.chalk.dim(key)}=${this.chalk.gray(formattedValue)}`;
         })
         .join(' ');
 
-      // Append metadata on a new, indented line for clarity
-      logString += `\n  └─ ${metaString}`;
+      // Append metadata on a new, indented line for clarity.
+      logString += `\n  ${this.chalk.dim('└─')} ${metaString}`;
     }
 
-    const consoleMethod =
-      level === 'fatal' || level === 'error'
-        ? console.error
-        : level === 'warn'
-          ? console.warn
-          : console.log;
-
-    consoleMethod(logString);
+    return logString;
   }
 }

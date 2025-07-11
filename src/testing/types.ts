@@ -1,10 +1,10 @@
 import { SpyTransport } from '../logger/transports/SpyTransport';
 
 /**
- * The collection of tools returned by `beaconLog.setupTestHarness()`,
- * designed to facilitate testing of application logic that uses BeaconLog.
+ * The collection of tools returned by `syntropyLog.setupTestHarness()`,
+ * designed to facilitate testing of application logic that uses SyntropyLog.
  */
-export interface BeaconLogTestHarness {
+export interface SyntropyLogTestHarness {
   /**
    * A spy transport that captures all log entries in memory.
    * Use its methods (`getEntries`, `findEntries`, `clear`) to make

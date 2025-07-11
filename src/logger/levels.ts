@@ -1,8 +1,13 @@
 /**
- * Defines the numeric severity of log levels.
- * Lower numbers are higher priority.
+ * @file src/logger/levels.ts
+ * @description Defines the standard log levels, their names, and their numeric severity values.
  */
-// Values are based on the Pino logging library standard. Higher is more severe.
+
+/**
+ * @constant logLevels
+ * @description Defines the numeric severity of log levels, based on the Pino logging library standard.
+ * Higher numbers indicate higher severity.
+ */
 export const logLevels = {
   trace: 10,
   debug: 20,
@@ -10,17 +15,22 @@ export const logLevels = {
   warn: 40,
   error: 50,
   fatal: 60,
-  silent: 70,
+  /**
+   * 'silent' is a special level used to disable logging. When a logger's level is set
+   * to 'silent', no logs will be processed. Its value is set to Infinity to ensure
+   * it is always the highest severity, meaning no log message can meet its threshold.
+   */
+  silent: Infinity,
 } as const;
 
 /**
- * Represents the string name of a log level.
- * e.g., 'info', 'warn', 'error'.
+ * @type LogLevelName
+ * @description Represents the string name of a log level (e.g., 'info', 'warn', 'error').
  */
 export type LogLevelName = keyof typeof logLevels;
 
 /**
- * Represents the numeric value of a log level.
- * e.g., 0, 1, 2.
+ * @type LogLevel
+ * @description Represents the numeric value of a log level (e.g., 30, 40, 50).
  */
 export type LogLevel = (typeof logLevels)[LogLevelName];

@@ -1,14 +1,18 @@
-// src/clients-http/utils/redact.ts
+/**
+ * @file src/http/utils/redact.ts
+ * @description Provides utility functions for redacting sensitive information
+ * from objects and headers, crucial for secure logging.
+ */
 
+/** @private The placeholder string used to replace redacted values. */
 const REDACTED_PLACEHOLDER = '[REDACTED]';
 
 /**
  * Deeply clones and redacts sensitive fields from an object or array.
  * This function is designed to be safe and avoid modifying the original object.
- *
- * @param data The object or array to redact.
- * @param sensitiveFields An array of keys (strings) to be redacted.
- * @param maxDepth The maximum recursion depth to prevent infinite loops.
+ * @param {any} data - The object or array to redact.
+ * @param {string[]} [sensitiveFields=[]] - An array of keys (strings) to be redacted, matched case-insensitively.
+ * @param {number} [maxDepth=10] - The maximum recursion depth to prevent infinite loops.
  * @returns A new object or array with sensitive fields redacted.
  */
 export function redactObject(
@@ -16,7 +20,6 @@ export function redactObject(
   sensitiveFields: string[] = [],
   maxDepth = 10
 ): any {
-
   const sensitiveSet = new Set(sensitiveFields.map((f) => f.toLowerCase()));
 
   const redactRecursive = (currentData: any, depth: number): any => {
@@ -55,9 +58,8 @@ export function redactObject(
 /**
  * Redacts sensitive headers from a headers object.
  * Header names are treated case-insensitively.
- *
- * @param headers The headers object (e.g., from an HTTP request).
- * @param sensitiveHeaders An array of header names to redact.
+ * @param {Record<string, any>} headers - The headers object (e.g., from an HTTP request).
+ * @param {string[]} [sensitiveHeaders=[]] - An array of header names to redact.
  * @returns A new headers object with sensitive values redacted.
  */
 export function redactHeaders(

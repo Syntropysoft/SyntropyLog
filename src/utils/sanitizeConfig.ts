@@ -25,60 +25,41 @@ const SENSITIVE_KEYS = [
 ];
 
 /**
- * Función de ayuda para detectar si un objeto es una instancia de una clase
- * que no debemos clonar (como un Transport o un Adapter).
- * @param value El valor a comprobar.
+ * @private
+ * A helper function to detect if a value is a special class instance
+ * (like a Transport or an Adapter) that should not be deeply cloned or sanitized.
+ * This is crucial to preserve methods and internal state of user-provided instances.
+ * @param {any} value - The value to check.
+ * @returns {value is Transport | IHttpClientAdapter | IBrokerAdapter} True if the value is a special instance.
  */
 function isSpecialInstance(
   value: any
-): value is Transport | IHttpClientAdapter {
+): value is Transport | IHttpClientAdapter | IBrokerAdapter {
   if (value instanceof Transport) {
     return true;
   }
-  // Si tiene un método 'request', asumimos que es un adaptador y no lo tocamos.
+  // Duck-typing for adapters: if it has the core method, we treat it as an adapter.
   if (
     typeof value === 'object' &&
     value !== null &&
-    typeof (value as IHttpClientAdapter).request === 'function'
+    (typeof (value as IHttpClientAdapter).request === 'function' ||
+      typeof (value as IBrokerAdapter).publish === 'function')
   ) {
     return true;
   }
 
-  // =================================================================
-  //  CORRECCIÓN: Si tiene un método 'publish', asumimos que es un
-  //  adaptador de broker y tampoco lo tocamos.
-  // =================================================================
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as IBrokerAdapter).publish === 'function'
-  ) {
-    return true;
-  }
-
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as IBrokerAdapter).publish === 'function'
-  ) {
-    return true;
-  }
-  
   return false;
 }
 
 /**
- * Recursively sanitizes a configuration object.
- * It masks values for keys that are known to be sensitive.
- * It intelligently skips special class instances to preserve their methods.
- * @param config The configuration object to sanitize.
- * @returns A new, sanitized configuration object.
+ * Recursively sanitizes a configuration object for safe logging.
+ * It masks values for keys that are known to be sensitive and redacts credentials from URLs.
+ * It intelligently skips special class instances (Transports, Adapters) to preserve their methods.
+ * @param {T} config - The configuration object to sanitize.
+ * @returns {T} A new, sanitized configuration object.
  */
 export function sanitizeConfig<T extends object>(config: T): T {
-  // =================================================================
-  //  CORRECCIÓN: Usamos nuestra nueva función de ayuda aquí.
-  //  Si el objeto es una instancia especial, la devolvemos sin procesar.
-  // =================================================================
+  // If the object is a special instance (like a Transport or Adapter), return it without processing.
   if (isSpecialInstance(config)) {
     return config;
   }
@@ -102,9 +83,10 @@ export function sanitizeConfig<T extends object>(config: T): T {
       if (sensitiveLower.includes(lowerKey)) {
         sanitized[key] = MASK;
       } else if (
-        lowerKey.includes('url') &&
+        (lowerKey.includes('url') || lowerKey.includes('uri')) &&
         typeof value === 'string'
       ) {
+        // Redact user:pass from connection strings.
         sanitized[key] = value.replace(
           /(?<=:\/\/)([^:]+):([^@]+)@/,
           (match, user, pass) => `${user}:${MASK}@`
@@ -114,7 +96,7 @@ export function sanitizeConfig<T extends object>(config: T): T {
         value !== null &&
         !(value instanceof RegExp)
       ) {
-        // La llamada recursiva ahora respetará las instancias especiales.
+        // The recursive call will also respect special instances.
         sanitized[key] = sanitizeConfig(value);
       } else {
         sanitized[key] = value;

@@ -1,12 +1,16 @@
-/*
-=============================================================================
-ARCHIVO 4: src/cli/templates.ts (NUEVO - PLANTILLAS DE CÓDIGO)
------------------------------------------------------------------------------
-DESCRIPTION (en-US):
-This file centralizes the content for the generated manifest files. It
-provides different template strings based on the chosen language and module system.
-=============================================================================
-*/
+/**
+ * @file src/cli/templates.ts
+ * @description This file centralizes the content for the generated manifest files.
+ * It provides different template strings based on the chosen language and module system,
+ * which are used by the `init` command.
+ */
+
+/**
+ * Generates the content for a `syntropylog.doctor.ts` rule manifest file.
+ * @param {'ts' | 'js'} lang - The target language for the template.
+ * @param {'esm' | 'cjs'} moduleSystem - The target module system.
+ * @returns {string} The complete file content as a string.
+ */
 export function getDoctorManifestTemplate(
   lang: 'ts' | 'js',
   moduleSystem: 'esm' | 'cjs'
@@ -45,6 +49,12 @@ export function getDoctorManifestTemplate(
     : `${header.trim()}\n\n${cjsImport}\n\n${cjsExport} ${body}`;
 }
 
+/**
+ * Generates the content for a `syntropylog.audit.ts` audit plan file.
+ * @param {'ts' | 'js'} lang - The target language for the template.
+ * @param {'esm' | 'cjs'} moduleSystem - The target module system.
+ * @returns {string} The complete file content as a string.
+ */
 export function getAuditPlanTemplate(
   lang: 'ts' | 'js',
   moduleSystem: 'esm' | 'cjs'

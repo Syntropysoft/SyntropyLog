@@ -1,24 +1,22 @@
 /*
-=============================================================================
-FILE: src/context/MockContextManager.ts
------------------------------------------------------------------------------
-DESCRIPTION:
-Provides a mock implementation of the IContextManager interface, designed
-for use in testing environments.
-=============================================================================
-*/
+ * @file src/context/MockContextManager.ts
+ * @description Provides a mock implementation of the IContextManager interface,
+ * designed specifically for use in testing environments.
+ */
 
 import type { IContextManager } from './IContextManager';
 
 /**
- * A mock implementation of IContextManager for testing purposes.
+ * @class MockContextManager
+ * @description A mock implementation of `IContextManager` for testing purposes.
  * It uses a simple in-memory object instead of AsyncLocalStorage,
  * making context management predictable and synchronous in tests.
+ * @implements {IContextManager}
  */
 export class MockContextManager implements IContextManager {
-  /** The in-memory key-value store for the context. */
+  /** @private The in-memory key-value store for the context. */
   private store: Record<string, any> = {};
-  /** The HTTP header name used for the correlation ID. */
+  /** @private The HTTP header name used for the correlation ID. */
   private correlationIdHeader = 'x-correlation-id';
 
   /**
@@ -33,10 +31,12 @@ export class MockContextManager implements IContextManager {
 
   /**
    * Simulates running a function within a new, isolated context.
-   * It clears the store, runs the callback, and then restores the previous
-   * store, correctly handling both synchronous and asynchronous callbacks.
-   * @param callback The function to execute.
-   * @returns The result of the callback.
+   * It saves the current context, creates a new one inheriting the parent's values,
+   * runs the callback, and then restores the original context. This process
+   * correctly handles both synchronous and asynchronous callbacks.
+   * @template T The return type of the callback.
+   * @param {() => T} callback The function to execute within the new context.
+   * @returns {T} The result of the callback.
    */
   run<T>(callback: () => T): T {
     const originalStore = this.store;
@@ -66,7 +66,8 @@ export class MockContextManager implements IContextManager {
 
   /**
    * Gets a value from the mock context by its key.
-   * @param key The key of the value to retrieve.
+   * @template T The expected type of the value.
+   * @param {string} key The key of the value to retrieve.
    * @returns The value, or `undefined` if not found.
    */
   get<T = any>(key: string): T | undefined {
@@ -75,7 +76,7 @@ export class MockContextManager implements IContextManager {
 
   /**
    * Gets a shallow copy of the entire mock context store.
-   * @returns An object containing all context data.
+   * @returns {Record<string, any>} An object containing all context data.
    */
   getAll(): Record<string, any> {
     // Return a shallow copy to prevent direct mutation of the internal store.
@@ -84,8 +85,9 @@ export class MockContextManager implements IContextManager {
 
   /**
    * Sets a key-value pair in the mock context.
-   * @param key The key for the value.
-   * @param value The value to store.
+   * @param {string} key The key for the value.
+   * @param {any} value The value to store.
+   * @returns {void}
    */
   set(key: string, value: any): void {
     this.store[key] = value;
@@ -94,20 +96,23 @@ export class MockContextManager implements IContextManager {
   /**
    * Clears the in-memory store.
    * Useful for resetting state between tests (e.g., in a `beforeEach` hook).
+   * @returns {void}
    */
   clear(): void {
     this.store = {};
   }
 
   /**
-   * Gets the correlation ID from the mock context.
+   * A convenience method to get the correlation ID from the mock context.
+   * @returns {string | undefined} The correlation ID, or undefined if not set.
    */
   getCorrelationId(): string | undefined {
     return this.get(this.correlationIdHeader);
   }
 
   /**
-   * Gets the configured HTTP header name for the correlation ID.
+   * Gets the configured HTTP header name used for the correlation ID.
+   * @returns {string} The header name.
    */
   getCorrelationIdHeaderName(): string {
     return this.correlationIdHeader;

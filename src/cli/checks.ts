@@ -1,26 +1,43 @@
 /**
- * FILE: src/cli/checks.ts
- * DESCRIPTION: The engine for the diagnostic rules. This file contains the array of
+ * @file src/cli/checks.ts
+ * @description The engine for the diagnostic rules. This file contains the array of
  * core rules and the logic to execute them against a configuration.
  */
-import fs from 'fs';
-import { SyntropyLogConfig } from '../config'; // Using the new config type
+import { SyntropyLogConfig } from '../config';
 
+/**
+ * @interface CheckResult
+ * @description Represents the outcome of a single diagnostic check.
+ */
 export interface CheckResult {
+  /** The severity level of the finding. */
   level: 'ERROR' | 'WARN' | 'INFO';
+  /** A short, descriptive title for the finding. */
   title: string;
+  /** A detailed message explaining the issue. */
   message: string;
+  /** An optional recommendation on how to fix the issue. */
   recommendation?: string;
 }
 
+/**
+ * @interface DiagnosticRule
+ * @description Defines the structure for a diagnostic rule that can be run by the doctor.
+ */
 export interface DiagnosticRule {
+  /** A unique identifier for the rule, used for disabling it in the config. */
   id: string;
+  /** A brief description of what the rule checks for. */
   description: string;
+  /** The function that contains the actual check logic. */
   check: (config: SyntropyLogConfig) => CheckResult[];
 }
 
-// --- CORE RULE DEFINITIONS ---
-// This array is the set of built-in rules that SyntropyLog provides.
+/**
+ * @constant coreRules
+ * @description An array containing the set of built-in diagnostic rules provided by SyntropyLog.
+ * Users can extend, filter, or replace this set in their own audit manifests.
+ */
 export const coreRules: DiagnosticRule[] = [
   {
     id: 'prod-log-level',
@@ -51,6 +68,14 @@ export const coreRules: DiagnosticRule[] = [
   // Add other relevant checks here...
 ];
 
+/**
+ * Executes a set of diagnostic rules against a given configuration.
+ * It respects the `doctor.disableRules` property in the configuration,
+ * skipping any rules that the user has explicitly disabled.
+ * @param {SyntropyLogConfig} config - The parsed configuration object to check.
+ * @param {DiagnosticRule[]} rules - The array of rules to execute.
+ * @returns {CheckResult[]} An array of all findings from the executed rules.
+ */
 export function runAllChecks(
   config: SyntropyLogConfig,
   rules: DiagnosticRule[]
@@ -76,9 +101,14 @@ export function runAllChecks(
 }
 
 /* ------------------------------------------------------------------------- */
-/* RULE IMPLEMENTATIONS                            */
+/*                          RULE IMPLEMENTATIONS                             */
 /* ------------------------------------------------------------------------- */
 
+/**
+ * Checks if the logger level is appropriate for a production environment.
+ * @param {SyntropyLogConfig} config - The configuration object.
+ * @returns {CheckResult[]} A warning if the level is 'debug' or 'trace' in production.
+ */
 function checkLoggerLevel(config: SyntropyLogConfig): CheckResult[] {
   const level = config.logger?.level;
   if (
@@ -98,6 +128,11 @@ function checkLoggerLevel(config: SyntropyLogConfig): CheckResult[] {
   return [];
 }
 
+/**
+ * Checks if any logger transports are defined.
+ * @param {SyntropyLogConfig} config - The configuration object.
+ * @returns {CheckResult[]} An error if `logger.transports` is an empty array.
+ */
 function checkLoggerTransports(config: SyntropyLogConfig): CheckResult[] {
   if (
     config.logger &&
@@ -118,6 +153,11 @@ function checkLoggerTransports(config: SyntropyLogConfig): CheckResult[] {
   return [];
 }
 
+/**
+ * Checks if any data masking rules are defined.
+ * @param {SyntropyLogConfig} config - The configuration object.
+ * @returns {CheckResult[]} A warning if `masking.fields` is empty or not defined.
+ */
 function checkMaskingRules(config: SyntropyLogConfig): CheckResult[] {
   if (!config.masking?.fields || config.masking.fields.length === 0) {
     return [
@@ -134,6 +174,11 @@ function checkMaskingRules(config: SyntropyLogConfig): CheckResult[] {
   return [];
 }
 
+/**
+ * Checks if Redis instances configured in 'sentinel' mode have a master name.
+ * @param {SyntropyLogConfig} config - The configuration object.
+ * @returns {CheckResult[]} An error for each sentinel instance missing the `name` property.
+ */
 function checkRedisSentinel(config: SyntropyLogConfig): CheckResult[] {
   const instances = config.redis?.instances ?? [];
   return instances.flatMap((i) => {
@@ -152,6 +197,11 @@ function checkRedisSentinel(config: SyntropyLogConfig): CheckResult[] {
   });
 }
 
+/**
+ * Checks for duplicate `instanceName` properties among Redis instances.
+ * @param {SyntropyLogConfig} config - The configuration object.
+ * @returns {CheckResult[]} An error if any duplicate instance names are found.
+ */
 function checkRedisInstanceNameUniqueness(
   config: SyntropyLogConfig
 ): CheckResult[] {

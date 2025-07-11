@@ -1,58 +1,56 @@
 /**
- * FILE: src/logger/transports/PrettyConsoleTransport.ts
- * DESCRIPTION: A transport that formats logs for human readability in a development console, using colors.
+ * @file src/logger/transports/PrettyConsoleTransport.ts
+ * @description A transport that formats logs for human readability in a development console, using colors.
  */
-import { LogEntry } from '../../types';
-import { Transport, TransportOptions } from './Transport';
+import { TransportOptions } from './Transport';
 import { LogLevelName } from '../levels';
-import { Chalk, type ChalkInstance } from 'chalk';
-
-
-// Instantiate Chalk directly
-const chalk = new Chalk();
-
-// Define a color map for each log level for easy styling.
-// The map excludes 'silent' as it will be handled separately.
-const levelColorMap: Record<Exclude<LogLevelName, 'silent'>, ChalkInstance> = {
-  fatal: chalk.bgRed.white.bold,
-  error: chalk.red.bold,
-  warn: chalk.yellow.bold,
-  info: chalk.blue.bold,
-  debug: chalk.green,
-  trace: chalk.gray,
-};
+import { type ChalkInstance } from 'chalk';
+import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
 
 /**
- * A transport that writes logs to the console in a human-readable, colorful format.
+ * @class PrettyConsoleTransport
+ * @description A transport that writes logs to the console in a human-readable, colorful format.
  * Ideal for use in development environments.
+ * @extends {BaseConsolePrettyTransport}
  */
-export class PrettyConsoleTransport extends Transport {
+export class PrettyConsoleTransport extends BaseConsolePrettyTransport {
+  private readonly levelColorMap: Record<
+    Exclude<LogLevelName, 'silent'>,
+    ChalkInstance
+  >;
+
+  /**
+   * @constructor
+   * @param {TransportOptions} [options] - Options for the transport, such as level or a formatter.
+   */
   constructor(options?: TransportOptions) {
     super(options);
+    this.levelColorMap = {
+      fatal: this.chalk.bgRed.white.bold,
+      error: this.chalk.red.bold,
+      warn: this.chalk.yellow.bold,
+      info: this.chalk.blue.bold,
+      debug: this.chalk.green,
+      trace: this.chalk.gray,
+    };
   }
 
   /**
-   * Logs a structured entry to the console in a pretty format.
-   * @param entry The log entry to process.
+   * Formats the log object into a pretty, human-readable string.
+   * @param {Record<string, any>} logObject - The log object to format.
+   * @returns {string} The formatted string.
    */
-  public async log(entry: LogEntry): Promise<void> {
-    // For 'silent' level, we do nothing.
-    if (entry.level === 'silent') {
-      return;
-    }
+  protected formatLogString(logObject: Record<string, any>): string {
+    const { timestamp, level, service, msg, ...rest } = logObject;
 
-    // If a formatter is provided, use it. Otherwise, use the entry as is.
-    const finalObject = this.formatter ? this.formatter.format(entry) : entry;
-    const { timestamp, level, service, msg, ...rest } = finalObject;
-
-    // Get the color function for the current log level, with a fallback to white.
     const colorizer =
-      levelColorMap[level as Exclude<LogLevelName, 'silent'>] || chalk.white;
+      this.levelColorMap[level as Exclude<LogLevelName, 'silent'>] ||
+      this.chalk.white;
 
     // Format the main log line
-    const time = chalk.gray(new Date(timestamp).toLocaleTimeString());
+    const time = this.chalk.gray(new Date(timestamp).toLocaleTimeString());
     const levelString = colorizer(`[${level.toUpperCase()}]`);
-    const serviceString = chalk.cyan(`(${service})`);
+    const serviceString = this.chalk.cyan(`(${service})`);
     const message = msg;
 
     let logString = `${time} ${levelString} ${serviceString}: ${message}`;
@@ -61,18 +59,10 @@ export class PrettyConsoleTransport extends Transport {
     const metaKeys = Object.keys(rest);
     if (metaKeys.length > 0) {
       // Use a more subtle color for metadata
-      const metaString = chalk.gray(JSON.stringify(rest, null, 2));
+      const metaString = this.chalk.gray(JSON.stringify(rest, null, 2));
       logString += `\n${metaString}`;
     }
 
-    // Use the appropriate console method based on the log level
-    const consoleMethod =
-      level === 'fatal' || level === 'error'
-        ? console.error
-        : level === 'warn'
-          ? console.warn
-          : console.log;
-
-    consoleMethod(logString);
+    return logString;
   }
 }

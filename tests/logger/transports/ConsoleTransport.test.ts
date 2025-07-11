@@ -92,13 +92,14 @@ describe('ConsoleTransport', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith(JSON.stringify(logEntry));
   });
 
-  it('should log a silent entry to console.log based on the switch default', async () => {
+  it('should not log anything for the "silent" level', async () => {
     const transport = new ConsoleTransport();
-    const logEntry = createLogEntry('silent', 'This should be logged by default.');
+    const logEntry = createLogEntry('silent', 'This should not be logged.');
 
     await transport.log(logEntry);
 
-    expect(consoleLogSpy).toHaveBeenCalledOnce();
-    expect(consoleLogSpy).toHaveBeenCalledWith(JSON.stringify(logEntry));
+    expect(consoleLogSpy).not.toHaveBeenCalled();
+    expect(consoleWarnSpy).not.toHaveBeenCalled();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
 });

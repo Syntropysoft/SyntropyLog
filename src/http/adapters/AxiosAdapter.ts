@@ -1,10 +1,8 @@
 /**
- * FILE: src/http/adapters/AxiosAdapter.ts
- * DESCRIPTION:
- * Implementación del "traductor" para la librería Axios.
- * Esta clase cumple con el contrato IHttpClientAdapter y se encarga de
- * convertir las peticiones y respuestas entre el formato genérico del framework
- * y el formato específico de Axios.
+ * @file src/http/adapters/AxiosAdapter.ts
+ * @description An implementation of the IHttpClientAdapter for the Axios library.
+ * This class acts as a "translator," converting requests and responses
+ * between the framework's generic format and the Axios-specific format.
  */
 
 import axios, {
@@ -22,12 +20,12 @@ import {
 } from './adapter.types';
 
 /**
- * Función de ayuda para normalizar el objeto de cabeceras de Axios.
- * El tipo de cabeceras de Axios es complejo (AxiosResponseHeaders), mientras que
- * nuestra interfaz espera un simple Record<string, ...>. Esta función
- * hace la conversión de forma segura.
- * @param headers - El objeto de cabeceras de Axios.
- * @returns Un objeto de cabeceras simple y normalizado.
+ * A helper function to normalize the Axios headers object.
+ * The Axios header type is complex (`AxiosResponseHeaders` | `RawAxiosResponseHeaders`),
+ * while our adapter interface expects a simple `Record<string, ...>`.
+ * This function performs the conversion safely.
+ * @param {RawAxiosResponseHeaders | AxiosResponseHeaders} headers - The Axios headers object.
+ * @returns {Record<string, string | number | string[]>} A simple, normalized headers object.
  */
 function normalizeHeaders(
   headers: RawAxiosResponseHeaders | AxiosResponseHeaders
@@ -35,7 +33,7 @@ function normalizeHeaders(
   const normalized: Record<string, string | number | string[]> = {};
   for (const key in headers) {
     if (Object.prototype.hasOwnProperty.call(headers, key)) {
-      // Los headers de Axios pueden ser undefined, nos aseguramos de no incluirlos.
+      // Axios headers can be undefined, so we ensure they are not included.
       const value = headers[key];
       if (value !== undefined && value !== null) {
         normalized[key] = value;
@@ -45,9 +43,20 @@ function normalizeHeaders(
   return normalized;
 }
 
+/**
+ * @class AxiosAdapter
+ * @description An adapter that allows SyntropyLog to instrument HTTP requests
+ * made with the Axios library. It implements the `IHttpClientAdapter` interface.
+ * @implements {IHttpClientAdapter}
+ */
 export class AxiosAdapter implements IHttpClientAdapter {
   private readonly axiosInstance: AxiosInstance;
 
+  /**
+   * @constructor
+   * @param {AxiosRequestConfig | AxiosInstance} config - Either a pre-configured
+   * Axios instance or a configuration object to create a new instance.
+   */
   constructor(config: AxiosRequestConfig | AxiosInstance) {
     if ('request' in config && typeof config.request === 'function') {
       this.axiosInstance = config as AxiosInstance;
@@ -56,6 +65,16 @@ export class AxiosAdapter implements IHttpClientAdapter {
     }
   }
 
+  /**
+   * Executes an HTTP request using the configured Axios instance.
+   * It translates the generic `AdapterHttpRequest` into an `AxiosRequestConfig`,
+   * sends the request, and then normalizes the Axios response or error back
+   * into the framework's generic format (`AdapterHttpResponse` or `AdapterHttpError`).
+   * @template T The expected type of the response data.
+   * @param {AdapterHttpRequest} request The generic request object.
+   * @returns {Promise<AdapterHttpResponse<T>>} A promise that resolves with the normalized response.
+   * @throws {AdapterHttpError} Throws a normalized error if the request fails.
+   */
   async request<T>(
     request: AdapterHttpRequest
   ): Promise<AdapterHttpResponse<T>> {
@@ -70,9 +89,6 @@ export class AxiosAdapter implements IHttpClientAdapter {
 
       const response = await this.axiosInstance.request<T>(axiosConfig);
 
-      // =================================================================
-      //  CORRECCIÓN 1: Usamos la función de ayuda para normalizar las cabeceras.
-      // =================================================================
       return {
         statusCode: response.status,
         data: response.data,
@@ -80,9 +96,6 @@ export class AxiosAdapter implements IHttpClientAdapter {
       };
     } catch (error) {
       if (isAxiosError(error)) {
-        // =================================================================
-        //  CORRECCIÓN 2: También normalizamos las cabeceras en el objeto de error.
-        // =================================================================
         const normalizedError: AdapterHttpError = {
           name: 'AdapterHttpError',
           message: error.message,

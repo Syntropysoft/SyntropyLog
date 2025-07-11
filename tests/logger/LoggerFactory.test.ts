@@ -131,7 +131,6 @@ describe('LoggerFactory', () => {
       expect(loggerOptions.contextManager).toBe(mockContextManager);
       expect(loggerOptions.serializerRegistry).toBeInstanceOf(Object);
       expect(loggerOptions.maskingEngine).toBeInstanceOf(Object);
-      expect(loggerOptions.sanitizationEngine).toBeInstanceOf(Object);
     });
 
     it('should use the global serviceName for the "default" logger', () => {

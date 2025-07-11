@@ -1,13 +1,9 @@
 /*
-=============================================================================
-ARCHIVO 3: src/cli/init.ts (NUEVO - LÓGICA DE INICIALIZACIÓN)
------------------------------------------------------------------------------
-DESCRIPTION (en-US):
-Contains the logic for the `init` command. It detects the project environment,
-asks the user questions if necessary (using `inquirer`), and generates the
-appropriate rule manifest file (`beaconlog.doctor.ts`) from a template.
-=============================================================================
-*/
+ * @file src/cli/init.ts
+ * @description Contains the logic for the `init` command. It detects the project
+ * environment, prompts the user for details if necessary, and generates the
+ * appropriate manifest file(s) from a template.
+ */
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -15,20 +11,35 @@ import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { getDoctorManifestTemplate, getAuditPlanTemplate } from './templates';
 
+/**
+ * @interface ProjectInfo
+ * @description Holds detected information about the user's project environment.
+ */
 interface ProjectInfo {
+  /** Whether the project is likely a TypeScript project. */
   isTypeScript: boolean;
+  /** Whether the project is configured to use ES Modules. */
   isESM: boolean;
 }
 
+/**
+ * @interface InitOptions
+ * @description Defines the command-line options passed to the `runInit` function.
+ */
 interface InitOptions {
+  /** If true, generate the `syntropylog.doctor.ts` file. */
   rules?: boolean;
+  /** If true, generate the `syntropylog.audit.ts` file. */
   audit?: boolean;
+  /** The language specified via CLI flag (e.g., 'ts' or 'js'). */
   lang?: string;
+  /** The module system specified via CLI flag (e.g., 'esm' or 'cjs'). */
   module?: string;
 }
 
 /**
  * Detects project settings by inspecting `tsconfig.json` and `package.json`.
+ * @returns {Promise<ProjectInfo>} A promise that resolves with the detected project information.
  */
 async function detectProjectInfo(): Promise<ProjectInfo> {
   const CWD = process.cwd();
@@ -45,7 +56,7 @@ async function detectProjectInfo(): Promise<ProjectInfo> {
     const pkgFile = await fs.readFile(pkgPath, 'utf-8');
     pkgContent = JSON.parse(pkgFile);
   } catch {
-    // It's okay if package.json doesn't exist.
+    // It's okay if package.json doesn't exist, we'll just have less info.
   }
 
   const isESM = pkgContent.type === 'module';
@@ -65,6 +76,11 @@ async function detectProjectInfo(): Promise<ProjectInfo> {
 
 /**
  * Asks the user for project details if they cannot be detected or overridden.
+ * It uses `inquirer` for an interactive prompt, but only if the process is a TTY.
+ * @param {InitOptions} options - The CLI options provided by the user.
+ * @param {ProjectInfo} detected - The automatically detected project information.
+ * @returns {Promise<{ language: 'ts' | 'js'; moduleSystem: 'esm' | 'cjs' }>} The resolved
+ * language and module system.
  */
 async function promptForDetails(
   options: InitOptions,
@@ -117,7 +133,10 @@ async function promptForDetails(
 }
 
 /**
- * Main function for the `init` command.
+ * The main execution function for the `init` command.
+ * It orchestrates project detection, user prompting (if needed), and manifest
+ * file generation based on the provided options.
+ * @param {InitOptions} options - The command-line options for the init process.
  */
 export async function runInit(options: InitOptions): Promise<void> {
   const detected = await detectProjectInfo();

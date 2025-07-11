@@ -1,15 +1,11 @@
 #!/usr/bin/env node
-/*
-=============================================================================
-FILE 2: src/cli/cli.ts (New)
------------------------------------------------------------------------------
-DESCRIPTION:
-This is the main entry point for your Command Line Interface (CLI). Its sole
-responsibility is to define the command structure and options using `yargs`.
-The `#!/usr/bin/env node` line at the top is CRUCIAL. It's called a "shebang"
-and it tells the operating system that this file should be executed using Node.js.
-=============================================================================
-*/
+/**
+ * @file src/cli/cli.ts
+ * @description This is the main entry point for the Command Line Interface (CLI).
+ * It uses `yargs` to define the command structure, options, and handlers.
+ * The `#!/usr/bin/env node` shebang at the top is crucial, as it tells the
+ * operating system to execute this file using Node.js.
+ */
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import { runDoctor } from './doctor';
@@ -18,13 +14,20 @@ import { runInit } from './init';
 import chalk from 'chalk';
 
 yargs(hideBin(process.argv))
+  // Set the script name for help messages.
   .scriptName(chalk.cyan('syntropylog'))
+  // Prevent yargs from calling `process.exit()` on failures, which is crucial for testing.
   .exitProcess(false)
+  // Use English for built-in messages.
   .locale('en')
-  // --- INIT COMMAND ---
+  /**
+   * @command init
+   * @description Initializes a configuration file for the doctor or audit commands.
+   */
   .command(
     'init',
     'Initializes a configuration file for syntropylog.',
+    // Builder function to define command-specific options.
     (yargs) => {
       return yargs
         .option('rules', {
@@ -56,6 +59,7 @@ yargs(hideBin(process.argv))
           return true;
         });
     },
+    // Handler function that executes when the command is run.
     async (argv) => {
       try {
         await runInit(argv);
@@ -66,7 +70,11 @@ yargs(hideBin(process.argv))
       }
     }
   )
-  // --- DOCTOR COMMAND ---
+  /**
+   * @command doctor <configPath>
+   * @description Analyzes a single configuration file for issues.
+   * It uses a local `syntropylog.doctor.ts` manifest if present, or falls back to core rules.
+   */
   .command(
     'doctor <configPath>',
     'Analyzes a single configuration file using default or a local manifest.',
@@ -86,7 +94,11 @@ yargs(hideBin(process.argv))
       }
     }
   )
-  // --- AUDIT COMMAND ---
+  /**
+   * @command audit
+   * @description Runs a comprehensive audit across multiple configuration files
+   * based on the `syntropylog.audit.ts` manifest.
+   */
   .command(
     'audit',
     'Runs a full audit based on the `syntropylog.audit.ts` manifest file.',
@@ -100,11 +112,16 @@ yargs(hideBin(process.argv))
       }
     }
   )
+  // Require at least one command to be specified.
   .demandCommand(
     1,
     'You must provide a command. Try "init", "doctor", or "audit".'
   )
+  // Enable the --help option.
   .help()
+  // Create a -h alias for --help.
   .alias('h', 'help')
+  // Be strict about unknown commands or options.
   .strict()
+  // Trigger the parsing of arguments and execution of the command.
   .parse();

@@ -35,9 +35,9 @@ export interface LoggerConfigLoaderOptions {
 /**
  * Loads logger configuration from a YAML file.
  * The function determines the file path with the following priority:
- * 1. The path from the environment variable specified by `configPathEnvVar`.
- * 2. A constructed path: `{configDir}/{defaultBase}-{fallbackEnv}.yaml`.
- * 3. A default path: `{configDir}/{defaultBase}.yaml`.
+ * 1. The path from the environment variable specified by `configPathEnvVar` (e.g., `LOGGER_CONFIG`).
+ * 2. The environment-specific path (e.g., `{configDir}/{defaultBase}-production.yaml`).
+ * 3. The default base path (e.g., `{configDir}/{defaultBase}.yaml`).
  *
  * If no file is found, it returns an empty object, making the config file optional.
  * @param opts - Options to customize the loading behavior.
@@ -52,19 +52,34 @@ export function loadLoggerConfig(opts?: LoggerConfigLoaderOptions): Partial<Logg
     defaultBase = 'logger',
   } = opts || {};
 
-  // Determine the config file path. The environment variable has the highest priority.
+  // 1. Check for the direct path from the primary environment variable.
+  let configPath: string | undefined;
   const envPath = process.env[configPathEnvVar];
-  const configPath =
-    envPath ||
-    path.join(
-      configDir,
-      `${defaultBase}${process.env[fallbackEnvVar] ? '-' + process.env[fallbackEnvVar] : ''}.yaml`
-    );
+  if (envPath && fs.existsSync(envPath)) {
+    configPath = envPath;
+  }
 
-  if (!fs.existsSync(configPath)) {
-    // It's more flexible not to throw an error if the file doesn't exist.
-    // The library can then fall back to its default values, making the
-    // configuration file optional.
+  // 2. If not found, construct and check for an environment-specific file.
+  if (!configPath) {
+    const env = process.env[fallbackEnvVar];
+    if (env) {
+      const envSpecificPath = path.join(configDir, `${defaultBase}-${env}.yaml`);
+      if (fs.existsSync(envSpecificPath)) {
+        configPath = envSpecificPath;
+      }
+    }
+  }
+
+  // 3. If still not found, check for the default base file.
+  if (!configPath) {
+    const defaultPath = path.join(configDir, `${defaultBase}.yaml`);
+    if (fs.existsSync(defaultPath)) {
+      configPath = defaultPath;
+    }
+  }
+
+  // If no configuration file was found after all checks, return an empty object.
+  if (!configPath) {
     return {};
   }
 

@@ -1,31 +1,41 @@
 /*
-=============================================================================
-ARCHIVO 6: src/cli/doctor.ts (MODIFICADO - EL MOTOR)
------------------------------------------------------------------------------
-DESCRIPTION (en-US):
-The doctor is refactored to be a reusable engine. It now dynamically loads
-a local rule manifest (`beaconlog.doctor.ts`) if it exists, or falls back to
-the core rules. It returns a boolean for success/failure, allowing it to be
-called by `audit`.
-=============================================================================
-*/
-import fs from 'fs';
+ * @file src/cli/doctor.ts
+ * @description The engine for the `doctor` command. It can be used standalone
+ * or as part of a larger `audit` job. It loads a configuration file, validates it,
+ * and runs a set of diagnostic rules against it.
+ */
+import fs from 'fs'; // Using sync fs for CLI simplicity, async is not critical here.
 import path from 'path';
 import yaml from 'js-yaml';
 import chalk from 'chalk';
 import { ZodError } from 'zod';
-// =================================================================
-//  CORRECCIÓN: Importamos el nombre correcto del esquema.
-// =================================================================
 import { syntropyLogConfigSchema } from '../config.schema';
 import { runAllChecks, CheckResult, DiagnosticRule, coreRules } from './checks';
 
+/**
+ * @interface DoctorOptions
+ * @description Defines the options for running the doctor engine.
+ */
 interface DoctorOptions {
+  /** The path to the configuration file to analyze. */
   configPath: string;
+  /**
+   * An optional array of rules to execute. If provided, these rules are used
+   * instead of loading from a manifest file. This is used by the `audit` command.
+   */
   rules?: DiagnosticRule[];
+  /**
+   * A flag indicating if the doctor is being run as part of an audit.
+   * If true, it suppresses some console output and prevents `process.exit`.
+   */
   isAuditJob?: boolean;
 }
 
+/**
+ * Dynamically loads the `syntropylog.doctor.ts` rule manifest from the current
+ * working directory. If the file doesn't exist, it falls back to the `coreRules`.
+ * @returns {Promise<DiagnosticRule[]>} A promise that resolves to the array of rules.
+ */
 async function loadRules(): Promise<DiagnosticRule[]> {
   const manifestPath = path.resolve(process.cwd(), 'syntropylog.doctor.ts');
   try {
@@ -41,6 +51,14 @@ async function loadRules(): Promise<DiagnosticRule[]> {
   }
 }
 
+/**
+ * The main engine for the doctor command. It reads and validates a config file,
+ * runs diagnostic checks, prints the results, and returns a boolean indicating
+ * whether the check passed (i.e., no errors were found).
+ * @param {DoctorOptions} options - The options for the doctor run.
+ * @returns {Promise<boolean>} A promise that resolves to `true` if there are no
+ * 'ERROR' level results, and `false` otherwise.
+ */
 export async function runDoctor(options: DoctorOptions): Promise<boolean> {
   const { configPath, rules, isAuditJob = false } = options;
   if (!isAuditJob) {
@@ -117,6 +135,11 @@ export async function runDoctor(options: DoctorOptions): Promise<boolean> {
   return true;
 }
 
+/**
+ * A helper function to print a single check result to the console with
+ * appropriate colors and formatting based on its severity level.
+ * @param {CheckResult} result - The check result to print.
+ */
 function printResult(result: CheckResult): void {
   const { level, title, message, recommendation } = result;
   let coloredTitle: string;

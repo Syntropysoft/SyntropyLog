@@ -1,9 +1,8 @@
 /**
- * FILE: src/http/InstrumentedHttpClient.ts (NUEVO)
- * DESCRIPTION:
- * Esta clase es el corazón de la nueva arquitectura. Envuelve cualquier
- * adaptador que cumpla con IHttpClientAdapter y le añade la capa de
- * instrumentación (logging, contexto, timers) de forma centralizada.
+ * @file src/http/InstrumentedHttpClient.ts
+ * @description This class is the heart of the HTTP instrumentation architecture.
+ * It wraps any adapter that complies with `IHttpClientAdapter` and adds a centralized
+ * layer of instrumentation (logging, context, timers).
  */
 
 import { ILogger } from '../logger';
@@ -15,21 +14,44 @@ import {
   AdapterHttpError,
 } from './adapters/adapter.types';
 
-// Opciones de configuración para el instrumentador, que se tomarían
-// de la configuración global de SyntropyLog para una instancia específica.
+/**
+ * @interface InstrumentorOptions
+ * @description Configuration options for the instrumenter, which would typically be
+ * sourced from the global SyntropyLog configuration for a specific client instance.
+ */
 export interface InstrumentorOptions {
+  /** Whether to log request headers. Defaults to false. */
   logRequestHeaders?: boolean;
+  /** Whether to log the request body. Defaults to false. */
   logRequestBody?: boolean;
+  /** Whether to log response headers on success. Defaults to false. */
   logSuccessHeaders?: boolean;
+  /** Whether to log the response body on success. Defaults to false. */
   logSuccessBody?: boolean;
+  /** Specifies the log levels for different request lifecycle events. */
   logLevel?: {
+    /** Log level for when a request starts. Defaults to 'info'. */
     onRequest?: 'info' | 'debug' | 'trace';
+    /** Log level for when a request succeeds. Defaults to 'info'. */
     onSuccess?: 'info' | 'debug' | 'trace';
+    /** Log level for when a request fails. Defaults to 'error'. */
     onError?: 'error' | 'warn' | 'fatal';
   };
 }
 
+/**
+ * @class InstrumentedHttpClient
+ * @description Wraps an `IHttpClientAdapter` to provide automatic logging,
+ * context propagation, and timing for all HTTP requests.
+ */
 export class InstrumentedHttpClient {
+  /**
+   * @constructor
+   * @param {IHttpClientAdapter} adapter - The underlying HTTP client adapter (e.g., AxiosAdapter).
+   * @param {ILogger} logger - The logger instance for this client.
+   * @param {IContextManager} contextManager - The manager for handling asynchronous contexts.
+   * @param {InstrumentorOptions} [options={}] - Configuration options for instrumentation.
+   */
   constructor(
     private readonly adapter: IHttpClientAdapter,
     private readonly logger: ILogger,
@@ -38,8 +60,12 @@ export class InstrumentedHttpClient {
   ) {}
 
   /**
-   * El único método público. Ejecuta una petición HTTP a través del adaptador
-   * envuelto, aplicando toda la lógica de instrumentación.
+   * The single public method. It executes an HTTP request through the wrapped
+   * adapter, applying all instrumentation logic.
+   * @template T The expected type of the response data.
+   * @param {AdapterHttpRequest} request - The generic HTTP request to execute.
+   * @returns {Promise<AdapterHttpResponse<T>>} A promise that resolves with the normalized response.
+   * @throws {AdapterHttpError | Error} Throws the error from the adapter, which is re-thrown after being logged.
    */
   public async request<T>(
     request: AdapterHttpRequest
@@ -50,36 +76,41 @@ export class InstrumentedHttpClient {
       request.headers = {};
     }
     
-    // 1. Inyectar el Correlation ID de forma genérica
+    // 1. Inject the Correlation ID generically.
     const correlationId = this.contextManager.getCorrelationId();
     if (correlationId) {
       request.headers[this.contextManager.getCorrelationIdHeaderName()] =
         correlationId;
     }
 
-    // 2. Registrar el inicio de la petición
+    // 2. Log the start of the request.
     this.logRequestStart(request);
 
     try {
-      // 3. Delegar la ejecución al adaptador
+      // 3. Delegate execution to the adapter.
       const response = await this.adapter.request<T>(request);
       const durationMs = Date.now() - startTime;
 
-      // 4. Registrar el éxito de la petición
+      // 4. Log the successful completion of the request.
       this.logRequestSuccess(request, response, durationMs);
 
       return response;
     } catch (error) {
       const durationMs = Date.now() - startTime;
 
-      // 5. Registrar el fallo de la petición
+      // 5. Log the failure of the request.
       this.logRequestFailure(request, error, durationMs);
 
-      // 6. Relanzar el error para que el código del usuario lo pueda manejar
+      // 6. Re-throw the error so the user's code can handle it.
       throw error;
     }
   }
 
+  /**
+   * @private
+   * Logs the start of an HTTP request, respecting the configured options.
+   * @param {AdapterHttpRequest} request - The outgoing request.
+   */
   private logRequestStart(request: AdapterHttpRequest): void {
     const logLevel = this.options.logLevel?.onRequest ?? 'info';
     const logPayload: Record<string, any> = {
@@ -97,6 +128,14 @@ export class InstrumentedHttpClient {
     (this.logger as any)[logLevel](logPayload, 'Starting HTTP request');
   }
 
+  /**
+   * @private
+   * Logs the successful completion of an HTTP request.
+   * @template T
+   * @param {AdapterHttpRequest} request - The original request.
+   * @param {AdapterHttpResponse<T>} response - The received response.
+   * @param {number} durationMs - The total duration of the request in milliseconds.
+   */
   private logRequestSuccess<T>(
     request: AdapterHttpRequest,
     response: AdapterHttpResponse<T>,
@@ -120,6 +159,13 @@ export class InstrumentedHttpClient {
     (this.logger as any)[logLevel](logPayload, 'HTTP response received');
   }
 
+  /**
+   * @private
+   * Logs the failure of an HTTP request.
+   * @param {AdapterHttpRequest} request - The original request.
+   * @param {unknown} error - The error that was thrown.
+   * @param {number} durationMs - The total duration of the request until failure.
+   */
   private logRequestFailure(
     request: AdapterHttpRequest,
     error: unknown,
@@ -127,11 +173,11 @@ export class InstrumentedHttpClient {
   ): void {
     const logLevel = this.options.logLevel?.onError ?? 'error';
 
-    // Usamos el error normalizado del adaptador si está disponible
+    // Use the normalized adapter error if available for richer logging.
     if (error && (error as AdapterHttpError).isAdapterError) {
       const adapterError = error as AdapterHttpError;
       const logPayload: Record<string, any> = {
-        err: adapterError, // El serializador se encargará de esto
+        err: adapterError, // The logger's serializer will handle this.
         url: request.url,
         method: request.method,
         durationMs,
@@ -145,7 +191,7 @@ export class InstrumentedHttpClient {
       };
       (this.logger as any)[logLevel](logPayload, 'HTTP request failed');
     } else {
-      // Si es un error inesperado, lo registramos también
+      // If it's an unexpected error, log it as well.
       (this.logger as any)[logLevel](
         { err: error, url: request.url, method: request.method, durationMs },
         'HTTP request failed with an unexpected error'

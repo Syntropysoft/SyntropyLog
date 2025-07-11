@@ -1,14 +1,16 @@
 /*
-=============================================================================
-FILE: src/context/IContextManager.ts
------------------------------------------------------------------------------
-DESCRIPTION:
-Defines the interface for the asynchronous context manager. Any class
-that manages context (such as propagating correlation-id or tracing)
-must implement this interface.
-=============================================================================
-*/
+ * @file src/context/IContextManager.ts
+ * @description Defines the public interface for an asynchronous context manager.
+ * Any class that manages context (such as propagating correlation-id or tracing)
+ * must implement this interface. This ensures that different context management
+ * strategies (e.g., `AsyncLocalStorage` for production, a simple mock for tests)
+ * can be used interchangeably.
+ */
 
+/**
+ * @interface IContextManager
+ * @description The contract for managing asynchronous context.
+ */
 export interface IContextManager {
   /**
    * Configures the context manager with specific options.
@@ -19,9 +21,12 @@ export interface IContextManager {
 
   /**
    * Executes a function within a new, isolated asynchronous context.
-   * @param callback The function to execute.
+   * The new context can inherit data from the parent context.
+   * @template T The return type of the callback function.
+   * @param callback The function to execute within the new context.
+   * @returns The return value of the callback function.
    */
-  run(callback: () => void | Promise<void>): void | Promise<void>;
+  run<T>(callback: () => T): T;
 
   /**
    * Sets a value in the current asynchronous context.
@@ -32,17 +37,28 @@ export interface IContextManager {
 
   /**
    * Gets a value from the current asynchronous context.
+   * @template T The expected type of the value.
    * @param key The key of the value to retrieve.
+   * @returns The value associated with the key, or `undefined` if not found.
    */
-  get(key: string): any;
+  get<T = any>(key: string): T | undefined;
 
-  /** Gets all values from the current context. */
+  /**
+   * Gets the entire key-value store from the current context.
+   * @returns {Record<string, any>} An object containing all context data.
+   */
   getAll(): Record<string, any>;
 
-  /** Gets the correlation ID from the current context. */
+  /**
+   * A convenience method to get the correlation ID from the current context.
+   * @returns {string | undefined} The correlation ID, or undefined if not set.
+   */
   getCorrelationId(): string | undefined;
 
-  /** Gets the HTTP header name for the correlation ID. */
+  /**
+   * Gets the configured HTTP header name used for the correlation ID.
+   * @returns {string} The header name.
+   */
   getCorrelationIdHeaderName(): string;
 
   /** Gets the tracing headers to propagate the context (e.g., W3C Trace Context). */

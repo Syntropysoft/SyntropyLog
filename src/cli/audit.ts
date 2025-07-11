@@ -1,25 +1,33 @@
 /*
-=============================================================================
-ARCHIVO 5: src/cli/audit.ts (NUEVO - LÓGICA DE AUDITORÍA)
------------------------------------------------------------------------------
-DESCRIPTION (en-US):
-Contains the logic for the `audit` command. It finds and executes the
-`beaconlog.audit.ts` manifest, running `runDoctor` for each defined job.
-=============================================================================
-*/
-import fs from 'fs/promises';
+ * @file src/cli/audit.ts
+ * @description Contains the logic for the `audit` command. It finds and executes the
+ * `syntropylog.audit.ts` manifest, running `runDoctor` for each defined job.
+ */
 import path from 'path';
 import chalk from 'chalk';
 import { runDoctor } from './doctor';
 import { DiagnosticRule } from './checks';
 
+/**
+ * @interface AuditJob
+ * @description Defines the structure for a single audit task within an audit plan.
+ */
 interface AuditJob {
+  /** A descriptive name for the audit job (e.g., "Production Config Check"). */
   name: string;
+  /** The path to the configuration file to be analyzed for this job. */
   configFile: string;
+  /** The array of diagnostic rules to run against the configuration file. */
   rules: DiagnosticRule[];
 }
+
 const AUDIT_FILE_NAME = 'syntropylog.audit.ts';
 
+/**
+ * Executes the main audit process. It loads the `syntropylog.audit.ts` file,
+ * iterates through each defined job, and runs the `runDoctor` engine for it.
+ * Logs progress and results to the console and exits with a non-zero status code if any job fails.
+ */
 export async function runAudit(): Promise<void> {
   console.log(chalk.cyan.bold('🚀 Starting SyntropyLog Audit...'));
 

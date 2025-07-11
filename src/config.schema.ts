@@ -10,7 +10,10 @@ import { IHttpClientAdapter } from './http/adapters/adapter.types';
 import { IBrokerAdapter } from './brokers/adapter.types';
 
 
-/** Schema for logger options, including serialization and pretty printing. */
+/**
+ * @description Schema for logger-specific options, including serialization and transports.
+ * @private
+ */
 const loggerOptionsSchema = z
   .object({
     name: z.string().optional(),
@@ -18,6 +21,9 @@ const loggerOptionsSchema = z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .optional(),
     serviceName: z.string().optional(),
+    /**
+     * An array of transport instances to be used by the logger.
+     */
     transports: z.array(z.instanceof(Transport)).optional(),
 
     /**
@@ -42,7 +48,10 @@ const loggerOptionsSchema = z
   })
   .optional();
 
-/** Reusable schema for retry options. */
+/**
+ * @description Reusable schema for retry options, commonly used in client configurations.
+ * @private
+ */
 const retryOptionsSchema = z
   .object({
     maxRetries: z.number().int().positive().optional(),
@@ -50,7 +59,9 @@ const retryOptionsSchema = z
   })
   .optional();
 
-/** Schema for a single Redis instance, using a discriminated union for different modes. */
+/**
+ * @description Schema for a single Redis instance, using a discriminated union for different connection modes.
+ */
 export const redisInstanceConfigSchema = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('single'),
@@ -107,7 +118,9 @@ export const redisInstanceConfigSchema = z.discriminatedUnion('mode', [
   }),
 ]);
 
-/** Schema for the main Redis configuration block. */
+/**
+ * @description Schema for the main Redis configuration block, containing all Redis instances.
+ */
 export const redisConfigSchema = z
   .object({
     instances: z.array(redisInstanceConfigSchema),
@@ -115,6 +128,9 @@ export const redisConfigSchema = z
   .optional();
 
 /** Schema for a single HTTP client instance. */
+/**
+ * @description Schema for a single HTTP client instance.
+ */
 export const httpInstanceConfigSchema = z.object({
   instanceName: z.string(),
 
@@ -125,12 +141,11 @@ export const httpInstanceConfigSchema = z.object({
       'request' in val &&
       typeof (val as any).request === 'function'
     );
-  }, 'El adaptador proporcionado no es válido. Debe ser un objeto con un método `request`.'),
+  }, "The provided adapter is invalid. It must be an object with a 'request' method."),
 
-  // =================================================================
-  //  CORRECCIÓN: Añadimos .partial() para hacer que todas las
-  //  propiedades internas de 'logging' sean opcionales.
-  // =================================================================
+  /**
+   * Logging settings specific to this HTTP client instance.
+   */
   logging: z
     .object({
       onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
@@ -141,27 +156,25 @@ export const httpInstanceConfigSchema = z.object({
       logRequestBody: z.boolean().default(false),
       logRequestHeaders: z.boolean().default(false),
     })
-    .partial() // <--- ¡AQUÍ ESTÁ LA MAGIA!
+    .partial() // Makes all properties within the logging object optional.
     .optional(),
 });
 
 
 /**
- * Schema for the main HTTP configuration block.
- * It now only contains the list of instances to create.
- * All logging and masking is handled globally.
+ * @description Schema for the main HTTP configuration block.
  */
 export const httpConfigSchema = z
   .object({
+    /** An array of HTTP client instance configurations. */
     instances: z.array(httpInstanceConfigSchema),
-    // --- REMOVED ---
-    // logRequestHeaders, logRequestBody, sensitiveHeaders, etc., are no longer needed here.
-    // This will be controlled by the global `logging` and `masking` configurations.
   })
   .optional();
 
-// --- UPDATED: Centralized Masking Configuration Schema ---
-/** Schema for a single field's masking configuration. */
+/**
+ * @description Schema for a single field's masking configuration.
+ * @private
+ */
 const fieldMaskConfigSchema = z.object({
   /** The path to the field (e.g., "user.password") or a RegExp to match field names. */
   path: z.union([z.string(), z.instanceof(RegExp)]),
@@ -171,7 +184,9 @@ const fieldMaskConfigSchema = z.object({
   showLast: z.number().int().positive().optional(),
 });
 
-/** Schema for the main masking configuration block. */
+/**
+ * @description Schema for the main data masking configuration block.
+ */
 const maskingConfigSchema = z
   .object({
     /** An array of field-specific masking configurations. */
@@ -183,12 +198,10 @@ const maskingConfigSchema = z
   })
   .optional();
 
-  
-  // --- NUEVO: Esquema de Configuración para Brokers ---
-  
-  /**
-   * Schema for a single broker client instance.
-   * It validates that a valid adapter is provided.
+/**
+ * @description Schema for a single message broker client instance.
+ * It validates that a valid `IBrokerAdapter` is provided.
+ * @private
   */
  export const brokerInstanceConfigSchema = z.object({
   instanceName: z.string(),
@@ -199,34 +212,47 @@ const maskingConfigSchema = z
       typeof (val as any).publish === 'function' &&
       typeof (val as any).subscribe === 'function'
     );
-  }, 'El adaptador de broker proporcionado no es válido.'),
+  }, 'The provided broker adapter is invalid.'),
 });
 
 /**
- * Schema for the main broker configuration block.
+ * @description Schema for the main message broker configuration block.
 */
 export const brokerConfigSchema = z.object({
+  /** An array of broker client instance configurations. */
   instances: z.array(brokerInstanceConfigSchema),
 }).optional();
 
 
-/** The main schema for the entire SyntropyLog configuration. */
+/**
+ * @description The main schema for the entire SyntropyLog configuration.
+ * This is the single source of truth for validating the user's configuration object.
+ */
 export const syntropyLogConfigSchema = z.object({
+  /** Logger-specific configuration. */
   logger: loggerOptionsSchema,
+  /** Redis client configuration. */
   redis: redisConfigSchema,
+  /** HTTP client configuration. */
   http: httpConfigSchema,
+  /** Message broker client configuration. */
   brokers: brokerConfigSchema,
 
   /** Centralized data masking configuration. */
   masking: maskingConfigSchema,
 
+  /** Context propagation configuration. */
   context: z
     .object({
+      /** The HTTP header name to use for the correlation ID. @default 'x-correlation-id' */
       correlationIdHeader: z.string().optional(),
     })
     .optional(),
 
-  /** The maximum time in milliseconds to wait for a graceful shutdown. Defaults to 5000ms. */
+  /**
+   * The maximum time in milliseconds to wait for a graceful shutdown before timing out.
+   * @default 5000
+   */
   shutdownTimeout: z
     .number({
       description: 'The maximum time in ms to wait for a graceful shutdown.',
@@ -235,8 +261,10 @@ export const syntropyLogConfigSchema = z.object({
     .positive()
     .optional(),
 
+  /** Configuration for the `syntropylog doctor` CLI tool. */
   doctor: z
     .object({
+      /** An array of rule IDs to disable during a diagnostic run. */
       disableRules: z.array(z.string()).optional(),
     })
     .optional(),

@@ -44,6 +44,16 @@
         "types": "./dist/brokers/index.d.ts",
         "default": "./dist/brokers/index.cjs"
       }
+    },
+    "./testing": {
+      "import": {
+        "types": "./dist/testing/index.d.ts",
+        "default": "./dist/testing/index.mjs"
+      },
+      "require": {
+        "types": "./dist/testing/index.d.ts",
+        "default": "./dist/testing/index.cjs"
+      }
     }
   },
   "files": [

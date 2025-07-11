@@ -20,6 +20,9 @@ export { ClassicConsoleTransport } from './logger/transports/ClassicConsoleTrans
 export { SpyTransport } from './logger/transports/SpyTransport';
 export type { LogFormatter } from './logger/transports/formatters/LogFormatter';
 
+// --- Utility Classes for Advanced Configuration ---
+export { SanitizationEngine } from './sanitization/SanitizationEngine';
+
 // --- Interfaces for Instrumented Clients ---
 export type { IBeaconRedis } from './redis/IBeaconRedis';
 // export type { InstrumentedHttpClient } from './http/types';

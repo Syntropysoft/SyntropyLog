@@ -43,9 +43,10 @@ describe('createFailingClient', () => {
     it('should throw a synchronous error when calling "multi"', () => {
       const expectedError = `The Redis client "${instanceName}" could not be initialized. Reason: ${initializationError.message}. Check the configuration and startup logs.`;
       expect(() => failingClient.multi()).toThrow(expectedError);
-      expect(mockLogger.debug).toHaveBeenCalledWith(`Attempted to use method 'multi()' on a failing Redis client.`, {
-        errorMessage: expectedError,
-      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        { errorMessage: expectedError },
+        `Attempted to use method 'multi()' on a failing Redis client.`
+      );
     });
 
     it('should reject with an error when calling a standard command like "get"', async () => {
@@ -56,9 +57,9 @@ describe('createFailingClient', () => {
 
       await expect(promise).rejects.toThrow(expectedError);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        "Intento de uso de la propiedad 'get' en un cliente fallido.",
-        { errorMessage: expectedError, arguments: ['my-key'] }
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        { errorMessage: expectedError, arguments: ['my-key'] },
+        "Attempted to use property 'get' on a failing client."
       );
     });
 
@@ -69,9 +70,9 @@ describe('createFailingClient', () => {
 
       await expect(promise).rejects.toThrow(expectedError);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        "Intento de uso de la propiedad 'set' en un cliente fallido.",
-        { errorMessage: expectedError, arguments: ['my-key', 'my-value', 'EX', 3600] }
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        { errorMessage: expectedError, arguments: ['my-key', 'my-value', 'EX', 3600] },
+        "Attempted to use property 'set' on a failing client."
       );
     });
   });
@@ -93,9 +94,9 @@ describe('createFailingClient', () => {
 
       await expect(promise).rejects.toThrow(expectedError);
 
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        "Intento de uso de la propiedad 'request' en un cliente fallido.",
-        { errorMessage: expectedError, arguments: [requestArgs] }
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        { errorMessage: expectedError, arguments: [requestArgs] },
+        "Attempted to use property 'request' on a failing client."
       );
     });
   });

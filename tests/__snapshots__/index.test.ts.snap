@@ -6,6 +6,7 @@ exports[`Main entry point (src/index.ts) > should match the public API snapshot 
   "CompactConsoleTransport",
   "ConsoleTransport",
   "PrettyConsoleTransport",
+  "SanitizationEngine",
   "SpyTransport",
   "Transport",
   "syntropyLog",
