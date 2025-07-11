@@ -1,0 +1,13 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Main entry point (src/index.ts) > should match the public API snapshot to prevent unintentional changes 1`] = `
+[
+  "ClassicConsoleTransport",
+  "CompactConsoleTransport",
+  "ConsoleTransport",
+  "PrettyConsoleTransport",
+  "SpyTransport",
+  "Transport",
+  "syntropyLog",
+]
+`;
