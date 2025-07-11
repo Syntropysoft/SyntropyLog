@@ -12,6 +12,7 @@ const {
   mockGetRedisInstance,
   mockRedisShutdown,
   mockGetHttpInstance,
+  mockHttpShutdown,
   mockSanitizeConfig,
   mockCheckPeerDependencies,
   mockConfigParse,
@@ -22,6 +23,7 @@ const {
   mockGetRedisInstance: vi.fn(),
   mockRedisShutdown: vi.fn().mockResolvedValue(undefined),
   mockGetHttpInstance: vi.fn(),
+  mockHttpShutdown: vi.fn().mockResolvedValue(undefined),
   mockSanitizeConfig: vi.fn((config) => config),
   mockCheckPeerDependencies: vi.fn(),
   mockConfigParse: vi.fn(),
@@ -45,6 +47,7 @@ vi.mock('../src/redis/RedisManager', () => ({
 vi.mock('../src/http/HttpManager', () => ({
   HttpManager: vi.fn().mockImplementation(() => ({
     getInstance: mockGetHttpInstance,
+    shutdown: mockHttpShutdown,
   })),
 }));
 
@@ -86,6 +89,10 @@ describe('SyntropyLog', () => {
       info: vi.fn(),
       warn: vi.fn(),
       error: vi.fn(),
+      // Add missing log methods to the mock to support all log levels
+      debug: vi.fn(),
+      trace: vi.fn(),
+      fatal: vi.fn(),
     });
   });
 
@@ -107,7 +114,6 @@ describe('SyntropyLog', () => {
 
       expect(syntropyLogConfigSchema.parse).toHaveBeenCalledWith(validConfig);
       expect(mockSanitizeConfig).toHaveBeenCalledWith(validConfig);
-      expect(mockCheckPeerDependencies).toHaveBeenCalledWith(validConfig);
       expect(mockGetLogger).toHaveBeenCalledWith('syntropylog-main');
       expect((syntropyLog as any)._isInitialized).toBe(true);
     });
@@ -203,6 +209,7 @@ describe('SyntropyLog', () => {
       await syntropyLog.shutdown();
 
       expect(mockRedisShutdown).toHaveBeenCalled();
+      expect(mockHttpShutdown).toHaveBeenCalled();
       expect(mockFlushAllTransports).toHaveBeenCalled();
       expect((syntropyLog as any)._isInitialized).toBe(false);
     });

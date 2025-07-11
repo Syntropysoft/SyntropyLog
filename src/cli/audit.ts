@@ -18,10 +18,10 @@ interface AuditJob {
   configFile: string;
   rules: DiagnosticRule[];
 }
-const AUDIT_FILE_NAME = 'beaconlog.audit.ts';
+const AUDIT_FILE_NAME = 'syntropylog.audit.ts';
 
 export async function runAudit(): Promise<void> {
-  console.log(chalk.cyan.bold('🚀 Starting BeaconLog Audit...'));
+  console.log(chalk.cyan.bold('🚀 Starting SyntropyLog Audit...'));
 
   const manifestPath = path.resolve(process.cwd(), AUDIT_FILE_NAME);
   let auditJobs: AuditJob[];
@@ -47,13 +47,14 @@ export async function runAudit(): Promise<void> {
     );
     console.error(
       chalk.gray(
-        'Please create a `beaconlog.audit.ts` file or run `npx beaconlog init --audit` to generate one.'
+        'Please create a `syntropylog.audit.ts` file or run `npx syntropylog init --audit` to generate one.'
       )
     );
     if ((error as NodeJS.ErrnoException).code !== 'ERR_MODULE_NOT_FOUND') {
       console.error(chalk.gray((error as Error).message));
     }
     process.exit(1);
+    return; // Exit the function to prevent further execution in test environments
   }
 
   let totalErrors = 0;

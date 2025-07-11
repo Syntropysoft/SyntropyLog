@@ -14,7 +14,6 @@ const SENSITIVE_KEYS = [
   'token',
   'secret',
   'apikey',
-  'auth',
   'credential',
   'pass',
   'key',
@@ -94,7 +93,10 @@ export function sanitizeConfig<T extends object>(config: T): T {
 
       if (sensitiveLower.includes(lowerKey)) {
         sanitized[key] = MASK;
-      } else if (lowerKey === 'url' && typeof value === 'string') {
+      } else if (
+        lowerKey.includes('url') &&
+        typeof value === 'string'
+      ) {
         sanitized[key] = value.replace(
           /(?<=:\/\/)([^:]+):([^@]+)@/,
           (match, user, pass) => `${user}:${MASK}@`

@@ -11,15 +11,15 @@ export function getDoctorManifestTemplate(
   lang: 'ts' | 'js',
   moduleSystem: 'esm' | 'cjs'
 ): string {
-  const tsType = `import type { DiagnosticRule } from 'beaconlog/doctor';\n\n`;
-  const esmImport = `import { coreRules } from 'beaconlog/doctor';`;
-  const cjsImport = `const { coreRules } = require('beaconlog/doctor');`;
+  const tsType = `import type { DiagnosticRule } from 'syntropylog/doctor';\n\n`;
+  const esmImport = `import { coreRules } from 'syntropylog/doctor';`;
+  const cjsImport = `const { coreRules } = require('syntropylog/doctor');`;
   const esmExport = `export default`;
   const cjsExport = `module.exports =`;
   const header = `
 /**
-* BEACONLOG DOCTOR RULE MANIFEST
-* This file configures the diagnostic rules for the \`beaconlog doctor\` command.
+* SYNTROPYLOG DOCTOR RULE MANIFEST
+* This file configures the diagnostic rules for the \`syntropylog doctor\` command.
 * You can import the built-in rules, add your own, or even filter out core rules.
 */`;
   const body = `[
@@ -49,9 +49,9 @@ export function getAuditPlanTemplate(
   lang: 'ts' | 'js',
   moduleSystem: 'esm' | 'cjs'
 ): string {
-  const tsType = `import type { DiagnosticRule } from 'beaconlog/doctor';\n\n`;
-  const esmImportCore = `import { coreRules } from 'beaconlog/doctor';`;
-  const cjsImportCore = `const { coreRules } = require('beaconlog/doctor');`;
+  const tsType = `import type { DiagnosticRule } from 'syntropylog/doctor';\n\n`;
+  const esmImportCore = `import { coreRules } from 'syntropylog/doctor';`;
+  const cjsImportCore = `const { coreRules } = require('syntropylog/doctor');`;
 
   const esmExampleImport = `// import { productionRules } from './my-checks/production.js';`;
   const cjsExampleImport = `// const { productionRules } = require('./my-checks/production.js');`;
@@ -61,10 +61,10 @@ export function getAuditPlanTemplate(
 
   const header = `
 /**
-* BEACONLOG AUDIT PLAN
+* SYNTROPYLOG AUDIT PLAN
 * --------------------
 * This file defines the audit plan for your project's configurations.
-* The \`beaconlog audit\` command will execute each job defined in this array.
+* The \`syntropylog audit\` command will execute each job defined in this array.
 */`;
 
   const body = `[

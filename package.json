@@ -35,14 +35,14 @@
         "default": "./dist/http/index.cjs"
       }
     },
-    "./brokers":{
+    "./brokers": {
       "import": {
         "types": "./dist/brokers/index.d.ts",
         "default": "./dist/brokers/index.mjs"
       },
       "require": {
-        "types":"./dist/brokers/index.d.ts",
-        "default":"./dist/brokers/index.cjs"
+        "types": "./dist/brokers/index.d.ts",
+        "default": "./dist/brokers/index.cjs"
       }
     }
   },
@@ -95,7 +95,7 @@
     "@types/yargs": "^17.0.32",
     "@typescript-eslint/eslint-plugin": "^6.16.0",
     "@typescript-eslint/parser": "^6.16.0",
-    "@vitest/coverage-v8": "^1.1.0",
+    "@vitest/coverage-v8": "^1.6.1",
     "amqplib": "^0.10.3",
     "axios": "^1.6.3",
     "depcheck": "^1.4.7",

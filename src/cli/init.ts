@@ -31,35 +31,33 @@ interface InitOptions {
  * Detects project settings by inspecting `tsconfig.json` and `package.json`.
  */
 async function detectProjectInfo(): Promise<ProjectInfo> {
-  const tsConfigPath = path.resolve(process.cwd(), 'tsconfig.json');
+  const CWD = process.cwd();
+  const tsConfigPath = path.resolve(CWD, 'tsconfig.json');
+  const pkgPath = path.resolve(CWD, 'package.json');
+
+  let pkgContent: {
+    type?: string;
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  } = {};
+
+  try {
+    const pkgFile = await fs.readFile(pkgPath, 'utf-8');
+    pkgContent = JSON.parse(pkgFile);
+  } catch {
+    // It's okay if package.json doesn't exist.
+  }
+
+  const isESM = pkgContent.type === 'module';
+
   let isTypeScript = false;
   try {
     await fs.access(tsConfigPath);
     isTypeScript = true;
   } catch {
-    try {
-      const pkgPath = path.resolve(process.cwd(), 'package.json');
-      const pkgContent = JSON.parse(await fs.readFile(pkgPath, 'utf-8'));
-      if (
-        pkgContent.devDependencies?.typescript ||
-        pkgContent.dependencies?.typescript
-      ) {
-        isTypeScript = true;
-      }
-    } catch {
-      isTypeScript = false;
-    }
-  }
-
-  let isESM = false;
-  try {
-    const pkgPath = path.resolve(process.cwd(), 'package.json');
-    const pkgContent = JSON.parse(await fs.readFile(pkgPath, 'utf-8'));
-    if (pkgContent.type === 'module') {
-      isESM = true;
-    }
-  } catch {
-    isESM = false;
+    isTypeScript =
+      !!pkgContent.dependencies?.typescript ||
+      !!pkgContent.devDependencies?.typescript;
   }
 
   return { isTypeScript, isESM };
@@ -131,15 +129,15 @@ export async function runInit(options: InitOptions): Promise<void> {
   let template = '';
 
   if (options.rules) {
-    manifestFileName = `beaconlog.doctor.${fileExtension}`;
+    manifestFileName = `syntropylog.doctor.${fileExtension}`;
     template = getDoctorManifestTemplate(language, moduleSystem);
     console.log(
-      chalk.cyan.bold('Initializing beaconlog doctor rule manifest...')
+      chalk.cyan.bold('Initializing syntropylog doctor rule manifest...')
     );
   } else if (options.audit) {
-    manifestFileName = `beaconlog.audit.${fileExtension}`;
+    manifestFileName = `syntropylog.audit.${fileExtension}`;
     template = getAuditPlanTemplate(language, moduleSystem);
-    console.log(chalk.cyan.bold('Initializing beaconlog audit plan...'));
+    console.log(chalk.cyan.bold('Initializing syntropylog audit plan...'));
   }
 
   const manifestPath = path.resolve(process.cwd(), manifestFileName);

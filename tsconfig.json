@@ -21,6 +21,6 @@
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["src"],
+  "include": ["src", "tests/cli/cli.test.ts"],
   "exclude": ["node_modules", "dist", "tests", "examples"]
 }

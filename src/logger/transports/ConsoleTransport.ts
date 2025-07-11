@@ -1,10 +1,7 @@
 import { LogEntry } from '../../types';
 import { Transport, TransportOptions } from './Transport';
 
-/**
- * A transport that writes structured JSON logs to the standard console.
- * It uses `console.error`, `console.warn`, or `console.log` based on the log level.
- */
+
 export class ConsoleTransport extends Transport {
   constructor(options?: TransportOptions) {
     super(options);

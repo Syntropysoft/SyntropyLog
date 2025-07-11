@@ -18,20 +18,24 @@ import { runInit } from './init';
 import chalk from 'chalk';
 
 yargs(hideBin(process.argv))
-  .scriptName(chalk.cyan('beaconlog'))
+  .scriptName(chalk.cyan('syntropylog'))
+  .exitProcess(false)
+  .locale('en')
   // --- INIT COMMAND ---
   .command(
     'init',
-    'Initializes a configuration file for beaconlog.',
+    'Initializes a configuration file for syntropylog.',
     (yargs) => {
       return yargs
         .option('rules', {
           type: 'boolean',
-          description: 'Generate a `beaconlog.doctor.ts` rule manifest file.',
+          default: false,
+          description: 'Generate a `syntropylog.doctor.ts` rule manifest file.',
         })
         .option('audit', {
           type: 'boolean',
-          description: 'Generate a `beaconlog.audit.ts` audit plan file.',
+          default: false,
+          description: 'Generate a `syntropylog.audit.ts` audit plan file.',
         })
         .option('lang', {
           describe: 'Specify the language for the generated file (ts or js)',
@@ -85,7 +89,7 @@ yargs(hideBin(process.argv))
   // --- AUDIT COMMAND ---
   .command(
     'audit',
-    'Runs a full audit based on the `beaconlog.audit.ts` manifest file.',
+    'Runs a full audit based on the `syntropylog.audit.ts` manifest file.',
     (yargs) => yargs,
     async () => {
       try {

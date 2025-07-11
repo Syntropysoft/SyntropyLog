@@ -11,7 +11,7 @@
 export class SanitizationEngine {
   // This regex matches ANSI escape codes used for colors, cursor movement, etc.
   private readonly ansiRegex =
-    /[\u001b\u009b][[()#;?]*.{0,2}(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+    /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
 
   constructor() {
     // The engine is currently not configurable, but could be in the future.

@@ -52,12 +52,14 @@ export function loadLoggerConfig(opts?: LoggerConfigLoaderOptions): Partial<Logg
     defaultBase = 'logger',
   } = opts || {};
 
-  // Determine the config file name based on environment variables.
-  const configFile =
-    process.env[configPathEnvVar] ||
-    `${defaultBase}${process.env[fallbackEnvVar] ? '-' + process.env[fallbackEnvVar] : ''}.yaml`;
-
-  const configPath = path.join(configDir, configFile);
+  // Determine the config file path. The environment variable has the highest priority.
+  const envPath = process.env[configPathEnvVar];
+  const configPath =
+    envPath ||
+    path.join(
+      configDir,
+      `${defaultBase}${process.env[fallbackEnvVar] ? '-' + process.env[fallbackEnvVar] : ''}.yaml`
+    );
 
   if (!fs.existsSync(configPath)) {
     // It's more flexible not to throw an error if the file doesn't exist.

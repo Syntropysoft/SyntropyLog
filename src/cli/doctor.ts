@@ -27,7 +27,7 @@ interface DoctorOptions {
 }
 
 async function loadRules(): Promise<DiagnosticRule[]> {
-  const manifestPath = path.resolve(process.cwd(), 'beaconlog.doctor.ts');
+  const manifestPath = path.resolve(process.cwd(), 'syntropylog.doctor.ts');
   try {
     // Bust the cache to always get the freshest version of the rules
     const manifestModule = await import(`${manifestPath}?t=${Date.now()}`);
@@ -45,7 +45,7 @@ export async function runDoctor(options: DoctorOptions): Promise<boolean> {
   const { configPath, rules, isAuditJob = false } = options;
   if (!isAuditJob) {
     console.log(
-      chalk.cyan.bold(`🩺 Running beaconlog doctor on: ${configPath}\n`)
+      chalk.cyan.bold(`🩺 Running syntropylog doctor on: ${configPath}\n`)
     );
   }
 
