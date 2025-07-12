@@ -289,15 +289,15 @@ export class RedisConnectionManager {
    * Provides a fallback for cluster mode, as PING is not a standard cluster command.
    */
   public async ping(message?: string): Promise<string> {
-    // Primero, nos aseguramos de que el cliente esté listo para recibir comandos.
+    // First, we ensure the client is ready to receive commands.
     await this.ensureReady();
 
-    // Usamos el type guard para ver si es un cliente single/sentinel
+    // We use the type guard to check if it's a single-node or sentinel client.
     if (isRedisClientType(this.client)) {
       return this.client.ping(message);
     }
 
-    // Si es un cliente de cluster, simulamos la respuesta como lo hace la librería.
+    // If it's a cluster client, we simulate the response as the library does.
     return Promise.resolve(message || 'PONG');
   }
 
@@ -306,15 +306,15 @@ export class RedisConnectionManager {
    * Provides a fallback for cluster mode.
    */
   public async info(section?: string): Promise<string> {
-    // Nos aseguramos de que el cliente esté listo.
+    // We ensure the client is ready.
     await this.ensureReady();
 
-    // De nuevo, usamos el type guard.
+    // Again, we use the type guard.
     if (isRedisClientType(this.client)) {
       return this.client.info(section);
     }
 
-    // El comando INFO no existe en modo cluster.
+    // The INFO command does not exist in cluster mode.
     return Promise.resolve('# INFO command is not supported in cluster mode.');
   }
 

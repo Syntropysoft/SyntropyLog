@@ -773,7 +773,11 @@ describe('RedisCommandExecutor', () => {
     describe('ZADD', () => {
       it('should delegate ZADD command (single member) to the native client', async () => {
         await executor.zAdd('key', 10, 'member1');
-        expect(mockNativeClient.zAdd).toHaveBeenCalledWith('key', 10, 'member1');
+        expect(mockNativeClient.zAdd).toHaveBeenCalledWith('key', {
+          score: 10,
+          value: 'member1',
+        });
+
         expect(mockNativeClient.zAdd).toHaveBeenCalledTimes(1);
       });
 

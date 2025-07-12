@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * FILE: src/redis/BeaconRedisMock.ts
- *
- * DESCRIPCIÓN:
- * A comprehensive in-memory mock implementation of the IBeaconRedis interface.
+ * @file src/redis/BeaconRedisMock.ts
+ * @description
+ * A comprehensive, in-memory mock implementation of the `IBeaconRedis` interface.
  * It simulates Redis behavior for fast and reliable unit and integration testing,
  * supporting strings, hashes, lists, sets, sorted sets, and expirations.
  */
@@ -13,7 +12,10 @@ import { RedisZMember, TransactionResult } from './redis.types';
 
 // --- Internal Mock Storage Types ---
 
-/** The possible data types that can be stored for a key. */
+/**
+ * @internal
+ * The possible data types that can be stored for a key in the mock store.
+ */
 type StoreValue =
   | string
   | Record<string, string>
@@ -21,15 +23,15 @@ type StoreValue =
   | Set<string>
   | RedisZMember[];
 
-/** Represents a single entry in the mock's in-memory store, including value, type, and expiration. */
+/**
+ * @internal
+ * Represents a single entry in the mock's in-memory store, including its value, type, and expiration timestamp.
+ */
 type StoreEntry = {
   value: StoreValue;
   expiresAt: number | null;
   type: 'string' | 'hash' | 'list' | 'set' | 'zset';
 };
-
-/** The in-memory data store, mapping keys to their corresponding StoreEntry. */
-// type Store = Map<string, StoreEntry>;
 
 /**
  * A mock implementation of `IBeaconRedisTransaction` for testing.
@@ -42,8 +44,8 @@ class BeaconRedisMockTransaction implements IBeaconRedisTransaction {
 
   /**
    * Constructs a mock transaction.
-   * @param mockRedis The parent `BeaconRedisMock` instance to execute commands against.
-   * @param logger The logger instance for debugging.
+   * @param {BeaconRedisMock} mockRedis - The parent `BeaconRedisMock` instance to execute commands against.
+   * @param {ILogger} logger - The logger instance for debugging.
    */
   constructor(
     private readonly mockRedis: BeaconRedisMock,
@@ -54,8 +56,9 @@ class BeaconRedisMockTransaction implements IBeaconRedisTransaction {
 
   /**
    * Queues a command to be executed later.
-   * @param command A function that, when called, executes a mock Redis command.
-   * @returns The transaction instance for chaining.
+   * @private
+   * @param {() => Promise<any>} command - A function that, when called, executes a mock Redis command.
+   * @returns {this} The transaction instance for chaining.
    */
   private _queue(command: () => Promise<any>): this {
     this.commands.push(command);
@@ -63,97 +66,131 @@ class BeaconRedisMockTransaction implements IBeaconRedisTransaction {
   }
 
   // --- Full Implementation of the Transaction Interface ---
+  /** @inheritdoc */
   get(key: string): this {
     return this._queue(() => this.mockRedis.get(key));
   }
+  /** @inheritdoc */
   set(key: string, value: any, ttlSeconds?: number): this {
     return this._queue(() => this.mockRedis.set(key, value, ttlSeconds));
   }
+  /** @inheritdoc */
   del(key: string | string[]): this {
     return this._queue(() => this.mockRedis.del(key));
   }
+  /** @inheritdoc */
   exists(keys: string | string[]): this {
     return this._queue(() => this.mockRedis.exists(keys));
   }
+  /** @inheritdoc */
   expire(key: string, seconds: number): this {
     return this._queue(() => this.mockRedis.expire(key, seconds));
   }
+  /** @inheritdoc */
   ttl(key: string): this {
     return this._queue(() => this.mockRedis.ttl(key));
   }
+  /** @inheritdoc */
   incr(key: string): this {
     return this._queue(() => this.mockRedis.incr(key));
   }
+  /** @inheritdoc */
   decr(key: string): this {
     return this._queue(() => this.mockRedis.decr(key));
   }
+  /** @inheritdoc */
   incrBy(key: string, increment: number): this {
     return this._queue(() => this.mockRedis.incrBy(key, increment));
   }
+  /** @inheritdoc */
   decrBy(key: string, decrement: number): this {
     return this._queue(() => this.mockRedis.decrBy(key, decrement));
   }
+  /** @inheritdoc */
   hGet(key: string, field: string): this {
     return this._queue(() => this.mockRedis.hGet(key, field));
   }
+  /** @inheritdoc */
   hSet(key: string, field: string, value: any): this;
+  /** @inheritdoc */
   hSet(key: string, fieldsAndValues: Record<string, any>): this;
+  /** @inheritdoc */
   hSet(key: string, fieldOrFields: any, value?: any): this {
     return this._queue(() => this.mockRedis.hSet(key, fieldOrFields, value));
   }
+  /** @inheritdoc */
   hGetAll(key: string): this {
     return this._queue(() => this.mockRedis.hGetAll(key));
   }
+  /** @inheritdoc */
   hDel(key: string, fields: string | string[]): this {
     return this._queue(() => this.mockRedis.hDel(key, fields));
   }
+  /** @inheritdoc */
   hExists(key: string, field: string): this {
     return this._queue(() => this.mockRedis.hExists(key, field));
   }
+  /** @inheritdoc */
   hIncrBy(key: string, field: string, increment: number): this {
     return this._queue(() => this.mockRedis.hIncrBy(key, field, increment));
   }
+  /** @inheritdoc */
   lPush(key: string, elements: any | any[]): this {
     return this._queue(() => this.mockRedis.lPush(key, elements));
   }
+  /** @inheritdoc */
   rPush(key: string, elements: any | any[]): this {
     return this._queue(() => this.mockRedis.rPush(key, elements));
   }
+  /** @inheritdoc */
   lPop(key: string): this {
     return this._queue(() => this.mockRedis.lPop(key));
   }
+  /** @inheritdoc */
   rPop(key: string): this {
     return this._queue(() => this.mockRedis.rPop(key));
   }
+  /** @inheritdoc */
   lRange(key: string, start: number, stop: number): this {
     return this._queue(() => this.mockRedis.lRange(key, start, stop));
   }
+  /** @inheritdoc */
   lLen(key: string): this {
     return this._queue(() => this.mockRedis.lLen(key));
   }
+  /** @inheritdoc */
   lTrim(key: string, start: number, stop: number): this {
     return this._queue(() => this.mockRedis.lTrim(key, start, stop));
   }
+  /** @inheritdoc */
   sAdd(key: string, members: any | any[]): this {
     return this._queue(() => this.mockRedis.sAdd(key, members));
   }
+  /** @inheritdoc */
   sMembers(key: string): this {
     return this._queue(() => this.mockRedis.sMembers(key));
   }
+  /** @inheritdoc */
   sIsMember(key: string, member: any): this {
     return this._queue(() => this.mockRedis.sIsMember(key, member));
   }
+  /** @inheritdoc */
   sRem(key: string, members: any | any[]): this {
     return this._queue(() => this.mockRedis.sRem(key, members));
   }
+  /** @inheritdoc */
   sCard(key: string): this {
     return this._queue(() => this.mockRedis.sCard(key));
   }
+  /** @inheritdoc */
   zAdd(key: string, score: number, member: any): this;
+  /** @inheritdoc */
   zAdd(key: string, members: { score: number; value: any }[]): this;
+  /** @inheritdoc */
   zAdd(key: string, scoreOrMembers: any, member?: any): this {
     return this._queue(() => this.mockRedis.zAdd(key, scoreOrMembers, member));
   }
+  /** @inheritdoc */
   zRange(
     key: string,
     min: string | number,
@@ -162,6 +199,7 @@ class BeaconRedisMockTransaction implements IBeaconRedisTransaction {
   ): this {
     return this._queue(() => this.mockRedis.zRange(key, min, max, options));
   }
+  /** @inheritdoc */
   zRangeWithScores(
     key: string,
     min: string | number,
@@ -172,30 +210,32 @@ class BeaconRedisMockTransaction implements IBeaconRedisTransaction {
       this.mockRedis.zRangeWithScores(key, min, max, options)
     );
   }
+  /** @inheritdoc */
   zRem(key: string, members: any | any[]): this {
     return this._queue(() => this.mockRedis.zRem(key, members));
   }
+  /** @inheritdoc */
   zCard(key: string): this {
     return this._queue(() => this.mockRedis.zCard(key));
   }
+  /** @inheritdoc */
   zScore(key: string, member: any): this {
     return this._queue(() => this.mockRedis.zScore(key, member));
   }
+  /** @inheritdoc */
   ping(message?: string): this {
     return this._queue(() => this.mockRedis.ping(message));
   }
+  /** @inheritdoc */
   info(section?: string): this {
     return this._queue(() => this.mockRedis.info(section));
   }
   eval(script: string, keys: string[], args: string[]): this {
-    // EVAL can be transactional
+    // EVAL can be part of a transaction
     return this._queue(() => this.mockRedis.eval(script, keys, args));
   }
 
-  /**
-   * Executes all queued commands in order.
-   * @returns A promise that resolves with an array of results from each command.
-   */
+  /** @inheritdoc */
   async exec(): Promise<TransactionResult> {
     const results = [];
     for (const cmd of this.commands) {
@@ -204,10 +244,7 @@ class BeaconRedisMockTransaction implements IBeaconRedisTransaction {
     this.commands = [];
     return results;
   }
-  /**
-   * Discards all queued commands.
-   * @returns A resolved promise.
-   */
+  /** @inheritdoc */
   async discard(): Promise<void> {
     this.commands = [];
     return;
@@ -218,17 +255,18 @@ class BeaconRedisMockTransaction implements IBeaconRedisTransaction {
  * A full in-memory mock of a Redis client, implementing the `IBeaconRedis` interface.
  * This class is designed for testing purposes, providing a predictable and fast
  * alternative to a real Redis server. It supports most common commands and data types.
+ * @implements {IBeaconRedis}
  */
 export class BeaconRedisMock implements IBeaconRedis {
   /** The internal in-memory data store. */
-  private store: Map<string, any> = new Map();
+  private store: Map<string, StoreEntry> = new Map();
   private readonly logger: ILogger;
   private readonly instanceName: string;
 
   /**
    * Constructs a new BeaconRedisMock instance.
-   * @param [instanceName='default_mock'] A name for this mock instance.
-   * @param [parentLogger] An optional parent logger to create a child logger from.
+   * @param {string} [instanceName='default_mock'] - A name for this mock instance.
+   * @param {ILogger} [parentLogger] - An optional parent logger to create a child logger from.
    */
   constructor(instanceName = 'default_mock', parentLogger?: ILogger) {
     this.instanceName = instanceName;
@@ -257,10 +295,11 @@ export class BeaconRedisMock implements IBeaconRedis {
   /**
    * Retrieves an entry from the store if it exists and has not expired.
    * Also validates that the entry is of the expected type.
-   * @param key The key of the entry to retrieve.
-   * @param [expectedType] The expected data type for the key.
-   * @returns The store entry, or null if not found or expired.
-   * @throws {Error} if the key holds a value of the wrong type.
+   * @private
+   * @param {string} key - The key of the entry to retrieve.
+   * @param {StoreEntry['type']} [expectedType] - The expected data type for the key.
+   * @returns {StoreEntry | null} The store entry, or null if not found or expired.
+   * @throws {Error} WRONGTYPE error if the key holds a value of the wrong type.
    */
   private _getValidEntry(
     key: string,
@@ -282,25 +321,26 @@ export class BeaconRedisMock implements IBeaconRedis {
 
   /**
    * Serializes a value to a string for storage, similar to how Redis stores data.
-   * @param value The value to serialize.
-   * @returns A string representation of the value.
+   * @private
+   * @param {any} value - The value to serialize.
+   * @returns {string} A string representation of the value.
    */
   private _serialize(value: any): string {
     return typeof value === 'string' ? value : JSON.stringify(value);
   }
 
   // --- Key Commands ---
-  /** Simulates the GET command. */
+  /** @inheritdoc */
   async get(key: string): Promise<string | null> {
     const entry = this._getValidEntry(key, 'string');
     return entry ? (entry.value as string) : null;
   }
-  /** Simulates the SET command with optional TTL. */
+  /** @inheritdoc */
   async set(
     key: string,
     value: any,
     ttlSeconds?: number
-  ): Promise<'OK' | null> {
+  ): Promise<string | null> {
     const entry: StoreEntry = {
       value: this._serialize(value),
       type: 'string',
@@ -310,7 +350,7 @@ export class BeaconRedisMock implements IBeaconRedis {
     this.store.set(key, entry);
     return 'OK';
   }
-  /** Simulates the DEL command. */
+  /** @inheritdoc */
   async del(keys: string | string[]): Promise<number> {
     const keysToDelete = Array.isArray(keys) ? keys : [keys];
     let count = 0;
@@ -319,7 +359,7 @@ export class BeaconRedisMock implements IBeaconRedis {
     }
     return count;
   }
-  /** Simulates the EXISTS command. */
+  /** @inheritdoc */
   async exists(keys: string | string[]): Promise<number> {
     const keysToCheck = Array.isArray(keys) ? keys : [keys];
     let count = 0;
@@ -328,7 +368,7 @@ export class BeaconRedisMock implements IBeaconRedis {
     }
     return count;
   }
-  /** Simulates the EXPIRE command. */
+  /** @inheritdoc */
   async expire(key: string, seconds: number): Promise<boolean> {
     const entry = this.store.get(key);
     if (entry) {
@@ -337,7 +377,7 @@ export class BeaconRedisMock implements IBeaconRedis {
     }
     return false;
   }
-  /** Simulates the TTL command. */
+  /** @inheritdoc */
   async ttl(key: string): Promise<number> {
     const entry = this._getValidEntry(key);
     if (!entry) return -2;
@@ -346,15 +386,15 @@ export class BeaconRedisMock implements IBeaconRedis {
   }
 
   // --- Numeric Commands ---
-  /** Simulates the INCR command. */
+  /** @inheritdoc */
   async incr(key: string): Promise<number> {
     return this.incrBy(key, 1);
   }
-  /** Simulates the DECR command. */
+  /** @inheritdoc */
   async decr(key: string): Promise<number> {
     return this.decrBy(key, 1);
   }
-  /** Simulates the INCRBY command. */
+  /** @inheritdoc */
   async incrBy(key: string, increment: number): Promise<number> {
     const entry = this._getValidEntry(key, 'string');
     const currentValue = entry ? parseInt(entry.value as string, 10) : 0;
@@ -368,25 +408,27 @@ export class BeaconRedisMock implements IBeaconRedis {
     });
     return newValue;
   }
-  /** Simulates the DECRBY command. */
+  /** @inheritdoc */
   async decrBy(key: string, decrement: number): Promise<number> {
     return this.incrBy(key, -decrement);
   }
 
   // --- Hash Commands ---
-  /** Simulates the HGET command. */
+  /** @inheritdoc */
   async hGet(key: string, field: string): Promise<string | null> {
     const entry = this._getValidEntry(key, 'hash');
     return entry
       ? ((entry.value as Record<string, string>)[field] ?? null)
       : null;
   }
-  /** Simulates the HSET command. */
+  /** @inheritdoc */
   async hSet(key: string, field: string, value: any): Promise<number>;
+  /** @inheritdoc */
   async hSet(
     key: string,
     fieldsAndValues: Record<string, any>
   ): Promise<number>;
+  /** @inheritdoc */
   async hSet(key: string, fieldOrFields: any, value?: any): Promise<number> {
     let entry = this._getValidEntry(key, 'hash');
     if (!entry) {
@@ -407,12 +449,12 @@ export class BeaconRedisMock implements IBeaconRedis {
     }
     return addedCount;
   }
-  /** Simulates the HGETALL command. */
+  /** @inheritdoc */
   async hGetAll(key: string): Promise<Record<string, string>> {
     const entry = this._getValidEntry(key, 'hash');
     return entry ? { ...(entry.value as Record<string, string>) } : {};
   }
-  /** Simulates the HDEL command. */
+  /** @inheritdoc */
   async hDel(key: string, fields: string | string[]): Promise<number> {
     const entry = this._getValidEntry(key, 'hash');
     if (!entry) return 0;
@@ -427,12 +469,12 @@ export class BeaconRedisMock implements IBeaconRedis {
     }
     return deletedCount;
   }
-  /** Simulates the HEXISTS command. */
+  /** @inheritdoc */
   async hExists(key: string, field: string): Promise<boolean> {
     const entry = this._getValidEntry(key, 'hash');
     return !!entry && Object.prototype.hasOwnProperty.call(entry.value, field);
   }
-  /** Simulates the HINCRBY command. */
+  /** @inheritdoc */
   async hIncrBy(
     key: string,
     field: string,
@@ -451,7 +493,7 @@ export class BeaconRedisMock implements IBeaconRedis {
   }
 
   // --- List Commands ---
-  /** Simulates the LPUSH command. */
+  /** @inheritdoc */
   async lPush(key: string, elements: any | any[]): Promise<number> {
     let entry = this._getValidEntry(key, 'list');
     if (!entry) {
@@ -464,7 +506,7 @@ export class BeaconRedisMock implements IBeaconRedis {
     );
     return list.unshift(...valuesToPush.reverse()); // Reverse to match Redis LPUSH behavior for multiple args
   }
-  /** Simulates the RPUSH command. */
+  /** @inheritdoc */
   async rPush(key: string, elements: any | any[]): Promise<number> {
     let entry = this._getValidEntry(key, 'list');
     if (!entry) {
@@ -477,17 +519,17 @@ export class BeaconRedisMock implements IBeaconRedis {
     );
     return list.push(...values);
   }
-  /** Simulates the LPOP command. */
+  /** @inheritdoc */
   async lPop(key: string): Promise<string | null> {
     const entry = this._getValidEntry(key, 'list');
     return entry ? ((entry.value as string[]).shift() ?? null) : null;
   }
-  /** Simulates the RPOP command. */
+  /** @inheritdoc */
   async rPop(key: string): Promise<string | null> {
     const entry = this._getValidEntry(key, 'list');
     return entry ? ((entry.value as string[]).pop() ?? null) : null;
   }
-  /** Simulates the LRANGE command. */
+  /** @inheritdoc */
   async lRange(key: string, start: number, stop: number): Promise<string[]> {
     const entry = this._getValidEntry(key, 'list');
     if (!entry) return [];
@@ -495,12 +537,12 @@ export class BeaconRedisMock implements IBeaconRedis {
     const realStop = stop < 0 ? list.length + stop : stop;
     return list.slice(start, realStop + 1);
   }
-  /** Simulates the LLEN command. */
+  /** @inheritdoc */
   async lLen(key: string): Promise<number> {
     const entry = this._getValidEntry(key, 'list');
     return entry ? (entry.value as string[]).length : 0;
   }
-  /** Simulates the LTRIM command. */
+  /** @inheritdoc */
   async lTrim(key: string, start: number, stop: number): Promise<string> {
     const entry = this._getValidEntry(key, 'list');
     if (entry) {
@@ -512,7 +554,7 @@ export class BeaconRedisMock implements IBeaconRedis {
   }
 
   // --- Set Commands ---
-  /** Simulates the SADD command. */
+  /** @inheritdoc */
   async sAdd(key: string, members: any | any[]): Promise<number> {
     let entry = this._getValidEntry(key, 'set');
     if (!entry) {
@@ -532,17 +574,17 @@ export class BeaconRedisMock implements IBeaconRedis {
     }
     return addedCount;
   }
-  /** Simulates the SMEMBERS command. */
+  /** @inheritdoc */
   async sMembers(key: string): Promise<string[]> {
     const entry = this._getValidEntry(key, 'set');
     return entry ? Array.from(entry.value as Set<string>) : [];
   }
-  /** Simulates the SISMEMBER command. */
+  /** @inheritdoc */
   async sIsMember(key: string, member: any): Promise<boolean> {
     const entry = this._getValidEntry(key, 'set');
     return !!entry && (entry.value as Set<string>).has(this._serialize(member));
   }
-  /** Simulates the SREM command. */
+  /** @inheritdoc */
   async sRem(key: string, members: any | any[]): Promise<number> {
     const entry = this._getValidEntry(key, 'set');
     if (!entry) return 0;
@@ -556,19 +598,21 @@ export class BeaconRedisMock implements IBeaconRedis {
     }
     return removedCount;
   }
-  /** Simulates the SCARD command. */
+  /** @inheritdoc */
   async sCard(key: string): Promise<number> {
     const entry = this._getValidEntry(key, 'set');
     return entry ? (entry.value as Set<string>).size : 0;
   }
 
   // --- Sorted Set Commands ---
-  /** Simulates the ZADD command. */
+  /** @inheritdoc */
   async zAdd(key: string, score: number, member: any): Promise<number>;
+  /** @inheritdoc */
   async zAdd(
     key: string,
     members: { score: number; value: any }[]
   ): Promise<number>;
+  /** @inheritdoc */
   async zAdd(key: string, scoreOrMembers: any, member?: any): Promise<number> {
     let entry = this._getValidEntry(key, 'zset');
     if (!entry) {
@@ -595,7 +639,7 @@ export class BeaconRedisMock implements IBeaconRedis {
     zset.sort((a, b) => a.score - b.score);
     return addedCount;
   }
-  /** Simulates the ZRANGE command. */
+  /** @inheritdoc */
   async zRange(
     key: string,
     min: string | number,
@@ -612,7 +656,7 @@ export class BeaconRedisMock implements IBeaconRedis {
     return zset.slice(start, end).map((m) => m.value);
   }
 
-  /** Simulates the ZRANGE WITHSCORES command. */
+  /** @inheritdoc */
   async zRangeWithScores(
     key: string,
     min: string | number,
@@ -630,7 +674,7 @@ export class BeaconRedisMock implements IBeaconRedis {
     return zset.slice(start, end);
   }
 
-  /** Simulates the ZREM command. */
+  /** @inheritdoc */
   async zRem(key: string, members: any | any[]): Promise<number> {
     const entry = this._getValidEntry(key, 'zset');
     if (!entry) return 0;
@@ -648,12 +692,12 @@ export class BeaconRedisMock implements IBeaconRedis {
     });
     return removedCount;
   }
-  /** Simulates the ZCARD command. */
+  /** @inheritdoc */
   async zCard(key: string): Promise<number> {
     const entry = this._getValidEntry(key, 'zset');
     return entry ? (entry.value as RedisZMember[]).length : 0;
   }
-  /** Simulates the ZSCORE command. */
+  /** @inheritdoc */
   async zScore(key: string, member: any): Promise<number | null> {
     const entry = this._getValidEntry(key, 'zset');
     if (!entry) return null;
@@ -669,7 +713,12 @@ export class BeaconRedisMock implements IBeaconRedis {
     Array<(message: string, channel: string) => void>
   > = new Map();
 
-  /** Simulates the SUBSCRIBE command. */
+  /**
+   * Simulates the SUBSCRIBE command for testing Pub/Sub.
+   * @param {string | string[]} channels - The channel or channels to subscribe to.
+   * @param {(message: string, channel: string) => void} listener - The callback to execute on message receipt.
+   * @returns {Promise<void>}
+   */
   async subscribe(
     channels: string | string[],
     listener: (message: string, channel: string) => void
@@ -681,7 +730,11 @@ export class BeaconRedisMock implements IBeaconRedis {
       this.pubSubListeners.get(channel)!.push(listener);
     }
   }
-  /** Simulates the UNSUBSCRIBE command. */
+  /**
+   * Simulates the UNSUBSCRIBE command.
+   * @param {string | string[]} [channels] - The channel or channels to unsubscribe from. If omitted, unsubscribes from all.
+   * @returns {Promise<void>}
+   */
   async unsubscribe(channels?: string | string[]): Promise<void> {
     const channelArr = channels
       ? Array.isArray(channels)
@@ -692,12 +745,21 @@ export class BeaconRedisMock implements IBeaconRedis {
       this.pubSubListeners.delete(channel);
     }
   }
-  /** Simulates the PUBLISH command. */
+  /**
+   * Simulates the PUBLISH command for testing purposes.
+   * @param {string} channel - The channel to publish the message to.
+   * @param {string} message - The message to publish.
+   * @returns {Promise<number>} A promise that resolves with the number of clients that received the message.
+   */
   async publish(channel: string, message: string): Promise<number> {
     const listeners = this.pubSubListeners.get(channel) || [];
     listeners.forEach((listener) => listener(message, channel));
     return listeners.length; // Return number of subscribers
   }
+  /**
+   * Simulates the EVAL command. This is not implemented and will throw an error.
+   * @throws {Error}
+   */
   async eval(
     _script: string,
     _keys: string[],
@@ -705,24 +767,27 @@ export class BeaconRedisMock implements IBeaconRedis {
   ): Promise<any> {
     throw new Error('EVAL command not implemented in mock.');
   }
-  /** Simulates the PING command. */
+  /** @inheritdoc */
   async ping(message?: string): Promise<string> {
     return message || 'PONG';
   }
-  /** Simulates the INFO command. */
+  /** @inheritdoc */
   async info(section?: string): Promise<string> {
     return `${section ? section + ':' : ''}
     }# Mock Server\r\nversion:1.0.0`;
   }
 
   // --- Orchestration Methods ---
-  /** Initiates a new mock transaction. */
+  /** @inheritdoc */
   multi(): IBeaconRedisTransaction {
     return new BeaconRedisMockTransaction(this, this.logger);
   }
 
   // --- Lifecycle and Management Methods ---
-  /** Checks if the mock client is "healthy" (always true for the mock). */
+  /**
+   * Checks if the mock client is "healthy". For the mock, this always returns true.
+   * @returns {Promise<boolean>} A promise that resolves to true.
+   */
   async isHealthy(): Promise<boolean> {
     return true;
   }
@@ -734,22 +799,27 @@ export class BeaconRedisMock implements IBeaconRedis {
   async quit(): Promise<void> {
     /* no-op */
   }
-  /** Returns the mock instance itself, as it acts as the native client for testing. */
+  /**
+   * Returns the mock instance itself, as it acts as the native client for testing.
+   * @returns {this} The mock instance.
+   */
   getNativeClient(): any {
     return this;
   }
   /**
    * Gets the configured name of this mock Redis instance.
-   * @returns The instance name.
+   * @returns {string} The instance name.
    */
   getInstanceName(): string {
     return this.instanceName;
   }
 
-  /** A mock implementation of `updateConfig` for testing purposes. */
+  /**
+   * A mock implementation of `updateConfig` for testing purposes.
+   * It logs the call and does nothing else, satisfying the `IBeaconRedis` interface.
+   * @param {Partial<any>} newConfig - The configuration object.
+   */
   public updateConfig(newConfig: Partial<any>): void {
-    // This is a mock implementation.
-    // It can be left empty or used to track config changes for testing.
     this.logger.debug('[BeaconRedisMock] updateConfig called', { newConfig });
   }
 }

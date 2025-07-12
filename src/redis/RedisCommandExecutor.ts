@@ -1,453 +1,447 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
- * FILE: src/redis/RedisCommandExecutor.ts
- *
- * DESCRIPTION:
- * Wraps the native `node-redis` client to provide a clean and consistent API
- * for command execution. This class acts as a thin abstraction layer,
- * directly delegating each call to the corresponding method of the native client.
+ * @file src/redis/RedisCommandExecutor.ts
+ * @description A thin wrapper around the native `node-redis` client that directly executes commands.
+ * This class's sole responsibility is to pass commands to the underlying client.
+ * It does not contain any logic for instrumentation, connection management, or error handling.
  */
-import { NodeRedisClient, RedisZMember } from './redis.types.js';
-import { SetOptions } from 'redis';
+
+import { NodeRedisClient, RedisZMember } from './redis.types';
 
 /**
- * @class RedisCommandExecutor
- * Provides a set of methods that map directly to the native `redis` client commands.
- * It contains no business logic, logging, or connection handling; its sole
- * responsibility is to execute commands against an already connected client instance.
+ * Executes Redis commands against a native `node-redis` client.
+ * This class acts as a direct pass-through to the client's methods,
+ * decoupling the command execution from the instrumentation and connection logic.
  */
 export class RedisCommandExecutor {
   /**
-   * Constructs a new instance of RedisCommandExecutor.
-   * @param {NodeRedisClient} nativeClient - The native `redis` client (standalone or cluster) that will execute the commands.
+   * Constructs a new RedisCommandExecutor.
+   * @param {NodeRedisClient} client The native `node-redis` client (single-node or cluster) to execute commands on.
    */
-  constructor(private readonly nativeClient: NodeRedisClient) {}
+  constructor(private client: NodeRedisClient) {}
 
-  // --- Key Commands ---
+  // --- String Commands ---
 
   /**
-   * Executes the Redis GET command.
-   * @param {string} key - The key whose value to get.
-   * @returns {Promise<string | null>} A promise that resolves to the value of the key, or null if the key does not exist.
+   * Executes the native GET command.
+   * @param {string} key The key to retrieve.
+   * @returns {Promise<string | null>} The value of the key, or null if it does not exist.
    */
-  get(key: string): Promise<string | null> {
-    return this.nativeClient.get(key);
+  public get(key: string): Promise<string | null> {
+    return this.client.get(key);
   }
 
   /**
-   * Executes the Redis SET command.
-   * @param {string} key - The key to set.
-   * @param {string} value - The value to set for the key.
-   * @param {SetOptions} [options] - Additional options for the command, such as TTL (e.g., { EX: 60 }).
-   * @returns {Promise<string | null>} A promise that resolves to 'OK' if the command was successful, or null.
+   * Executes the native SET command.
+   * @param {string} key The key to set.
+   * @param {string} value The value to set.
+   * @param {any} [options] Optional SET options (e.g., EX, NX).
+   * @returns {Promise<string | null>} 'OK' if successful, or null.
    */
-  set(
-    key: string,
-    value: string,
-    options?: SetOptions
-  ): Promise<string | null> {
-    return this.nativeClient.set(key, value, options);
+  public set(key: string, value: string, options?: any): Promise<string | null> {
+    return this.client.set(key, value, options);
   }
 
   /**
-   * Executes the Redis DEL command.
-   * @param {string | string[]} keys - One or more keys to delete.
-   * @returns {Promise<number>} A promise that resolves to the number of keys that were deleted.
+   * Executes the native DEL command.
+   * @param {string | string[]} keys The key or keys to delete.
+   * @returns {Promise<number>} The number of keys deleted.
    */
-  del(keys: string | string[]): Promise<number> {
-    return this.nativeClient.del(keys);
+  public del(keys: string | string[]): Promise<number> {
+    return this.client.del(keys);
   }
 
   /**
-   * Executes the Redis EXISTS command.
-   * @param {string | string[]} keys - One or more keys to check for existence.
-   * @returns {Promise<number>} A promise that resolves to the number of keys that exist.
+   * Executes the native EXISTS command.
+   * @param {string | string[]} keys The key or keys to check.
+   * @returns {Promise<number>} The number of keys that exist.
    */
-  exists(keys: string | string[]): Promise<number> {
-    return this.nativeClient.exists(keys);
+  public exists(keys: string | string[]): Promise<number> {
+    return this.client.exists(keys);
   }
 
   /**
-   * Executes the Redis EXPIRE command.
-   * @param {string} key - The key to set an expiration time on.
-   * @param {number} seconds - The time to live in seconds.
-   * @returns {Promise<boolean>} A promise that resolves to `true` if the timeout was set, `false` otherwise.
+   * Executes the native EXPIRE command.
+   * @param {string} key The key to set the expiration for.
+   * @param {number} seconds The time-to-live in seconds.
+   * @returns {Promise<boolean>} True if the timeout was set, false otherwise.
    */
-  public async expire(key: string, seconds: number): Promise<boolean> {
-    const result = await this.nativeClient.expire(key, seconds);
-    return result;
+  public expire(key: string, seconds: number): Promise<boolean> {
+    return this.client.expire(key, seconds);
   }
 
   /**
-   * Executes the Redis TTL command.
-   * @param {string} key - The key whose remaining time to live is to be checked.
-   * @returns {Promise<number>} A promise that resolves to the time to live in seconds, -1 if the key has no expiry, or -2 if the key does not exist.
+   * Executes the native TTL command.
+   * @param {string} key The key to check.
+   * @returns {Promise<number>} The remaining time to live in seconds.
    */
-  ttl(key: string): Promise<number> {
-    return this.nativeClient.ttl(key);
-  }
-
-  // --- Numeric Commands ---
-
-  /**
-   * Executes the Redis INCR command.
-   * @param {string} key - The key whose value will be incremented by one.
-   * @returns {Promise<number>} A promise that resolves to the value of the key after the increment.
-   */
-  incr(key: string): Promise<number> {
-    return this.nativeClient.incr(key);
+  public ttl(key: string): Promise<number> {
+    return this.client.ttl(key);
   }
 
   /**
-   * Executes the Redis DECR command.
-   * @param {string} key - The key whose value will be decremented by one.
-   * @returns {Promise<number>} A promise that resolves to the value of the key after the decrement.
+   * Executes the native INCR command.
+   * @param {string} key The key to increment.
+   * @returns {Promise<number>} The value after the increment.
    */
-  decr(key: string): Promise<number> {
-    return this.nativeClient.decr(key);
+  public incr(key: string): Promise<number> {
+    return this.client.incr(key);
   }
 
   /**
-   * Executes the Redis INCRBY command.
-   * @param {string} key - The key whose value will be incremented.
-   * @param {number} increment - The amount to increment by.
-   * @returns {Promise<number>} A promise that resolves to the value of the key after the increment.
+   * Executes the native DECR command.
+   * @param {string} key The key to decrement.
+   * @returns {Promise<number>} The value after the decrement.
    */
-  incrBy(key: string, increment: number): Promise<number> {
-    return this.nativeClient.incrBy(key, increment);
+  public decr(key: string): Promise<number> {
+    return this.client.decr(key);
   }
 
   /**
-   * Executes the Redis DECRBY command.
-   * @param {string} key - The key whose value will be decremented.
-   * @param {number} decrement - The amount to decrement by.
-   * @returns {Promise<number>} A promise that resolves to the value of the key after the decrement.
+   * Executes the native INCRBY command.
+   * @param {string} key The key to increment.
+   * @param {number} increment The amount to increment by.
+   * @returns {Promise<number>} The value after the increment.
    */
-  decrBy(key: string, decrement: number): Promise<number> {
-    return this.nativeClient.decrBy(key, decrement);
+  public incrBy(key: string, increment: number): Promise<number> {
+    return this.client.incrBy(key, increment);
+  }
+
+  /**
+   * Executes the native DECRBY command.
+   * @param {string} key The key to decrement.
+   * @param {number} decrement The amount to decrement by.
+   * @returns {Promise<number>} The value after the decrement.
+   */
+  public decrBy(key: string, decrement: number): Promise<number> {
+    return this.client.decrBy(key, decrement);
   }
 
   // --- Hash Commands ---
 
   /**
-   * Executes the Redis HGET command.
-   * @param {string} key - The key of the hash.
-   * @param {string} field - The field to retrieve from the hash.
-   * @returns {Promise<string | undefined>} A promise that resolves to the value of the field, or `undefined` if the field or key does not exist.
+   * Executes the native HGET command.
+   * @param {string} key The key of the hash.
+   * @param {string} field The field to retrieve.
+   * @returns {Promise<string | undefined>} The value of the field, or undefined if it does not exist.
    */
-  hGet(key: string, field: string): Promise<string | undefined> {
-    return this.nativeClient.hGet(key, field);
+  public hGet(key: string, field: string): Promise<string | undefined> {
+    return this.client.hGet(key, field);
   }
 
   /**
-   * Executes the Redis HSET command.
-   * @param {string} key - The key of the hash.
-   * @param {string | Record<string, any>} fieldOrFields - The field name or an object of fields and values.
-   * @param {any} [value] - The value to set if a single field is provided.
-   * @returns {Promise<number>} A promise that resolves to the number of fields that were added (not updated).
+   * Executes the native HSET command.
+   * @param {string} key The key of the hash.
+   * @param {string | Record<string, any>} fieldOrFields The field to set or an object of field-value pairs.
+   * @param {any} [value] The value to set if a single field is provided.
+   * @returns {Promise<number>} The number of fields that were added.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  hSet(
+  public hSet(
     key: string,
     fieldOrFields: string | Record<string, any>,
     value?: any
   ): Promise<number> {
     if (typeof fieldOrFields === 'string') {
-      // Sobrecarga para un solo campo: hSet(key, field, value)
-      return this.nativeClient.hSet(key, fieldOrFields, value);
+      return this.client.hSet(key, fieldOrFields, value as any);
     }
-    // Sobrecarga para múltiples campos: hSet(key, { field1: value1, ... })
-    return this.nativeClient.hSet(key, fieldOrFields);
+    // When fieldOrFields is an object, call the two-argument overload.
+    return this.client.hSet(key, fieldOrFields);
   }
 
   /**
-   * Executes the Redis HGETALL command.
-   * @param {string} key - The key of the hash.
-   * @returns {Promise<Record<string, string>>} A promise that resolves to an object containing all fields and values of the hash.
+   * Executes the native HGETALL command.
+   * @param {string} key The key of the hash.
+   * @returns {Promise<Record<string, string>>} An object containing all fields and values.
    */
-  hGetAll(key: string): Promise<Record<string, string>> {
-    return this.nativeClient.hGetAll(key);
+  public hGetAll(key: string): Promise<Record<string, string>> {
+    return this.client.hGetAll(key);
   }
 
   /**
-   * Executes the Redis HDEL command.
-   * @param {string} key - The key of the hash.
-   * @param {string | string[]} fields - One or more fields to delete from the hash.
-   * @returns {Promise<number>} A promise that resolves to the number of fields that were removed.
+   * Executes the native HDEL command.
+   * @param {string} key The key of the hash.
+   * @param {string | string[]} fields The field or fields to delete.
+   * @returns {Promise<number>} The number of fields that were removed.
    */
-  hDel(key: string, fields: string | string[]): Promise<number> {
-    return this.nativeClient.hDel(key, fields);
+  public hDel(key: string, fields: string | string[]): Promise<number> {
+    return this.client.hDel(key, fields);
   }
 
   /**
-   * Executes the Redis HEXISTS command.
-   * @param {string} key - The key of the hash.
-   * @param {string} field - The field to check for existence.
-   * @returns {Promise<boolean>} A promise that resolves to `true` if the field exists in the hash, `false` otherwise.
+   * Executes the native HEXISTS command.
+   * @param {string} key The key of the hash.
+   * @param {string} field The field to check.
+   * @returns {Promise<boolean>} True if the field exists, false otherwise.
    */
-  public async hExists(key: string, field: string): Promise<boolean> {
-    return await this.nativeClient.hExists(key, field);
+  public hExists(key: string, field: string): Promise<boolean> {
+    return this.client.hExists(key, field);
   }
 
   /**
-   * Executes the Redis HINCRBY command.
-   * @param {string} key - The key of the hash.
-   * @param {string} field - The field whose integer value will be incremented.
-   * @param {number} increment - The amount to increment by.
-   * @returns {Promise<number>} A promise that resolves to the value of the field after the increment.
+   * Executes the native HINCRBY command.
+   * @param {string} key The key of the hash.
+   * @param {string} field The field to increment.
+   * @param {number} increment The amount to increment by.
+   * @returns {Promise<number>} The value of the field after the increment.
    */
-  hIncrBy(key: string, field: string, increment: number): Promise<number> {
-    return this.nativeClient.hIncrBy(key, field, increment);
+  public hIncrBy(
+    key: string,
+    field: string,
+    increment: number
+  ): Promise<number> {
+    return this.client.hIncrBy(key, field, increment);
   }
 
   // --- List Commands ---
 
   /**
-   * Executes the Redis LPUSH command.
-   * @param {string} key - The key of the list.
-   * @param {string | string[]} elements - One or more elements to prepend to the list.
-   * @returns {Promise<number>} A promise that resolves to the length of the list after the operation.
+   * Executes the native LPUSH command.
+   * @param {string} key The key of the list.
+   * @param {any | any[]} elements The element or elements to prepend.
+   * @returns {Promise<number>} The length of the list after the operation.
    */
-  lPush(key: string, elements: string | string[]): Promise<number> {
-    return this.nativeClient.lPush(key, elements);
+  public lPush(key: string, elements: any | any[]): Promise<number> {
+    return this.client.lPush(key, elements as any);
   }
 
   /**
-   * Executes the Redis RPUSH command.
-   * @param {string} key - The key of the list.
-   * @param {string | string[]} elements - One or more elements to append to the list.
-   * @returns {Promise<number>} A promise that resolves to the length of the list after the operation.
+   * Executes the native RPUSH command.
+   * @param {string} key The key of the list.
+   * @param {any | any[]} elements The element or elements to append.
+   * @returns {Promise<number>} The length of the list after the operation.
    */
-  rPush(key: string, elements: string | string[]): Promise<number> {
-    return this.nativeClient.rPush(key, elements);
+  public rPush(key: string, elements: any | any[]): Promise<number> {
+    return this.client.rPush(key, elements as any);
   }
 
   /**
-   * Executes the Redis LPOP command.
-   * @param {string} key - The key of the list.
-   * @returns {Promise<string | null>} A promise that resolves to the removed element, or null if the list is empty.
+   * Executes the native LPOP command.
+   * @param {string} key The key of the list.
+   * @returns {Promise<string | null>} The value of the first element, or null if the list is empty.
    */
-  lPop(key: string): Promise<string | null> {
-    return this.nativeClient.lPop(key);
+  public lPop(key: string): Promise<string | null> {
+    return this.client.lPop(key);
   }
 
   /**
-   * Executes the Redis RPOP command.
-   * @param {string} key - The key of the list.
-   * @returns {Promise<string | null>} A promise that resolves to the removed element, or null if the list is empty.
+   * Executes the native RPOP command.
+   * @param {string} key The key of the list.
+   * @returns {Promise<string | null>} The value of the last element, or null if the list is empty.
    */
-  rPop(key: string): Promise<string | null> {
-    return this.nativeClient.rPop(key);
+  public rPop(key: string): Promise<string | null> {
+    return this.client.rPop(key);
   }
 
   /**
-   * Executes the Redis LRANGE command.
-   * @param {string} key - The key of the list.
-   * @param {number} start - The starting index.
-   * @param {number} stop - The ending index.
-   * @returns {Promise<string[]>} A promise that resolves to an array of elements within the specified range.
+   * Executes the native LRANGE command.
+   * @param {string} key The key of the list.
+   * @param {number} start The starting index.
+   * @param {number} stop The ending index.
+   * @returns {Promise<string[]>} An array of elements in the specified range.
    */
-  lRange(key: string, start: number, stop: number): Promise<string[]> {
-    return this.nativeClient.lRange(key, start, stop);
+  public lRange(key: string, start: number, stop: number): Promise<string[]> {
+    return this.client.lRange(key, start, stop);
   }
 
   /**
-   * Executes the Redis LLEN command.
-   * @param {string} key - The key of the list.
-   * @returns {Promise<number>} A promise that resolves to the length of the list.
+   * Executes the native LLEN command.
+   * @param {string} key The key of the list.
+   * @returns {Promise<number>} The length of the list.
    */
-  lLen(key: string): Promise<number> {
-    return this.nativeClient.lLen(key);
+  public lLen(key: string): Promise<number> {
+    return this.client.lLen(key);
   }
 
   /**
-   * Executes the Redis LTRIM command.
-   * @param {string} key - The key of the list.
-   * @param {number} start - The start index of the trim.
-   * @param {number} stop - The end index of the trim.
-   * @returns {Promise<'OK'>} A promise that resolves to 'OK'.
+   * Executes the native LTRIM command.
+   * @param {string} key The key of the list.
+   * @param {number} start The starting index.
+   * @param {number} stop The ending index.
+   * @returns {Promise<string>} 'OK'.
    */
-  async lTrim(key: string, start: number, stop: number): Promise<'OK'> {
-    await this.nativeClient.lTrim(key, start, stop);
-    return 'OK';
+  public lTrim(key: string, start: number, stop: number): Promise<string> {
+    return this.client.lTrim(key, start, stop);
   }
 
   // --- Set Commands ---
 
   /**
-   * Executes the Redis SADD command.
-   * @param {string} key - The key of the set.
-   * @param {string | string[]} members - One or more members to add to the set.
-   * @returns {Promise<number>} A promise that resolves to the number of elements that were added.
+   * Executes the native SADD command.
+   * @param {string} key The key of the set.
+   * @param {any | any[]} members The member or members to add.
+   * @returns {Promise<number>} The number of members added to the set.
    */
-  sAdd(key: string, members: string | string[]): Promise<number> {
-    return this.nativeClient.sAdd(key, members);
+  public sAdd(key: string, members: any | any[]): Promise<number> {
+    return this.client.sAdd(key, members as any);
   }
 
   /**
-   * Executes the Redis SMEMBERS command.
-   * @param {string} key - The key of the set.
-   * @returns {Promise<string[]>} A promise that resolves to an array containing all the members of the set.
+   * Executes the native SMEMBERS command.
+   * @param {string} key The key of the set.
+   * @returns {Promise<string[]>} An array of all members in the set.
    */
-  sMembers(key: string): Promise<string[]> {
-    return this.nativeClient.sMembers(key);
+  public sMembers(key: string): Promise<string[]> {
+    return this.client.sMembers(key);
   }
 
   /**
-   * Executes the Redis SISMEMBER command.
-   * @param {string} key - The key of the set.
-   * @param {string} member - The member to check for existence.
-   * @returns {Promise<boolean>} A promise that resolves to `true` if the member exists, `false` otherwise.
+   * Executes the native SISMEMBER command.
+   * @param {string} key The key of the set.
+   * @param {any} member The member to check for.
+   * @returns {Promise<boolean>} True if the member is in the set, false otherwise.
    */
-  sIsMember(key: string, member: string): Promise<boolean> {
-    return this.nativeClient.sIsMember(key, member);
+  public sIsMember(key: string, member: any): Promise<boolean> {
+    return this.client.sIsMember(key, member as any);
   }
 
   /**
-   * Executes the Redis SREM command.
-   * @param {string} key - The key of the set.
-   * @param {string | string[]} members - One or more members to remove from the set.
-   * @returns {Promise<number>} A promise that resolves to the number of members that were removed.
+   * Executes the native SREM command.
+   * @param {string} key The key of the set.
+   * @param {any | any[]} members The member or members to remove.
+   * @returns {Promise<number>} The number of members removed from the set.
    */
-  sRem(key: string, members: string | string[]): Promise<number> {
-    return this.nativeClient.sRem(key, members);
+  public sRem(key: string, members: any | any[]): Promise<number> {
+    return this.client.sRem(key, members as any);
   }
 
   /**
-   * Executes the Redis SCARD command.
-   * @param {string} key - The key of the set.
-   * @returns {Promise<number>} A promise that resolves to the number of members in the set (cardinality).
+   * Executes the native SCARD command.
+   * @param {string} key The key of the set.
+   * @returns {Promise<number>} The cardinality of the set.
    */
-  sCard(key: string): Promise<number> {
-    return this.nativeClient.sCard(key);
+  public sCard(key: string): Promise<number> {
+    return this.client.sCard(key);
   }
 
   // --- Sorted Set Commands ---
 
   /**
-   * Executes the Redis ZADD command.
-   * @param key The key of the sorted set.
-   * @param scoreOrMembers The score of a single member, or an array of members with scores.
-   * @param [member] The value of a single member.
-   * @returns The number of elements added to the sorted set.
+   * Executes the native ZADD command.
+   * @param {string} key The key of the sorted set.
+   * @param {any} scoreOrMembers The score for a single member, or an array of member-score objects.
+   * @param {any} [member] The member to add if a single score is provided.
+   * @returns {Promise<number>} The number of elements added to the sorted set.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  zAdd(key: string, scoreOrMembers: any, member?: any): Promise<number> {
+  public zAdd(
+    key: string,
+    scoreOrMembers: number | { score: number; value: any }[],
+    member?: any
+  ): Promise<number> {
     if (Array.isArray(scoreOrMembers)) {
-      // Sobrecarga para múltiples miembros: zAdd(key, [{ score, value }, ...])
-      return this.nativeClient.zAdd(key, scoreOrMembers);
+      return this.client.zAdd(key, scoreOrMembers);
     }
-    // Sobrecarga para un solo miembro: zAdd(key, score, member)
-    return this.nativeClient.zAdd(key, scoreOrMembers, member);
+    // For a single member, the native client expects a ZMember object or an array of them.
+    return this.client.zAdd(key, { score: scoreOrMembers, value: member });
   }
 
   /**
-   * Executes the Redis ZRANGE command.
-   * @param {string} key - The key of the sorted set.
-   * @param {number | string} min - The starting index (or value, if using BYSCORE/BYLEX).
-   * @param {number | string} max - The ending index (or value).
-   * @param {any} [options] - Additional options like REV, BYSCORE, WITHSCORES.
-   * @returns {Promise<string[]>} A promise that resolves to an array of members in the range.
+   * Executes the native ZRANGE command.
+   * @param {string} key The key of the sorted set.
+   * @param {string | number} min The minimum index or score.
+   * @param {string | number} max The maximum index or score.
+   * @param {any} [options] Additional options (e.g., REV).
+   * @returns {Promise<string[]>} An array of members in the specified range.
    */
-  // prettier-ignore
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  zRange(key: string,min: number | string,max: number | string,options?: any
+  public zRange(
+    key: string,
+    min: string | number,
+    max: string | number,
+    options?: any
   ): Promise<string[]> {
-    return this.nativeClient.zRange(key, min, max, options);
+    return this.client.zRange(key, min, max, options);
   }
 
   /**
-   * Executes the Redis ZRANGE command with the WITHSCORES option.
-   * @param {string} key - The key of the sorted set.
-   * @param {number | string} min - The starting index (or value).
-   * @param {number | string} max - The ending index (or value).
-   * @param {any} [options] - Additional options.
-   * @returns {Promise<RedisZMember[]>} A promise that resolves to an array of members with their scores.
+   * Executes the native ZRANGE command with the WITHSCORES option.
+   * @param {string} key The key of the sorted set.
+   * @param {string | number} min The minimum index or score.
+   * @param {string | number} max The maximum index or score.
+   * @param {any} [options] Additional options (e.g., REV).
+   * @returns {Promise<RedisZMember[]>} An array of members and their scores.
    */
-  // prettier-ignore
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  zRangeWithScores(key: string,min: number | string,max: number | string,options?: any
+  public zRangeWithScores(
+    key: string,
+    min: string | number,
+    max: string | number,
+    options?: any
   ): Promise<RedisZMember[]> {
-    return this.nativeClient.zRangeWithScores(key, min, max, options);
+    return this.client.zRangeWithScores(key, min, max, options);
   }
 
   /**
-   * Executes the Redis ZREM command.
-   * @param {string} key - The key of the sorted set.
-   * @param {string | string[]} members - One or more members to remove.
-   * @returns {Promise<number>} A promise that resolves to the number of members removed.
+   * Executes the native ZREM command.
+   * @param {string} key The key of the sorted set.
+   * @param {any | any[]} members The member or members to remove.
+   * @returns {Promise<number>} The number of members removed.
    */
-  zRem(key: string, members: string | string[]): Promise<number> {
-    return this.nativeClient.zRem(key, members);
+  public zRem(key: string, members: any | any[]): Promise<number> {
+    return this.client.zRem(key, members as any);
   }
 
   /**
-   * Executes the Redis ZCARD command.
-   * @param {string} key - The key of the sorted set.
-   * @returns {Promise<number>} A promise that resolves to the number of members in the set (cardinality).
+   * Executes the native ZCARD command.
+   * @param {string} key The key of the sorted set.
+   * @returns {Promise<number>} The cardinality of the sorted set.
    */
-  zCard(key: string): Promise<number> {
-    return this.nativeClient.zCard(key);
+  public zCard(key: string): Promise<number> {
+    return this.client.zCard(key);
   }
 
   /**
-   * Executes the Redis ZSCORE command.
-   * @param {string} key - The key of the sorted set.
-   * @param {string} member - The member whose score to retrieve.
-   * @returns {Promise<number | null>} A promise that resolves to the score of the member, or null if the member does not exist.
+   * Executes the native ZSCORE command.
+   * @param {string} key The key of the sorted set.
+   * @param {any} member The member whose score to retrieve.
+   * @returns {Promise<number | null>} The score of the member, or null if it does not exist.
    */
-  async zScore(key: string, member: string): Promise<number | null> {
-    return this.nativeClient.zScore(key, member);
+  public zScore(key: string, member: any): Promise<number | null> {
+    return this.client.zScore(key, member as any);
   }
 
-  // --- Pub/Sub & Scripting ---
+  // --- Scripting and Pub/Sub Commands ---
 
   /**
-   * Executes the Redis PUBLISH command.
-   * @param {string} channel - The channel to publish the message to.
-   * @param {string} message - The message to publish.
-   * @returns {Promise<number>} A promise that resolves to the number of clients that received the message.
+   * Executes the native EVAL command.
+   * @param {string} script The Lua script to execute.
+   * @param {string[]} keys An array of key names.
+   * @param {string[]} args An array of argument values.
+   * @returns {Promise<any>} The result of the script execution.
    */
-  publish(channel: string, message: string): Promise<number> {
-    return this.nativeClient.publish(channel, message);
+  public eval(script: string, keys: string[], args: string[]): Promise<any> {
+    return this.client.eval(script, { keys, arguments: args });
   }
 
   /**
-   * Executes the Redis SUBSCRIBE command.
-   * @param {string | string[]} channel - One or more channels to subscribe to.
-   * @param {(message: string, channel: string) => void} listener - The function that will handle received messages.
+   * Executes the native SUBSCRIBE command.
+   * @param {string} channel The channel to subscribe to.
+   * @param {(message: string, channel: string) => void} listener The callback for received messages.
    * @returns {Promise<void>}
    */
-  subscribe(
-    channel: string | string[],
+  public subscribe(
+    channel: string,
     listener: (message: string, channel: string) => void
   ): Promise<void> {
-    return this.nativeClient.subscribe(channel, listener);
+    return this.client.subscribe(channel, listener);
   }
 
   /**
-   * Executes the Redis UNSUBSCRIBE command.
-   * @param {string | string[]} [channel] - The channel(s) to unsubscribe from. If not provided, unsubscribes from all channels.
+   * Executes the native UNSUBSCRIBE command.
+   * @param {string} [channel] The channel to unsubscribe from. If omitted, unsubscribes from all.
    * @returns {Promise<void>}
    */
-  unsubscribe(channel?: string | string[]): Promise<void> {
-    if (channel === undefined) {
-      return this.nativeClient.unsubscribe();
+  public unsubscribe(channel?: string): Promise<void> {
+    if (channel) {
+      return this.client.unsubscribe(channel);
     }
-    return this.nativeClient.unsubscribe(channel);
+    return this.client.unsubscribe();
   }
 
   /**
-   * Executes the Redis EVAL command.
-   * @param {string} script - The Lua script to execute.
-   * @param {object} options - An object containing the keys (KEYS) and arguments (ARGUMENTS) for the script.
-   * @returns {Promise<any>} A promise that resolves to the result of the script's execution.
+   * Executes the native PUBLISH command.
+   * @param {string} channel The channel to publish to.
+   * @param {string} message The message to publish.
+   * @returns {Promise<number>} The number of clients that received the message.
    */
-  // prettier-ignore
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public eval(script: string, keys: string[], args: string[]): Promise<any> {
-    return this.nativeClient.eval(script, {
-      keys,
-      arguments: args,
-    });
+  public publish(channel: string, message: string): Promise<number> {
+    return this.client.publish(channel, message);
   }
 }

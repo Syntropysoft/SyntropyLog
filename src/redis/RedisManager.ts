@@ -1,6 +1,6 @@
 /**
- * FILE: src/redis/RedisManager.ts
- * DESCRIPTION: Manages the lifecycle of multiple instrumented Redis client instances.
+ * @file src/redis/RedisManager.ts
+ * @description Manages the lifecycle of multiple instrumented Redis client instances.
  */
 
 import { ILogger } from '../logger/ILogger';
@@ -14,11 +14,22 @@ import type { IBeaconRedis } from './IBeaconRedis';
 import { RedisConnectionManager } from './RedisConnectionManager';
 import { RedisCommandExecutor } from './RedisCommandExecutor';
 
+/**
+ * Defines the options for constructing a `RedisManager`.
+ */
 export interface RedisManagerOptions {
+  /** The main Redis configuration object containing all instance definitions. */
   config?: SyntropyRedisConfig;
+  /** A list of field names whose values should be masked in logs across all instances. */
   sensitiveCommandValueFields?: string[];
+  /** A list of patterns to match field names for masking across all instances. */
   sensitiveCommandValuePatterns?: (string | RegExp)[];
-  logger: ILogger; // The logger is the only mandatory property
+  /**
+   * The central logger instance. This is the only mandatory property.
+   * The manager will create child loggers for each Redis instance.
+   * @type {ILogger}
+   */
+  logger: ILogger;
 }
 
 /**
@@ -35,10 +46,8 @@ export class RedisManager {
   /**
    * Constructs a RedisManager.
    * It iterates through the provided instance configurations, creates the corresponding
-   * native Redis clients, wraps them in `BeaconRedis` for instrumentation, and stores them.
-   * @param config The Redis configuration object containing all instance definitions.
-   * @param sensitiveCommandValueFields A list of field names whose values should be masked in logs across all instances.
-   * @param sensitiveCommandValuePatterns A list of patterns to match field names for masking across all instances.
+   * native Redis clients, wraps them in `BeaconRedis` for instrumentation, and stores them for retrieval.
+   * @param {RedisManagerOptions} options - The configuration and logger for the manager.
    */
   constructor(options: RedisManagerOptions) {
     const {
@@ -65,19 +74,19 @@ export class RedisManager {
           instance: instanceConfig.instanceName,
         });
 
-        // 1. We create the ConnectionManager, passing it the instance configuration
+        // 1. Create the ConnectionManager, passing it the instance configuration.
         const connectionManager = new RedisConnectionManager(
           instanceConfig,
           childLogger
         );
 
-        // 2. We ask the ConnectionManager for the native client it just created
+        // 2. Ask the ConnectionManager for the native client it just created.
         const nativeClient = connectionManager.getNativeClient();
 
-        // 3. We create the CommandExecutor with that client
+        // 3. Create the CommandExecutor with that native client.
         const commandExecutor = new RedisCommandExecutor(nativeClient);
 
-        // 4. We assemble BeaconRedis with all the pieces
+        // 4. Assemble the final instrumented BeaconRedis client with all the pieces.
         const beaconRedis = new BeaconRedis(
           instanceConfig,
           connectionManager,
@@ -94,8 +103,8 @@ export class RedisManager {
           `Failed to create Redis instance "${instanceConfig.instanceName}"`,
           { error }
         );
-        // Instead of omitting the instance, we create a "failing" client.
-        // This ensures that getInstance does not fail, but any operation
+        // Instead of omitting the instance, create a "failing" client.
+        // This ensures that getInstance() does not fail, but any operation
         // with the client will, with a clear message.
         const failingClient = createFailingRedisClient(
           instanceConfig.instanceName,
@@ -109,7 +118,7 @@ export class RedisManager {
 
   /**
    * Retrieves a managed Redis instance by its name.
-   * @param name The name of the instance to retrieve, as defined in the configuration.
+   * @param {string} name - The name of the instance to retrieve, as defined in the configuration.
    * @returns The `IBeaconRedis` instance.
    * @throws {Error} if no instance with the given name is found.
    */
@@ -125,8 +134,8 @@ export class RedisManager {
 
   /**
    * Dynamically updates the configuration of a specific Redis instance.
-   * @param instanceName The name of the instance to reconfigure.
-   * @param newConfig A partial configuration object with the new reconfigurable options.
+   * @param {string} instanceName - The name of the instance to reconfigure.
+   * @param {Partial<RedisInstanceReconfigurableConfig>} newConfig - A partial configuration object with the new reconfigurable options.
    */
   public updateInstanceConfig(
     instanceName: string,
@@ -144,6 +153,7 @@ export class RedisManager {
 
   /**
    * Gracefully shuts down all managed Redis connections.
+   * It attempts to close all connections and waits for them to complete.
    */
   public async shutdown(): Promise<void> {
     this.logger.info('Closing all Redis connections...');
