@@ -655,36 +655,13 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-package-lock.json
+# Ignore all package-lock.json files...
+**/package-lock.json
+# ...except for the one in the project root, which is required for `npm ci`.
+!/package-lock.json
 
-
-# En .gitignore de la raíz del proyecto beaconlog/
-
-# Ignorar dependencias de Node en cualquier lugar
-**/node_modules/
-
-# Ignorar carpetas de build/distribución comunes en cualquier lugar
-**/dist/
-**/build/
-**/coverage/ # Carpetas de reportes de cobertura de tests
-
-# Ignorar archivos de entorno en cualquier lugar
-**/.env
-**/.env.*
-!**/.env.example # No ignorar archivos .env.example si los usas
-
-# Logs
-**/*.log
-**/logs/
-
-# Archivos de sistema operativo
-.DS_Store
-Thumbs.db
-
+# Bruno API client collection files
 **/*.bru
 
-**/dist
-**/node_modules_modules/
-**/coverage
-
-.vscode
+# VSCode editor settings
+.vscode/
