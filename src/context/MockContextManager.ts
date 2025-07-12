@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  * @file src/context/MockContextManager.ts
  * @description Provides a mock implementation of the IContextManager interface,

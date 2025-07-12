@@ -44,7 +44,9 @@ export interface LoggerConfigLoaderOptions {
  * @returns A partial `LoggerOptions` object, or an empty object if no file is found.
  * @throws An error if a config file is found but fails to be read or parsed.
  */
-export function loadLoggerConfig(opts?: LoggerConfigLoaderOptions): Partial<LoggerOptions> {
+export function loadLoggerConfig(
+  opts?: LoggerConfigLoaderOptions
+): Partial<LoggerOptions> {
   const {
     configPathEnvVar = 'LOGGER_CONFIG',
     fallbackEnvVar = 'NODE_ENV',
@@ -63,7 +65,10 @@ export function loadLoggerConfig(opts?: LoggerConfigLoaderOptions): Partial<Logg
   if (!configPath) {
     const env = process.env[fallbackEnvVar];
     if (env) {
-      const envSpecificPath = path.join(configDir, `${defaultBase}-${env}.yaml`);
+      const envSpecificPath = path.join(
+        configDir,
+        `${defaultBase}-${env}.yaml`
+      );
       if (fs.existsSync(envSpecificPath)) {
         configPath = envSpecificPath;
       }
@@ -86,12 +91,16 @@ export function loadLoggerConfig(opts?: LoggerConfigLoaderOptions): Partial<Logg
   try {
     // Load and parse the YAML file.
     const fileContents = fs.readFileSync(configPath, 'utf8');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const yamlConfig = yaml.load(fileContents) as Record<string, any> | null;
 
     // If the YAML has the config under a 'logger' key, extract it.
     // Otherwise, assume the root object is the configuration.
     return yamlConfig?.logger || yamlConfig || {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    throw new Error(`[BeaconLog] Failed to load or parse config file at ${configPath}: ${error.message}`);
+    throw new Error(
+      `[BeaconLog] Failed to load or parse config file at ${configPath}: ${error.message}`
+    );
   }
 }

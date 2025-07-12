@@ -10,7 +10,7 @@ import { ILogger } from '../logger/ILogger';
  * @description A map where the key is the field name to look for in a log object,
  * and the value is the function that will transform its value into a string.
  */
-type SerializerMap = Record<string, (value: any) => string>;
+type SerializerMap = Record<string, (value: unknown) => string>;
 
 /**
  * @interface SerializerRegistryOptions
@@ -51,14 +51,14 @@ export class SerializerRegistry {
 
   /**
    * Processes a metadata object, applying any matching serializers.
-   * @param {Record<string, any>} meta - The metadata object from a log call.
+   * @param {Record<string, unknown>} meta - The metadata object from a log call.
    * @param {ILogger} logger - A logger instance to report errors from the serialization process itself.
-   * @returns {Promise<Record<string, any>>} A new metadata object with serialized values.
+   * @returns {Promise<Record<string, unknown>>} A new metadata object with serialized values.
    */
   public async process(
-    meta: Record<string, any>,
+    meta: Record<string, unknown>,
     logger: ILogger
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const processedMeta = { ...meta };
 
     for (const key in processedMeta) {
@@ -90,14 +90,14 @@ export class SerializerRegistry {
   /**
    * @private
    * Safely executes a serializer function with a timeout.
-   * @param {(value: any) => string} serializerFn - The serializer function to execute.
-   * @param {any} value - The value to pass to the function.
+   * @param {(value: unknown) => string} serializerFn - The serializer function to execute.
+   * @param {unknown} value - The value to pass to the function.
    * @returns {Promise<string>} A promise that resolves with the serialized string.
    * @throws An error if the serializer throws an exception or times out.
    */
   private secureExecute(
-    serializerFn: (value: any) => string,
-    value: any
+    serializerFn: (value: unknown) => string,
+    value: unknown
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -128,17 +128,17 @@ export class SerializerRegistry {
    * @private
    * The default serializer for Error objects. It creates a JSON string representation
    * of the error, explicitly including common properties like name, message, and stack.
-   * @param {any} err - The value to serialize, expected to be an Error.
+   * @param {unknown} err - The value to serialize, expected to be an Error.
    * @returns {string} A JSON string representing the error.
    */
-  private defaultErrorSerializer(err: any): string {
+  private defaultErrorSerializer(err: unknown): string {
     if (!(err instanceof Error)) {
       // For non-Error objects, a simple stringify is the best we can do.
       return JSON.stringify(err);
     }
 
     // For Error objects, explicitly pull out known, safe properties.
-    const serializedError: Record<string, any> = {
+    const serializedError: Record<string, unknown> = {
       name: err.name,
       message: err.message,
       stack: err.stack,

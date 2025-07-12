@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * FILE: src/redis/BeaconRedis.ts
  * DESCRIPTION: Implementation of IBeaconRedis that wraps a native `redis` client.

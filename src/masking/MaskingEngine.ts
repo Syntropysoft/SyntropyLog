@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * FILE: src/masking/MaskingEngine.ts
  * DESCRIPTION: Central engine for applying data masking rules to log objects.
@@ -57,7 +58,7 @@ export class MaskingEngine {
    * @param {Record<string, any>} meta - The metadata object to process.
    * @returns {Record<string, any>} A new object with the masked data.
    */
-  public process(meta: Record<string, any>): Record<string, any> {
+  public process(meta: Record<string, unknown>): Record<string, unknown> {
     return this.maskRecursively(meta, 0);
   }
 
@@ -107,7 +108,7 @@ export class MaskingEngine {
     return sanitizedObject;
   }
 
-  /** 
+  /**
    * @private
    * Masks a single value based on a `FieldMaskConfig` rule.
    * This method applies either 'full' or 'partial' masking based on the rule.

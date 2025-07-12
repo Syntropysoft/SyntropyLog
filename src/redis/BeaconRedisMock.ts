@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * FILE: src/redis/BeaconRedisMock.ts
  *
@@ -28,7 +29,7 @@ type StoreEntry = {
 };
 
 /** The in-memory data store, mapping keys to their corresponding StoreEntry. */
-type Store = Map<string, StoreEntry>;
+// type Store = Map<string, StoreEntry>;
 
 /**
  * A mock implementation of `IBeaconRedisTransaction` for testing.
@@ -599,7 +600,7 @@ export class BeaconRedisMock implements IBeaconRedis {
   ): Promise<string[]> {
     const entry = this._getValidEntry(key, 'zset');
     if (!entry) return [];
-    let zset = [...(entry.value as RedisZMember[])];
+    const zset = [...(entry.value as RedisZMember[])];
     if (options?.REV) zset.reverse();
     // Simplified: does not support BYSCORE or BYLEX
     const start = Number(min);
@@ -616,7 +617,7 @@ export class BeaconRedisMock implements IBeaconRedis {
   ): Promise<RedisZMember[]> {
     const entry = this._getValidEntry(key, 'zset');
     if (!entry) return [];
-    let zset = [...(entry.value as RedisZMember[])];
+    const zset = [...(entry.value as RedisZMember[])];
     if (options?.REV) {
       zset.reverse();
     }
@@ -702,7 +703,8 @@ export class BeaconRedisMock implements IBeaconRedis {
   }
   /** Simulates the INFO command. */
   async info(section?: string): Promise<string> {
-    return '# Mock Server\r\nversion:1.0.0';
+    return `${section ? section + ':' : ''}
+    }# Mock Server\r\nversion:1.0.0`;
   }
 
   // --- Orchestration Methods ---

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/logger/Logger.ts
  * @description The core implementation of the ILogger interface.
@@ -63,7 +64,7 @@ export class Logger implements ILogger {
     this.contextManager = opts.contextManager;
     this.transports = opts.transports;
     this.level = opts.level ?? 'info';
-    this.serviceName = opts.serviceName ?? 'unknown-service';
+    this.serviceName = opts.serviceName ?? 'any-service';
     this.bindings = opts.bindings || {};
     this.serializerRegistry = opts.serializerRegistry;
     this.maskingEngine = opts.maskingEngine;
@@ -87,7 +88,7 @@ export class Logger implements ILogger {
       return;
     }
 
-    let meta: Record<string, unknown> = {};
+    let meta: Record<string, any> = {};
     let messageArgs = args;
 
     // Parse arguments to separate the metadata object from the message and its format arguments.

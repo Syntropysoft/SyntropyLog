@@ -34,5 +34,14 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'warn',
     // Puedes añadir más reglas aquí
   },
-  ignorePatterns: ['node_modules/', 'dist/', 'rollup.config.mjs', '.eslintrc.cjs', 'coverage/', 'vitest.config.ts'],
+
+  ignorePatterns: [
+    'node_modules/',
+    'dist/',
+    'rollup.config.mjs',
+    '.eslintrc.cjs',
+    'coverage/',
+    'vitest.config.ts',
+    'examples',
+  ],
 };

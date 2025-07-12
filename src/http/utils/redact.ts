@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/http/utils/redact.ts
  * @description Provides utility functions for redacting sensitive information

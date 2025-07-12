@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * FILE: src/redis/IBeaconRedis.ts
  * DESCRIPTION: Defines the contract for an instrumented Redis client.
@@ -51,8 +52,18 @@ export interface IBeaconRedisTransaction {
   // Sorted Set Commands
   zAdd(key: string, score: number, member: any): this;
   zAdd(key: string, members: { score: number; value: any }[]): this;
-  zRange(key: string, min: string | number, max: string | number, options?: any): this;
-  zRangeWithScores(key: string, min: string | number, max: string | number, options?: any): this;
+  zRange(
+    key: string,
+    min: string | number,
+    max: string | number,
+    options?: any
+  ): this;
+  zRangeWithScores(
+    key: string,
+    min: string | number,
+    max: string | number,
+    options?: any
+  ): this;
   zRem(key: string, members: any | any[]): this;
   zCard(key: string): this;
   zScore(key: string, member: any): this;
@@ -172,9 +183,19 @@ export interface IBeaconRedis {
   zAdd(key: string, score: number, member: any): Promise<number>;
   zAdd(key: string, members: { score: number; value: any }[]): Promise<number>;
   /** Executes the Redis ZRANGE command. */
-  zRange(key: string, min: string | number, max: string | number, options?: any): Promise<string[]>;
+  zRange(
+    key: string,
+    min: string | number,
+    max: string | number,
+    options?: any
+  ): Promise<string[]>;
   /** Executes the Redis ZRANGEBYSCORE command. */
-  zRangeWithScores(key: string, min: string | number, max: string | number, options?: any): Promise<RedisZMember[]>;
+  zRangeWithScores(
+    key: string,
+    min: string | number,
+    max: string | number,
+    options?: any
+  ): Promise<RedisZMember[]>;
   /** Executes the Redis ZREM command. */
   zRem(key: string, members: any | any[]): Promise<number>;
   /** Executes the Redis ZCARD command. */

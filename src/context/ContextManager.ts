@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  * @file src/context/ContextManager.ts
  * @description The default implementation of the IContextManager interface. It uses Node.js's

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  * @file src/context/IContextManager.ts
  * @description Defines the public interface for an asynchronous context manager.

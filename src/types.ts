@@ -26,5 +26,5 @@ export interface LogEntry {
   /** The name of the service generating the log. */
   service: string;
   /** Any other properties are treated as structured metadata. */
-  [key: string]: any;
+  [key: string]: unknown;
 }

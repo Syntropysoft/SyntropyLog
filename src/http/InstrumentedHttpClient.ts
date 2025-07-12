@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/http/InstrumentedHttpClient.ts
  * @description This class is the heart of the HTTP instrumentation architecture.
@@ -75,7 +76,7 @@ export class InstrumentedHttpClient {
     if (!request.headers) {
       request.headers = {};
     }
-    
+
     // 1. Inject the Correlation ID generically.
     const correlationId = this.contextManager.getCorrelationId();
     if (correlationId) {

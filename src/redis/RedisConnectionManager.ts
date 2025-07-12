@@ -2,10 +2,9 @@
  * FILE: src/redis/RedisConnectionManager.ts
  * DESCRIPTION: Manages the lifecycle of the Redis client connection.
  */
-import { createClient, RedisClientOptions, RedisClusterOptions } from 'redis';
+import { createClient, RedisClusterOptions } from 'redis';
 import {
   RedisClientType,
-  RedisClusterType,
   RedisFunctions,
   RedisModules,
   RedisScripts,
@@ -18,6 +17,7 @@ import { RedisInstanceConfig } from '../config';
 function isRedisClientType(
   client: NodeRedisClient
 ): client is RedisClientType<RedisModules, RedisFunctions, RedisScripts> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return typeof (client as any).ping === 'function' && !('commands' in client);
 }
 
@@ -34,6 +34,7 @@ export class RedisConnectionManager {
   private connectionResolve:
     | ((value: void | PromiseLike<void>) => void)
     | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private connectionReject: ((reason?: any) => void) | null = null;
 
   private isConnectedAndReadyState: boolean = false;
@@ -108,8 +109,9 @@ export class RedisConnectionManager {
       default: {
         const _exhaustiveCheck: never = config;
         throw new Error(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           `Unsupported Redis mode: "${(_exhaustiveCheck as any).mode}"`
-        ); // NOSONAR
+        );
       }
     }
   }

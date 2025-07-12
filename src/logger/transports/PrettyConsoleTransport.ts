@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/logger/transports/PrettyConsoleTransport.ts
  * @description A transport that formats logs for human readability in a development console, using colors.

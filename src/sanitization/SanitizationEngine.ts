@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/sanitization/SanitizationEngine.ts
  * @description Final security layer that sanitizes log entries before they are written by a transport.
@@ -11,9 +12,9 @@
  */
 export class SanitizationEngine {
   /** @private This regex matches ANSI escape codes used for colors, cursor movement, etc. */
-  private readonly ansiRegex =
-    /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
-
+  // prettier-ignore
+  // eslint-disable-next-line no-control-regex
+  private readonly ansiRegex =/[\x1b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
   /**
    * @constructor
    * The engine is currently not configurable, but the constructor is in place for future enhancements.
@@ -46,23 +47,25 @@ export class SanitizationEngine {
       return data.map((item) => this.sanitizeRecursively(item));
     }
 
-    // Recurse into plain objects, but not into special objects like Buffers or RegExps.
-    // This prevents corruption of binary data and other non-plain-object types.
+    // Clave: Solo procesar objetos planos para no corromper instancias de clases.
     if (
-      data &&
       typeof data === 'object' &&
-      !Buffer.isBuffer(data) &&
-      !(data instanceof RegExp)
+      data !== null &&
+      data.constructor === Object
     ) {
       const sanitizedObject: Record<string, any> = {};
       for (const key in data) {
+        // hasOwnProperty sigue siendo una buena práctica aquí.
         if (Object.prototype.hasOwnProperty.call(data, key)) {
-          sanitizedObject[key] = this.sanitizeRecursively(data[key]);
+          sanitizedObject[key] = this.sanitizeRecursively(
+            (data as Record<string, any>)[key]
+          );
         }
       }
       return sanitizedObject;
     }
 
+    // Devuelve cualquier otro tipo de dato (números, booleans, instancias, etc.) sin modificar.
     return data;
   }
 }

@@ -33,7 +33,9 @@ export class ConsoleTransport extends Transport {
     }
 
     // First, apply the formatter if it exists.
-    const formattedEntry = this.formatter ? this.formatter.format(entry) : entry;
+    const formattedEntry = this.formatter
+      ? this.formatter.format(entry)
+      : entry;
 
     // Then, sanitize the result using the injected engine, if it was provided.
     const sanitizedEntry = this.sanitizationEngine

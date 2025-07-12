@@ -53,6 +53,7 @@ export abstract class BaseConsolePrettyTransport extends Transport {
    * @param {Record<string, any>} logObject - The final log object after formatting.
    * @returns {string} The formatted log string.
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected abstract formatLogString(logObject: Record<string, any>): string;
 
   /**
@@ -62,6 +63,7 @@ export abstract class BaseConsolePrettyTransport extends Transport {
    */
   protected getConsoleMethod(
     level: LogLevelName
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): (message?: any, ...optionalParams: any[]) => void {
     switch (level) {
       case 'fatal':

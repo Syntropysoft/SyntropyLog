@@ -22,23 +22,27 @@ import { InstrumentedHttpClient } from '../http/InstrumentedHttpClient';
 function createFailingProxy(
   logger: ILogger,
   errorMessage: string,
-  specialHandlers: Record<string, () => any> = {}
+  specialHandlers: Record<string, () => unknown> = {}
 ) {
-  return new Proxy({}, {
-    get(target, prop: string) {
-      if (prop in specialHandlers) {
-        return specialHandlers[prop];
-      }
-      // For any other property, return a function that logs and then rejects a promise.
-      // This covers method calls like .get(), .post(), .set(), etc.
-      return (...args: any[]) => {
-        logger.warn({ errorMessage, arguments: args },
-          `Attempted to use property '${prop}' on a failing client.`
-        );
-        return Promise.reject(new Error(errorMessage));
-      };
+  return new Proxy(
+    {},
+    {
+      get(target, prop: string) {
+        if (prop in specialHandlers) {
+          return specialHandlers[prop];
+        }
+        // For any other property, return a function that logs and then rejects a promise.
+        // This covers method calls like .get(), .post(), .set(), etc.
+        return (...args: unknown[]) => {
+          logger.warn(
+            { errorMessage, arguments: args },
+            `Attempted to use property '${prop}' on a failing client.`
+          );
+          return Promise.reject(new Error(errorMessage));
+        };
+      },
     }
-  });
+  );
 }
 
 /**
@@ -59,11 +63,18 @@ export function createFailingRedisClient(
     // Methods that do not return promises, like `multi`, might need special handling,
     // but for most cases, throwing an error is sufficient.
     multi: () => {
-      logger.warn({ errorMessage }, `Attempted to use method 'multi()' on a failing Redis client.`);
+      logger.warn(
+        { errorMessage },
+        `Attempted to use method 'multi()' on a failing Redis client.`
+      );
       throw new Error(errorMessage);
-    }
+    },
   };
-  return createFailingProxy(logger, errorMessage, specialHandlers) as IBeaconRedis;
+  return createFailingProxy(
+    logger,
+    errorMessage,
+    specialHandlers
+  ) as IBeaconRedis;
 }
 
 /**

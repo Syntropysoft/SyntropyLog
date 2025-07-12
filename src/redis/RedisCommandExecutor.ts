@@ -145,6 +145,7 @@ export class RedisCommandExecutor {
    * @param {any} [value] - The value to set if a single field is provided.
    * @returns {Promise<number>} A promise that resolves to the number of fields that were added (not updated).
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   hSet(key: string, fieldOrFields: any, value?: any): Promise<number> {
     return this.nativeClient.hSet(key, fieldOrFields, value);
   }
@@ -320,6 +321,7 @@ export class RedisCommandExecutor {
    * @param [member] The value of a single member.
    * @returns The number of elements added to the sorted set.
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   zAdd(key: string, scoreOrMembers: any, member?: any): Promise<number> {
     // La librería 'redis' es inteligente y sabe cómo manejar ambos casos.
     // Simplemente le pasamos los argumentos tal como vienen.
@@ -334,11 +336,9 @@ export class RedisCommandExecutor {
    * @param {any} [options] - Additional options like REV, BYSCORE, WITHSCORES.
    * @returns {Promise<string[]>} A promise that resolves to an array of members in the range.
    */
-  zRange(
-    key: string,
-    min: number | string,
-    max: number | string,
-    options?: any
+  // prettier-ignore
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  zRange(key: string,min: number | string,max: number | string,options?: any
   ): Promise<string[]> {
     return this.nativeClient.zRange(key, min, max, options);
   }
@@ -351,11 +351,9 @@ export class RedisCommandExecutor {
    * @param {any} [options] - Additional options.
    * @returns {Promise<RedisZMember[]>} A promise that resolves to an array of members with their scores.
    */
-  zRangeWithScores(
-    key: string,
-    min: number | string,
-    max: number | string,
-    options?: any
+  // prettier-ignore
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  zRangeWithScores(key: string,min: number | string,max: number | string,options?: any
   ): Promise<RedisZMember[]> {
     return this.nativeClient.zRangeWithScores(key, min, max, options);
   }
@@ -429,10 +427,9 @@ export class RedisCommandExecutor {
    * @param {object} options - An object containing the keys (KEYS) and arguments (ARGUMENTS) for the script.
    * @returns {Promise<any>} A promise that resolves to the result of the script's execution.
    */
-  eval(
-    script: string,
-    options: { KEYS?: string[]; ARGUMENTS?: string[] }
-  ): Promise<any> {
+  // prettier-ignore
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  eval(script: string,options: { KEYS?: string[]; ARGUMENTS?: string[] }): Promise<any> {
     return this.nativeClient.eval(script, {
       keys: options.KEYS,
       arguments: options.ARGUMENTS,

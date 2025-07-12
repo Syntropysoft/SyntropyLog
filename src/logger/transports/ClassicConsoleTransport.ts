@@ -57,6 +57,7 @@ export class ClassicConsoleTransport extends BaseConsolePrettyTransport {
    * @param {Record<string, any>} logObject - The log object to format.
    * @returns {string} The formatted string.
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected formatLogString(logObject: Record<string, any>): string {
     const { timestamp, level, service, msg, context, ...rest } = logObject;
 

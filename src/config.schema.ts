@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * FILE: src/config.schema.ts
  * DESCRIPTION: Defines the Zod validation schemas for the entire library's configuration.
@@ -6,9 +7,8 @@
 
 import { z } from 'zod';
 import { Transport } from './logger/transports/Transport';
-import { IHttpClientAdapter } from './http/adapters/adapter.types'; 
+import { IHttpClientAdapter } from './http/adapters/adapter.types';
 import { IBrokerAdapter } from './brokers/adapter.types';
-
 
 /**
  * @description Schema for logger-specific options, including serialization and transports.
@@ -160,7 +160,6 @@ export const httpInstanceConfigSchema = z.object({
     .optional(),
 });
 
-
 /**
  * @description Schema for the main HTTP configuration block.
  */
@@ -202,8 +201,8 @@ const maskingConfigSchema = z
  * @description Schema for a single message broker client instance.
  * It validates that a valid `IBrokerAdapter` is provided.
  * @private
-  */
- export const brokerInstanceConfigSchema = z.object({
+ */
+export const brokerInstanceConfigSchema = z.object({
   instanceName: z.string(),
   adapter: z.custom<IBrokerAdapter>((val) => {
     return (
@@ -217,12 +216,13 @@ const maskingConfigSchema = z
 
 /**
  * @description Schema for the main message broker configuration block.
-*/
-export const brokerConfigSchema = z.object({
-  /** An array of broker client instance configurations. */
-  instances: z.array(brokerInstanceConfigSchema),
-}).optional();
-
+ */
+export const brokerConfigSchema = z
+  .object({
+    /** An array of broker client instance configurations. */
+    instances: z.array(brokerInstanceConfigSchema),
+  })
+  .optional();
 
 /**
  * @description The main schema for the entire SyntropyLog configuration.

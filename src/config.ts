@@ -47,7 +47,9 @@ export type SyntropyHttpConfig = NonNullable<z.infer<typeof httpConfigSchema>>;
  * @description The configuration type for the global Redis settings block.
  * `NonNullable` is used to ensure it's always an object, even if optional in the main config.
  */
-export type SyntropyRedisConfig = NonNullable<z.infer<typeof redisConfigSchema>>;
+export type SyntropyRedisConfig = NonNullable<
+  z.infer<typeof redisConfigSchema>
+>;
 
 /**
  * @description The configuration type for the global message broker settings block.

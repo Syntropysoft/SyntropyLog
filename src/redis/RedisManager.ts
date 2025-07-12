@@ -3,13 +3,14 @@
  * DESCRIPTION: Manages the lifecycle of multiple instrumented Redis client instances.
  */
 
-import { createClient, RedisClusterOptions } from 'redis';
 import { ILogger } from '../logger/ILogger';
-import { SyntropyRedisConfig, RedisInstanceConfig, RedisInstanceReconfigurableConfig } from '../config'; // Import from the central configuration
+import {
+  SyntropyRedisConfig,
+  RedisInstanceReconfigurableConfig,
+} from '../config'; // Import from the central configuration
 import { createFailingRedisClient } from '../utils/createFailingClient';
 import { BeaconRedis } from './BeaconRedis';
 import type { IBeaconRedis } from './IBeaconRedis';
-import { NodeRedisClient } from './redis.types';
 import { RedisConnectionManager } from './RedisConnectionManager';
 import { RedisCommandExecutor } from './RedisCommandExecutor';
 
@@ -19,7 +20,6 @@ export interface RedisManagerOptions {
   sensitiveCommandValuePatterns?: (string | RegExp)[];
   logger: ILogger; // The logger is the only mandatory property
 }
-
 
 /**
  * Manages the creation, retrieval, and lifecycle of multiple `IBeaconRedis` instances

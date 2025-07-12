@@ -1,200 +1,167 @@
 <p align="center">
-<img src="./assets/beaconLog-2.png" alt="SyntropyLog Logo" width="150"/>
+  <img src="./assets/beaconLog-2.png" alt="SyntropyLog Logo" width="170"/>
 </p>
+
 <h1 align="center">SyntropyLog</h1>
+
 <p align="center">
-<strong>Observability, Compliance, and Resilience—By Design.</strong>
+  <strong>An Observability Framework for Node.js: Resilient, Secure, and Extensible by Design.</strong>
 </p>
 
 <p align="center">
-<!-- Badges will be active once CI is set up -->
-<a href="https://github.com/Syntropysoft/syntropylog/actions"><img src="https://github.com/Syntropysoft/syntropylog/actions/workflows/ci.yml/badge.svg" alt="Build Status"></a>
-<a href="https://www.npmjs.com/package/syntropylog"><img src="https://img.shields.io/npm/v/syntropylog.svg" alt="NPM Version"></a>
-<a href="https://github.com/Syntropysoft/syntropylog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
+  <a href="https://github.com/Syntropysoft/syntropylog/actions"><img src="https://github.com/Syntropysoft/syntropylog/actions/workflows/ci.yml/badge.svg" alt="Build Status"></a>
+  <a href="https://www.npmjs.com/package/syntropylog"><img src="https://img.shields.io/npm/v/syntropylog.svg" alt="NPM Version"></a>
+  <a href="https://github.com/Syntropysoft/syntropylog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
 </p>
 
-SyntropyLog is a unified and declarative observability framework for Node.js, designed to maximize developer productivity, ensure data security, and provide production-grade resilience out of the box. It empowers you to instrument HTTP clients and Message Brokers in a completely agnostic way, freeing you from dependency lock-in.
+**SyntropyLog** is not just another logging library. It's a declarative and agnostic observability framework for Node.js, built for high-demand production systems. Its architecture focuses on three pillars: **developer freedom, security by default, and resilience against failure.**
 
-Requirements: Node.js >= 18
-✨ Core Philosophy: The Adapter Pattern
-SyntropyLog is built on a simple but powerful idea: dependency inversion. Instead of being tightly coupled to specific libraries like axios or kafkajs, the framework defines a universal "contract" (an interface). You can then use or create a simple Adapter to make any library speak the framework's language.
+**Requirements**: Node.js >= 18
+
+---
+
+## ✨ Core Philosophy: True Inversion of Control
+
+The core of SyntropyLog is the **Adapter Pattern**. Instead of being tightly coupled to specific libraries like `axios` or `kafkajs`, the framework defines a universal "contract" (an interface). You simply provide an adapter to make any library speak the framework's language.
 
 This gives you unprecedented freedom:
+* **Use Any Client**: Instrument `axios`, `got`, `fetch`, or even a deprecated client like `request` with the same unified API.
+* **Use Any Version**: Update your libraries without fear of breaking your instrumentation.
+* **Future-Proof**: When a new message broker is released tomorrow, you don't have to wait for an update. You write a simple adapter, and it just works.
 
-Use Any Version: Instrument axios@0.9 or axios@2.0 with the same code.
+## 🚀 Key Features
 
-Use Any Client: Instrument axios, got, fetch, or even a deprecated client like request using the same unified API.
+* 🔌 **Agnostic Instrumentation**: Unified interfaces for HTTP clients, Message Brokers, and Caching clients (Redis).
+* 🔒 **Secure by Default**: A processing pipeline with **serialization, masking, and sanitization** engines to protect sensitive data and prevent log injection.
+* 💪 **Resilient by Design**: If a client (HTTP, Redis) fails to initialize, the application doesn't crash. Instead, a *placeholder* is injected that fails gracefully only when used, providing a clear error message.
+* 🛠️ **Intelligent CLI**: Validate your configurations with `syntropylog doctor` and `audit` to prevent errors before deployment, perfect for CI/CD pipelines.
+* 🧪 **Highly Testable**: Includes high-fidelity mocks (like `BeaconRedisMock`) and spy transports (`SpyTransport`) to facilitate robust unit and integration testing.
+* 🕊️ **Lightweight Core**: The framework stays focused and composes with specialized libraries (e.g., for file rotation) instead of reinventing the wheel.
 
-Future-Proof: When a new HTTP client or message broker is released, you don't have to wait for us. Just write a simple adapter, and it works.
+---
+
+## ⚡ Quick Start: Instrumenting an HTTP Client
+
+Getting started is as simple as configuring, injecting an adapter, and using the unified API.
 
 ```typescript
 import { syntropyLog, ClassicConsoleTransport } from 'syntropylog';
-import { AxiosAdapter } from 'syntropylog/http'; // Import our official adapter
+import { AxiosAdapter } from 'syntropylog/http';
 import axios from 'axios';
 
 // 1. Configure and initialize SyntropyLog once.
-//    Instead of a 'type', you inject an 'adapter' instance.
 syntropyLog.init({
-logger: {
-level: 'info',
-serviceName: 'my-app',
-transports: [new ClassicConsoleTransport()],
-},
-context: {
-correlationIdHeader: 'X-Correlation-ID',
-},
-http: {
-instances: [
-{
-instanceName: 'myApi',
-adapter: new AxiosAdapter(axios.create({ baseURL: 'https://api.example.com' })),
-},
-],
-},
+  logger: {
+    level: 'info',
+    serviceName: 'my-app',
+    transports: [new ClassicConsoleTransport()],
+    // The timeout configuration is mandatory by design, forcing you
+    // to actively consider the balance between fidelity and performance.
+    serializerTimeoutMs: 50,
+  },
+  context: {
+    correlationIdHeader: 'X-Correlation-ID',
+  },
+  http: {
+    instances: [
+      {
+        instanceName: 'myApi',
+        // You inject an adapter instance, not a 'type'.
+        adapter: new AxiosAdapter(axios.create({ baseURL: 'https://api.example.com' })),
+      },
+    ],
+  },
 });
 
-// 2. Get the instrumented client.
+// 2. Get the instrumented client wherever you need it.
 const apiClient = syntropyLog.getHttp('myApi');
 
-// 3. Use the unified API. It's always .request().
+// 3. Use the unified API, which is always .request().
 await apiClient.request({
-method: 'GET',
-url: '/users/1',
+  method: 'GET',
+  url: '/users/1',
 });
 ```
 
-🚀 Quick Start: The "Bring Your Own Client" Example
-This example demonstrates how to instrument four different HTTP clients—modern, native, and even deprecated—with the same core logic.
+---
 
-1. Installation
-```bash
+## 🌐 The Power in Action: "Bring Your Own Client"
 
-Install the core framework
-npm install syntropylog
+This example demonstrates how the framework instruments four different HTTP clients—modern, native, and deprecated—with the same core logic, validating the power of the adapter pattern.
 
-Install the HTTP clients you want to use
-npm install axios got node-fetch request
-```
+[**INSERT COMPLETE HTTP ADAPTERS EXAMPLE HERE**]
 
-2. The Code (index.ts)
+---
+
+##  kafka  Asynchronous Instrumentation: Message Brokers
+
+Context propagation is crucial in asynchronous systems. SyntropyLog maintains the `correlationId` across messaging systems like Kafka, enabling complete end-to-end tracing.
+
+[**INSERT COMPLETE KAFKA EXAMPLE HERE**]
+
+---
+
+## redis Caching Instrumentation: Redis
+
+The same philosophy applies to caching clients like Redis. The `BeaconRedis` API is consistent, and the instrumentation is automatic.
+
 ```typescript
-import { syntropyLog, ClassicConsoleTransport } from 'syntropylog';
-import {
-IHttpClientAdapter,
-AdapterHttpRequest,
-AdapterHttpResponse,
-AxiosAdapter, // Our official adapter for Axios
-} from 'syntropylog/http';
-
-// Import the clients you want to adapt
-import axios from 'axios';
-import got, { Got } from 'got';
-import fetch from 'node-fetch';
-import requestLib = require('request');
-
-// --- Create Your Adapters ---
-
-// An adapter for the native Fetch API (using node-fetch)
-class FetchAdapter implements IHttpClientAdapter {
-async request(req: AdapterHttpRequest) {
-const res = await fetch(req.url, { /* ... / });
-// ...translation logic...
-return { / ... */ };
-}
-}
-
-// An adapter for the 'got' library
-class GotAdapter implements IHttpClientAdapter {
-// ...implementation...
-}
-
-// An adapter for the deprecated, callback-based 'request' library
-class RequestAdapter implements IHttpClientAdapter {
-// ...implementation...
-}
-
-// --- Initialize SyntropyLog ---
-
+// Example configuration for Redis
 syntropyLog.init({
-logger: { /* ... */ },
-context: { correlationIdHeader: 'X-Correlation-ID' },
-http: {
-instances: [
-{ instanceName: 'axiosApi', adapter: new AxiosAdapter(axios.create()) },
-{ instanceName: 'gotApi', adapter: new GotAdapter(got) },
-{ instanceName: 'fetchApi', adapter: new FetchAdapter() },
-{ instanceName: 'legacyApi', adapter: new RequestAdapter() },
-],
-},
+  // ...other configurations...
+  redis: {
+    instances: [
+      {
+        instanceName: 'my-cache',
+        mode: 'single',
+        url: 'redis://localhost:6379',
+        logging: {
+          logCommandValues: true,
+          logReturnValue: true,
+        },
+      },
+    ],
+  },
 });
 
-// --- Use the Clients ---
+const redisClient = syntropyLog.getRedis('my-cache');
 
-const axiosClient = syntropyLog.getHttp('axiosApi');
-const gotClient = syntropyLog.getHttp('gotApi');
-const fetchClient = syntropyLog.getHttp('fetchApi');
-const legacyClient = syntropyLog.getHttp('legacyApi');
-
-// All clients are used with the same, unified API!
-await axiosClient.request({ method: 'GET', url: '...' });
-await gotClient.request({ method: 'GET', url: '...' });
-await fetchClient.request({ method: 'GET', url: '...' });
-await legacyClient.request({ method: 'GET', url: '...' });
+// --- Using the Instrumented Redis Client ---
+// [**INSERT REDIS (SET/GET/DEL) EXAMPLE HERE**]
 ```
 
-🏛️ Architecture and Data Flow
-Every log generated in the framework passes through a clear and consistent processing pipeline.
+---
 
-```ascii
-User Call
-logger.info({ req: {...} }, 'Incoming request')
-│
-▼
-┌───────────────────────┐
-│     Logger Engine     │
-│   (Main Pipeline)     │
-└───────────────────────┘
-│
-├─► 1. Serialization (Transforms complex objects, with timeouts)
-│
-├─► 2. Masking (Masks sensitive data from global config)
-│
-├─► 3. Final LogEntry Assembly (Adds timestamp, level, etc.)
-│
-▼
-┌───────────────────────┐
-│      Dispatcher       │
-└───────────────────────┘
-│
-├──────────────────► Transport A (e.g., Console)
-│
-└──────────────────► Transport B (e.g., File)
-```
+## 🏛️ Deep Dive: The Processing Pipeline
 
-🩺 The Doctor & Auditor CLI
-SyntropyLog includes a powerful command-line tool, syntropylog, to validate your configuration files, enforce best practices, and prevent deployment errors.
+Every log you generate passes through a robust and secure pipeline before reaching its final destination.
 
-syntropylog doctor <file>: Analyzes a single config file for quick feedback.
+* **1. Intelligent Serialization**: Transforms complex objects (like `Error`) into safe JSON representations. Most importantly, you can **inject your own serializers** for custom data types. To prevent a faulty serializer from impacting performance, the **`serializerTimeoutMs` setting is mandatory by design**—a decision that forces you to actively consider the balance between fidelity and stability.
 
-syntropylog audit: Runs a full audit plan against multiple environment configs, perfect for CI/CD pipelines. If any rule fails, it exits with a non-zero code, failing the build.
+* **2. Advanced Masking**: The `MaskingEngine` obfuscates sensitive data based on rules that support both strings and `RegExp`. It can even **sanitize sensitive parameters within URLs** in your logs.
 
-Use npx syntropylog init --rules --audit to generate starter manifests.
+* **3. Final Sanitization**: As a final layer of defense, production-oriented transports (like the default `ConsoleTransport`) use a `SanitizationEngine` to strip malicious characters (e.g., ANSI escape codes) and prevent log injection attacks.
 
-🗺️ Instrumentation Roadmap
-The adapter-based architecture is being extended to support asynchronous communication.
+---
 
-Phase 1: The Pillars of Messaging
-[x] Kafka (kafkajs)
+## 🩺 The CLI: Your Configuration Guardian
 
-[ ] RabbitMQ (amqplib)
+SyntropyLog includes a command-line tool, `syntropylog`, to validate your configurations and ensure quality.
 
-[ ] NATS (nats.js)
+* **`syntropylog doctor <file>`**: Analyzes a single configuration file for quick feedback during development.
+* **`syntropylog audit`**: Runs a full audit plan against multiple configurations (staging, production), perfect for CI/CD pipelines. If any rule fails, the process exits with an error code, stopping a faulty deployment.
 
-Phase 2: The Cloud Giants
-[ ] Google Cloud Pub/Sub
+Use `npx syntropylog init --rules --audit` to generate starter manifests.
 
-[ ] Amazon SQS / Kinesis
+---
 
-[ ] Azure Service Bus & Event Hubs
+## 🗺️ Instrumentation Roadmap
 
-For more details on the API, advanced configuration, and creating your own adapters, please refer to the full documentation (coming soon).
+The framework is designed to grow. The adapter architecture will be extended to support more messaging and cloud services.
+
+* **[x] Kafka** (`kafkajs`)
+* **[ ] RabbitMQ** (`amqplib`)
+* **[ ] NATS** (`nats.js`)
+* **[ ] Google Cloud Pub/Sub**
+* **[ ] Amazon SQS / Kinesis**
+* **[ ] Azure Service Bus & Event Hubs**

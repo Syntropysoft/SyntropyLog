@@ -33,7 +33,7 @@ const SENSITIVE_KEYS = [
  * @returns {value is Transport | IHttpClientAdapter | IBrokerAdapter} True if the value is a special instance.
  */
 function isSpecialInstance(
-  value: any
+  value: unknown
 ): value is Transport | IHttpClientAdapter | IBrokerAdapter {
   if (value instanceof Transport) {
     return true;
@@ -72,7 +72,7 @@ export function sanitizeConfig<T extends object>(config: T): T {
     return config.map((item) => sanitizeConfig(item)) as T;
   }
 
-  const sanitized: Record<string, any> = {};
+  const sanitized: Record<string, unknown> = {};
   const sensitiveLower = SENSITIVE_KEYS.map((k) => k.toLowerCase());
 
   for (const key in config) {
@@ -87,10 +87,7 @@ export function sanitizeConfig<T extends object>(config: T): T {
         typeof value === 'string'
       ) {
         // Redact user:pass from connection strings.
-        sanitized[key] = value.replace(
-          /(?<=:\/\/)([^:]+):([^@]+)@/,
-          (match, user, pass) => `${user}:${MASK}@`
-        );
+        sanitized[key] = value.replace(/(?<=:\/\/)[^:]+:[^@]+@/, `${MASK}@`);
       } else if (
         typeof value === 'object' &&
         value !== null &&

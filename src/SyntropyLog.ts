@@ -72,7 +72,7 @@ export class SyntropyLog {
       const parsedConfig = syntropyLogConfigSchema.parse(config);
       const sanitizedConfig = sanitizeConfig(parsedConfig);
       this.config = sanitizedConfig; // Store the config for later use (e.g., in shutdown)
-      
+
       this.loggerFactory = new LoggerFactory(sanitizedConfig);
       const mainLogger = this.loggerFactory.getLogger('syntropylog-main');
 
@@ -185,6 +185,7 @@ export class SyntropyLog {
 
       await Promise.race([shutdownWork, timeoutPromise]);
       mainLogger.info('SyntropyLog shut down successfully.');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       mainLogger.warn('Shutdown process timed out.', {
         detail: 'Some resources may not have been released correctly.',
