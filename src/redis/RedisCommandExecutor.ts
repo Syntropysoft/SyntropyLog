@@ -146,8 +146,17 @@ export class RedisCommandExecutor {
    * @returns {Promise<number>} A promise that resolves to the number of fields that were added (not updated).
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  hSet(key: string, fieldOrFields: any, value?: any): Promise<number> {
-    return this.nativeClient.hSet(key, fieldOrFields, value);
+  hSet(
+    key: string,
+    fieldOrFields: string | Record<string, any>,
+    value?: any
+  ): Promise<number> {
+    if (typeof fieldOrFields === 'string') {
+      // Sobrecarga para un solo campo: hSet(key, field, value)
+      return this.nativeClient.hSet(key, fieldOrFields, value);
+    }
+    // Sobrecarga para múltiples campos: hSet(key, { field1: value1, ... })
+    return this.nativeClient.hSet(key, fieldOrFields);
   }
 
   /**
@@ -323,8 +332,11 @@ export class RedisCommandExecutor {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   zAdd(key: string, scoreOrMembers: any, member?: any): Promise<number> {
-    // La librería 'redis' es inteligente y sabe cómo manejar ambos casos.
-    // Simplemente le pasamos los argumentos tal como vienen.
+    if (Array.isArray(scoreOrMembers)) {
+      // Sobrecarga para múltiples miembros: zAdd(key, [{ score, value }, ...])
+      return this.nativeClient.zAdd(key, scoreOrMembers);
+    }
+    // Sobrecarga para un solo miembro: zAdd(key, score, member)
     return this.nativeClient.zAdd(key, scoreOrMembers, member);
   }
 
@@ -418,6 +430,9 @@ export class RedisCommandExecutor {
    * @returns {Promise<void>}
    */
   unsubscribe(channel?: string | string[]): Promise<void> {
+    if (channel === undefined) {
+      return this.nativeClient.unsubscribe();
+    }
     return this.nativeClient.unsubscribe(channel);
   }
 
@@ -429,10 +444,10 @@ export class RedisCommandExecutor {
    */
   // prettier-ignore
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  eval(script: string,options: { KEYS?: string[]; ARGUMENTS?: string[] }): Promise<any> {
+  public eval(script: string, keys: string[], args: string[]): Promise<any> {
     return this.nativeClient.eval(script, {
-      keys: options.KEYS,
-      arguments: options.ARGUMENTS,
+      keys,
+      arguments: args,
     });
   }
 }

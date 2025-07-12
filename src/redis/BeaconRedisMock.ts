@@ -187,6 +187,10 @@ class BeaconRedisMockTransaction implements IBeaconRedisTransaction {
   info(section?: string): this {
     return this._queue(() => this.mockRedis.info(section));
   }
+  eval(script: string, keys: string[], args: string[]): this {
+    // EVAL can be transactional
+    return this._queue(() => this.mockRedis.eval(script, keys, args));
+  }
 
   /**
    * Executes all queued commands in order.
@@ -694,7 +698,11 @@ export class BeaconRedisMock implements IBeaconRedis {
     listeners.forEach((listener) => listener(message, channel));
     return listeners.length; // Return number of subscribers
   }
-  async eval(): Promise<any> {
+  async eval(
+    _script: string,
+    _keys: string[],
+    _args: string[]
+  ): Promise<any> {
     throw new Error('EVAL command not implemented in mock.');
   }
   /** Simulates the PING command. */

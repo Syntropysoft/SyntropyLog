@@ -60,6 +60,14 @@ describe('BeaconRedisMock', () => {
       await expect(mock.connect()).resolves.toBeUndefined();
       await expect(mock.quit()).resolves.toBeUndefined();
     });
+
+    it('should always report as healthy', async () => {
+      expect(await mock.isHealthy()).toBe(true);
+    });
+
+    it('should return itself as the native client', () => {
+      expect(mock.getNativeClient()).toBe(mock);
+    });
   });
 
   describe('Key Commands & Expiration', () => {
@@ -355,6 +363,173 @@ describe('BeaconRedisMock', () => {
 
       expect(results).toEqual([]);
       expect(await mock.get('tx_key')).toBeNull();
+    });
+
+    it('should queue key management commands (del, exists, expire, ttl)', async () => {
+      await mock.set('tx_del_key', 'delete me');
+      await mock.set('tx_expire_key', 'expire me');
+
+      const tx = mock.multi();
+      tx.del('tx_del_key');
+      tx.exists(['tx_del_key', 'tx_expire_key']);
+      tx.expire('tx_expire_key', 10);
+      tx.ttl('tx_expire_key');
+
+      const results = await tx.exec();
+
+      // The mock executes commands sequentially, so `exists` runs after `del`.
+      expect(results).toEqual([1, 1, true, 10]);
+      expect(await mock.get('tx_del_key')).toBeNull();
+      expect(await mock.ttl('tx_expire_key')).toBe(10);
+    });
+
+    it('should queue numeric commands (decr, incrBy, decrBy)', async () => {
+      await mock.set('tx_numeric_counter', '10');
+
+      const tx = mock.multi();
+      tx.decr('tx_numeric_counter'); // 10 -> 9
+      tx.incrBy('tx_numeric_counter', 5); // 9 -> 14
+      tx.decrBy('tx_numeric_counter', 4); // 14 -> 10
+
+      const results = await tx.exec();
+
+      expect(results).toEqual([9, 14, 10]);
+      expect(await mock.get('tx_numeric_counter')).toBe('10');
+    });
+
+    it('should queue hash commands (hSet, hGet, hGetAll, hDel, hIncrBy, hExists)', async () => {
+      await mock.hSet('tx_hash', { f1: 'v1', counter: '5' });
+
+      const tx = mock.multi();
+      tx.hGet('tx_hash', 'f1');
+      tx.hSet('tx_hash', 'f2', 'v2');
+      tx.hIncrBy('tx_hash', 'counter', 5);
+      tx.hGetAll('tx_hash');
+      tx.hDel('tx_hash', 'f1');
+      tx.hExists('tx_hash', 'f2');
+
+      const results = await tx.exec();
+
+      expect(results).toEqual([
+        'v1',
+        1,
+        10,
+        { f1: 'v1', f2: 'v2', counter: '10' },
+        1,
+        true,
+      ]);
+      expect(await mock.hGetAll('tx_hash')).toEqual({ f2: 'v2', counter: '10' });
+    });
+
+    it('should queue list commands (lPush, rPush, lPop, rPop, lLen, lRange, lTrim)', async () => {
+      await mock.rPush('tx_list', ['a', 'b']); // Initial state: ['a', 'b']
+
+      const tx = mock.multi();
+      tx.lPush('tx_list', 'c'); // -> ['c', 'a', 'b'], returns 3
+      tx.rPush('tx_list', 'd'); // -> ['c', 'a', 'b', 'd'], returns 4
+      tx.lPop('tx_list'); // -> pops 'c', returns 'c'
+      tx.rPop('tx_list'); // -> pops 'd', returns 'd'
+      tx.lTrim('tx_list', 1, 1); // list is ['a', 'b'], trims to ['b'], returns 'OK'
+      tx.lLen('tx_list'); // -> list is ['a', 'b'], returns 2
+      tx.lRange('tx_list', 0, -1); // -> returns ['a', 'b']
+
+      const results = await tx.exec();
+
+      expect(results).toEqual([3, 4, 'c', 'd', 'OK', 1, ['b']]);
+
+      // Verify final state
+      expect(await mock.lRange('tx_list', 0, -1)).toEqual(['b']);
+    });
+
+    it('should queue set commands (sAdd, sRem, sMembers, sIsMember, sCard)', async () => {
+      await mock.sAdd('tx_set', ['a', 'b']); // Initial state: {'a', 'b'}
+
+      const tx = mock.multi();
+      tx.sAdd('tx_set', 'c'); // -> {'a', 'b', 'c'}, returns 1
+      tx.sAdd('tx_set', ['a', 'd']); // -> {'a', 'b', 'c', 'd'}, returns 1
+      tx.sIsMember('tx_set', 'c'); // -> returns true
+      tx.sRem('tx_set', 'a'); // -> removes 'a', returns 1
+      tx.sCard('tx_set'); // -> set is {'b', 'c', 'd'}, returns 3
+      tx.sMembers('tx_set'); // -> returns members
+
+      const results = await tx.exec();
+
+      // sMembers result is not ordered, so we need to sort it for comparison
+      const membersResult = (results[5] as string[]).sort();
+
+      expect(results.slice(0, 5)).toEqual([1, 1, true, 1, 3]);
+      expect(membersResult).toEqual(['b', 'c', 'd']);
+
+      // Verify final state
+      const finalMembers = (await mock.sMembers('tx_set')).sort();
+      expect(finalMembers).toEqual(['b', 'c', 'd']);
+    });
+
+    it('should queue sorted set commands (zAdd, zRem, zRange, zScore, zCard, zRangeWithScores)', async () => {
+      await mock.zAdd('tx_zset', 10, 'a'); // Initial state
+      await mock.zAdd('tx_zset', 20, 'b');
+
+      const tx = mock.multi();
+      tx.zAdd('tx_zset', 30, 'c'); // -> returns 1
+      tx.zAdd('tx_zset', 5, 'a'); // -> updates 'a', returns 0
+      tx.zScore('tx_zset', 'b'); // -> returns 20
+      tx.zRange('tx_zset', 0, -1); // -> returns ['a', 'b', 'c'] (ordered by new scores)
+      tx.zRangeWithScores('tx_zset', 0, -1);
+      tx.zRem('tx_zset', 'b'); // -> returns 1
+      tx.zCard('tx_zset'); // -> returns 2
+
+      const results = await tx.exec();
+
+      expect(results).toEqual([
+        1,
+        0,
+        20,
+        ['a', 'b', 'c'],
+        [
+          { score: 5, value: 'a' },
+          { score: 20, value: 'b' },
+          { score: 30, value: 'c' },
+        ],
+        1,
+        2,
+      ]);
+
+      // Verify final state
+      expect(await mock.zRangeWithScores('tx_zset', 0, -1)).toEqual([
+        { score: 5, value: 'a' },
+        { score: 30, value: 'c' },
+      ]);
+    });
+
+    it('should queue server commands (ping, info)', async () => {
+      const tx = mock.multi();
+      tx.ping();
+      tx.ping('hello');
+      tx.info('server');
+
+      const results = await tx.exec();
+
+      expect(results[0]).toBe('PONG');
+      expect(results[1]).toBe('hello');
+      expect(results[2]).toContain('# Mock Server');
+    });
+  });
+
+  describe('Scripting Commands', () => {
+    it('should have an eval method that throws not implemented', async () => {
+      await expect(mock.eval('return 1', [], [])).rejects.toThrow(
+        'EVAL command not implemented in mock.'
+      );
+    });
+
+    it('should queue eval in a transaction', async () => {
+      const tx = mock.multi();
+      tx.eval('return 1', [], []);
+      // The exec will fail because the underlying mock.eval throws.
+      // This test just confirms the method exists on the transaction object.
+      await expect(tx.exec()).rejects.toThrow(
+        'EVAL command not implemented in mock.'
+      );
     });
   });
 

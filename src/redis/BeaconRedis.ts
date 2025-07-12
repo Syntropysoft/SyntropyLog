@@ -245,17 +245,22 @@ export class BeaconRedis implements IBeaconRedis {
     fieldOrFields: string | Record<string, any>,
     value?: any
   ): Promise<number> {
+    if (typeof fieldOrFields === 'string') {
+      // Handle single field-value pair.
+      return this._executeCommand(
+        'HSET',
+        () => this.commandExecutor.hSet(key, fieldOrFields, value),
+        key,
+        fieldOrFields,
+        value
+      );
+    }
+    // Handle object of field-value pairs.
     return this._executeCommand(
       'HSET',
-      () => {
-        if (typeof fieldOrFields === 'string') {
-          return this.commandExecutor.hSet(key, fieldOrFields, value);
-        }
-        return this.commandExecutor.hSet(key, fieldOrFields);
-      },
+      () => this.commandExecutor.hSet(key, fieldOrFields),
       key,
-      fieldOrFields,
-      value
+      fieldOrFields
     );
   }
   /** Executes the Redis HGETALL command. */
@@ -299,21 +304,25 @@ export class BeaconRedis implements IBeaconRedis {
     );
   }
   /** Executes the Redis LPUSH command. */
-  public async lPush(key: string, elements: any | any[]): Promise<number> {
+  public async lPush(key: string, element: any): Promise<number>;
+  public async lPush(key: string, elements: any[]): Promise<number>;
+  public async lPush(key: string, elementOrElements: any | any[]): Promise<number> {
     return this._executeCommand(
       'LPUSH',
-      () => this.commandExecutor.lPush(key, elements),
+      () => this.commandExecutor.lPush(key, elementOrElements),
       key,
-      elements
+      elementOrElements
     );
   }
   /** Executes the Redis RPUSH command. */
-  public async rPush(key: string, elements: any | any[]): Promise<number> {
+  public async rPush(key: string, element: any): Promise<number>;
+  public async rPush(key: string, elements: any[]): Promise<number>;
+  public async rPush(key: string, elementOrElements: any | any[]): Promise<number> {
     return this._executeCommand(
       'RPUSH',
-      () => this.commandExecutor.rPush(key, elements),
+      () => this.commandExecutor.rPush(key, elementOrElements),
       key,
-      elements
+      elementOrElements
     );
   }
   /** Executes the Redis LPOP command. */
@@ -369,12 +378,14 @@ export class BeaconRedis implements IBeaconRedis {
     );
   }
   /** Executes the Redis SADD command. */
-  public async sAdd(key: string, members: any | any[]): Promise<number> {
+  public async sAdd(key: string, member: any): Promise<number>;
+  public async sAdd(key: string, members: any[]): Promise<number>;
+  public async sAdd(key: string, memberOrMembers: any | any[]): Promise<number> {
     return this._executeCommand(
       'SADD',
-      () => this.commandExecutor.sAdd(key, members),
+      () => this.commandExecutor.sAdd(key, memberOrMembers),
       key,
-      members
+      memberOrMembers
     );
   }
   /** Executes the Redis SMEMBERS command. */
@@ -395,12 +406,14 @@ export class BeaconRedis implements IBeaconRedis {
     );
   }
   /** Executes the Redis SREM command. */
-  public async sRem(key: string, members: any | any[]): Promise<number> {
+  public async sRem(key: string, member: any): Promise<number>;
+  public async sRem(key: string, members: any[]): Promise<number>;
+  public async sRem(key: string, memberOrMembers: any | any[]): Promise<number> {
     return this._executeCommand(
       'SREM',
-      () => this.commandExecutor.sRem(key, members),
+      () => this.commandExecutor.sRem(key, memberOrMembers),
       key,
-      members
+      memberOrMembers
     );
   }
   /** Executes the Redis SCARD command. */
@@ -422,15 +435,19 @@ export class BeaconRedis implements IBeaconRedis {
     scoreOrMembers: any,
     member?: any
   ): Promise<number> {
+    // Check if we are using the array overload for multiple members.
+    if (Array.isArray(scoreOrMembers)) {
+      return this._executeCommand(
+        'ZADD',
+        () => this.commandExecutor.zAdd(key, scoreOrMembers),
+        key,
+        scoreOrMembers
+      );
+    }
+    // Handle single score-member pair.
     return this._executeCommand(
       'ZADD',
-      () => {
-        // Check if we are using the array overload for multiple members.
-        if (Array.isArray(scoreOrMembers)) {
-          return this.commandExecutor.zAdd(key, scoreOrMembers);
-        }
-        return this.commandExecutor.zAdd(key, scoreOrMembers, member);
-      },
+      () => this.commandExecutor.zAdd(key, scoreOrMembers, member),
       key,
       scoreOrMembers,
       member
@@ -495,6 +512,27 @@ export class BeaconRedis implements IBeaconRedis {
     );
   }
 
+  public async subscribe(
+    channel: string,
+    listener: (message: string, channel: string) => void
+  ): Promise<void> {
+    // Subscription is a long-lived state, logging it once at the start.
+    // The listener itself should handle logging for received messages.
+    return this._executeCommand(
+      'SUBSCRIBE',
+      () => this.commandExecutor.subscribe(channel, listener),
+      channel
+    );
+  }
+
+  public async unsubscribe(channel?: string): Promise<void> {
+    return this._executeCommand(
+      'UNSUBSCRIBE',
+      () => this.commandExecutor.unsubscribe(channel),
+      channel
+    );
+  }
+
   public async ping(message?: string): Promise<string> {
     return this._executeCommand(
       'PING',
@@ -508,6 +546,20 @@ export class BeaconRedis implements IBeaconRedis {
       'INFO',
       () => this.connectionManager.info(section),
       section
+    );
+  }
+
+  public async eval(
+    script: string,
+    keys: string[],
+    args: string[]
+  ): Promise<any> {
+    return this._executeCommand(
+      'EVAL',
+      () => this.commandExecutor.eval(script, keys, args),
+      script,
+      keys,
+      args
     );
   }
 }
