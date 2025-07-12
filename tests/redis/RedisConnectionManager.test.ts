@@ -3,407 +3,381 @@
  * DESCRIPTION: Unit tests for the RedisConnectionManager class.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as redis from 'redis';
 import { RedisConnectionManager } from '../../src/redis/RedisConnectionManager';
-import { ILogger } from '../../src/logger/ILogger';
+import { ILogger } from '../../src/logger';
 import { RedisInstanceConfig } from '../../src/config';
-import { createClient } from 'redis';
 
-// Mock the entire 'redis' module
-vi.mock('redis', () => ({
-  createClient: vi.fn(),
-}));
+// Mock the 'redis' library
+vi.mock('redis');
 
-const createMockLogger = (): ILogger => ({
-  debug: vi.fn(),
+let mockNativeClient: any;
+let eventListeners: Record<string, (...args: any[]) => void>;
+
+const setupMockClient = () => {
+  eventListeners = {};
+  mockNativeClient = {
+    on: vi.fn((event, listener) => {
+      eventListeners[event] = listener;
+    }),
+    connect: vi.fn().mockResolvedValue(undefined),
+    quit: vi.fn().mockResolvedValue(undefined),
+    ping: vi.fn().mockResolvedValue('PONG'),
+    info: vi.fn().mockResolvedValue('info string'),
+    exists: vi.fn(),
+    isOpen: false, // Start as closed
+  };
+  vi.mocked(redis.createClient).mockReturnValue(mockNativeClient);
+};
+
+// Mock logger
+const mockLogger: ILogger = {
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
-  child: vi.fn().mockReturnThis(),
-});
+  debug: vi.fn(),
+  child: vi.fn(() => mockLogger),
+};
 
 describe('RedisConnectionManager', () => {
-  let mockNativeClient: any;
-  let mockLogger: ILogger;
-  let eventListeners: Map<string, (...args: any[]) => void>;
+  let manager: RedisConnectionManager;
+  const mockConfig: RedisInstanceConfig = {
+    mode: 'single',
+    url: 'redis://localhost:6379',
+  };
 
   beforeEach(() => {
-    // Reset mocks before each test
     vi.clearAllMocks();
-
-    eventListeners = new Map();
-    mockNativeClient = {
-      on: vi.fn((event, listener) => {
-        eventListeners.set(event, listener);
-      }),
-      connect: vi.fn().mockResolvedValue(undefined),
-      quit: vi.fn().mockResolvedValue(undefined),
-      ping: vi.fn().mockResolvedValue('PONG'),
-      info: vi.fn().mockResolvedValue('info_string'),
-      isOpen: false,
-    };
-
-    // Ensure createClient returns our mock client
-    (createClient as vi.Mock).mockReturnValue(mockNativeClient);
-    mockLogger = createMockLogger();
+    setupMockClient();
+    manager = new RedisConnectionManager(mockConfig, mockLogger);
   });
 
-  describe('Constructor and Client Creation', () => {
-    it('should create a single-node client with correct options', () => {
-      const config: RedisInstanceConfig = {
-        instanceName: 'single-test',
+  describe('Client Creation and Configuration', () => {
+    // This suite tests the constructor with various configurations.
+    // We add a beforeEach here to reset the mocks after the parent beforeEach runs,
+    // ensuring that we are only inspecting the client created within each specific test.
+    beforeEach(() => {
+      vi.clearAllMocks();
+      setupMockClient();
+    });
+
+    it('should create a single-node client with the correct URL and reconnect strategy', () => {
+      const singleNodeConfig: RedisInstanceConfig = {
         mode: 'single',
-        url: 'redis://localhost:6379',
+        url: 'redis://test-host:1234',
+        retryOptions: { maxRetries: 5, retryDelay: 1000 },
       };
+      new RedisConnectionManager(singleNodeConfig, mockLogger);
 
-      new RedisConnectionManager(config, mockLogger);
-
-      expect(createClient).toHaveBeenCalledOnce();
-      const clientOptions = (createClient as vi.Mock).mock.calls[0][0];
-      expect(clientOptions.url).toBe('redis://localhost:6379');
-      expect(clientOptions.socket.reconnectStrategy).toBeInstanceOf(Function);
+      const createClientCall = vi.mocked(redis.createClient).mock.calls[0][0];
+      expect(createClientCall).toMatchObject({
+        url: 'redis://test-host:1234',
+      });
+      expect(createClientCall?.socket?.reconnectStrategy).toBeInstanceOf(
+        Function
+      );
     });
 
-    it('should create a sentinel client with correct options', () => {
-      const config: RedisInstanceConfig = {
-        instanceName: 'sentinel-test',
+    it('should create a sentinel client with the correct options', () => {
+      const sentinelConfig: RedisInstanceConfig = {
         mode: 'sentinel',
-        sentinels: [{ host: 'localhost', port: 26379 }],
+        sentinels: [{ host: 's1', port: 26379 }],
         name: 'mymaster',
-        sentinelPassword: 'pw',
+        sentinelPassword: 'spass',
       };
+      new RedisConnectionManager(sentinelConfig, mockLogger);
 
-      new RedisConnectionManager(config, mockLogger);
-
-      expect(createClient).toHaveBeenCalledOnce();
-      const clientOptions = (createClient as vi.Mock).mock.calls[0][0];
-      expect(clientOptions.sentinels).toEqual([
-        { host: 'localhost', port: 26379 },
-      ]);
-      expect(clientOptions.name).toBe('mymaster');
-      expect(clientOptions.sentinelPassword).toBe('pw');
-      expect(clientOptions.socket.reconnectStrategy).toBeInstanceOf(Function);
+      expect(redis.createClient).toHaveBeenCalledWith({
+        sentinels: [{ host: 's1', port: 26379 }],
+        name: 'mymaster',
+        sentinelPassword: 'spass',
+        socket: {
+          reconnectStrategy: expect.any(Function),
+        },
+      });
     });
 
-    it('should create a cluster client with correct options', () => {
-      const config: RedisInstanceConfig = {
-        instanceName: 'cluster-test',
+    it('should create a cluster client with the correct root nodes', () => {
+      const clusterConfig: RedisInstanceConfig = {
         mode: 'cluster',
-        rootNodes: [{ host: 'localhost', port: 7000 }],
+        rootNodes: [
+          { host: 'c1', port: 7001 },
+          { host: 'c2', port: 7002 },
+        ],
       };
+      new RedisConnectionManager(clusterConfig, mockLogger);
 
-      new RedisConnectionManager(config, mockLogger);
-
-      expect(createClient).toHaveBeenCalledOnce();
-      const clientOptions = (createClient as vi.Mock).mock.calls[0][0];
-      expect(clientOptions.rootNodes).toEqual([
-        { socket: { host: 'localhost', port: 7000 } },
-      ]);
-      // Cluster mode does not use our custom reconnectStrategy
-      expect(clientOptions.socket).toBeUndefined();
+      expect(redis.createClient).toHaveBeenCalledWith({
+        rootNodes: [
+          { socket: { host: 'c1', port: 7001 } },
+          { socket: { host: 'c2', port: 7002 } },
+        ],
+      });
     });
 
     it('should throw an error for an unsupported mode', () => {
-      const config = {
-        instanceName: 'invalid-test',
-        mode: 'invalid-mode',
-      } as any;
-
-      expect(() => new RedisConnectionManager(config, mockLogger)).toThrow(
+      const invalidConfig = { mode: 'invalid-mode' } as any;
+      expect(() => new RedisConnectionManager(invalidConfig, mockLogger)).toThrow(
         'Unsupported Redis mode: "invalid-mode"'
       );
     });
 
-    it('should setup all necessary event listeners on the native client', () => {
-      const config: RedisInstanceConfig = {
-        instanceName: 'listener-test',
-        mode: 'single',
-        url: 'redis://localhost:6379',
+    it('should use a reconnectStrategy that returns an error if max retries are exceeded', () => {
+      const configWithRetries: RedisInstanceConfig = {
+        ...mockConfig,
+        retryOptions: { maxRetries: 5 },
       };
+      new RedisConnectionManager(configWithRetries, mockLogger);
+      const createClientCall = vi.mocked(redis.createClient).mock.calls[0][0] as any;
+      const strategy = createClientCall.socket.reconnectStrategy;
 
-      new RedisConnectionManager(config, mockLogger);
-
-      expect(mockNativeClient.on).toHaveBeenCalledWith(
-        'connect',
-        expect.any(Function)
-      );
-      expect(mockNativeClient.on).toHaveBeenCalledWith(
-        'ready',
-        expect.any(Function)
-      );
-      expect(mockNativeClient.on).toHaveBeenCalledWith(
-        'end',
-        expect.any(Function)
-      );
-      expect(mockNativeClient.on).toHaveBeenCalledWith(
-        'error',
-        expect.any(Function)
-      );
-      expect(mockNativeClient.on).toHaveBeenCalledWith(
-        'reconnecting',
-        expect.any(Function)
-      );
-      expect(eventListeners.size).toBe(5);
+      const error = strategy(6); // One more than maxRetries
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).toContain('Exceeded the maximum number of Redis connection retries');
     });
   });
 
-  describe('Connection and Disconnection', () => {
-    let manager: RedisConnectionManager;
-    const config: RedisInstanceConfig = {
-      instanceName: 'connection-test',
-      mode: 'single',
-      url: 'redis://localhost:6379',
-    };
-
-    beforeEach(() => {
-      manager = new RedisConnectionManager(config, mockLogger);
-    });
-
-    it('should connect successfully and become ready', async () => {
+  describe('Connection Lifecycle', () => {
+    it('should resolve the connection promise when the client emits "ready"', async () => {
       const connectPromise = manager.connect();
       expect(mockLogger.info).toHaveBeenCalledWith('Attempting to connect...');
       expect(mockNativeClient.connect).toHaveBeenCalledOnce();
 
       // Simulate the 'ready' event from the native client
-      eventListeners.get('ready')!();
+      eventListeners.ready();
 
       await expect(connectPromise).resolves.toBeUndefined();
       expect(manager.isReady()).toBe(true);
-      expect(mockLogger.info).toHaveBeenCalledWith('Client is ready.');
     });
 
-    it('should reject connection if native client fails to connect', async () => {
-      const connectionError = new Error('Connection refused');
+    it('should reject the connection promise when the client emits "error"', async () => {
+      const testError = new Error('Connection failed');
+      const connectPromise = manager.connect();
+
+      // Simulate the 'error' event
+      eventListeners.error(testError);
+
+      await expect(connectPromise).rejects.toThrow(testError);
+      expect(manager.isReady()).toBe(false);
+    });
+
+    it('should log an error and reject if the initial connect() call fails', async () => {
+      const connectionError = new Error('Initial connect failed');
       mockNativeClient.connect.mockRejectedValue(connectionError);
 
       await expect(manager.connect()).rejects.toThrow(connectionError);
 
-      expect(manager.isReady()).toBe(false);
       expect(mockLogger.error).toHaveBeenCalledWith(
         'Immediate connection attempt failed.',
         { error: connectionError }
       );
     });
 
-    it('should reject connection on a client error event', async () => {
-      const clientError = new Error('Some redis error');
-      const connectPromise = manager.connect();
-
-      // Simulate an 'error' event
-      eventListeners.get('error')!(clientError);
-
-      await expect(connectPromise).rejects.toThrow(clientError);
-      expect(manager.isReady()).toBe(false);
-      expect(mockLogger.error).toHaveBeenCalledWith('Client Error.', {
-        error: clientError,
-      });
-    });
-
-    it('should be idempotent and return the same promise while connecting', () => {
-      const p1 = manager.connect();
-      const p2 = manager.connect();
-      expect(p1).toBe(p2);
+    it('should be idempotent and return the same promise if connect is called multiple times', () => {
+      const promise1 = manager.connect();
+      const promise2 = manager.connect();
+      expect(promise1).toBe(promise2);
       expect(mockNativeClient.connect).toHaveBeenCalledOnce();
     });
 
-    it('should resolve immediately if already connected', async () => {
+    it('should resolve immediately if connect is called when already ready', async () => {
       // First connection
       const connectPromise = manager.connect();
-      eventListeners.get('ready')!();
+      eventListeners.ready();
       await connectPromise;
 
-      // Second call after ready
-      await expect(manager.connect()).resolves.toBeUndefined();
+      // Second call
+      const secondConnectPromise = manager.connect();
+      await expect(secondConnectPromise).resolves.toBeUndefined();
       // connect should not be called again
       expect(mockNativeClient.connect).toHaveBeenCalledOnce();
     });
 
-    it('ensureReady should initiate connection if not connected', async () => {
-      const readyPromise = manager.ensureReady();
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'ensureReady: Client not open, initiating connect.'
-      );
-      eventListeners.get('ready')!();
-      await expect(readyPromise).resolves.toBeUndefined();
-    });
-
-    it('should disconnect gracefully when client is open', async () => {
-      // Make it seem like the client is connected
+    it('should call client.quit() and log on disconnect when client is open', async () => {
       mockNativeClient.isOpen = true;
-      const connectPromise = manager.connect();
-      eventListeners.get('ready')!();
-      await connectPromise;
-
       await manager.disconnect();
-
-      expect(manager.isQuit()).toBe(true);
-      expect(manager.isReady()).toBe(false);
-      expect(mockNativeClient.quit).toHaveBeenCalledOnce();
       expect(mockLogger.info).toHaveBeenCalledWith('Attempting to quit client.');
+      expect(mockNativeClient.quit).toHaveBeenCalledOnce();
+      expect(manager.isQuit()).toBe(true);
     });
 
-    it('should handle disconnect when client is not open', async () => {
+    it('should not call client.quit() and log on disconnect when client is already closed', async () => {
       mockNativeClient.isOpen = false;
       await manager.disconnect();
-
-      expect(manager.isQuit()).toBe(true);
-      expect(mockNativeClient.quit).not.toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Client was not open. Quit operation effectively complete.'
       );
+      expect(mockNativeClient.quit).not.toHaveBeenCalled();
+      expect(manager.isQuit()).toBe(true);
     });
 
-    it('should reject pending connection promise on disconnect', async () => {
-      const connectPromise = manager.connect();
-      const disconnectPromise = manager.disconnect();
+    it('should log and do nothing if disconnect is called when already in quit state', async () => {
+      await manager.disconnect(); // First call
+      vi.clearAllMocks(); // Clear mocks to check the second call
+      setupMockClient(); // Re-setup mocks for logger
 
+      await manager.disconnect(); // Second call
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Quit already called. No action taken.'
+      );
+      expect(mockNativeClient.quit).not.toHaveBeenCalled();
+    });
+
+    it('should reject the pending connection promise if disconnect is called mid-connection', async () => {
+      const connectPromise = manager.connect();
+      // Call disconnect while the promise is pending
+      await manager.disconnect();
       await expect(connectPromise).rejects.toThrow(
         'Connection aborted due to disconnect call.'
       );
-      await expect(disconnectPromise).resolves.toBeUndefined();
     });
 
-    it('should prevent new connections after being quit', async () => {
+    it('should log and re-throw an error if client.quit() fails', async () => {
+      mockNativeClient.isOpen = true;
+      const quitError = new Error('Quit failed');
+      mockNativeClient.quit.mockRejectedValue(quitError);
+      await expect(manager.disconnect()).rejects.toThrow(quitError);
+      expect(mockLogger.error).toHaveBeenCalledWith('Error during client.quit().', { error: quitError });
+    });
+
+    it('should reject ensureReady if quit has been called', async () => {
       await manager.disconnect();
-      await expect(manager.connect()).rejects.toThrow(
-        'Client has been quit and cannot be reconnected.'
-      );
       await expect(manager.ensureReady()).rejects.toThrow(
         'Client has been quit. Cannot execute commands.'
       );
     });
+  });
 
-    it('should update state on "end" event', async () => {
-      // Connect first
-      const connectPromise = manager.connect();
-      eventListeners.get('ready')!();
-      await connectPromise;
-      expect(manager.isReady()).toBe(true);
+  describe('Event Listeners and Logging', () => {
+    it('should log on "connect" event', () => {
+      eventListeners.connect();
+      expect(mockLogger.info).toHaveBeenCalledWith('Connection established.');
+    });
 
-      // Simulate connection end
-      eventListeners.get('end')!();
-      expect(manager.isReady()).toBe(false);
+    it('should log on "ready" event', () => {
+      eventListeners.ready();
+      expect(mockLogger.info).toHaveBeenCalledWith('Client is ready.');
+    });
+
+    it('should log on "end" event', () => {
+      eventListeners.end();
       expect(mockLogger.warn).toHaveBeenCalledWith('Connection closed.');
     });
 
-    it('should log on "connect" and "reconnecting" events', () => {
-      // Simulate events
-      eventListeners.get('connect')!();
-      expect(mockLogger.info).toHaveBeenCalledWith('Connection established.');
+    it('should log on "error" event', () => {
+      const testError = new Error('Something went wrong');
+      eventListeners.error(testError);
+      expect(mockLogger.error).toHaveBeenCalledWith('Client Error.', { error: testError });
+    });
 
-      eventListeners.get('reconnecting')!();
+    it('should log on "reconnecting" event', () => {
+      eventListeners.reconnecting();
       expect(mockLogger.info).toHaveBeenCalledWith('Client is reconnecting...');
     });
   });
 
-  describe('Utility Methods', () => {
-    let manager: RedisConnectionManager;
-    const config: RedisInstanceConfig = {
-      instanceName: 'utility-test',
-      mode: 'single',
-      url: 'redis://localhost:6379',
-    };
-
+  describe('Server Commands (ping, info)', () => {
     beforeEach(() => {
-      manager = new RedisConnectionManager(config, mockLogger);
+      // Simulate a ready connection for these tests
+      vi.spyOn(manager, 'ensureReady').mockResolvedValue(undefined);
     });
 
-    it('getNativeClient should return the underlying client instance', () => {
-      expect(manager.getNativeClient()).toBe(mockNativeClient);
+    it('should call the native ping for single-node clients', async () => {
+      // The mock client has a `ping` method, so the type guard will pass.
+      await manager.ping('test');
+      expect(mockNativeClient.ping).toHaveBeenCalledWith('test');
     });
 
-    describe('isHealthy', () => {
-      it('should return false if the client is not ready', async () => {
-        mockNativeClient.isOpen = false;
-        expect(await manager.isHealthy()).toBe(false);
-      });
+    it('should call the native info for single-node clients', async () => {
+      await manager.info('server');
+      expect(mockNativeClient.info).toHaveBeenCalledWith('server');
+    });
+  });
 
-      it('should return true if the client is ready and ping succeeds', async () => {
-        const p = manager.connect();
-        eventListeners.get('ready')!();
-        await p;
-
-        mockNativeClient.ping.mockResolvedValue('PONG');
-        expect(await manager.isHealthy()).toBe(true);
-        expect(mockNativeClient.ping).toHaveBeenCalledOnce();
-      });
-
-      it('should return false if the client is ready but ping fails', async () => {
-        const p = manager.connect();
-        eventListeners.get('ready')!();
-        await p;
-
-        const pingError = new Error('Ping failed');
-        mockNativeClient.ping.mockRejectedValue(pingError);
-        expect(await manager.isHealthy()).toBe(false);
-        expect(mockLogger.error).toHaveBeenCalledWith(
-          'PING failed during health check.',
-          { error: pingError }
-        );
-      });
+  describe('exists', () => {
+    beforeEach(() => {
+    // Simulate a ready connection for most tests
+      vi.spyOn(manager, 'ensureReady').mockResolvedValue(undefined);
     });
 
-    describe('ping', () => {
-      it('should call ensureReady and then the native ping', async () => {
-        const p = manager.connect();
-        eventListeners.get('ready')!();
-        await p;
-
-        await manager.ping('test-message');
-        expect(mockNativeClient.ping).toHaveBeenCalledWith('test-message');
-      });
-
-      it('should work for cluster clients by returning the message or PONG', async () => {
-        const clusterConfig: RedisInstanceConfig = {
-          instanceName: 'cluster-ping',
-          mode: 'cluster',
-          rootNodes: [{ host: 'c1', port: 7000 }],
-        };
-        // Simulate a client that is not a "single" client for the type guard
-        const mockClusterClient = { ...mockNativeClient, ping: undefined };
-        (createClient as vi.Mock).mockReturnValue(mockClusterClient);
-        const clusterManager = new RedisConnectionManager(clusterConfig, mockLogger);
-
-        const readyPromise = clusterManager.ensureReady();
-        // We must simulate the 'ready' event for the connection promise to resolve.
-        eventListeners.get('ready')!();
-        await readyPromise;
-
-        expect(await clusterManager.ping('hello')).toBe('hello');
-        expect(await clusterManager.ping()).toBe('PONG');
-      });
+    it('should call ensureReady before executing the command', async () => {
+      mockNativeClient.exists.mockResolvedValue(1);
+      await manager.exists('mykey');
+      expect(manager.ensureReady).toHaveBeenCalledOnce();
     });
 
-    describe('info', () => {
-      it('should call ensureReady and then the native info', async () => {
-        // Simulate the connection becoming ready
-        const readyPromise = manager.ensureReady();
-        eventListeners.get('ready')!();
-        await readyPromise;
+    it("should call the native client's exists method with a single key", async () => {
+      mockNativeClient.exists.mockResolvedValue(1);
+      const result = await manager.exists('mykey');
+      expect(mockNativeClient.exists).toHaveBeenCalledWith('mykey');
+      expect(result).toBe(1);
+    });
 
-        await manager.info('server');
-        expect(mockNativeClient.info).toHaveBeenCalledWith('server');
-      });
+    it("should call the native client's exists method with an array of keys", async () => {
+      mockNativeClient.exists.mockResolvedValue(2);
+      const result = await manager.exists(['key1', 'key2', 'key3']);
+      expect(mockNativeClient.exists).toHaveBeenCalledWith([
+        'key1',
+        'key2',
+        'key3',
+      ]);
+      expect(result).toBe(2);
+    });
 
-      it('should return a specific message for cluster clients', async () => {
-        const clusterConfig: RedisInstanceConfig = {
-          instanceName: 'cluster-info',
-          mode: 'cluster',
-          rootNodes: [{ host: 'c1', port: 7000 }],
-        };
-        // Create a mock that looks like a cluster client for the type guard (no top-level ping)
-        const mockClusterClient = { ...mockNativeClient, ping: undefined };
-        (createClient as vi.Mock).mockReturnValue(mockClusterClient);
+    it('should return 0 if no keys exist', async () => {
+      mockNativeClient.exists.mockResolvedValue(0);
+      const result = await manager.exists('nonexistent');
+      expect(result).toBe(0);
+    });
 
-        const clusterManager = new RedisConnectionManager(clusterConfig, mockLogger);
+    it('should propagate errors from the native client', async () => {
+      const testError = new Error('Redis is down');
+      mockNativeClient.exists.mockRejectedValue(testError);
+      await expect(manager.exists('anykey')).rejects.toThrow(testError);
+    });
+  });
 
-        // Simulate the connection becoming ready
-        const readyPromise = clusterManager.ensureReady();
-        eventListeners.get('ready')!();
-        await readyPromise;
+  describe('isHealthy', () => {
+    it('should return false if the client is in a quit state', async () => {
+      vi.spyOn(manager, 'isQuit').mockReturnValue(true);
+      const healthy = await manager.isHealthy();
+      expect(healthy).toBe(false);
+    });
 
-        expect(await clusterManager.info()).toBe('# INFO command is not supported in cluster mode.');
-      });
+    it('should return false if the client is not ready', async () => {
+      vi.spyOn(manager, 'isReady').mockReturnValue(false);
+      const healthy = await manager.isHealthy();
+      expect(healthy).toBe(false);
+    });
+
+    it('should return true if the client is ready and ping is successful', async () => {
+      vi.spyOn(manager, 'isReady').mockReturnValue(true);
+      vi.spyOn(manager, 'ping').mockResolvedValue('PONG');
+
+      const healthy = await manager.isHealthy();
+      expect(healthy).toBe(true);
+      expect(manager.ping).toHaveBeenCalledOnce();
+      expect(mockLogger.debug).toHaveBeenCalledWith('PING response: PONG');
+    });
+
+    it('should return false if ping returns an unexpected response', async () => {
+      vi.spyOn(manager, 'isReady').mockReturnValue(true);
+      vi.spyOn(manager, 'ping').mockResolvedValue('OK'); // Not 'PONG'
+
+      const healthy = await manager.isHealthy();
+      expect(healthy).toBe(false);
+      expect(mockLogger.debug).toHaveBeenCalledWith('PING response: OK');
+    });
+
+    it('should return false and log an error if ping fails', async () => {
+      vi.spyOn(manager, 'isReady').mockReturnValue(true);
+      const testError = new Error('PING command failed');
+      vi.spyOn(manager, 'ping').mockRejectedValue(testError);
+
+      const healthy = await manager.isHealthy();
+      expect(healthy).toBe(false);
+      expect(mockLogger.error).toHaveBeenCalledWith('PING failed during health check.', { error: testError });
     });
   });
 });

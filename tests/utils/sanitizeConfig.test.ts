@@ -67,12 +67,12 @@ describe('sanitizeConfig', () => {
   });
 
   describe('URL Sanitization', () => {
-    it('should mask the password in a URL string', () => {
+    it('should mask the user and password in a URL string for better security', () => {
       const config = {
         dbUrl: 'postgres://user:supersecret@host:5432/db',
       };
       const result = sanitizeConfig(config);
-      expect(result.dbUrl).toBe(`postgres://user:${MASK}@host:5432/db`);
+      expect(result.dbUrl).toBe(`postgres://${MASK}@host:5432/db`);
     });
 
     it('should not modify a URL without credentials', () => {

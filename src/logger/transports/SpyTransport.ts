@@ -42,10 +42,18 @@ export class SpyTransport extends Transport {
   /**
    * Finds log entries where the properties match the given predicate.
    * Note: This performs a shallow comparison on the entry's properties.
-   * @param {Partial<LogEntry>} predicate - An object with properties to match against log entries.
+   * @param {Partial<LogEntry> | ((entry: LogEntry) => boolean)} predicate - An object with properties to match or a function that returns true for matching entries.
    * @returns {LogEntry[]} An array of matching log entries.
    */
-  public findEntries(predicate: Partial<LogEntry>): LogEntry[] {
+  public findEntries(
+    predicate: Partial<LogEntry> | ((entry: LogEntry) => boolean)
+  ): LogEntry[] {
+    if (typeof predicate === 'function') {
+      // If the predicate is a function, use it directly with filter.
+      return this.entries.filter(predicate);
+    }
+
+    // If the predicate is an object, perform a shallow property comparison.
     return this.entries.filter((entry) => {
       return Object.keys(predicate).every((key) => {
         const k = key as keyof LogEntry;
@@ -61,5 +69,21 @@ export class SpyTransport extends Transport {
    */
   public clear(): void {
     this.entries = [];
+  }
+
+  /**
+   * Returns the first log entry that was captured.
+   * @returns {LogEntry | undefined} The first entry, or undefined if none were captured.
+   */
+  public getFirstEntry(): LogEntry | undefined {
+    return this.entries[0];
+  }
+
+  /**
+   * Returns the most recent log entry that was captured.
+   * @returns {LogEntry | undefined} The last entry, or undefined if none were captured.
+   */
+  public getLastEntry(): LogEntry | undefined {
+    return this.entries[this.entries.length - 1];
   }
 }

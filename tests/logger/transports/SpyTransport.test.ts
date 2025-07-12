@@ -104,11 +104,38 @@ describe('SpyTransport', () => {
       const found = transport.findEntries({ source: undefined });
       expect(found).toHaveLength(3);
     });
+
+    it('should find entries using a function predicate', () => {
+      const found = transport.findEntries((entry) => entry.msg.includes('Second'));
+      expect(found).toHaveLength(1);
+      expect(found[0]).toBe(entry2);
+    });
   });
 
   describe('flush', () => {
     it('should resolve immediately as it does not buffer', async () => {
       await expect(transport.flush()).resolves.toBeUndefined();
+    });
+  });
+
+  describe('getFirstEntry and getLastEntry', () => {
+    it('should return undefined when no entries are present', () => {
+      expect(transport.getFirstEntry()).toBeUndefined();
+      expect(transport.getLastEntry()).toBeUndefined();
+    });
+
+    it('should return the same entry when only one is present', async () => {
+      await transport.log(entry1);
+      expect(transport.getFirstEntry()).toBe(entry1);
+      expect(transport.getLastEntry()).toBe(entry1);
+    });
+
+    it('should return the first and last entries correctly when multiple are present', async () => {
+      await transport.log(entry1);
+      await transport.log(entry2);
+      await transport.log(entry3);
+      expect(transport.getFirstEntry()).toBe(entry1);
+      expect(transport.getLastEntry()).toBe(entry3);
     });
   });
 });

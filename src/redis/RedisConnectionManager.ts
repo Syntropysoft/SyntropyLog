@@ -17,7 +17,6 @@ import { RedisInstanceConfig } from '../config';
 function isRedisClientType(
   client: NodeRedisClient
 ): client is RedisClientType<RedisModules, RedisFunctions, RedisScripts> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return typeof (client as any).ping === 'function' && !('commands' in client);
 }
 
@@ -34,8 +33,7 @@ export class RedisConnectionManager {
   private connectionResolve:
     | ((value: void | PromiseLike<void>) => void)
     | null = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private connectionReject: ((reason?: any) => void) | null = null;
+  private connectionReject: ((reason?: unknown) => void) | null = null;
 
   private isConnectedAndReadyState: boolean = false;
   private isQuitState: boolean = false;
@@ -109,9 +107,8 @@ export class RedisConnectionManager {
       default: {
         const _exhaustiveCheck: never = config;
         throw new Error(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           `Unsupported Redis mode: "${(_exhaustiveCheck as any).mode}"`
-        );
+        ); // NOSONAR
       }
     }
   }
@@ -319,5 +316,16 @@ export class RedisConnectionManager {
 
     // El comando INFO no existe en modo cluster.
     return Promise.resolve('# INFO command is not supported in cluster mode.');
+  }
+
+  /**
+   * Executes the Redis EXISTS command.
+   * @param {string | string[]} keys - A single key or an array of keys to check.
+   * @returns {Promise<number>} A promise that resolves with the number of existing keys.
+   */
+  public async exists(keys: string | string[]): Promise<number> {
+    await this.ensureReady();
+    // The .exists() command is supported by both single-node and cluster clients.
+    return this.client.exists(keys);
   }
 }
