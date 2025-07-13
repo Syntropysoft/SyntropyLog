@@ -1,18 +1,10 @@
 {
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "moduleResolution": "node",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "outDir": "./dist",
-    "paths": {
-      "syntropylog": ["../../src"],
-      "syntropylog/*": ["../../src/*"]
-    }
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "./dist"
   },
-  "include": ["src/**/*"]
-} 
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

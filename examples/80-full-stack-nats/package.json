@@ -1,5 +1,5 @@
 {
-  "name": "07-full-stack-nats",
+  "name": "80-full-stack-nats",
   "version": "1.0.0",
   "private": true,
   "description": "A full-stack microservices example using SyntropyLog with NATS.",
@@ -13,8 +13,8 @@
     "express": "^4.18.2",
     "nats": "^2.17.0",
     "syntropylog": "file:../..",
-    "@syntropylog/axios-adapter": "file:../../http/adapters/axios",
-    "@syntropylog/nats-adapter": "file:../../brokers/adapters/nats"
+    "zod": "^3.22.4",
+    "redis": "^4.6.12"
   },
   "devDependencies": {
     "@types/express": "^4.17.18",
