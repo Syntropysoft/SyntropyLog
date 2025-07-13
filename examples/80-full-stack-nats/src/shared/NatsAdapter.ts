@@ -1,4 +1,4 @@
-// examples/07-full-stack-nats/src/shared/NatsAdapter.ts
+// examples/80-full-stack-nats/src/shared/NatsAdapter.ts
 import {
   IBrokerAdapter,
   BrokerMessage,
@@ -45,7 +45,15 @@ export class NatsAdapter implements IBrokerAdapter {
     if (message.headers) {
       for (const key in message.headers) {
         const value = message.headers[key];
-        natsHeaders.append(key, typeof value === 'string' ? value : this.sc.decode(value));
+        // The value from InstrumentedBrokerClient will be a string.
+        // NATS header values must be strings.
+        if (typeof value === 'string') {
+          natsHeaders.append(key, value);
+        } else {
+          // It's a buffer, so we decode it. This might not be hit
+          // if the instrumenter always provides strings.
+          natsHeaders.append(key, this.sc.decode(value));
+        }
       }
     }
     this.nc.publish(topic, message.payload, { headers: natsHeaders });
