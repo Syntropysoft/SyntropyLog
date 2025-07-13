@@ -235,6 +235,8 @@ import { randomUUID } from 'node:crypto';
 syntropyLog.init({
   context: {
     correlationIdHeader: 'X-My-Trace-ID',
+    // You can also customize the key used for the transaction ID
+    transactionIdKey: 'my-custom-txn-id',
   },
   // ...
 });
