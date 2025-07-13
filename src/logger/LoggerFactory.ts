@@ -46,8 +46,16 @@ export class LoggerFactory {
    */
   constructor(config: SyntropyLogConfig) {
     this.contextManager = new ContextManager();
-    if (config.context?.correlationIdHeader) {
-      this.contextManager.configure(config.context.correlationIdHeader);
+    // Configure the context manager by passing the entire context config object.
+    if (config.context) {
+      this.contextManager.configure(config.context);
+    }
+
+    // Configure the HTTP manager if http instances are provided
+    if (config.http?.instances) {
+      // This block is not provided in the original file, so it's commented out.
+      // If it were uncommented, it would likely involve configuring the HTTP manager
+      // with the provided instances.
     }
 
     // If the user provides a specific list of transports, we use them directly.

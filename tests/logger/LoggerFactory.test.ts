@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SyntropyLogConfig } from '../../src/config';
 import { Transport } from '../../src/logger/transports/Transport';
+import { SpyTransport } from '../../src/logger/transports/SpyTransport';
 
 // --- Mocks ---
 
@@ -60,20 +61,28 @@ describe('LoggerFactory', () => {
       logger: {
         level: 'info',
         serviceName: 'my-app',
+        serializerTimeoutMs: 50, // Add the required property
       },
     };
   });
 
   describe('Constructor', () => {
     it('should instantiate dependencies with default settings', () => {
-      new LoggerFactory(baseConfig);
+      // This config simulates the object *after* it has been parsed by Zod,
+      // which applies the default values.
+      const parsedConfig: SyntropyLogConfig = {
+        logger: {
+          serializerTimeoutMs: 50,
+        },
+      };
+      new LoggerFactory(parsedConfig);
 
       expect(MockContextManager).toHaveBeenCalledOnce();
       expect(mockContextManager.configure).not.toHaveBeenCalled();
       expect(MockConsoleTransport).toHaveBeenCalledOnce(); // Default transport
       expect(MockSerializerRegistry).toHaveBeenCalledWith({
         serializers: undefined,
-        timeoutMs: undefined,
+        timeoutMs: 50, // This should now be the default from the config schema
       });
       expect(MockMaskingEngine).toHaveBeenCalledWith(undefined);
       expect(MockSanitizationEngine).toHaveBeenCalledOnce();
@@ -85,14 +94,16 @@ describe('LoggerFactory', () => {
         context: { correlationIdHeader: 'x-request-id' },
       };
       new LoggerFactory(config);
-      expect(mockContextManager.configure).toHaveBeenCalledWith('x-request-id');
+      expect(mockContextManager.configure).toHaveBeenCalledWith({
+        correlationIdHeader: 'x-request-id',
+      });
     });
 
     it('should use custom transports if provided', () => {
-      const customTransport = { flush: vi.fn() } as unknown as Transport;
+      const mockTransport = new SpyTransport();
       const config: SyntropyLogConfig = {
         ...baseConfig,
-        logger: { ...baseConfig.logger, transports: [customTransport] },
+        logger: { ...baseConfig.logger, transports: [mockTransport] },
       };
       new LoggerFactory(config);
       // Default console transport should NOT be created

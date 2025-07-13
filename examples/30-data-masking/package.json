@@ -1,0 +1,18 @@
+{
+  "name": "30-data-masking",
+  "version": "1.0.0",
+  "description": "An example of how to mask sensitive data in logs.",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "syntropylog": "file:../.."
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+} 

@@ -4,12 +4,13 @@
  * It exports the singleton instance of the framework and key types for users.
  */
 
-export { syntropyLog } from './SyntropyLog';
+export { syntropyLog, SyntropyLog } from './SyntropyLog';
 
 // --- Core Types for Configuration and Usage ---
 export type { SyntropyLogConfig } from './config';
 export type { ILogger } from './logger/ILogger';
 export type { IContextManager } from './context';
+export type { LogEntry } from './types';
 
 // --- Transport Classes and Interfaces for Custom Configuration ---
 export { Transport } from './logger/transports/Transport';

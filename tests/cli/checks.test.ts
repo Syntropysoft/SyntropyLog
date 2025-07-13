@@ -6,13 +6,30 @@ import {
 } from '../../src/cli/checks';
 import { SyntropyLogConfig } from '../../src/config';
 
-// A helper to create a minimal valid config for testing
+// A helper to create a fully valid config object for testing.
+// It performs a safe, manual deep merge to ensure nested objects like 'logger'
+// are combined correctly, avoiding the pitfalls of a simple Object.assign.
 const createMockConfig = (
   overrides: Partial<SyntropyLogConfig> = {}
-): SyntropyLogConfig => ({
-  version: 1,
-  ...overrides,
-});
+): SyntropyLogConfig => {
+  const base: SyntropyLogConfig = {
+    logger: {
+      serializerTimeoutMs: 50,
+    },
+  };
+
+  // Manually merge the nested logger object to ensure defaults are kept.
+  const logger =
+    overrides.logger != null
+      ? { ...base.logger, ...overrides.logger }
+      : base.logger;
+
+  return {
+    ...base,
+    ...overrides,
+    logger,
+  };
+};
 
 // Helper to find a rule from the core set to test it individually
 const findRule = (id: string): DiagnosticRule => {
@@ -37,7 +54,9 @@ describe('CLI: checks', () => {
         description: 'desc2',
         check: vi.fn().mockReturnValue([{ level: 'WARN', title: 'Warn 1' }]),
       };
-      const config = createMockConfig();
+      const config: SyntropyLogConfig = {
+        logger: { serializerTimeoutMs: 50 },
+      };
       const results = runAllChecks(config, [mockRule1, mockRule2]);
 
       expect(mockRule1.check).toHaveBeenCalledWith(config);
@@ -98,7 +117,9 @@ describe('CLI: checks', () => {
 
       it('should return a WARN if NODE_ENV is production and level is debug', () => {
         process.env.NODE_ENV = 'production';
-        const config = createMockConfig({ logger: { level: 'debug' } });
+        const config = createMockConfig({
+          logger: { level: 'debug' },
+        });
         const result = rule.check(config);
         expect(result).toHaveLength(1);
         expect(result[0].level).toBe('WARN');
@@ -151,9 +172,17 @@ describe('CLI: checks', () => {
       });
 
       it('should return no results if transports has items', () => {
+        // The type assertion is needed because Transport is an abstract class.
         const config = createMockConfig({
-          logger: { transports: [{ type: 'console' }] as any },
+          logger: { transports: [{}] as any },
         });
+        const result = rule.check(config);
+        expect(result).toHaveLength(0);
+      });
+
+      it('should return no results if the transports key is not defined', () => {
+        // When 'transports' is missing, the framework uses the default, so no error.
+        const config = createMockConfig({ logger: {} });
         const result = rule.check(config);
         expect(result).toHaveLength(0);
       });

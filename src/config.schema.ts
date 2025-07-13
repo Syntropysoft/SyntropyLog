@@ -37,7 +37,7 @@ const loggerOptionsSchema = z
      * The maximum time in milliseconds a custom serializer can run before being timed out.
      * @default 50
      */
-    serializerTimeoutMs: z.number().int().positive().optional().default(50),
+    serializerTimeoutMs: z.number().int().positive().default(50),
 
     /** Configuration for pretty printing logs in development. */
     prettyPrint: z

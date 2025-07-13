@@ -1,0 +1,23 @@
+{
+  "name": "90-custom-transport-compliance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "An example of how to build a custom UDP transport for compliance and log shipping with Fluent Bit.",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "services:up": "docker-compose up -d",
+    "services:down": "docker-compose down",
+    "services:logs": "docker-compose logs -f fluent-bit"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "syntropylog": "file:../.."
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+} 
