@@ -760,11 +760,7 @@ export class BeaconRedisMock implements IBeaconRedis {
    * Simulates the EVAL command. This is not implemented and will throw an error.
    * @throws {Error}
    */
-  async eval(
-    _script: string,
-    _keys: string[],
-    _args: string[]
-  ): Promise<any> {
+  async eval(_script: string, _keys: string[], _args: string[]): Promise<any> {
     throw new Error('EVAL command not implemented in mock.');
   }
   /** @inheritdoc */

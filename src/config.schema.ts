@@ -171,19 +171,6 @@ export const httpConfigSchema = z
   .optional();
 
 /**
- * @description Schema for a single field's masking configuration.
- * @private
- */
-const fieldMaskConfigSchema = z.object({
-  /** The path to the field (e.g., "user.password") or a RegExp to match field names. */
-  path: z.union([z.string(), z.instanceof(RegExp)]),
-  /** The masking strategy: 'full' or 'partial'. */
-  type: z.enum(['full', 'partial']),
-  /** For 'partial' masking, the number of characters to show at the end. @default 4 */
-  showLast: z.number().int().positive().optional(),
-});
-
-/**
  * @description Schema for the main data masking configuration block.
  */
 const maskingConfigSchema = z

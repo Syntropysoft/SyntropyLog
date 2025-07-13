@@ -130,7 +130,7 @@ export class SyntropyLog {
    */
   public getLogger(name = 'default'): ILogger {
     this.ensureInitialized();
-    // @ts-ignore
+    // @ts-expect-error - loggerFactory is not defined in the type
     return this.loggerFactory.getLogger(name);
   }
 
@@ -141,7 +141,7 @@ export class SyntropyLog {
    */
   public getRedis(name: string): IBeaconRedis {
     this.ensureInitialized();
-    // @ts-ignore
+    // @ts-expect-error - redisManager is not defined in the type
     return this.redisManager.getInstance(name);
   }
 
@@ -152,7 +152,7 @@ export class SyntropyLog {
    */
   public getHttp(name: string): InstrumentedHttpClient {
     this.ensureInitialized();
-    // @ts-ignore
+    // @ts-expect-error - httpManager is not defined in the type
     return this.httpManager.getInstance(name);
   }
 
@@ -162,7 +162,7 @@ export class SyntropyLog {
    */
   public getContextManager(): IContextManager {
     this.ensureInitialized();
-    // @ts-ignore
+    // @ts-expect-error - loggerFactory is not defined in the type
     return this.loggerFactory.getContextManager();
   }
 
@@ -173,7 +173,7 @@ export class SyntropyLog {
    */
   public getBroker(name: string): InstrumentedBrokerClient {
     this.ensureInitialized();
-    // @ts-ignore
+    // @ts-expect-error - brokerManager is not defined in the type
     return this.brokerManager.getInstance(name);
   }
 
@@ -182,7 +182,15 @@ export class SyntropyLog {
    * @returns {Promise<void>}
    */
   public async shutdown(): Promise<void> {
-    if (!this._isInitialized || !this.loggerFactory || !this.config || !this.redisManager || !this.httpManager || !this.brokerManager) return;
+    if (
+      !this._isInitialized ||
+      !this.loggerFactory ||
+      !this.config ||
+      !this.redisManager ||
+      !this.httpManager ||
+      !this.brokerManager
+    )
+      return;
 
     const mainLogger = this.loggerFactory.getLogger('syntropylog-main');
     mainLogger.info('Shutting down SyntropyLog framework...');

@@ -38,7 +38,11 @@ export class RedisCommandExecutor {
    * @param {any} [options] Optional SET options (e.g., EX, NX).
    * @returns {Promise<string | null>} 'OK' if successful, or null.
    */
-  public set(key: string, value: string, options?: any): Promise<string | null> {
+  public set(
+    key: string,
+    value: string,
+    options?: any
+  ): Promise<string | null> {
     return this.client.set(key, value, options);
   }
 

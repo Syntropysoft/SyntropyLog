@@ -14,14 +14,24 @@ import { RedisZMember } from '../redis/redis.types';
 export class BeaconRedisMock implements IBeaconRedis {
   // Lifecycle and Management
   public readonly getInstanceName = vi.fn<[], string>();
-  public readonly connect = vi.fn<[], Promise<void>>().mockResolvedValue(undefined);
-  public readonly quit = vi.fn<[], Promise<void>>().mockResolvedValue(undefined);
-  public readonly updateConfig = vi.fn<[Partial<RedisInstanceReconfigurableConfig>], void>();
+  public readonly connect = vi
+    .fn<[], Promise<void>>()
+    .mockResolvedValue(undefined);
+  public readonly quit = vi
+    .fn<[], Promise<void>>()
+    .mockResolvedValue(undefined);
+  public readonly updateConfig = vi.fn<
+    [Partial<RedisInstanceReconfigurableConfig>],
+    void
+  >();
   public readonly multi = vi.fn<[], IBeaconRedisTransaction>();
 
   // String Commands
   public readonly get = vi.fn<[string], Promise<string | null>>();
-  public readonly set = vi.fn<[string, string, number?], Promise<string | null>>();
+  public readonly set = vi.fn<
+    [string, string, number?],
+    Promise<string | null>
+  >();
   public readonly del = vi.fn<[string | string[]], Promise<number>>();
 
   // Generic Key Commands
@@ -92,8 +102,5 @@ export class BeaconRedisMock implements IBeaconRedis {
   public readonly info = vi.fn<[string?], Promise<string>>();
 
   // Scripting Commands
-  public readonly eval = vi.fn<
-    [string, string[], string[]],
-    Promise<any>
-  >();
+  public readonly eval = vi.fn<[string, string[], string[]], Promise<any>>();
 }

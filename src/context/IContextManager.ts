@@ -20,7 +20,10 @@ export interface IContextManager {
    * @param options.correlationIdHeader The custom header name to use for the correlation ID.
    * @param options.transactionIdKey The custom key to use for the transaction ID.
    */
-  configure(options?: { correlationIdHeader?: string; transactionIdKey?: string }): void;
+  configure(options?: {
+    correlationIdHeader?: string;
+    transactionIdKey?: string;
+  }): void;
 
   /**
    * Executes a function within a new, isolated asynchronous context.

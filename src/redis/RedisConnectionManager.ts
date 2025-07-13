@@ -17,6 +17,7 @@ import { RedisInstanceConfig } from '../config';
 function isRedisClientType(
   client: NodeRedisClient
 ): client is RedisClientType<RedisModules, RedisFunctions, RedisScripts> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return typeof (client as any).ping === 'function' && !('commands' in client);
 }
 
@@ -107,6 +108,7 @@ export class RedisConnectionManager {
       default: {
         const _exhaustiveCheck: never = config;
         throw new Error(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           `Unsupported Redis mode: "${(_exhaustiveCheck as any).mode}"`
         ); // NOSONAR
       }

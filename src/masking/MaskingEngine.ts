@@ -69,7 +69,9 @@ export class MaskingEngine {
       return;
     }
 
-    const existingFieldsSet = new Set(this.fieldConfigs.map((f) => f.toString()));
+    const existingFieldsSet = new Set(
+      this.fieldConfigs.map((f) => f.toString())
+    );
 
     for (const field of fields) {
       if (!existingFieldsSet.has(field.toString())) {
@@ -113,7 +115,7 @@ export class MaskingEngine {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
         const value = data[key];
         const isSensitiveKey = this.fieldConfigs.some((config) =>
-          typeof config === 'string' ? config === key : config.test(key),
+          typeof config === 'string' ? config === key : config.test(key)
         );
 
         if (isSensitiveKey) {
@@ -163,7 +165,7 @@ export class MaskingEngine {
       const isSensitive = this.fieldConfigs.some((config) =>
         typeof config === 'string'
           ? currentPart.toLowerCase() === config.toLowerCase()
-          : config.test(currentPart),
+          : config.test(currentPart)
       );
 
       // If the current part is sensitive and the next part is not empty, mask the next part.

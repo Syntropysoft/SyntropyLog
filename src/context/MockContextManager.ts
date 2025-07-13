@@ -28,7 +28,10 @@ export class MockContextManager implements IContextManager {
    * @param options.correlationIdHeader The custom header name to use for the correlation ID.
    * @param options.transactionIdKey The custom key to use for the transaction ID.
    */
-  public configure(options?: { correlationIdHeader?: string; transactionIdKey?: string }): void {
+  public configure(options?: {
+    correlationIdHeader?: string;
+    transactionIdKey?: string;
+  }): void {
     if (options?.correlationIdHeader) {
       this.correlationIdHeader = options.correlationIdHeader;
     }

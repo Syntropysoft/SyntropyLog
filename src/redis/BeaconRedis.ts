@@ -376,7 +376,10 @@ export class BeaconRedis implements IBeaconRedis {
    */
   public async lPush(key: string, element: any): Promise<number>;
   public async lPush(key: string, elements: any[]): Promise<number>;
-  public async lPush(key: string, elementOrElements: any | any[]): Promise<number> {
+  public async lPush(
+    key: string,
+    elementOrElements: any | any[]
+  ): Promise<number> {
     return this._executeCommand(
       'LPUSH',
       () => this.commandExecutor.lPush(key, elementOrElements),
@@ -389,7 +392,10 @@ export class BeaconRedis implements IBeaconRedis {
    */
   public async rPush(key: string, element: any): Promise<number>;
   public async rPush(key: string, elements: any[]): Promise<number>;
-  public async rPush(key: string, elementOrElements: any | any[]): Promise<number> {
+  public async rPush(
+    key: string,
+    elementOrElements: any | any[]
+  ): Promise<number> {
     return this._executeCommand(
       'RPUSH',
       () => this.commandExecutor.rPush(key, elementOrElements),
@@ -464,7 +470,10 @@ export class BeaconRedis implements IBeaconRedis {
    */
   public async sAdd(key: string, member: any): Promise<number>;
   public async sAdd(key: string, members: any[]): Promise<number>;
-  public async sAdd(key: string, memberOrMembers: any | any[]): Promise<number> {
+  public async sAdd(
+    key: string,
+    memberOrMembers: any | any[]
+  ): Promise<number> {
     return this._executeCommand(
       'SADD',
       () => this.commandExecutor.sAdd(key, memberOrMembers),
@@ -498,7 +507,10 @@ export class BeaconRedis implements IBeaconRedis {
    */
   public async sRem(key: string, member: any): Promise<number>;
   public async sRem(key: string, members: any[]): Promise<number>;
-  public async sRem(key: string, memberOrMembers: any | any[]): Promise<number> {
+  public async sRem(
+    key: string,
+    memberOrMembers: any | any[]
+  ): Promise<number> {
     return this._executeCommand(
       'SREM',
       () => this.commandExecutor.sRem(key, memberOrMembers),
