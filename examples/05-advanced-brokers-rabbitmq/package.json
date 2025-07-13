@@ -1,0 +1,22 @@
+{
+  "name": "05-advanced-brokers-rabbitmq",
+  "version": "1.0.0",
+  "description": "An example of instrumenting RabbitMQ with SyntropyLog, demonstrating advanced messaging patterns.",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "syntropylog": "file:../..",
+    "amqplib": "^0.10.3"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.4",
+    "tsx": "^4.7.0",
+    "typescript": "^5.2.2"
+  }
+} 
