@@ -25,8 +25,17 @@ describe('MockContextManager', () => {
 
     it('should set a custom correlation ID header name', () => {
       const customHeader = 'X-Request-ID';
-      mockContextManager.configure(customHeader);
+      mockContextManager.configure({ correlationIdHeader: customHeader });
       expect(mockContextManager.getCorrelationIdHeaderName()).toBe(customHeader);
+    });
+
+    it('should set a custom transaction ID key', () => {
+      const customKey = 'my-transaction-id';
+      mockContextManager.configure({ transactionIdKey: customKey });
+      const transactionId = 'txn-456';
+      mockContextManager.setTransactionId(transactionId);
+      expect(mockContextManager.getTransactionId()).toBe(transactionId);
+      expect(mockContextManager.get(customKey)).toBe(transactionId);
     });
   });
 
@@ -133,6 +142,16 @@ describe('MockContextManager', () => {
       const correlationId = 'abc-123';
       mockContextManager.set(mockContextManager.getCorrelationIdHeaderName(), correlationId);
       expect(mockContextManager.getCorrelationId()).toBe(correlationId);
+    });
+  });
+
+  describe('Transaction ID methods', () => {
+    it('should get and set transaction ID', () => {
+      const transactionId = 'xyz-987';
+      mockContextManager.setTransactionId(transactionId);
+      expect(mockContextManager.getTransactionId()).toBe(transactionId);
+      mockContextManager.clear();
+      expect(mockContextManager.getTransactionId()).toBeUndefined();
     });
   });
 

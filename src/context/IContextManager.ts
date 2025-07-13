@@ -16,9 +16,11 @@ export interface IContextManager {
   /**
    * Configures the context manager with specific options.
    * This should be called once during initialization.
-   * @param headerName The custom header name to use for the correlation ID.
+   * @param options The configuration options.
+   * @param options.correlationIdHeader The custom header name to use for the correlation ID.
+   * @param options.transactionIdKey The custom key to use for the transaction ID.
    */
-  configure(headerName?: string): void;
+  configure(options?: { correlationIdHeader?: string; transactionIdKey?: string }): void;
 
   /**
    * Executes a function within a new, isolated asynchronous context.
@@ -61,6 +63,18 @@ export interface IContextManager {
    * @returns {string} The header name.
    */
   getCorrelationIdHeaderName(): string;
+
+  /**
+   * A convenience method to get the transaction ID from the current context.
+   * @returns {string | undefined} The transaction ID, or undefined if not set.
+   */
+  getTransactionId(): string | undefined;
+
+  /**
+   * A convenience method to set the transaction ID in the current context.
+   * @param transactionId The transaction ID to set.
+   */
+  setTransactionId(transactionId: string): void;
 
   /** Gets the tracing headers to propagate the context (e.g., W3C Trace Context). */
   getTraceContextHeaders?(): Record<string, string> | undefined;

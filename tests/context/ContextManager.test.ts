@@ -23,8 +23,19 @@ describe('ContextManager', () => {
 
     it('should set a custom correlation ID header name', () => {
       const customHeader = 'X-Request-ID';
-      contextManager.configure(customHeader);
+      contextManager.configure({ correlationIdHeader: customHeader });
       expect(contextManager.getCorrelationIdHeaderName()).toBe(customHeader);
+    });
+
+    it('should set a custom transaction ID key', () => {
+      const customKey = 'my-transaction-id';
+      contextManager.configure({ transactionIdKey: customKey });
+      const transactionId = 'txn-456';
+      contextManager.run(() => {
+        contextManager.setTransactionId(transactionId);
+        expect(contextManager.getTransactionId()).toBe(transactionId);
+        expect(contextManager.get(customKey)).toBe(transactionId);
+      });
     });
   });
 
@@ -121,6 +132,23 @@ describe('ContextManager', () => {
         contextManager.set(contextManager.getCorrelationIdHeaderName(), correlationId);
         expect(contextManager.getCorrelationId()).toBe(correlationId);
       });
+    });
+  });
+
+  describe('Transaction ID methods', () => {
+    it('should get and set transaction ID', () => {
+      const transactionId = 'xyz-987';
+      contextManager.run(() => {
+        contextManager.setTransactionId(transactionId);
+        expect(contextManager.getTransactionId()).toBe(transactionId);
+      });
+      expect(contextManager.getTransactionId()).toBeUndefined();
+    });
+  });
+
+  describe('Trace Context Headers', () => {
+    it('should return undefined for trace context headers by default', () => {
+      expect(contextManager.getTraceContextHeaders()).toBeUndefined();
     });
   });
 });

@@ -19,14 +19,21 @@ export class MockContextManager implements IContextManager {
   private store: Record<string, any> = {};
   /** @private The HTTP header name used for the correlation ID. */
   private correlationIdHeader = 'x-correlation-id';
+  /** @private The key used for storing the transaction ID in the context. */
+  private transactionIdKey = 'transactionId';
 
   /**
    * Configures the mock context manager.
-   * @param headerName The custom header name to use for the correlation ID.
+   * @param options The configuration options.
+   * @param options.correlationIdHeader The custom header name to use for the correlation ID.
+   * @param options.transactionIdKey The custom key to use for the transaction ID.
    */
-  public configure(headerName?: string): void {
-    if (headerName) {
-      this.correlationIdHeader = headerName;
+  public configure(options?: { correlationIdHeader?: string; transactionIdKey?: string }): void {
+    if (options?.correlationIdHeader) {
+      this.correlationIdHeader = options.correlationIdHeader;
+    }
+    if (options?.transactionIdKey) {
+      this.transactionIdKey = options.transactionIdKey;
     }
   }
 
@@ -109,6 +116,22 @@ export class MockContextManager implements IContextManager {
    */
   getCorrelationId(): string | undefined {
     return this.get(this.correlationIdHeader);
+  }
+
+  /**
+   * A convenience method to get the transaction ID from the mock context.
+   * @returns {string | undefined} The transaction ID, or undefined if not set.
+   */
+  getTransactionId(): string | undefined {
+    return this.get(this.transactionIdKey);
+  }
+
+  /**
+   * A convenience method to set the transaction ID in the mock context.
+   * @param transactionId The transaction ID to set.
+   */
+  setTransactionId(transactionId: string): void {
+    this.set(this.transactionIdKey, transactionId);
   }
 
   /**

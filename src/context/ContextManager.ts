@@ -20,15 +20,22 @@ export class ContextManager implements IContextManager {
   private als = new AsyncLocalStorage<Record<string, any>>();
   /** @private The HTTP header name used for the correlation ID. */
   private correlationIdHeader = 'x-correlation-id';
+  /** @private The key used for storing the transaction ID in the context. */
+  private transactionIdKey = 'transactionId';
 
   /**
    * Configures the context manager, primarily to set a custom header name
    * for the correlation ID.
-   * @param headerName The custom header name to use (e.g., 'X-Request-ID').
+   * @param options The configuration options.
+   * @param options.correlationIdHeader The custom header name to use (e.g., 'X-Request-ID').
+   * @param options.transactionIdKey The custom key to use for the transaction ID.
    */
-  public configure(headerName?: string): void {
-    if (headerName) {
-      this.correlationIdHeader = headerName;
+  public configure(options?: { correlationIdHeader?: string; transactionIdKey?: string }): void {
+    if (options?.correlationIdHeader) {
+      this.correlationIdHeader = options.correlationIdHeader;
+    }
+    if (options?.transactionIdKey) {
+      this.transactionIdKey = options.transactionIdKey;
     }
   }
 
@@ -90,10 +97,37 @@ export class ContextManager implements IContextManager {
   }
 
   /**
+   * Gets the transaction ID from the current context.
+   * @returns {string | undefined} The transaction ID, or undefined if not set.
+   */
+  getTransactionId(): string | undefined {
+    return this.get(this.transactionIdKey);
+  }
+
+  /**
+   * Sets the transaction ID in the current context.
+   * @param transactionId The transaction ID to set.
+   */
+  setTransactionId(transactionId: string): void {
+    this.set(this.transactionIdKey, transactionId);
+  }
+
+  /**
    * Gets the configured HTTP header name for the correlation ID.
    * @returns {string} The header name.
    */
   getCorrelationIdHeaderName(): string {
     return this.correlationIdHeader;
+  }
+
+  /**
+   * Gets the tracing headers to propagate the context (e.g., W3C Trace Context).
+   * This base implementation does not support trace context propagation.
+   * @returns `undefined` as this feature is not implemented by default.
+   */
+  getTraceContextHeaders(): Record<string, string> | undefined {
+    // This method can be extended in a subclass to support specific tracing
+    // standards like W3C Trace Context.
+    return undefined;
   }
 }
