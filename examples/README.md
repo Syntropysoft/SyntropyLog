@@ -32,6 +32,8 @@ Here is a list of the examples in the recommended order. The numbering is spaced
 
 - **`100-custom-serializers`**: Shows how to create a custom serializer to safely log complex objects from libraries like Prisma, redacting sensitive data.
 
+- **`110-diagnostics-doctor`**: Learn how to use the command-line "doctor" to audit your configuration, enforce best practices, and create custom diagnostic rules.
+
 ## How to Run the Examples
 
 Each example is a self-contained Node.js project. To run it, navigate to the example's directory (e.g., `cd examples/01-hello-world`) and follow the instructions in its own `README.md`. Generally, the steps are:
