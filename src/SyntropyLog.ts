@@ -30,15 +30,15 @@ export class SyntropyLog {
   private _isInitialized = false;
 
   /** @private The parsed and sanitized configuration for the framework. */
-  private config!: SyntropyLogConfig;
+  private config: SyntropyLogConfig | undefined;
   /** @private The factory for creating and managing logger instances. */
-  private loggerFactory!: LoggerFactory;
+  private loggerFactory: LoggerFactory | undefined;
   /** @private The manager for Redis client instances. */
-  private redisManager!: RedisManager;
+  private redisManager: RedisManager | undefined;
   /** @private The manager for HTTP client instances. */
-  private httpManager!: HttpManager;
+  private httpManager: HttpManager | undefined;
   /** @private The manager for message broker client instances. */
-  private brokerManager!: BrokerManager;
+  private brokerManager: BrokerManager | undefined;
 
   /** @private The constructor is private to enforce the singleton pattern. */
   private constructor() {}
@@ -109,12 +109,28 @@ export class SyntropyLog {
   }
 
   /**
+   * Resets the singleton's state.
+   * **FOR TESTING AND DEMONSTRATION PURPOSES ONLY.**
+   * This is not intended for production use.
+   * @private
+   */
+  public _resetForTesting(): void {
+    this._isInitialized = false;
+    this.config = undefined;
+    this.loggerFactory = undefined;
+    this.redisManager = undefined;
+    this.httpManager = undefined;
+    this.brokerManager = undefined;
+  }
+
+  /**
    * Retrieves a logger instance by name.
    * @param {string} [name='default'] - The name of the logger.
    * @returns {ILogger} The logger instance.
    */
   public getLogger(name = 'default'): ILogger {
     this.ensureInitialized();
+    // @ts-ignore
     return this.loggerFactory.getLogger(name);
   }
 
@@ -125,6 +141,7 @@ export class SyntropyLog {
    */
   public getRedis(name: string): IBeaconRedis {
     this.ensureInitialized();
+    // @ts-ignore
     return this.redisManager.getInstance(name);
   }
 
@@ -135,6 +152,7 @@ export class SyntropyLog {
    */
   public getHttp(name: string): InstrumentedHttpClient {
     this.ensureInitialized();
+    // @ts-ignore
     return this.httpManager.getInstance(name);
   }
 
@@ -144,6 +162,7 @@ export class SyntropyLog {
    */
   public getContextManager(): IContextManager {
     this.ensureInitialized();
+    // @ts-ignore
     return this.loggerFactory.getContextManager();
   }
 
@@ -154,6 +173,7 @@ export class SyntropyLog {
    */
   public getBroker(name: string): InstrumentedBrokerClient {
     this.ensureInitialized();
+    // @ts-ignore
     return this.brokerManager.getInstance(name);
   }
 
@@ -162,7 +182,7 @@ export class SyntropyLog {
    * @returns {Promise<void>}
    */
   public async shutdown(): Promise<void> {
-    if (!this._isInitialized) return;
+    if (!this._isInitialized || !this.loggerFactory || !this.config || !this.redisManager || !this.httpManager || !this.brokerManager) return;
 
     const mainLogger = this.loggerFactory.getLogger('syntropylog-main');
     mainLogger.info('Shutting down SyntropyLog framework...');

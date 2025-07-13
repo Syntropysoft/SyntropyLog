@@ -1,16 +1,21 @@
 // =================================================================
-//  FILE: src/KafkaAdapter.ts
-//  RESPONSIBILITY: Defines the adapter class. It doesn't know
-//  about singletons or how the Kafka instance is created.
+//  ARCHIVO 1 (Corregido): src/KafkaAdapter.ts
+//  RESPONSABILIDAD: Únicamente definir la clase adaptadora.
+//  No sabe nada de singletons ni de cómo se crea la instancia de Kafka.
 // =================================================================
 
-import { Kafka, IHeaders, Producer, Consumer } from 'kafkajs';
+import {
+  Kafka,
+  logLevel as kafkaLogLevel,
+  IHeaders,
+  Producer,
+  Consumer,
+} from 'kafkajs';
 import {
   IBrokerAdapter,
   BrokerMessage,
   MessageHandler,
-  MessageLifecycleControls,
-} from 'syntropylog';
+} from 'syntropylog/brokers';
 
 
 /**
@@ -41,8 +46,8 @@ export class KafkaAdapter implements IBrokerAdapter {
   private readonly producer: Producer;
   private readonly consumer: Consumer;
 
-  // The constructor now receives the pre-created Kafka instance.
-  // This makes it more flexible and easier to test.
+  // El constructor ahora recibe la instancia de Kafka ya creada.
+  // Esto lo hace más flexible y fácil de probar.
   constructor(kafkaInstance: Kafka, groupId: string) {
     this.producer = kafkaInstance.producer();
     this.consumer = kafkaInstance.consumer({ groupId });
@@ -75,7 +80,7 @@ export class KafkaAdapter implements IBrokerAdapter {
           headers: normalizeKafkaHeaders(message.headers),
         };
 
-        const controls: MessageLifecycleControls = {
+        const controls = {
           ack: async () => {
             await this.consumer.commitOffsets([
               {
@@ -85,14 +90,8 @@ export class KafkaAdapter implements IBrokerAdapter {
               },
             ]);
           },
-          nack: async (requeue?: boolean) => {
-            // In a real application, you would add more robust logic here,
-            // such as sending the message to a dead-letter-queue.
-            // For this example, we'll just log it.
-            // The `requeue` parameter is passed from the user's nack call.
-            console.log(
-              `NACK received for message on topic ${topic}. Requeue: ${!!requeue}`
-            );
+          nack: async () => {
+            console.log(`NACK received for message on topic ${topic}.`);
           },
         };
 
@@ -100,4 +99,4 @@ export class KafkaAdapter implements IBrokerAdapter {
       },
     });
   }
-}
+} 

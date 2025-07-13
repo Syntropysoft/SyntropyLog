@@ -1,41 +1,62 @@
-# Example 08: Data Masking
+# Example 30: Data Masking
 
-This example demonstrates how to automatically mask or redact sensitive information from your logs.
+This example demonstrates SyntropyLog's powerful and configurable data masking engine, a critical feature for security and compliance.
 
 ## The "Why"
 
-In any real-world application, you'll handle sensitive data: passwords, API keys, personal information, credit card numbers, etc. Accidentally logging this data is a major security risk and can lead to compliance violations (like GDPR or HIPAA).
+In any real-world application, you handle sensitive data: passwords, API keys, personal information, credit card numbers, etc. Accidentally logging this data is a major security risk and can lead to compliance violations (like GDPR or HIPAA).
 
-SyntropyLog provides a built-in data masking engine to prevent this. You simply tell the logger which data keys are sensitive, and it will automatically replace their values before they are written to any log output.
-
-It's like having a friendly security guard for your logs who automatically blacks out the important stuff with a marker.
+SyntropyLog's philosophy is **secure by default**. Its masking engine automatically finds and redacts sensitive information before it ever leaves your application.
 
 ## Purpose
 
-The goal of this example is to show how to:
-1.  Configure the logger with a list of sensitive `keys` to mask.
-2.  Log a complex, nested object containing some of those sensitive keys.
-3.  Observe how the output automatically redacts the sensitive values.
+This example demonstrates two key masking strategies:
+
+1.  **Fixed-Length Masking (Default)**: The most secure approach. It replaces sensitive data with a fixed-length string (e.g., `******`). This prevents leaking any metadata about the secret, including its length.
+2.  **Preserve-Length Masking**: A more flexible option for development or debugging. It replaces sensitive data with a mask of the *same length* as the original value, which can make logs easier to read.
 
 ## How to Run
 
 1.  **Install Dependencies**:
-    From the `examples/08-data-masking` directory, run:
+    From the `examples/30-data-masking` directory, run:
     ```bash
     npm install
     ```
 
-2.  **Run the Script**:
+2.  **Build the Example**:
+    This example must be compiled from TypeScript to JavaScript first.
     ```bash
-    npm start
+    npm run build
     ```
+
+3.  **Run the Scripts**:
+    You can run each demonstration separately.
+
+    *   To see the default, fixed-length masking:
+        ```bash
+        npm run start:fixed
+        ```
+    *   To see the preserve-length masking:
+        ```bash
+        npm run start:preserve
+        ```
 
 ## Expected Output
 
-You will see the log output in your console, but notice that the values for `creditCardNumber` and `apiToken` have been replaced with `[REDACTED]`:
+### Fixed-Length Masking
+
+When you run `npm run start:fixed`, you will see that all sensitive fields and path segments are replaced with `******`.
 
 ```
-INFO (secure-payment-processor): Processing a new payment...
-INFO (secure-payment-processor): New payment received {"payload":{"transactionId":"txn_12345abc","amount":49.99,"currency":"USD","customer":{"id":"cust_67890","name":"John Doe"},"paymentMethod":{"type":"credit_card","creditCardNumber":"[REDACTED]"},"metadata":{"source":"web-checkout","apiToken":"[REDACTED]","timestamp":"..."}}}
-INFO (secure-payment-processor): Payment processed successfully. Awaiting confirmation.
+--- Testing Default "fixed" Masking Style ---
+{"payload":{"transactionId":"txn_12345abc",...,"ssn":"******",...,"creditCardNumber":"******",...,"apiToken":"******","requestPath":"/api/v1/user/ssn/******/details"},...}
+```
+
+### Preserve-Length Masking
+
+When you run `npm run start:preserve`, the mask (`*`) will match the length of the original data.
+
+```
+--- Testing "preserve-length" Masking Style ---
+{"payload":{"transactionId":"txn_12345abc",...,"ssn":"***********",...,"creditCardNumber":"*******************",...,"apiToken":"********************","requestPath":"/api/v1/user/ssn/***********/details"},...}
 ``` 

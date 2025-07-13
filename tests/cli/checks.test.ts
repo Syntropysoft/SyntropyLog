@@ -26,7 +26,7 @@ const createMockConfig = (
 
   return {
     ...base,
-    ...overrides,
+  ...overrides,
     logger,
   };
 };

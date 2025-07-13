@@ -5,7 +5,7 @@
 // =================================================================
 
 import { Kafka, logLevel as kafkaLogLevel } from 'kafkajs';
-import { KafkaAdapter } from '../KafkaAdapter';
+import { KafkaAdapter } from './KafkaAdapter';
 
 const KAFKA_BROKERS = ['localhost:9092'];
 

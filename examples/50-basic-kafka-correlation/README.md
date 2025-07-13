@@ -1,10 +1,14 @@
-# 03-Http Clients adapters
+# Example 50: Basic Kafka Correlation
 
-This example demonstrates the powerful **adapter-based architecture** for instrumenting HTTP clients in `syntropylog`.
+This example demonstrates how to implement a custom **Broker Adapter** for Kafka. It showcases one of the core strengths of SyntropyLog: its decoupled, adapter-based architecture for message brokers.
 
-Instead of being limited to pre-defined client types, this new approach allows you to create and inject your own adapters. This gives you the freedom to use **any** HTTP client library—like `axios`, `got`, `node-fetch`, or even a **deprecated one like `request`**—while benefiting from `syntropylog`'s automatic context propagation, logging, and instrumentation.
+By creating a simple `KafkaAdapter`, we can instrument any `kafkajs`-based communication, enabling automatic context propagation and centralized logging for distributed systems.
 
-This example shows how to instrument all four clients side-by-side using this pattern.
+## Key Concepts
+
+- **Broker Adapter Pattern**: Instead of being tied to a specific broker library, you provide an adapter that conforms to the `IBrokerAdapter` interface.
+- **Context Propagation**: The `correlationId` is automatically added to message headers by the producer and extracted by the consumer, linking distributed operations.
+- **Singleton Client**: The Kafka client and adapter are instantiated once and shared across the application, which is a common best practice.
 
 ## Prerequisites
 
@@ -15,184 +19,55 @@ Before running this example, you must first build the main `syntropylog` library
 npm run build
 ```
 
-This step ensures that the local `beaconlog` dependency used by this example is up-to-date. After building, you can proceed with installing the example's dependencies.
+## Running the Example
 
-## Running the example
+1.  **Start Services with Docker Compose:**
+    From the **root of the project**, start all the necessary services (including Kafka) using the main `docker-compose.yaml` file.
 
- **Install dependencies:**
+    ```bash
+    # From the project root
+    docker-compose up -d
+    ```
+
+2.  **Install dependencies:**
+
    ```bash
    npm install
    ```
 
-2. **Run the example:**
+3.  **Run the example:**
+    First, compile the TypeScript code. Then, run the start script.
+
    ```bash
+   npm run build
    npm start
    ```
 
-This will execute the `index.ts` file, which logs messages with an associated context.
+4.  **Stop Services:**
+    When you're finished, you can stop all services from the **root of the project**.
 
-## Example
+    ```bash
+    # From the project root
+    docker-compose down
+    ```
 
-```ts
-/**
- * EXAMPLE: THE NEW HTTP CLIENT ARCHITECTURE (WITH ADAPTERS)
- *
- * This example demonstrates the power of the new Inversion of Control (IoC) architecture.
- * Instead of configuring a client "type," we now inject an "adapter."
- * This gives us the freedom to use ANY HTTP client, regardless of its version,
- * in a consistent manner.
- */
+## Expected Output
 
-import got from 'got';
-import nock from 'nock';
-import { randomUUID } from 'node:crypto';
-import {
-  syntropyLog,
-  CompactConsoleTransport,
-  ConsoleTransport,
-  ClassicConsoleTransport,
-  PrettyConsoleTransport,
-} from 'syntropylog';
-
-// --- Mock Server Setup ---
-// We use nock to simulate an external API. This ensures the example
-// runs predictably without real network calls.
-const MOCK_API_URL = 'https://api.example.com';
-
-async function main() {
-  console.log('--- Running HTTP Client Instrumentation Example ---')
-
-  // 1. Initialize syntropyLog with HTTP client configurations
-  syntropyLog.init({
-    logger: {
-      level: 'info',
-      serviceName: 'http-client-example',
-      serializerTimeoutMs: 50,
-      transports: [new ClassicConsoleTransport()],
-      serializers: {
-        err: (e: any) => {
-          // Para errores de Axios, Got, Nock, etc., que tienen un código y mensaje.
-          if (e.code && e.message) {
-            // Crea un resumen de una sola línea.
-            return `[${e.name || 'Error'}] (${e.code}) ${e.message.split('\n')[0]}`;
-          }
-          // Para errores genéricos.
-          return `[${e.name || 'Error'}] ${e.message}`;
-        },
-      },
-    },
-    context: {
-      correlationIdHeader: 'X-something-ID',
-    },
-    http: {
-      instances: [
-        {
-          instanceName: 'myGot',
-          type: 'got',
-          config: {
-            prefixUrl: MOCK_API_URL,
-            // Disable retries to ensure predictable behavior for this example
-            retry: { limit: 0 },
-          },
-        },
-      ],
-    },
-  });
-
-  // 2. Create a context for this "unit of work".
-  // In a real app, this would wrap an incoming web request.
-  const contextManager = syntropyLog.getContextManager();
-  await contextManager.run(async () => {
-    // 3. Set the correlation ID for this context.
-    // All subsequent operations (logs, HTTP calls) will automatically use it.
-    const correlationIdHeaderName = contextManager.getCorrelationIdHeaderName();
-    const correlationId = randomUUID();
-    contextManager.set(correlationIdHeaderName, correlationId);
-
-    const gotClient = syntropyLog.getHttp('myGot');
-
-    // Get a logger instance. The name ('main') is a key to retrieve this specific
-    // logger from anywhere in the application. If it doesn't exist, it's created.
-    //
-    // Note on log output: The 'serviceName' configured in init() takes precedence
-    // as the logger's name in the output. The name provided here ('main') is
-    // primarily for retrieval and acts as a fallback name if 'serviceName'
-    // is not set.
-    const logger = syntropyLog.getLogger('main');
-
-    logger.info('Context created. Making request with instrumented got...');
-
-    // Setup the mock response for the API endpoint, including the correlation ID
-    // in the response headers.
-    nock(MOCK_API_URL)
-      .get('/users/1')
-      .reply(200, { id: 1, name: 'Mocked User' });
-
-    nock(MOCK_API_URL)
-      .get('/product/1')
-      .reply(500, { error: 'Internal Server Error' });
-
-    // The correlation ID will be injected into the headers automatically.
-    await (gotClient as typeof got).get('users/1');
-    try {
-      await (gotClient as typeof got).get('product/1');
-    } catch (err) {
-      syntropyLog.getLogger('main').error(`Error: ${err.message}`)
-    }
-
-  });
-
-  // 4. Gracefully shut down when the application finishes
-  await syntropyLog.shutdown();
-
-  console.log(
-    '\n✅ Example finished. Check the console output for the structured JSON logs.'
-  );
-  console.log(
-    'Each log entry for the HTTP requests should contain details like `http.method`, `http.url`, `http.status_code`, and `http.duration_ms`.'
-  );
-}
-
-main().catch((error) => {
-  console.error(`Error running example: ${error.message}`);
-  process.exit(1);
-});
-
-```
-
-## Output result
+You should see logs from both the producer and the consumer. You might see some initial connection errors from `kafkajs` while the Kafka cluster starts up, which is normal. The important part is that the `correlationId` is the same for both the producer and consumer logs.
 
 ```log
-npm run start
+--- Running Broker Instrumentation Example ---
+2025-07-13 INFO  [broker-manager] :: Broker client instance "my-kafka-bus" created successfully via adapter.
+2025-07-13 INFO  [syntropylog-main] :: SyntropyLog framework initialized successfully.
+2025-07-13 INFO  [my-kafka-bus] :: Connecting to broker...
+2025-07-13 INFO  [my-kafka-bus] :: Successfully connected to broker.
+2025-07-13 INFO  [my-kafka-bus] [topic="syntropylog-test-topic"] :: Subscribing to topic...
+2025-07-13 INFO  [my-kafka-bus] [topic="syntropylog-test-topic"] :: Successfully subscribed to topic.
+2025-07-13 INFO  [producer] [X-Correlation-ID="..."] :: Producer context created. Publishing message...
+2025-07-13 INFO  [my-kafka-bus] [X-Correlation-ID="..." topic="syntropylog-test-topic"] :: Publishing message...
+2025-07-13 INFO  [my-kafka-bus] [X-Correlation-ID="..." topic="syntropylog-test-topic"] :: Message published successfully.
+2025-07-13 INFO  [my-kafka-bus] [X-Correlation-ID="..." topic="syntropylog-test-topic"] :: Received message.
+2025-07-13 INFO  [consumer] [X-Correlation-ID="..." payload="Hello, distributed world!"] :: Message processed by consumer.
 
-> 03-Http-clients-adapters@1.0.0 start
-> tsx src/index.ts
-
---- Running Adapter-based HTTP Client Example ---
-2025-07-10 17:30:16 INFO  [http-manager]  :: HTTP client instance "myAxiosApi" created successfully via adapter.
-2025-07-10 17:30:16 INFO  [http-manager]  :: HTTP client instance "myFetchApi" created successfully via adapter.
-2025-07-10 17:30:16 INFO  [http-manager]  :: HTTP client instance "myGotApi" created successfully via adapter.
-2025-07-10 17:30:16 INFO  [http-manager]  :: HTTP client instance "myLegacyApi" created successfully via adapter.
-2025-07-10 17:30:16 INFO  [syntropylog-main]  :: SyntropyLog framework initialized successfully.
-2025-07-10 17:30:16 INFO  [main] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3"] :: --- Testing Axios-based client ---
-2025-07-10 17:30:16 INFO  [myAxiosApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" method="GET" url="/users/1"] :: Starting HTTP request
-2025-07-10 17:30:16 INFO  [myAxiosApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" statusCode=200 url="/users/1" method="GET" durationMs=17] :: HTTP response received
-2025-07-10 17:30:16 INFO  [main] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3"] :: 
---- Testing Got-based client ---
-2025-07-10 17:30:16 INFO  [myGotApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" method="GET" url="products/123"] :: Starting HTTP request
-2025-07-10 17:30:16 INFO  [myGotApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" statusCode=200 url="products/123" method="GET" durationMs=9] :: HTTP response received
-2025-07-10 17:30:16 INFO  [main] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3"] :: 
---- Testing Fetch-based client ---
-2025-07-10 17:30:16 INFO  [myFetchApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" method="GET" url="https://api.example.com/inventory/1"] :: Starting HTTP request
-2025-07-10 17:30:16 INFO  [myFetchApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" statusCode=200 url="https://api.example.com/inventory/1" method="GET" durationMs=9] :: HTTP response received
-2025-07-10 17:30:16 INFO  [main] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3"] :: 
---- Testing deprecated client (request) ---
-2025-07-10 17:30:16 INFO  [myLegacyApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" method="GET" url="https://api.example.com/legacy/data"] :: Starting HTTP request
-2025-07-10 17:30:16 INFO  [myLegacyApi] [X-Correlation-ID="84c3d42c-0707-4be9-91f7-e779ba6c23c3" statusCode=200 url="https://api.example.com/legacy/data" method="GET" durationMs=8] :: HTTP response received
-2025-07-10 17:30:16 INFO  [syntropylog-main]  :: Shutting down SyntropyLog framework...
-2025-07-10 17:30:16 INFO  [redis-manager]  :: Closing all Redis connections...
-2025-07-10 17:30:16 INFO  [redis-manager]  :: All Redis connections have been closed.
-2025-07-10 17:30:16 INFO  [syntropylog-main]  :: SyntropyLog shut down successfully.
-
-✅ McLaren example finished successfully.
+✅ Broker example finished.
 ```

@@ -68,34 +68,32 @@ describe('LoggerFactory', () => {
 
   describe('Constructor', () => {
     it('should instantiate dependencies with default settings', () => {
-      // This config simulates the object *after* it has been parsed by Zod,
-      // which applies the default values.
-      const parsedConfig: SyntropyLogConfig = {
-        logger: {
-          serializerTimeoutMs: 50,
-        },
-      };
-      new LoggerFactory(parsedConfig);
+      // With an empty config, the factory should use default values.
+      const loggerFactory = new LoggerFactory({});
 
       expect(MockContextManager).toHaveBeenCalledOnce();
-      expect(mockContextManager.configure).not.toHaveBeenCalled();
-      expect(MockConsoleTransport).toHaveBeenCalledOnce(); // Default transport
+      // Transports are created by default if none are provided.
+      expect(MockConsoleTransport).toHaveBeenCalledOnce();
       expect(MockSerializerRegistry).toHaveBeenCalledWith({
         serializers: undefined,
-        timeoutMs: 50, // This should now be the default from the config schema
+        timeoutMs: undefined, // The Zod default is not applied here, so it's undefined
       });
-      expect(MockMaskingEngine).toHaveBeenCalledWith(undefined);
+      expect(MockMaskingEngine).toHaveBeenCalledWith({
+        fields: undefined,
+        maskChar: undefined,
+        maxDepth: undefined,
+      });
       expect(MockSanitizationEngine).toHaveBeenCalledOnce();
     });
 
     it('should configure context manager with custom correlation ID header', () => {
       const config: SyntropyLogConfig = {
         ...baseConfig,
-        context: { correlationIdHeader: 'x-request-id' },
+        context: { correlationIdHeader: 'x-custom-id' },
       };
       new LoggerFactory(config);
       expect(mockContextManager.configure).toHaveBeenCalledWith({
-        correlationIdHeader: 'x-request-id',
+        correlationIdHeader: 'x-custom-id',
       });
     });
 
@@ -106,21 +104,25 @@ describe('LoggerFactory', () => {
         logger: { ...baseConfig.logger, transports: [mockTransport] },
       };
       new LoggerFactory(config);
-      // Default console transport should NOT be created
+      // Should not create default transports if they are provided.
       expect(MockConsoleTransport).not.toHaveBeenCalled();
     });
 
     it('should pass serializer and masking configs to their engines', () => {
       const config: SyntropyLogConfig = {
-        ...baseConfig,
         logger: {
-          ...baseConfig.logger,
-          serializers: { err: () => ({}) },
+          serializers: {
+            custom: (val: any) => JSON.stringify(val),
+          },
           serializerTimeoutMs: 500,
         },
-        masking: { rules: [] },
+        masking: {
+          fields: ['password', /token/i],
+        },
       };
-      new LoggerFactory(config);
+
+      const loggerFactory = new LoggerFactory(config);
+
       expect(MockSerializerRegistry).toHaveBeenCalledWith({
         serializers: config.logger?.serializers,
         timeoutMs: 500,

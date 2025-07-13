@@ -137,7 +137,7 @@ async function main() {
     try {
       await apiClient.request({
         method: 'GET',
-        url: '/products/456',
+        url: 'products/456', // `got` with `prefixUrl` does not want a leading slash.
         headers: {},
       });
     } catch (error: any) {

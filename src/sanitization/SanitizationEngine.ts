@@ -4,6 +4,8 @@
  * @description Final security layer that sanitizes log entries before they are written by a transport.
  */
 
+import { MaskingEngine } from '../masking/MaskingEngine';
+
 /**
  * @class SanitizationEngine
  * A security engine that makes log entries safe for printing by stripping
@@ -11,6 +13,7 @@
  * This prevents log injection attacks that could exploit terminal vulnerabilities.
  */
 export class SanitizationEngine {
+  private readonly maskingEngine?: MaskingEngine;
   /** @private This regex matches ANSI escape codes used for colors, cursor movement, etc. */
   // prettier-ignore
   // eslint-disable-next-line no-control-regex
@@ -19,8 +22,8 @@ export class SanitizationEngine {
    * @constructor
    * The engine is currently not configurable, but the constructor is in place for future enhancements.
    */
-  constructor() {
-    // No configuration needed at this time.
+  constructor(maskingEngine?: MaskingEngine) {
+    this.maskingEngine = maskingEngine;
   }
 
   /**
@@ -29,7 +32,11 @@ export class SanitizationEngine {
    * @returns {Record<string, any>} A new, sanitized metadata object.
    */
   public process(meta: Record<string, any>): Record<string, any> {
-    return this.sanitizeRecursively(meta);
+    let sanitized = this.sanitizeRecursively(meta);
+    if (this.maskingEngine) {
+      sanitized = this.maskingEngine.process(sanitized);
+    }
+    return sanitized;
   }
 
   /**

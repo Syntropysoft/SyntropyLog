@@ -188,12 +188,18 @@ const fieldMaskConfigSchema = z.object({
  */
 const maskingConfigSchema = z
   .object({
-    /** An array of field-specific masking configurations. */
-    fields: z.array(fieldMaskConfigSchema).optional(),
-    /** The character(s) to use for masking. Defaults to '******'. */
+    /** An array of sensitive field names or RegExp. */
+    fields: z.array(z.union([z.string(), z.instanceof(RegExp)])).optional(),
+    /** The character(s) to use for masking. If `style` is 'preserve-length', only the first character is used. */
     maskChar: z.string().optional(),
-    /** The maximum recursion depth for masking nested objects. Defaults to 10. */
+    /** The maximum recursion depth for masking nested objects. Defaults to 3. */
     maxDepth: z.number().int().positive().optional(),
+    /**
+     * The masking style.
+     * - `fixed`: (Default) Replaces the value with a fixed-length string ('******'). Maximum security.
+     * - `preserve-length`: Replaces the value with a mask string of the same length. Leaks length metadata.
+     */
+    style: z.enum(['fixed', 'preserve-length']).optional(),
   })
   .optional();
 

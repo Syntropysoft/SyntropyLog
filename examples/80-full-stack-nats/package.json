@@ -5,8 +5,8 @@
   "description": "A full-stack microservices example using SyntropyLog with NATS.",
   "main": "dist/index.js",
   "scripts": {
-    "start:dev": "docker-compose up --build",
-    "stop": "docker-compose down"
+    "build": "tsc",
+    "start": "concurrently \"node dist/api-gateway/index.js\" \"node dist/sales-service/index.js\" \"node dist/dispatch-service/index.js\""
   },
   "dependencies": {
     "axios": "^1.6.0",

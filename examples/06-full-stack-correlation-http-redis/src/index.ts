@@ -1,22 +1,22 @@
 // =================================================================
-//  FILE: src/index.ts
-//  RESPONSIBILITY: Orchestrate the application. It no longer knows
-//  how the adapter is created; it simply imports and uses it.
+//  ARCHIVO 3 (Corregido): src/index.ts
+//  RESPONSABILIDAD: Orquestar la aplicación. Ya no sabe cómo se
+//  crea el adaptador, simplemente lo importa y lo usa.
 // =================================================================
 
 import { randomUUID } from 'node:crypto';
 import { syntropyLog, ClassicConsoleTransport } from 'syntropylog';
 
-// --- The Magic! ---
-// We import the singleton instance of the adapter from our centralized file.
-import { myKafkaBusAdapter } from './kafka-client';
+// --- ¡LA MAGIA! ---
+// Importamos la instancia singleton del adaptador desde nuestro archivo centralizado.
+import { myKafkaBusAdapter } from './adapters/kafka-client';
 
 const TOPIC_NAME = 'syntropylog-test-topic';
 
 async function main() {
   console.log('--- Running Broker Instrumentation Example ---');
 
-  // The configuration is now much cleaner and clearer.
+  // La configuración ahora es mucho más limpia y clara.
   syntropyLog.init({
     logger: {
       level: 'info',
@@ -31,7 +31,7 @@ async function main() {
       instances: [
         {
           instanceName: 'my-kafka-bus',
-          adapter: myKafkaBusAdapter, // We use the imported instance
+          adapter: myKafkaBusAdapter, // Usamos la instancia importada
         },
       ],
     },
@@ -66,7 +66,6 @@ async function main() {
         payload: Buffer.from('Hello, distributed world!'),
       });
 
-      // Wait a moment for the consumer to process the message
       await new Promise((resolve) => setTimeout(resolve, 2000));
     });
   } catch (error) {
@@ -78,4 +77,4 @@ async function main() {
   }
 }
 
-main();
+main(); 

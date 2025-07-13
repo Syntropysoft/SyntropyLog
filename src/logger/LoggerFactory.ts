@@ -76,7 +76,11 @@ export class LoggerFactory {
       serializers: config.logger?.serializers,
       timeoutMs: config.logger?.serializerTimeoutMs,
     });
-    this.maskingEngine = new MaskingEngine(config.masking);
+    this.maskingEngine = new MaskingEngine({
+      fields: config.masking?.fields,
+      maskChar: config.masking?.maskChar,
+      maxDepth: config.masking?.maxDepth,
+    });
   }
 
   /**

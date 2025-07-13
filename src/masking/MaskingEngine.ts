@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * FILE: src/masking/MaskingEngine.ts
- * DESCRIPTION: Central engine for applying data masking rules to log objects.
+ * DESCRIPTION: Central engine for applying robust, secure data masking to log objects.
  */
 
 /**
@@ -22,35 +22,61 @@ export interface FieldMaskConfig {
  * @description Options for configuring the MaskingEngine.
  */
 export interface MaskingEngineOptions {
-  /** An array of field-specific masking configurations. */
-  fields?: FieldMaskConfig[];
-  /** The character(s) to use for masking. Defaults to '******'. */
+  /** Un array de nombres de campos sensibles. */
+  fields?: (string | RegExp)[];
+  /** El carácter de máscara. */
   maskChar?: string;
-  /** The maximum recursion depth for masking nested objects. Defaults to 10. */
+  /** Profundidad máxima de búsqueda. Default: 3 */
   maxDepth?: number;
+  /** El estilo de enmascaramiento ('fixed' o 'preserve-length'). */
+  style?: 'fixed' | 'preserve-length';
 }
 
 /**
  * @class MaskingEngine
  * A central engine responsible for applying masking rules to log metadata.
- * It processes objects after serialization to ensure no sensitive data is leaked.
+ * It recursively scans objects and masks data based on key names, and can also
+ * sanitize sensitive values from URL paths. Its design is "secure-by-default,"
+ * allowing for runtime configuration updates that can only add (not remove) masking rules.
  */
 export class MaskingEngine {
-  /** @private Store the rich field configuration directly. */
-  private readonly fieldConfigs: FieldMaskConfig[];
+  /** @private A dynamic array of sensitive field names or RegExps. */
+  private fieldConfigs: (string | RegExp)[];
   /** @private The character(s) to use for masking. */
   private readonly maskChar: string;
   /** @private The maximum recursion depth for masking nested objects. */
   private readonly maxDepth: number;
-  /**
-   * @private Regular expression to identify potential URLs for selective sanitization.
-   */
-  private readonly urlRegex = /^(https?|ftp):\/\/[^\s/$.?#].[^\s]*$/i;
+  /** @private The masking style to apply. */
+  private readonly style: 'fixed' | 'preserve-length';
 
   constructor(options?: MaskingEngineOptions) {
     this.fieldConfigs = options?.fields || [];
     this.maskChar = options?.maskChar || '******';
-    this.maxDepth = options?.maxDepth || 10;
+    this.maxDepth = options?.maxDepth ?? 3;
+    this.style = options?.style ?? 'fixed';
+  }
+
+  /**
+   * Adds new sensitive fields to the masking configuration at runtime.
+   * This method is "additive only" to prevent security degradation. Once a field
+   * is added to the mask list, it cannot be removed during the application's lifecycle.
+   *
+   * @param {(string | RegExp)[]} fields - An array of new field names or RegExps to add.
+   *        Duplicates are silently ignored.
+   */
+  public addFields(fields: (string | RegExp)[]): void {
+    if (!fields || fields.length === 0) {
+      return;
+    }
+
+    const existingFieldsSet = new Set(this.fieldConfigs.map((f) => f.toString()));
+
+    for (const field of fields) {
+      if (!existingFieldsSet.has(field.toString())) {
+        this.fieldConfigs.push(field);
+        existingFieldsSet.add(field.toString()); // Update the set for the current run
+      }
+    }
   }
 
   /**
@@ -64,16 +90,17 @@ export class MaskingEngine {
 
   /**
    * @private
-   * Recursively masks sensitive information within an object or array.
+   * Recursively traverses an object or array to mask data.
+   * It applies two types of masking:
+   * 1. **Key-based masking**: If an object key matches a rule in `fieldConfigs`, its value is masked.
+   * 2. **Path-based masking**: If a string value looks like a path/URL, it's sanitized.
+   *
    * @param {any} data - The data to process (can be an object, array, or primitive).
-   * @param {number} depth - The current recursion depth.
+   * @param {number} depth - The current recursion depth to prevent infinite loops.
    * @returns {any} The processed data with masking applied.
    */
   private maskRecursively(data: any, depth: number): any {
-    if (depth >= this.maxDepth || data === null || typeof data !== 'object') {
-      if (typeof data === 'string' && this.urlRegex.test(data)) {
-        return this.sanitizeUrl(data);
-      }
+    if (depth > this.maxDepth || data === null || typeof data !== 'object') {
       return data;
     }
 
@@ -82,76 +109,89 @@ export class MaskingEngine {
     }
 
     const sanitizedObject: Record<string, any> = {};
-
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
-        // Find if any rule applies to the current key (case-sensitive for strings, RegExp test for RegExp)
-        const applicableRule = this.fieldConfigs.find((config) =>
-          typeof config.path === 'string'
-            ? config.path === key
-            : config.path.test(key)
+        const value = data[key];
+        const isSensitiveKey = this.fieldConfigs.some((config) =>
+          typeof config === 'string' ? config === key : config.test(key),
         );
 
-        // If a rule is found, mask the value accordingly.
-        // Otherwise, recurse into the value to check for nested sensitive data.
-
-        if (applicableRule) {
-          // If a rule is found, mask the value accordingly
-          sanitizedObject[key] = this.maskValue(data[key], applicableRule);
+        if (isSensitiveKey) {
+          sanitizedObject[key] = this.getMask(value);
+        } else if (typeof value === 'string') {
+          sanitizedObject[key] = this.sanitizeUrlPath(value);
+        } else if (typeof value === 'object' && value !== null) {
+          sanitizedObject[key] = this.maskRecursively(value, depth + 1);
         } else {
-          // If no rule applies, recurse into the value
-          sanitizedObject[key] = this.maskRecursively(data[key], depth + 1);
+          sanitizedObject[key] = value;
         }
       }
     }
-
     return sanitizedObject;
   }
 
   /**
    * @private
-   * Masks a single value based on a `FieldMaskConfig` rule.
-   * This method applies either 'full' or 'partial' masking based on the rule.
-   * @param {any} value - The value to be masked.
-   * @param {FieldMaskConfig} config - The masking rule to apply.
-   * @returns {string} The masked value as a string.
+   * Sanitizes a string that may represent a URL path.
+   * If a segment of the path matches a sensitive field name (case-insensitively),
+   * the following path segment is completely replaced with the mask character.
+   *
+   * @example
+   * // with `fields: ['password']`
+   * sanitizeUrlPath("/api/v1/password/s3cr3t-v4lu3")
+   * // returns: "/api/v1/password/*****"
+   *
+   * @param {string} str - The string to sanitize.
+   * @returns {string} The sanitized string, or the original if no sensitive keywords were found.
    */
-  private maskValue(value: any, config: FieldMaskConfig): string {
-    const stringValue = String(value);
-    if (config.type === 'full') {
-      return this.maskChar;
+  private sanitizeUrlPath(str: string): string {
+    // Quick check to avoid processing every single string.
+    // It should at least contain a slash to be considered a path.
+    if (!str.includes('/')) {
+      return str;
     }
-    if (config.type === 'partial') {
-      const showLast = config.showLast ?? 4;
-      return this.maskChar + stringValue.slice(-showLast);
+
+    const parts = str.split('/');
+    let modified = false;
+
+    // We iterate up to the second to last part, since we're looking ahead.
+    for (let i = 0; i < parts.length - 1; i++) {
+      const currentPart = parts[i];
+      const nextPart = parts[i + 1];
+
+      // Check if the current part is a sensitive keyword
+      const isSensitive = this.fieldConfigs.some((config) =>
+        typeof config === 'string'
+          ? currentPart.toLowerCase() === config.toLowerCase()
+          : config.test(currentPart),
+      );
+
+      // If the current part is sensitive and the next part is not empty, mask the next part.
+      if (isSensitive && nextPart.length > 0) {
+        parts[i + 1] = this.getMask(nextPart);
+        modified = true;
+        // Advance the index to avoid re-checking the newly inserted mask character
+        // in cases like /password/part/password/part2
+        i++;
+      }
     }
-    return stringValue;
+
+    return modified ? parts.join('/') : str;
   }
 
   /**
    * @private
-   * Sanitizes a URL string by masking sensitive query parameters.
-   * It parses the URL, iterates through its query parameters, and applies any
-   * matching masking rules to the parameter values.
-   * @param {string} urlString - The URL string to sanitize.
-   * @returns {string} The sanitized URL with masked query parameters.
+   * Generates the appropriate mask string based on the configured style.
+   * @param {any} originalValue - The original value being masked. Its length is used for 'preserve-length' style.
+   * @returns {string} The generated mask string.
    */
-  private sanitizeUrl(urlString: string): string {
-    try {
-      const url = new URL(urlString);
-      url.searchParams.forEach((value, key) => {
-        const applicableRule = this.fieldConfigs.find((config) =>
-          typeof config.path === 'string'
-            ? config.path === key
-            : config.path.test(key)
-        );
-        if (applicableRule) {
-          url.searchParams.set(key, this.maskValue(value, applicableRule));
-        }
-      });
-      return url.toString();
-    } catch (e) {
-      return urlString;
+  private getMask(originalValue: any): string {
+    if (this.style === 'preserve-length') {
+      const length = String(originalValue).length;
+      // Use the first character of maskChar and repeat it.
+      return this.maskChar.charAt(0).repeat(length > 0 ? length : 1);
     }
+    // For 'fixed' style, always return the configured maskChar.
+    return this.maskChar;
   }
 }

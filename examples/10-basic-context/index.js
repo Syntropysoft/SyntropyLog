@@ -1,54 +1,61 @@
-import { SyntropyLog } from 'syntropylog';
+import { syntropyLog, CompactConsoleTransport } from 'syntropylog';
 import { randomUUID } from 'crypto';
 
 // This simulates a service responsible for inventory management.
-// Notice it doesn't need to know anything about correlation IDs.
-// It just receives the logger instance.
 const inventoryService = {
-  checkStock: (logger, item) => {
-    const stockLogger = logger.child({ service: 'inventory-service' });
-    stockLogger.info('Checking inventory...', { item });
+  checkStock: (item) => {
+    // No need to pass the logger around. We can get it from the singleton.
+    const stockLogger = syntropyLog.getLogger('inventory-service');
+    stockLogger.info({ item }, 'Checking inventory...');
     // ... some logic to check stock ...
   },
 };
 
 // This simulates a service responsible for handling orders.
 const orderService = {
-  process: (logger, order) => {
-    const orderLogger = logger.child({ service: 'order-service' });
-    orderLogger.info('Processing order...', { payload: order });
-    inventoryService.checkStock(logger, order.productId);
+  process: (order) => {
+    const orderLogger = syntropyLog.getLogger('order-service');
+    orderLogger.info({ payload: order }, 'Processing order...');
+    inventoryService.checkStock(order.productId);
   },
 };
 
 // --- Main Application Logic ---
 async function main() {
-  // 1. Initialize the logger for the whole application.
-  const logger = new SyntropyLog({
-    service: 'main',
-    // We'll use a compact console transport for cleaner output in this example.
-    transports: ['compact'],
+  // 1. Configure and initialize SyntropyLog once for the whole application.
+  syntropyLog.init({
+    logger: {
+      level: 'info',
+      serviceName: 'main-app',
+      transports: [new CompactConsoleTransport()],
+    },
+    context: {
+      correlationIdHeader: 'X-Correlation-ID'
+    }
   });
 
-  logger.info('Starting application...');
+  const mainLogger = syntropyLog.getLogger('main');
+  const contextManager = syntropyLog.getContextManager();
+
+  mainLogger.info('Starting application...');
 
   // 2. Simulate an incoming request.
-  // We'll create a unique ID to trace this specific operation.
   const correlationId = randomUUID();
 
   // 3. This is the magic!
-  // We use `runWith` to create an async context. Everything that runs
-  // inside this callback will automatically have the `correlationId`.
-  await logger.runWith({ correlationId }, async (contextualLogger) => {
+  // We use the context manager to create an async context.
+  await contextManager.run(async () => {
+    contextManager.set(contextManager.getCorrelationIdHeaderName(), correlationId);
+
     const order = {
       productId: 'B-001',
       quantity: 2,
     };
-    // We pass the contextualLogger to our services.
-    orderService.process(contextualLogger, order);
+    orderService.process(order);
   });
 
-  logger.info('Application finished.');
+  mainLogger.info('Application finished.');
+  await syntropyLog.shutdown();
 }
 
 main();

@@ -1,11 +1,16 @@
 {
   "name": "30-data-masking",
   "version": "1.0.0",
-  "description": "An example of how to mask sensitive data in logs.",
-  "main": "src/index.ts",
+  "description": "An example demonstrating SyntropyLog's data masking capabilities.",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "ts-node src/index.ts"
+    "start:fixed": "node dist/fixed.js",
+    "start:preserve": "node dist/preserve-length.js",
+    "build": "tsc"
   },
+  "keywords": [
+    "syntropylog"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {

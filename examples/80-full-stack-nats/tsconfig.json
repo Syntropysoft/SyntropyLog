@@ -8,12 +8,11 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
+    "outDir": "./dist",
     "paths": {
       "syntropylog": ["../../src"],
       "syntropylog/*": ["../../src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src/**/*"]
 } 

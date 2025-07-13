@@ -4,19 +4,19 @@
   "description": "An example of instrumenting RabbitMQ with SyntropyLog, demonstrating advanced messaging patterns.",
   "main": "dist/index.js",
   "scripts": {
-    "start": "tsx src/index.ts",
-    "dev": "tsx watch src/index.ts"
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json && node dist/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "syntropylog": "file:../..",
-    "amqplib": "^0.10.3"
+    "amqplib": "^0.8.0"
   },
   "devDependencies": {
-    "@types/amqplib": "^0.10.4",
-    "tsx": "^4.7.0",
+    "@types/amqplib": "^0.8.0",
     "typescript": "^5.2.2"
   }
 } 

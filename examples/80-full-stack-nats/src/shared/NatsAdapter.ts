@@ -7,6 +7,7 @@ import {
   Subscription,
   Msg,
   JetStreamClient,
+  JetStreamSubscription,
 } from 'nats';
 import {
   IBrokerAdapter,
@@ -25,7 +26,7 @@ export interface NatsAdapterOptions {
 export class NatsAdapter implements IBrokerAdapter {
   private nc: NatsConnection | null = null;
   private js: JetStreamClient | null = null;
-  private subscriptions: Map<string, Subscription> = new Map();
+  private subscriptions: Map<string, JetStreamSubscription> = new Map();
   private readonly options: NatsAdapterOptions;
   private readonly stringCodec = StringCodec();
 
@@ -76,17 +77,15 @@ export class NatsAdapter implements IBrokerAdapter {
       throw new Error(`A subscription for topic "${topic}" already exists.`);
     }
 
-    const sub = this.nc.subscribe(topic, {
-        manualAck: true, // Important for JetStream
-    });
-    
+    const sub = await this.js.subscribe(topic, {});
+
     this.subscriptions.set(topic, sub);
 
     // Asynchronously process messages from the subscription
     (async () => {
       for await (const m of sub) {
         const brokerMessage: BrokerMessage = {
-          payload: m.data,
+          payload: Buffer.from(m.data),
           headers: this.natsHeadersToRecord(m.headers),
         };
 

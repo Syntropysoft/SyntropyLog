@@ -5,6 +5,7 @@
  */
 
 export { syntropyLog, SyntropyLog } from './SyntropyLog';
+export { MaskingEngine } from './masking/MaskingEngine';
 
 // --- Core Types for Configuration and Usage ---
 export type { SyntropyLogConfig } from './config';
@@ -26,4 +27,12 @@ export { SanitizationEngine } from './sanitization/SanitizationEngine';
 
 // --- Interfaces for Instrumented Clients ---
 export type { IBeaconRedis } from './redis/IBeaconRedis';
+
+// --- Broker-related exports for creating custom adapters ---
+export type {
+  IBrokerAdapter,
+  BrokerMessage,
+  MessageHandler,
+  MessageLifecycleControls,
+} from './brokers/adapter.types';
 // export type { InstrumentedHttpClient } from './http/types';

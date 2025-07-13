@@ -1,4 +1,4 @@
-# Example 30: Basic HTTP Correlation
+# Example 40: Basic HTTP Correlation
 
 This example showcases a critical feature for microservices and distributed systems: **automatic context propagation over HTTP**.
 
@@ -18,29 +18,40 @@ This means you get fully correlated, detailed logs across service boundaries wit
 The goal of this example is to demonstrate:
 1.  How to configure an instrumented HTTP client using the built-in `axios` adapter.
 2.  How to make an HTTP call using the instrumented client.
-3.  How to observe in the logs that the `correlationId` is automatically added to the request.
+3.  How `nock` can be used to simulate a server that asserts the `correlationId` was received.
 
 ## How to Run
 
 1.  **Install Dependencies**:
-    From the `examples/30-basic-http-correlation` directory, run:
+    From the `examples/40-basic-http-correlation` directory, run:
     ```bash
     npm install
     ```
 
-2.  **Run the Script**:
+2.  **Build the Example**:
+    This example must be compiled from TypeScript to JavaScript first.
+    ```bash
+    npm run build
+    ```
+
+3.  **Run the Script**:
     ```bash
     npm start
     ```
 
 ## Expected Output
 
-The log output will show the lifecycle of the HTTP request. Most importantly, you can see the `correlationId` present in the log metadata, confirming it was correctly propagated.
+The log output shows the full lifecycle of the HTTP request. The most important line is from our `nock` server, confirming it received the header. You can also see the `correlationId` automatically included in the context of every log.
 
 ```
-INFO (http-example): Initializing...
-INFO (http-example): Context created. Making HTTP call... {"correlationId":"..."}
-INFO (my-axios-client): Starting HTTP request... {"correlationId":"...","http":{"method":"GET","url":"/users/1"}}
-INFO (my-axios-client): HTTP response received. {"correlationId":"...","http":{"method":"GET","url":"/users/1","statusCode":200,"durationMs":...}}
-INFO (http-example): Request finished.
+11:19:37 [INFO] (main): Context created. Making HTTP call...
+  └─ context={"X-Correlation-ID":"f0115224-0892-4d83-ba46-92416e12f6c5"}
+11:19:37 [INFO] (my-axios-client): Starting HTTP request
+  └─ method=GET url=/users/1 context={"X-Correlation-ID":"f0115224-0892-4d83-ba46-92416e12f6c5"}
+11:19:37 [INFO] (main): Nock mock confirmed: Correlation ID received! { correlationId: 'f011...' }
+  └─ context={"X-Correlation-ID":"f0115224-0892-4d83-ba46-92416e12f6c5"}
+11:19:37 [INFO] (my-axios-client): HTTP response received
+  └─ statusCode=200 url=/users/1 method=GET durationMs=39 context={"X-Correlation-ID":"f011..."}
+11:19:37 [INFO] (main): Request finished.
+  └─ context={"X-Correlation-ID":"f0115224-0892-4d83-ba46-92416e12f6c5"}
 ```

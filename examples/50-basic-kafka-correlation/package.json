@@ -1,23 +1,28 @@
 {
-  "name": "04-brokers",
+  "name": "@syntropylog/example-50-basic-kafka-correlation",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "SyntropyLog Example: Demonstrates how to create a custom broker adapter for Kafka to achieve automatic context propagation.",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "tsx src/index.ts",
-    "dev": "tsx watch src/index.ts"
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json && node dist/index.js"
   },
-  "keywords": [],
-  "author": "gabriel70",
-  "license": "ISC",
-  "type": "commonjs",
+  "keywords": [
+    "syntropylog",
+    "kafka",
+    "correlation",
+    "logging",
+    "broker"
+  ],
+  "author": "Sintropico",
+  "license": "Apache-2.0",
   "dependencies": {
     "kafkajs": "^2.2.4",
     "syntropylog": "file:../.."
   },
   "devDependencies": {
     "nock": "^13.5.6",
-    "tsx": "^4.7.0",
     "typescript": "^5.2.2"
   }
 }

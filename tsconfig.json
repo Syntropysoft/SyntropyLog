@@ -1,26 +1,18 @@
 {
   "compilerOptions": {
-    /* Opciones Básicas de Módulo y Target */
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-
-    /* Rutas y Estructura */
-    "rootDir": "src",
-
-    /* Opciones de Declaración */
     "declaration": true,
     "declarationDir": "./dist/types",
-    "declarationMap": true,
     "sourceMap": true,
-
-    /* Strictness y Calidad de Código */
+    "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["src", "tests/cli/cli.test.ts"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist", "tests", "examples"]
 }
