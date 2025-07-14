@@ -5,7 +5,9 @@
 <h1 align="center">SyntropyLog</h1>
 
 <p align="center">
-  <strong>An Observability Framework for Node.js: Resilient, Secure, and Extensible by Design.</strong>
+  <strong>The Observability Framework for High-Performance Teams.</strong>
+  <br />
+  Ship resilient, secure, and cost-effective Node.js applications with confidence.
 </p>
 
 <p align="center">
@@ -14,46 +16,55 @@
   <a href="https://github.com/Sintropyc/syntropylog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
 </p>
 
-**SyntropyLog** is a declarative and agnostic observability framework for Node.js, built for high-demand production systems. Its architecture focuses on three pillars: **developer freedom, security by default, and resilience against failure.**
+Modern applications are a complex web of microservices, third-party APIs, and message brokers. Logging is no longer about printing lines to the console; it's about navigating this complexity. **SyntropyLog** is more than just a logger; it's a comprehensive **observability and governance framework** built to tame this complexity.
 
-**Requirements**: Node.js >= 18
-
----
-
-## 🚀 Key Features
-
-*   🔌 **Agnostic Instrumentation**: Unified interfaces for HTTP clients and Message Brokers. The framework adapts to your tools, not the other way around.
-*   🔒 **Secure by Default**: A robust pipeline with **serialization, masking, and sanitization** to protect sensitive data and prevent log injection.
-*   💪 **Resilient by Design**: If a client (e.g., HTTP) fails, the app doesn't crash. A placeholder is injected that fails gracefully only when used.
-*   🕊️ **Zero Production Dependencies**: The core library has no production dependencies.
-*   🔗 **Automatic Context Propagation**: Transparently propagate a `correlationId` across HTTP clients and message brokers for complete distributed tracing.
-*   🛠️ **Intelligent CLI**: Validate your configurations with `syntropylog doctor` to prevent errors before deployment.
-*   🧪 **Highly Testable**: Includes high-fidelity mocks (`BeaconRedisMock`) and spy transports (`SpyTransport`) to facilitate robust testing.
-*   🎨 **Flexible Logging**: Multiple transports, from production-optimized JSON to colorful, human-readable formats for development.
+It provides a powerful, unified solution that empowers developers, accelerates troubleshooting for tech leads, and gives managers peace of mind on security and costs.
 
 ---
 
-## 📦 Installation
+## The SyntropyLog Advantage: A Framework for Every Role
 
-Install the main package using your preferred package manager:
+<details>
+<summary><strong>For the Developer: An Effortless Experience</strong></summary>
 
-```bash
-# With npm
-npm install syntropylog
+> "I just want to get my work done. I need tools that are simple, powerful, and don't get in my way."
 
-# With yarn
-yarn add syntropylog
+-   **Fluent & Agnostic API**: Use a clean, unified API (`.getHttp()`, `.getBroker()`) for all your external communications. Switch from `axios` to `fetch` or from Kafka to RabbitMQ by changing one line in the configuration, not your application code.
+-   **Zero Boilerplate**: The `correlationId` is propagated automatically. The logger is context-aware. You just call `logger.info()` and the hard work is done for you.
+-   **Rich Testability**: With built-in mocks and spy transports, writing meaningful tests for your instrumentation is trivial, not a chore.
+
+</details>
+
+<details>
+<summary><strong>For the Tech Lead: Instant, End-to-End Clarity</strong></summary>
+
+> "When something breaks at 2 AM, I need to find the root cause in minutes, not hours. I need to see the whole story."
+
+-   **Automatic Distributed Tracing**: SyntropyLog automatically injects and retrieves a `correlationId` across service boundaries. A single ID connects a user's request from your API gateway, through your services, and across your message queues.
+-   **Structured & Actionable Logs**: All logs are JSON-structured for powerful querying. Contextual information (service name, HTTP method, broker topic) is added automatically, turning ambiguous log messages into clear, actionable data.
+
+```mermaid
+graph TD
+    A[HTTP Request<br/>(X-Correlation-ID: 123)] --> B(API Gateway);
+    B -- "Adds ID to Log" --> C{Log Stream};
+    B -- "Forwards ID in Header" --> D[User Service];
+    D -- "Adds ID to Log" --> C;
+    D -- "Publishes Message with ID" --> E(Kafka Topic);
+    E --> F[Dispatch Service];
+    F -- "Extracts ID from Message" --> F;
+    F -- "Adds ID to Log" --> C;
 ```
+</details>
 
-To use a built-in adapter, like the one for `axios`, you only need to install the client library itself.
+<details>
+<summary><strong>For the Manager & DevOps: Ship with Confidence & Control</strong></summary>
 
-```bash
-# With npm
-npm install axios
+> "I need to ensure our systems are secure, compliant, and cost-effective. Surprises are not an option."
 
-# With yarn
-yarn add axios
-```
+-   **Automated Governance with Doctor CLI**: The `syntropylog doctor` is your automated gatekeeper for CI/CD. It validates configurations *before* deployment, preventing costly mistakes like overly verbose logging in production (saving on ingestion costs) or insecure setups.
+-   **Tame Your ORMs with Custom Serializers**: Stop leaking data or polluting logs with massive objects. Define a serializer once for your `Prisma` or `TypeORM` models to ensure that only clean, safe data is ever logged.
+-   **Security by Default**: A powerful, zero-dependency masking engine automatically finds and redacts sensitive data like `"password"` or `"creditCardNumber"` at any level of your log objects, ensuring you stay compliant.
+</details>
 
 ---
 
@@ -65,12 +76,12 @@ This example shows how to initialize the logger and make an instrumented HTTP re
 import { syntropyLog, PrettyConsoleTransport, AxiosAdapter } from 'syntropylog';
 import axios from 'axios';
 
-// 1. Configure and initialize SyntropyLog once.
+// 1. Configure SyntropyLog once in your application's entry point.
 syntropyLog.init({
   logger: {
     level: 'info',
     serviceName: 'my-app',
-    transports: [new PrettyConsoleTransport()], // Developer-friendly logging
+    transports: [new PrettyConsoleTransport()], // Human-readable for dev
   },
   context: {
     correlationIdHeader: 'X-Correlation-ID',
@@ -79,144 +90,40 @@ syntropyLog.init({
     instances: [
       {
         instanceName: 'myApi',
-        // Inject an adapter instance for your chosen HTTP client.
         adapter: new AxiosAdapter(axios.create({ baseURL: 'https://api.example.com' })),
       },
     ],
   },
+  // Define a one-time serializer for a complex object
+  serializers: {
+    user: (user) => `User(id=${user.id}, email=${user.email})`
+  }
 });
 
-// 2. Get the instrumented client wherever you need it.
+// 2. Get the instrumented client and logger anywhere you need them.
 const apiClient = syntropyLog.getHttp('myApi');
+const logger = syntropyLog.getLogger();
 
-// 3. Use the unified API.
+// 3. Use them. The framework handles the rest.
 async function main() {
+    const user = { id: 1, email: 'test@example.com', passwordHash: 'secret' };
+    logger.info('User data fetched', { user }); // 'user' will be sanitized by the serializer
+
     await apiClient.request({
       method: 'GET',
       url: '/users/1',
-    });
+    }); // Logs will contain the correlationId
 }
 
 main();
 ```
 
-This will produce a clear, colored log in your console, with the `correlationId` and HTTP request details automatically added.
-
 ---
 
 ## 📂 Learn by Example
 
-The best way to learn SyntropyLog is to see it in action. We have a comprehensive collection of examples in the `/examples` directory of this repository.
+The best way to learn SyntropyLog is to see it in action. We have a comprehensive collection of examples in the `/examples` directory.
 
-Each example is a self-contained project that demonstrates a specific feature, from basic context propagation to building custom adapters.
+Each example is a self-contained project that demonstrates a specific feature, from data masking to building a fully correlated full-stack application.
 
 **[➡️ Explore the Examples](./examples/README.md)**
-
----
-
-## 🏛️ Key Concepts
-
-### 1. Logging: Flexible and Environment-Oriented
-
-The logging system is designed to be powerful and adaptable. Its main component is **Transports**, which decide the format and destination of your logs.
-
-#### Console Transports
-
-You can choose a transport based on the environment:
-
-*   **For Development**: `PrettyConsoleTransport`, `ClassicConsoleTransport`, or `CompactConsoleTransport` for human-readable, colored output.
-*   **For Production**: `ConsoleTransport` (the default), which outputs single-line JSON, perfect for log aggregators like Datadog or Splunk.
-
-#### Custom Serializers
-
-Define functions to control how complex objects are logged, allowing you to redact sensitive data or simplify large objects.
-
-```typescript
-syntropyLog.init({
-  logger: {
-    // ...
-    serializers: {
-      // If a log has a 'user' property, this function transforms it.
-      user: (user) => `User(id=${user.id})`,
-    },
-    // A timeout is mandatory to prevent a faulty serializer from
-    // impacting application performance.
-    serializerTimeoutMs: 50,
-  },
-});
-```
-For a detailed guide, see the **[Custom Serializers Example](./examples/100-custom-serializers/README.md)**.
-
-### 3. Data Masking: Secure by Default
-
-In regulated environments like finance or healthcare, preventing sensitive data from appearing in logs is not optional—it's a requirement. SyntropyLog includes a powerful, configurable **Masking Engine** that makes it easy to stay compliant.
-
-Its philosophy is **secure by default**: all masking uses a fixed-length replacement to avoid leaking metadata like the length of a secret. This can be changed for environments where usability is preferred over maximum security.
-
-#### How It Works
-The engine recursively scans your log objects and automatically masks values based on several rules:
-
-*   **Masking by Field Name**: You don't need to specify the full path to a field. Just provide the key name (e.g., `"password"`), and the engine will find and mask it at any nesting level.
-*   **Path & URL Masking**: The engine also detects sensitive keywords in URL paths. If a path segment matches a sensitive field (e.g., `.../password/...`), the **following segment** is automatically masked. This prevents leaking secrets in URLs.
-*   **Configurable Masking Style**: You can choose how the data is masked:
-    *   `style: 'fixed'` (Default): Replaces data with a fixed-length string (e.g., `******`). This is the most secure option as it does not leak the length of the original data.
-    *   `style: 'preserve-length'`: Replaces data with a mask of the same length as the original value (e.g., a 16-digit credit card becomes `****************`).
-
-```typescript
-// Example: Masking with length preservation
-syntropyLog.init({
-  logger: {
-    // ...
-  },
-  masking: {
-    fields: ['creditCardNumber', 'apiToken', 'ssn'],
-    // New: choose the masking style
-    style: 'preserve-length',
-    // The character to use for masking
-    maskChar: '*'
-  }
-});
-
-const logger = syntropyLog.getLogger('default');
-
-// This will be masked preserving its length
-logger.info({
-  transaction: {
-    details: {
-      creditCardNumber: '1234-5678-9012-3456' // 19 chars
-    }
-  }
-});
-// Output: "creditCardNumber": "*******************"
-
-// Path masking also respects the style
-logger.info({ 
-  requestPath: '/api/v1/users/ssn/123-45-678/profile' 
-});
-// Output: "requestPath": "/api/v1/users/ssn/***********/profile"
-```
-
-For advanced use cases, the masking configuration can be **updated at runtime** to add new fields without restarting the application, ensuring that rules can only be strengthened, never weakened.
-
-For more details, see the **[Data Masking Example](./examples/30-data-masking/README.md)**.
-
-### 4. Context Management: Simplified Distributed Tracing
-
-SyntropyLog automates distributed tracing by propagating a `correlationId` across asynchronous operations and network calls.
-
-#### How It Works
-
-1.  **Context Creation**: At the start of an operation (e.g., an incoming HTTP request), a new context is created.
-2.  **ID Storage**: A unique `correlationId` is stored in the context.
-3.  **Automatic Propagation**:
-    *   **Logs**: Any log generated within the context automatically includes the `correlationId`.
-    *   **HTTP Clients**: When using an instrumented client, the `correlationId` is automatically added to outgoing request headers.
-    *   **Message Brokers**: The `correlationId` is injected into published messages and extracted by consumers.
-
-For a practical demonstration, see the **[Basic HTTP Correlation Example](./examples/40-basic-http-correlation/README.md)**.
-
-### 3. Instrumentation: The Adapter Pattern
-
-Instead of being tied to specific libraries, SyntropyLog uses **Adapters**. You provide a simple adapter to make any library speak the framework's language. This gives you the freedom to use any client version or even switch clients without rewriting your instrumentation logic.
-
-To learn how to build your own, check out the **[Custom HTTP Adapter Example](./examples/45-custom-http-adapter/README.md)**.
