@@ -75,7 +75,8 @@ describe('BrokerManager', () => {
       expect(InstrumentedBrokerClient).toHaveBeenCalledWith(
         mockAdapter1,
         expect.anything(),
-        mockOptions.contextManager
+        mockOptions.contextManager,
+        mockOptions.config.brokers!.instances[0]
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Broker client instance "kafka-main" created successfully via adapter.'
@@ -85,7 +86,8 @@ describe('BrokerManager', () => {
       expect(InstrumentedBrokerClient).toHaveBeenCalledWith(
         mockAdapter2,
         expect.anything(),
-        mockOptions.contextManager
+        mockOptions.contextManager,
+        mockOptions.config.brokers!.instances[1]
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Broker client instance "rabbitmq-events" created successfully via adapter.'

@@ -86,16 +86,14 @@ export class InstrumentedBrokerClient {
       // Default behavior: Propagate only correlation and transaction IDs.
       const correlationId = this.contextManager.getCorrelationId();
       if (correlationId) {
-        message.headers[
-          this.contextManager.getCorrelationIdHeaderName()
-        ] = correlationId;
+        message.headers[this.contextManager.getCorrelationIdHeaderName()] =
+          correlationId;
       }
 
       const transactionId = this.contextManager.getTransactionId();
       if (transactionId) {
-        message.headers[
-          this.contextManager.getTransactionIdHeaderName()
-        ] = transactionId;
+        message.headers[this.contextManager.getTransactionIdHeaderName()] =
+          transactionId;
       }
     }
 
@@ -134,7 +132,7 @@ export class InstrumentedBrokerClient {
             this.contextManager.set(key, message.headers[key]);
           }
         }
-        
+
         const correlationId = this.contextManager.getCorrelationId();
         this.logger.info({ topic, correlationId }, 'Received message.');
 

@@ -29,13 +29,10 @@ describe('MockContextManager', () => {
       expect(mockContextManager.getCorrelationIdHeaderName()).toBe(customHeader);
     });
 
-    it('should set a custom transaction ID key', () => {
-      const customKey = 'my-transaction-id';
-      mockContextManager.configure({ transactionIdKey: customKey });
-      const transactionId = 'txn-456';
-      mockContextManager.setTransactionId(transactionId);
-      expect(mockContextManager.getTransactionId()).toBe(transactionId);
-      expect(mockContextManager.get(customKey)).toBe(transactionId);
+    it('should set a custom transaction ID header name', () => {
+      const customHeader = 'X-Trace-ID';
+      mockContextManager.configure({ transactionIdHeader: customHeader });
+      expect(mockContextManager.getTransactionIdHeaderName()).toBe(customHeader);
     });
   });
 
@@ -138,17 +135,18 @@ describe('MockContextManager', () => {
   });
 
   describe('Correlation ID methods', () => {
-    it('should get correlation ID using the configured header name', () => {
+    it('should get correlation ID using the normalized key', () => {
       const correlationId = 'abc-123';
-      mockContextManager.set(mockContextManager.getCorrelationIdHeaderName(), correlationId);
+      // In a real scenario, the middleware sets both the header key and the normalized key.
+      mockContextManager.set('correlationId', correlationId);
       expect(mockContextManager.getCorrelationId()).toBe(correlationId);
     });
   });
 
   describe('Transaction ID methods', () => {
-    it('should get and set transaction ID', () => {
+    it('should get and set transaction ID using the normalized key', () => {
       const transactionId = 'xyz-987';
-      mockContextManager.setTransactionId(transactionId);
+      mockContextManager.set('transactionId', transactionId);
       expect(mockContextManager.getTransactionId()).toBe(transactionId);
       mockContextManager.clear();
       expect(mockContextManager.getTransactionId()).toBeUndefined();

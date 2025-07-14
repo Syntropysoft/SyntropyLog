@@ -3,15 +3,12 @@
  * @description Manages the lifecycle and creation of multiple instrumented HTTP client instances.
  */
 
-import { ILogger } from '../logger/ILogger';
+import { ILogger } from '../logger';
+import { IContextManager } from '../context';
 import { SyntropyLogConfig } from '../config';
-import { IContextManager } from '../context/IContextManager';
-import { LoggerFactory } from '../logger/LoggerFactory';
-import {
-  InstrumentedHttpClient,
-  InstrumentorOptions,
-} from './InstrumentedHttpClient';
+import { InstrumentedHttpClient } from './InstrumentedHttpClient';
 import { createFailingHttpClient } from '../utils/createFailingClient';
+import { LoggerFactory } from '../logger/LoggerFactory';
 
 /**
  * @interface HttpManagerOptions

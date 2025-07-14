@@ -27,15 +27,10 @@ describe('ContextManager', () => {
       expect(contextManager.getCorrelationIdHeaderName()).toBe(customHeader);
     });
 
-    it('should set a custom transaction ID key', () => {
-      const customKey = 'my-transaction-id';
-      contextManager.configure({ transactionIdKey: customKey });
-      const transactionId = 'txn-456';
-      contextManager.run(() => {
-        contextManager.setTransactionId(transactionId);
-        expect(contextManager.getTransactionId()).toBe(transactionId);
-        expect(contextManager.get(customKey)).toBe(transactionId);
-      });
+    it('should set a custom transaction ID header name', () => {
+      const customHeader = 'X-Trace-ID';
+      contextManager.configure({ transactionIdHeader: customHeader });
+      expect(contextManager.getTransactionIdHeaderName()).toBe(customHeader);
     });
   });
 
@@ -126,22 +121,24 @@ describe('ContextManager', () => {
   });
 
   describe('Correlation ID methods', () => {
-    it('should get correlation ID using the configured header name', () => {
+    it('should get correlation ID using the normalized key', () => {
       const correlationId = 'abc-123';
       contextManager.run(() => {
-        contextManager.set(contextManager.getCorrelationIdHeaderName(), correlationId);
+        contextManager.set('correlationId', correlationId);
         expect(contextManager.getCorrelationId()).toBe(correlationId);
       });
     });
   });
 
   describe('Transaction ID methods', () => {
-    it('should get and set transaction ID', () => {
+    it('should get and set transaction ID using the normalized key', () => {
       const transactionId = 'xyz-987';
       contextManager.run(() => {
-        contextManager.setTransactionId(transactionId);
+        // The new way: set the normalized 'transactionId' key directly.
+        contextManager.set('transactionId', transactionId);
         expect(contextManager.getTransactionId()).toBe(transactionId);
       });
+      // It should not exist outside the context.
       expect(contextManager.getTransactionId()).toBeUndefined();
     });
   });

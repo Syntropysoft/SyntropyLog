@@ -3,15 +3,19 @@ import { InstrumentedBrokerClient } from '../../src/brokers/InstrumentedBrokerCl
 import { IBrokerAdapter, BrokerMessage, MessageHandler, MessageLifecycleControls } from '../../src/brokers/adapter.types';
 import { ILogger } from '../../src/logger';
 import { IContextManager } from '../../src/context';
+import { BrokerInstanceConfig } from '../../src/config';
 
 describe('InstrumentedBrokerClient', () => {
   let mockAdapter: IBrokerAdapter;
   let mockLogger: ILogger;
   let mockContextManager: IContextManager;
+  let mockConfig: BrokerInstanceConfig;
   let client: InstrumentedBrokerClient;
 
-  const CORRELATION_ID_HEADER = 'X-Correlation-ID';
+  const CORRELATION_ID_HEADER = 'x-correlation-id';
+  const TRANSACTION_ID_HEADER = 'x-trace-id';
   const MOCK_CORRELATION_ID = 'test-correlation-id';
+  const MOCK_TRANSACTION_ID = 'test-transaction-id';
 
   beforeEach(() => {
     mockAdapter = {
@@ -29,13 +33,22 @@ describe('InstrumentedBrokerClient', () => {
     } as any;
 
     mockContextManager = {
+      getAll: vi.fn().mockReturnValue({}),
       getCorrelationId: vi.fn(),
+      getTransactionId: vi.fn(),
       getCorrelationIdHeaderName: vi.fn().mockReturnValue(CORRELATION_ID_HEADER),
+      getTransactionIdHeaderName: vi.fn().mockReturnValue(TRANSACTION_ID_HEADER),
       set: vi.fn(),
       run: vi.fn().mockImplementation(async (callback) => callback()),
     };
 
-    client = new InstrumentedBrokerClient(mockAdapter, mockLogger, mockContextManager);
+    mockConfig = {
+      instanceName: 'test-broker',
+      adapter: mockAdapter,
+      propagateFullContext: false, // Default behavior
+    };
+
+    client = new InstrumentedBrokerClient(mockAdapter, mockLogger, mockContextManager, mockConfig);
   });
 
   describe('connect', () => {
@@ -71,23 +84,39 @@ describe('InstrumentedBrokerClient', () => {
   describe('publish', () => {
     const topic = 'test-topic';
 
-    it('should inject correlation ID if it exists in context', async () => {
-      // Define message locally to ensure test isolation
-      const message: BrokerMessage = { payload: { data: 'test' } };
+    it('should inject correlation and transaction IDs when propagateFullContext is false', async () => {
+      const message: BrokerMessage = { payload: Buffer.from('test') };
       (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(MOCK_CORRELATION_ID);
+      (mockContextManager.getTransactionId as vi.Mock).mockReturnValue(MOCK_TRANSACTION_ID);
       
       await client.publish(topic, message);
 
-      const expectedMessage = {
-        ...message,
-        headers: { [CORRELATION_ID_HEADER]: MOCK_CORRELATION_ID },
+      expect(message.headers).toBeDefined();
+      expect(message.headers?.[CORRELATION_ID_HEADER]).toBe(MOCK_CORRELATION_ID);
+      expect(message.headers?.[TRANSACTION_ID_HEADER]).toBe(MOCK_TRANSACTION_ID);
+    });
+
+    it('should inject the full context when propagateFullContext is true', async () => {
+      mockConfig.propagateFullContext = true;
+      const message: BrokerMessage = { payload: Buffer.from('test') };
+      const fullContext = {
+        [CORRELATION_ID_HEADER]: MOCK_CORRELATION_ID,
+        [TRANSACTION_ID_HEADER]: MOCK_TRANSACTION_ID,
+        'x-custom-header': 'custom-value',
       };
-      expect(mockAdapter.publish).toHaveBeenCalledWith(topic, expectedMessage);
+      (mockContextManager.getAll as vi.Mock).mockReturnValue(fullContext);
+
+      await client.publish(topic, message);
+
+      expect(mockAdapter.publish).toHaveBeenCalledWith(topic, {
+        payload: message.payload,
+        headers: fullContext,
+      });
     });
 
     it('should create headers object if it does not exist', async () => {
       (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(MOCK_CORRELATION_ID);
-      const messageWithoutHeaders: BrokerMessage = { payload: 'test' };
+      const messageWithoutHeaders: BrokerMessage = { payload: Buffer.from('test') };
       
       await client.publish(topic, messageWithoutHeaders);
 
@@ -95,10 +124,10 @@ describe('InstrumentedBrokerClient', () => {
       expect(messageWithoutHeaders.headers?.[CORRELATION_ID_HEADER]).toBe(MOCK_CORRELATION_ID);
     });
 
-    it('should not inject correlation ID if it does not exist', async () => {
-      // Define message locally to ensure test isolation
-      const message: BrokerMessage = { payload: { data: 'test' } };
+    it('should not inject IDs if they do not exist in context', async () => {
+      const message: BrokerMessage = { payload: Buffer.from('test') };
       (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(undefined);
+      (mockContextManager.getTransactionId as vi.Mock).mockReturnValue(undefined);
       
       await client.publish(topic, message);
 
@@ -107,8 +136,7 @@ describe('InstrumentedBrokerClient', () => {
     });
 
     it('should log publish start and success messages', async () => {
-      // Define message locally to ensure test isolation
-      const message: BrokerMessage = { payload: { data: 'test' } };
+      const message: BrokerMessage = { payload: Buffer.from('test') };
       await client.publish(topic, message);
       expect(mockLogger.info).toHaveBeenCalledWith(expect.any(Object), 'Publishing message...');
       expect(mockLogger.info).toHaveBeenCalledWith(expect.any(Object), 'Message published successfully.');
@@ -136,7 +164,7 @@ describe('InstrumentedBrokerClient', () => {
     });
 
     it('should wrap the user handler and run it in a new context', async () => {
-      const message: BrokerMessage = { payload: 'test' };
+      const message: BrokerMessage = { payload: Buffer.from('test') };
       const controls: MessageLifecycleControls = { ack: vi.fn(), nack: vi.fn() };
 
       await instrumentedHandler(message, controls);
@@ -145,26 +173,36 @@ describe('InstrumentedBrokerClient', () => {
       expect(userHandler).toHaveBeenCalledWith(message, expect.any(Object));
     });
 
-    it('should set correlation ID in the new context if present in message headers', async () => {
+    it('should set all message headers in the new context', async () => {
       const message: BrokerMessage = {
-        payload: 'test',
-        headers: { [CORRELATION_ID_HEADER]: MOCK_CORRELATION_ID },
+        payload: Buffer.from('test'),
+        headers: {
+          [CORRELATION_ID_HEADER]: MOCK_CORRELATION_ID,
+          'x-custom-header': 'custom-value',
+        },
       };
       const controls: MessageLifecycleControls = { ack: vi.fn(), nack: vi.fn() };
+
+      // We also need to get the correlationId for the log message
+      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(MOCK_CORRELATION_ID);
 
       await instrumentedHandler(message, controls);
 
       expect(mockContextManager.set).toHaveBeenCalledWith(CORRELATION_ID_HEADER, MOCK_CORRELATION_ID);
+      expect(mockContextManager.set).toHaveBeenCalledWith('x-custom-header', 'custom-value');
+      
       expect(mockLogger.info).toHaveBeenCalledWith({ topic, correlationId: MOCK_CORRELATION_ID }, 'Received message.');
     });
 
-    it('should not set correlation ID if not present', async () => {
-      const message: BrokerMessage = { payload: 'test' };
+    it('should log with undefined correlation ID if not present', async () => {
+      const message: BrokerMessage = { payload: Buffer.from('test') };
       const controls: MessageLifecycleControls = { ack: vi.fn(), nack: vi.fn() };
+
+      // We need to simulate getting undefined for the log message
+      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(undefined);
 
       await instrumentedHandler(message, controls);
 
-      expect(mockContextManager.set).not.toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith({ topic, correlationId: undefined }, 'Received message.');
     });
 
@@ -175,7 +213,7 @@ describe('InstrumentedBrokerClient', () => {
 
       beforeEach(async () => {
         message = {
-          payload: 'test',
+          payload: Buffer.from('test'),
           headers: { [CORRELATION_ID_HEADER]: MOCK_CORRELATION_ID },
         };
         originalControls = {
@@ -187,6 +225,9 @@ describe('InstrumentedBrokerClient', () => {
         (userHandler as vi.Mock).mockImplementation((msg, ctrls) => {
           instrumentedControls = ctrls;
         });
+
+        // Also mock the getCorrelationId for the log inside the handler
+        (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(MOCK_CORRELATION_ID);
 
         await instrumentedHandler(message, originalControls);
       });

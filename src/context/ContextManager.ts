@@ -49,7 +49,10 @@ export class ContextManager implements IContextManager {
   run<T>(callback: () => T): T {
     const store = this.asyncLocalStorage.getStore();
     // Create a new context that inherits from the parent, or create a new empty one.
-    return this.asyncLocalStorage.run(store ? new Map(store) : new Map(), callback);
+    return this.asyncLocalStorage.run(
+      store ? new Map(store) : new Map(),
+      callback
+    );
   }
 
   /**
