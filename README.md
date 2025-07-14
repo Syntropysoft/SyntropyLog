@@ -45,7 +45,7 @@ It provides a powerful, unified solution that empowers developers, accelerates t
 
 ```mermaid
 graph TD
-    A[HTTP Request<br/>(X-Correlation-ID: 123)] --> B(API Gateway);
+    A["HTTP Request<br/>(X-Correlation-ID: 123)"] --> B(API Gateway);
     B -- "Adds ID to Log" --> C{Log Stream};
     B -- "Forwards ID in Header" --> D[User Service];
     D -- "Adds ID to Log" --> C;
@@ -54,6 +54,7 @@ graph TD
     F -- "Extracts ID from Message" --> F;
     F -- "Adds ID to Log" --> C;
 ```
+
 </details>
 
 <details>
