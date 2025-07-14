@@ -11,6 +11,7 @@ import { logLevels, LogLevelName } from './levels';
 import { Transport } from './transports/Transport';
 import { SerializerRegistry } from '../serialization/SerializerRegistry';
 import { MaskingEngine } from '../masking/MaskingEngine';
+import { SyntropyLog } from '../SyntropyLog';
 
 /**
  * @interface LoggerOptions
@@ -19,6 +20,8 @@ import { MaskingEngine } from '../masking/MaskingEngine';
 export interface LoggerOptions {
   /** The manager for handling asynchronous contexts. */
   contextManager: IContextManager;
+  /** The main framework instance, used as a mediator to filter context. */
+  syntropyLogInstance: SyntropyLog;
   /** An array of transports to which logs will be dispatched. */
   transports: Transport[];
   /** The minimum log level for this logger instance. Defaults to 'info'. */
@@ -43,6 +46,8 @@ export interface LoggerOptions {
 export class Logger implements ILogger {
   /** @private The manager for handling asynchronous contexts. */
   private readonly contextManager: IContextManager;
+  /** @private The main framework instance, used as a mediator to filter context. */
+  private readonly syntropyLogInstance: SyntropyLog;
   /** @private An array of transports to which logs will be dispatched. */
   private readonly transports: Transport[];
   /** @private A set of key-value pairs included in every log entry. */
@@ -62,6 +67,7 @@ export class Logger implements ILogger {
    */
   constructor(opts: LoggerOptions) {
     this.contextManager = opts.contextManager;
+    this.syntropyLogInstance = opts.syntropyLogInstance;
     this.transports = opts.transports;
     this.level = opts.level ?? 'info';
     this.serviceName = opts.serviceName ?? 'any-service';
@@ -123,7 +129,7 @@ export class Logger implements ILogger {
     const entry: LogEntry = {
       ...this.bindings,
       ...maskedMeta,
-      context: this.contextManager.getAll(),
+      context: this.syntropyLogInstance.getFilteredContext(level),
       timestamp: new Date().toISOString(),
       level,
       service: this.serviceName,

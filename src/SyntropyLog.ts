@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/SyntropyLog.ts
  * @description The main singleton class for the SyntropyLog framework.
@@ -6,7 +7,7 @@
 import { ZodError } from 'zod';
 import { SyntropyLogConfig } from './config';
 import { syntropyLogConfigSchema } from './config.schema';
-import { IContextManager } from './context';
+import { ContextManager, IContextManager } from './context';
 import { ILogger } from './logger';
 import { LoggerFactory } from './logger/LoggerFactory';
 import { RedisManager } from './redis/RedisManager';
@@ -27,18 +28,20 @@ export class SyntropyLog {
   /** @private The singleton instance. */
   private static instance: SyntropyLog;
   /** @private A flag to ensure the framework is initialized only once. */
-  private _isInitialized = false;
+  protected _isInitialized = false;
 
   /** @private The parsed and sanitized configuration for the framework. */
-  private config: SyntropyLogConfig | undefined;
+  protected config: SyntropyLogConfig | undefined;
+  /** @private The manager for the asynchronous context. */
+  protected contextManager: IContextManager | undefined;
   /** @private The factory for creating and managing logger instances. */
-  private loggerFactory: LoggerFactory | undefined;
+  protected loggerFactory: LoggerFactory | undefined;
   /** @private The manager for Redis client instances. */
-  private redisManager: RedisManager | undefined;
+  protected redisManager: RedisManager | undefined;
   /** @private The manager for HTTP client instances. */
-  private httpManager: HttpManager | undefined;
+  protected httpManager: HttpManager | undefined;
   /** @private The manager for message broker client instances. */
-  private brokerManager: BrokerManager | undefined;
+  protected brokerManager: BrokerManager | undefined;
 
   /** @private The constructor is private to enforce the singleton pattern. */
   private constructor() {}
@@ -71,11 +74,20 @@ export class SyntropyLog {
     try {
       const parsedConfig = syntropyLogConfigSchema.parse(config);
       const sanitizedConfig = sanitizeConfig(parsedConfig);
-      this.config = sanitizedConfig; // Store the config for later use (e.g., in shutdown)
+      this.config = sanitizedConfig;
 
-      this.loggerFactory = new LoggerFactory(sanitizedConfig);
+      // 1. Initialize the ContextManager first.
+      this.contextManager = new ContextManager();
+
+      // 2. Pass the context manager and the syntropy instance to the factory.
+      this.loggerFactory = new LoggerFactory(
+        sanitizedConfig,
+        this.contextManager,
+        this
+      );
       const mainLogger = this.loggerFactory.getLogger('syntropylog-main');
 
+      // 3. Pass dependencies to other managers.
       this.redisManager = new RedisManager({
         config: sanitizedConfig.redis,
         logger: this.loggerFactory.getLogger('redis-manager'),
@@ -84,13 +96,13 @@ export class SyntropyLog {
       this.httpManager = new HttpManager({
         config: sanitizedConfig,
         loggerFactory: this.loggerFactory,
-        contextManager: this.loggerFactory.getContextManager(),
+        contextManager: this.contextManager,
       });
 
       this.brokerManager = new BrokerManager({
         config: sanitizedConfig,
         loggerFactory: this.loggerFactory,
-        contextManager: this.loggerFactory.getContextManager(),
+        contextManager: this.contextManager,
       });
 
       this._isInitialized = true;
@@ -117,6 +129,7 @@ export class SyntropyLog {
   public _resetForTesting(): void {
     this._isInitialized = false;
     this.config = undefined;
+    this.contextManager = undefined;
     this.loggerFactory = undefined;
     this.redisManager = undefined;
     this.httpManager = undefined;
@@ -130,7 +143,6 @@ export class SyntropyLog {
    */
   public getLogger(name = 'default'): ILogger {
     this.ensureInitialized();
-    // @ts-expect-error - loggerFactory is not defined in the type
     return this.loggerFactory.getLogger(name);
   }
 
@@ -141,7 +153,6 @@ export class SyntropyLog {
    */
   public getRedis(name: string): IBeaconRedis {
     this.ensureInitialized();
-    // @ts-expect-error - redisManager is not defined in the type
     return this.redisManager.getInstance(name);
   }
 
@@ -152,7 +163,6 @@ export class SyntropyLog {
    */
   public getHttp(name: string): InstrumentedHttpClient {
     this.ensureInitialized();
-    // @ts-expect-error - httpManager is not defined in the type
     return this.httpManager.getInstance(name);
   }
 
@@ -162,8 +172,47 @@ export class SyntropyLog {
    */
   public getContextManager(): IContextManager {
     this.ensureInitialized();
-    // @ts-expect-error - loggerFactory is not defined in the type
-    return this.loggerFactory.getContextManager();
+    return this.contextManager;
+  }
+
+  /**
+   * Retrieves a filtered context object based on the loggingMatrix configuration for a given log level.
+   * This method acts as the "mediator" between the raw context and the logger.
+   *
+   * @param {string} level - The log level ('info', 'error', etc.).
+   * @returns {Record<string, unknown>} A new object containing only the context properties allowed by the matrix.
+   * @internal
+   */
+  public getFilteredContext(level: string): Record<string, unknown> {
+    this.ensureInitialized();
+    const fullContext = this.contextManager.getAll();
+    if (!this.config?.loggingMatrix) {
+      return fullContext; // If no matrix is defined, return everything.
+    }
+
+    const matrix = this.config.loggingMatrix;
+    // Determine the rule: level-specific, or default.
+    const fieldsToKeep = matrix[level as keyof typeof matrix] ?? matrix.default;
+
+    // If no rules apply, return an empty context.
+    if (!fieldsToKeep) {
+      return {};
+    }
+
+    // Wildcard rule: return a clone of the full context.
+    if (fieldsToKeep.includes('*')) {
+      return { ...fullContext };
+    }
+
+    // Apply the filter.
+    const filteredContext: Record<string, unknown> = {};
+    for (const key of fieldsToKeep) {
+      if (Object.prototype.hasOwnProperty.call(fullContext, key)) {
+        filteredContext[key] = fullContext[key];
+      }
+    }
+
+    return filteredContext;
   }
 
   /**
@@ -173,7 +222,6 @@ export class SyntropyLog {
    */
   public getBroker(name: string): InstrumentedBrokerClient {
     this.ensureInitialized();
-    // @ts-expect-error - brokerManager is not defined in the type
     return this.brokerManager.getInstance(name);
   }
 
@@ -182,15 +230,9 @@ export class SyntropyLog {
    * @returns {Promise<void>}
    */
   public async shutdown(): Promise<void> {
-    if (
-      !this._isInitialized ||
-      !this.loggerFactory ||
-      !this.config ||
-      !this.redisManager ||
-      !this.httpManager ||
-      !this.brokerManager
-    )
+    if (!this.isFullyInitialized()) {
       return;
+    }
 
     const mainLogger = this.loggerFactory.getLogger('syntropylog-main');
     mainLogger.info('Shutting down SyntropyLog framework...');
@@ -213,11 +255,11 @@ export class SyntropyLog {
 
       await Promise.race([shutdownWork, timeoutPromise]);
       mainLogger.info('SyntropyLog shut down successfully.');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       mainLogger.warn('Shutdown process timed out.', {
         detail: 'Some resources may not have been released correctly.',
-        error: error.message,
+        error: message,
       });
     } finally {
       this._isInitialized = false;
@@ -226,14 +268,39 @@ export class SyntropyLog {
 
   /**
    * @private
-   * Throws an error if the framework has not been initialized.
+   * Throws an error if the framework has not been initialized. It also serves as
+   * a type assertion function to inform TypeScript that if this method passes,
+   * all manager properties are guaranteed to be defined.
    */
-  private ensureInitialized(): void {
-    if (!this._isInitialized) {
+  private ensureInitialized(): asserts this is this & {
+    config: SyntropyLogConfig;
+    contextManager: IContextManager;
+    loggerFactory: LoggerFactory;
+    redisManager: RedisManager;
+    httpManager: HttpManager;
+    brokerManager: BrokerManager;
+  } {
+    if (!this.isFullyInitialized()) {
       throw new Error(
         'SyntropyLog has not been initialized. Call init() before accessing clients or loggers.'
       );
     }
+  }
+
+  /**
+   * @private
+   * A type predicate that narrows the type of `this` to a fully initialized state.
+   * @returns {boolean}
+   */
+  private isFullyInitialized(): this is this & {
+    config: SyntropyLogConfig;
+    contextManager: IContextManager;
+    loggerFactory: LoggerFactory;
+    redisManager: RedisManager;
+    httpManager: HttpManager;
+    brokerManager: BrokerManager;
+  } {
+    return this._isInitialized;
   }
 }
 

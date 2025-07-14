@@ -62,6 +62,15 @@ graph TD
 
 > "I need to ensure our systems are secure, compliant, and cost-effective. Surprises are not an option."
 
+-   **Declarative Log Scoping with Logging Matrix**: Stop paying to ingest verbose logs that you don't need. With the `loggingMatrix`, you can declaratively define *exactly* what parts of the context get logged for each severity level. Keep success logs lean and cheap, while capturing the full, rich context when an error occurs.
+    ```typescript
+    // In your config:
+    loggingMatrix: {
+      default: ['correlationId'], // Keep it minimal for info, debug, etc.
+      error: ['*'],               // Log everything on error.
+      fatal: ['*']
+    }
+    ```
 -   **Automated Governance with Doctor CLI**: The `syntropylog doctor` is your automated gatekeeper for CI/CD. It validates configurations *before* deployment, preventing costly mistakes like overly verbose logging in production (saving on ingestion costs) or insecure setups.
 -   **Tame Your ORMs with Custom Serializers**: Stop leaking data or polluting logs with massive objects. Define a serializer once for your `Prisma` or `TypeORM` models to ensure that only clean, safe data is ever logged.
 -   **Security by Default**: A powerful, zero-dependency masking engine automatically finds and redacts sensitive data like `"password"` or `"creditCardNumber"` at any level of your log objects, ensuring you stay compliant.
@@ -84,6 +93,12 @@ syntropyLog.init({
     serviceName: 'my-app',
     transports: [new PrettyConsoleTransport()], // Human-readable for dev
   },
+  // Define what context gets logged. Keep it minimal by default, but verbose on error.
+  loggingMatrix: {
+    default: ['correlationId'],
+    error: ['*'], // '*' means log the entire context
+    fatal: ['*'],
+  },
   context: {
     correlationIdHeader: 'X-Correlation-ID',
   },
@@ -95,10 +110,6 @@ syntropyLog.init({
       },
     ],
   },
-  // Define a one-time serializer for a complex object
-  serializers: {
-    user: (user) => `User(id=${user.id}, email=${user.email})`
-  }
 });
 
 // 2. Get the instrumented client and logger anywhere you need them.
@@ -107,13 +118,20 @@ const logger = syntropyLog.getLogger();
 
 // 3. Use them. The framework handles the rest.
 async function main() {
-    const user = { id: 1, email: 'test@example.com', passwordHash: 'secret' };
-    logger.info('User data fetched', { user }); // 'user' will be sanitized by the serializer
+    // Add extra data to the context for this specific operation
+    syntropyLog.getContextManager().set('userId', 123);
 
-    await apiClient.request({
-      method: 'GET',
-      url: '/users/1',
-    }); // Logs will contain the correlationId
+    logger.info('Fetching user data...'); // Will only have `correlationId` in the context
+    
+    try {
+      await apiClient.request({
+        method: 'GET',
+        url: '/users/1/posts',
+      });
+    } catch (err) {
+      // This log will contain the full context, including `userId`, because the level is 'error'.
+      logger.error({ err }, 'Failed to fetch posts');
+    }
 }
 
 main();

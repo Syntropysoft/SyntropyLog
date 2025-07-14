@@ -37,6 +37,8 @@ All services for this example are defined in the `docker-compose.yaml` file with
 
 2.  **Build and start the services:**
     ```bash
+    npm insall
+    
     docker compose up --build
     ```
     This command will build the Docker images for the three services and start them, along with a NATS message broker. You will see the logs from all containers in your terminal.

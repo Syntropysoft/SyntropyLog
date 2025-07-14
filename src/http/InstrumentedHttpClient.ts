@@ -93,8 +93,8 @@ export class InstrumentedHttpClient {
     }
 
     // 1. Inject context into headers based on the configuration.
-    if (this.config.propagateFullContext) {
-      // Propagate the entire context map.
+    if (this.config.propagate?.includes('*')) {
+      // Wildcard behavior: Propagate the entire context map.
       const contextObject = this.contextManager.getAll();
       for (const key in contextObject) {
         if (Object.prototype.hasOwnProperty.call(contextObject, key)) {
@@ -104,19 +104,38 @@ export class InstrumentedHttpClient {
           }
         }
       }
-    } else {
-      // Default behavior: Propagate only correlation and transaction IDs.
-      const correlationId = this.contextManager.getCorrelationId();
-      if (correlationId) {
-        request.headers[this.contextManager.getCorrelationIdHeaderName()] =
-          correlationId;
+    } else if (this.config.propagate && Array.isArray(this.config.propagate)) {
+      // New behavior: Propagate only specified context keys.
+      for (const key of this.config.propagate) {
+        const value = this.contextManager.get(key);
+        if (typeof value === 'string') {
+          request.headers[key] = value;
+        }
       }
+    } else if (this.config.propagateFullContext) {
+      // DEPRECATED: Propagate the entire context map.
+      const contextObject = this.contextManager.getAll();
+      for (const key in contextObject) {
+        if (Object.prototype.hasOwnProperty.call(contextObject, key)) {
+          const value = contextObject[key];
+          if (typeof value === 'string') {
+            request.headers[key] = value;
+          }
+        }
+      }
+    }
 
-      const transactionId = this.contextManager.getTransactionId();
-      if (transactionId) {
-        request.headers[this.contextManager.getTransactionIdHeaderName()] =
-          transactionId;
-      }
+    // Always propagate correlation and transaction IDs, as they are fundamental.
+    const correlationId = this.contextManager.getCorrelationId();
+    if (correlationId) {
+      request.headers[this.contextManager.getCorrelationIdHeaderName()] =
+        correlationId;
+    }
+
+    const transactionId = this.contextManager.getTransactionId();
+    if (transactionId) {
+      request.headers[this.contextManager.getTransactionIdHeaderName()] =
+        transactionId;
     }
 
     // 2. Log the start of the request.

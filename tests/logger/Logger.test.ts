@@ -12,6 +12,7 @@ import { SerializerRegistry } from '../../src/serialization/SerializerRegistry';
 import { MaskingEngine } from '../../src/masking/MaskingEngine';
 import { SanitizationEngine } from '../../src/sanitization/SanitizationEngine';
 import { LogLevelName } from '../../src/logger/levels';
+import { SyntropyLog } from '../../src/SyntropyLog';
 
 // --- Mocks ---
 
@@ -36,6 +37,10 @@ const mockContextManager: IContextManager = {
   getTraceContextHeaders: vi.fn(),
 };
 
+const mockSyntropyLog: SyntropyLog = {
+  getFilteredContext: vi.fn(() => ({ correlationId: 'ctx-123' })),
+} as unknown as SyntropyLog;
+
 const mockSerializerRegistry: SerializerRegistry = {
   process: vi.fn(async (meta) => ({ ...meta, serialized: true })),
 } as unknown as SerializerRegistry;
@@ -57,6 +62,7 @@ describe('Logger', () => {
     mockTransport = new MockTransport();
     loggerOptions = {
       contextManager: mockContextManager,
+      syntropyLogInstance: mockSyntropyLog,
       transports: [mockTransport],
       level: 'trace',
       serviceName: 'test-service',
@@ -80,6 +86,7 @@ describe('Logger', () => {
         expect(mockTransport.log).toHaveBeenCalled();
       });
 
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('info');
       const logEntry = mockTransport.log.mock.calls[0][0];
       expect(logEntry.msg).toBe('hello world');
       expect(logEntry.level).toBe('info');
@@ -95,6 +102,7 @@ describe('Logger', () => {
         expect(mockTransport.log).toHaveBeenCalled();
       });
 
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('info');
       const logEntry = mockTransport.log.mock.calls[0][0];
       expect(logEntry.msg).toBe('user logged in');
       expect(logEntry.userId).toBe(123);
@@ -108,6 +116,7 @@ describe('Logger', () => {
         expect(mockTransport.log).toHaveBeenCalled();
       });
 
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('info');
       const logEntry = mockTransport.log.mock.calls[0][0];
       expect(logEntry.msg).toBe('message from meta message from arg');
     });
@@ -120,6 +129,7 @@ describe('Logger', () => {
         expect(mockTransport.log).toHaveBeenCalled();
       });
 
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('warn');
       const logEntry = mockTransport.log.mock.calls[0][0];
       expect(logEntry.msg).toBe('Request failed with status 404');
     });
@@ -132,11 +142,14 @@ describe('Logger', () => {
       logger.info(meta, 'pipeline test');
 
       await vi.waitFor(() => {
-        expect(mockSerializerRegistry.process).toHaveBeenCalledWith(meta, logger);
-        expect(mockMaskingEngine.process).toHaveBeenCalledWith({
-          ...meta,
-          serialized: true,
-        });
+        expect(mockTransport.log).toHaveBeenCalledOnce();
+      });
+
+      expect(mockSerializerRegistry.process).toHaveBeenCalledWith(meta, logger);
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('info');
+      expect(mockMaskingEngine.process).toHaveBeenCalledWith({
+        ...meta,
+        serialized: true,
       });
 
       const logEntry = mockTransport.log.mock.calls[0][0];
@@ -164,6 +177,9 @@ describe('Logger', () => {
       await vi.waitFor(() => {
         expect(mockTransport.log).toHaveBeenCalledTimes(2);
       });
+
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('warn');
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('error');
     });
 
     it('should respect the log level of individual transports', async () => {
@@ -176,8 +192,10 @@ describe('Logger', () => {
 
       await vi.waitFor(() => {
         expect(infoTransport.log).toHaveBeenCalledOnce();
-        expect(errorTransport.log).not.toHaveBeenCalled();
       });
+
+      expect(errorTransport.log).not.toHaveBeenCalled();
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('warn');
     });
 
     it('should allow changing the log level dynamically', async () => {
@@ -191,6 +209,7 @@ describe('Logger', () => {
       await vi.waitFor(() => {
         expect(mockTransport.log).toHaveBeenCalledOnce();
       });
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('info');
     });
   });
 
@@ -206,6 +225,7 @@ describe('Logger', () => {
         expect(mockTransport.log).toHaveBeenCalled();
       });
 
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('info');
       const logEntry = mockTransport.log.mock.calls[0][0];
       expect(logEntry.parent).toBe(true);
       expect(logEntry.child).toBe(true);
@@ -220,6 +240,7 @@ describe('Logger', () => {
         expect(mockTransport.log).toHaveBeenCalled();
       });
 
+      expect(mockSyntropyLog.getFilteredContext).toHaveBeenCalledWith('error');
       const logEntry = mockTransport.log.mock.calls[0][0];
       expect(logEntry.source).toBe('database');
     });

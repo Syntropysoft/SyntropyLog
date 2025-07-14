@@ -10,6 +10,13 @@ syntropyLog.init({
     serviceName: 'api-gateway',
     serializerTimeoutMs: 100,
   },
+  loggingMatrix: {
+    // By default, only log the correlationId and transactionId from the context.
+    default: ['correlationId', 'transactionId'],
+    // On error or fatal, log the entire context.
+    error: ['*'],
+    fatal: ['*'],
+  },
   context: {
     correlationIdHeader: 'x-correlation-id',
     transactionIdHeader: 'x-trace-id',
@@ -19,7 +26,7 @@ syntropyLog.init({
       {
         instanceName: 'axios-default',
         adapter: new AxiosAdapter(axios),
-        propagateFullContext: true,
+        propagate: ['x-trace-id', 'x-session-id', 'x-request-agent'],
       },
     ],
   },

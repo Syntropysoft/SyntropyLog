@@ -7,32 +7,44 @@ import { ZodError, ZodIssueCode } from 'zod';
 // This solves the ReferenceError because the factory is hoisted along with the mocks.
 const {
   mockGetLogger,
-  mockGetContextManager,
   mockFlushAllTransports,
   mockGetRedisInstance,
   mockRedisShutdown,
   mockGetHttpInstance,
   mockHttpShutdown,
+  mockGetBrokerInstance,
+  mockBrokerShutdown,
   mockSanitizeConfig,
   mockCheckPeerDependencies,
   mockConfigParse,
 } = vi.hoisted(() => ({
   mockGetLogger: vi.fn(),
-  mockGetContextManager: vi.fn(),
   mockFlushAllTransports: vi.fn().mockResolvedValue(undefined),
   mockGetRedisInstance: vi.fn(),
   mockRedisShutdown: vi.fn().mockResolvedValue(undefined),
   mockGetHttpInstance: vi.fn(),
   mockHttpShutdown: vi.fn().mockResolvedValue(undefined),
+  mockGetBrokerInstance: vi.fn(),
+  mockBrokerShutdown: vi.fn().mockResolvedValue(undefined),
   mockSanitizeConfig: vi.fn((config) => config),
   mockCheckPeerDependencies: vi.fn(),
   mockConfigParse: vi.fn(),
 }));
 
+const { mockGetAllFromContext, MockContextManager } = vi.hoisted(() => {
+  const mockGetAll = vi.fn();
+  return {
+    mockGetAllFromContext: mockGetAll,
+    MockContextManager: vi.fn(() => ({
+      getAll: mockGetAll,
+      configure: vi.fn(),
+    })),
+  };
+});
+
 vi.mock('../src/logger/LoggerFactory', () => ({
   LoggerFactory: vi.fn().mockImplementation(() => ({
     getLogger: mockGetLogger,
-    getContextManager: mockGetContextManager,
     flushAllTransports: mockFlushAllTransports,
   })),
 }));
@@ -49,6 +61,17 @@ vi.mock('../src/http/HttpManager', () => ({
     getInstance: mockGetHttpInstance,
     shutdown: mockHttpShutdown,
   })),
+}));
+
+vi.mock('../src/brokers/BrokerManager', () => ({
+  BrokerManager: vi.fn().mockImplementation(() => ({
+    getInstance: mockGetBrokerInstance,
+    shutdown: mockBrokerShutdown,
+  })),
+}));
+
+vi.mock('../src/context/ContextManager', () => ({
+  ContextManager: MockContextManager,
 }));
 
 vi.mock('../src/utils/sanitizeConfig', () => ({
@@ -84,7 +107,9 @@ describe('SyntropyLog', () => {
     syntropyLog = SyntropyLog.getInstance();
 
     // Default mock implementations for happy paths
-    mockConfigParse.mockReturnValue(validConfig);
+    // The default mock for parse should be a pass-through to allow testing different configs.
+    mockConfigParse.mockImplementation((config) => config);
+
     mockGetLogger.mockReturnValue({
       info: vi.fn(),
       warn: vi.fn(),
@@ -176,6 +201,7 @@ describe('SyntropyLog', () => {
       ['getLogger', () => syntropyLog.getLogger('test')],
       ['getRedis', () => syntropyLog.getRedis('test')],
       ['getHttp', () => syntropyLog.getHttp('test')],
+      ['getBroker', () => syntropyLog.getBroker('test')],
       ['getContextManager', () => syntropyLog.getContextManager()],
     ])('%s should throw if not initialized', (name, accessorCall) => {
       expect(accessorCall).toThrow(uninitializedError);
@@ -193,8 +219,91 @@ describe('SyntropyLog', () => {
       syntropyLog.getHttp('my-http');
       expect(mockGetHttpInstance).toHaveBeenCalledWith('my-http');
 
-      syntropyLog.getContextManager();
-      expect(mockGetContextManager).toHaveBeenCalled();
+      syntropyLog.getBroker('my-broker');
+      expect(mockGetBrokerInstance).toHaveBeenCalledWith('my-broker');
+
+      const contextManager = syntropyLog.getContextManager();
+      expect(contextManager).toBeDefined();
+    });
+  });
+
+  describe('getFilteredContext', () => {
+    const fullContext = {
+      correlationId: 'test-corr-id',
+      transactionId: 'test-trans-id',
+      userId: 123,
+      sensitiveData: 'secret',
+    };
+
+    beforeEach(() => {
+      // For these tests, we need to reset the singleton state before each run
+      // to ensure we can test different `init` configurations.
+      syntropyLog._resetForTesting();
+      // We also need to mock the value returned by the (mocked) ContextManager.
+      mockGetAllFromContext.mockReturnValue(fullContext);
+    });
+
+    it('should return the full context if loggingMatrix is not defined', async () => {
+      // This test relies on the default init from beforeEach which has no matrix.
+      await syntropyLog.init({ logger: {} });
+      const result = syntropyLog.getFilteredContext('info');
+      expect(result).toEqual(fullContext);
+    });
+
+    it('should return an empty object if no rules apply', async () => {
+      await syntropyLog.init({
+        loggingMatrix: { error: ['*'] }, // No 'default' or 'info' rule
+      });
+      const result = syntropyLog.getFilteredContext('info');
+      expect(result).toEqual({});
+    });
+
+    it('should use the default rule if no level-specific rule exists', async () => {
+      await syntropyLog.init({
+        loggingMatrix: { default: ['correlationId', 'userId'] },
+      });
+      const result = syntropyLog.getFilteredContext('info');
+      expect(result).toEqual({
+        correlationId: 'test-corr-id',
+        userId: 123,
+      });
+    });
+
+    it('should use the level-specific rule over the default rule', async () => {
+      await syntropyLog.init({
+        loggingMatrix: {
+          default: ['correlationId'],
+          error: ['correlationId', 'transactionId'],
+        },
+      });
+      const result = syntropyLog.getFilteredContext('error');
+      expect(result).toEqual({
+        correlationId: 'test-corr-id',
+        transactionId: 'test-trans-id',
+      });
+    });
+
+    it('should return the full context for wildcard rule', async () => {
+      await syntropyLog.init({
+        loggingMatrix: {
+          default: ['correlationId'],
+          warn: ['*'],
+        },
+      });
+      const result = syntropyLog.getFilteredContext('warn');
+      expect(result).toEqual(fullContext);
+    });
+
+    it('should ignore non-existent fields in the rule', async () => {
+      await syntropyLog.init({
+        loggingMatrix: {
+          default: ['correlationId', 'nonExistentField'],
+        },
+      });
+      const result = syntropyLog.getFilteredContext('debug');
+      expect(result).toEqual({
+        correlationId: 'test-corr-id',
+      });
     });
   });
 
@@ -210,6 +319,7 @@ describe('SyntropyLog', () => {
 
       expect(mockRedisShutdown).toHaveBeenCalled();
       expect(mockHttpShutdown).toHaveBeenCalled();
+      expect(mockBrokerShutdown).toHaveBeenCalled();
       expect(mockFlushAllTransports).toHaveBeenCalled();
       expect((syntropyLog as any)._isInitialized).toBe(false);
     });

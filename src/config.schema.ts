@@ -144,11 +144,18 @@ export const httpInstanceConfigSchema = z.object({
   }, "The provided adapter is invalid. It must be an object with a 'request' method."),
 
   /**
+   * An array of context keys to propagate as headers.
+   * To propagate all keys, provide an array with a single wildcard: `['*']`.
+   * If not provided, only `correlationId` and `transactionId` are propagated by default.
+   */
+  propagate: z.array(z.string()).optional(),
+
+  /**
+   * @deprecated Use `propagate` instead.
    * If true, propagates the entire asynchronous context map as headers.
    * If false (default), only propagates `correlationId` and `transactionId`.
-   * @default false
    */
-  propagateFullContext: z.boolean().optional().default(false),
+  propagateFullContext: z.boolean().optional(),
 
   /**
    * Logging settings specific to this HTTP client instance.
@@ -213,11 +220,18 @@ export const brokerInstanceConfigSchema = z.object({
     );
   }, 'The provided broker adapter is invalid.'),
   /**
+   * An array of context keys to propagate as message headers/properties.
+   * To propagate all keys, provide an array with a single wildcard: `['*']`.
+   * If not provided, only `correlationId` and `transactionId` are propagated by default.
+   */
+  propagate: z.array(z.string()).optional(),
+
+  /**
+   * @deprecated Use `propagate` instead.
    * If true, propagates the entire asynchronous context map as headers.
    * If false (default), only propagates `correlationId` and `transactionId`.
-   * @default false
    */
-  propagateFullContext: z.boolean().optional().default(false),
+  propagateFullContext: z.boolean().optional(),
 });
 
 /**
@@ -231,12 +245,40 @@ export const brokerConfigSchema = z
   .optional();
 
 /**
+ * @description Schema for the declarative logging matrix.
+ * It controls which context properties are included in the final log output based on the log level.
+ * @private
+ */
+const loggingMatrixSchema = z
+  .object({
+    /** An array of context keys to include in logs by default. Can be overridden by level-specific rules. */
+    default: z.array(z.string()).optional(),
+    /** An array of context keys to include for 'trace' level logs. Use `['*']` to include all context properties. */
+    trace: z.array(z.string()).optional(),
+    /** An array of context keys to include for 'debug' level logs. Use `['*']` to include all context properties. */
+    debug: z.array(z.string()).optional(),
+    /** An array of context keys to include for 'info' level logs. Use `['*']` to include all context properties. */
+    info: z.array(z.string()).optional(),
+    /** An array of context keys to include for 'warn' level logs. Use `['*']` to include all context properties. */
+    warn: z.array(z.string()).optional(),
+    /** An array of context keys to include for 'error' level logs. Use `['*']` to include all context properties. */
+    error: z.array(z.string()).optional(),
+    /** An array of context keys to include for 'fatal' level logs. Use `['*']` to include all context properties. */
+    fatal: z.array(z.string()).optional(),
+  })
+  .optional();
+
+/**
  * @description The main schema for the entire SyntropyLog configuration.
  * This is the single source of truth for validating the user's configuration object.
  */
 export const syntropyLogConfigSchema = z.object({
   /** Logger-specific configuration. */
   logger: loggerOptionsSchema,
+
+  /** Declarative matrix to control context data in logs. */
+  loggingMatrix: loggingMatrixSchema,
+
   /** Redis client configuration. */
   redis: redisConfigSchema,
   /** HTTP client configuration. */

@@ -9,6 +9,13 @@ syntropyLog.init({
     serviceName: 'sales-service',
     serializerTimeoutMs: 100,
   },
+  loggingMatrix: {
+    // By default, only log the correlationId and transactionId from the context.
+    default: ['correlationId', 'transactionId'],
+    // On error or fatal, log the entire context.
+    error: ['*'],
+    fatal: ['*'],
+  },
   context: {
     correlationIdHeader: 'x-correlation-id',
     transactionIdHeader: 'x-trace-id',
@@ -18,7 +25,7 @@ syntropyLog.init({
       {
         instanceName: 'nats-default',
         adapter: new NatsAdapter('nats://nats-server:4222'), // The manager will call .connect()
-        propagateFullContext: true,
+        propagate: ['x-trace-id', 'x-session-id', 'x-request-agent'],
       },
     ],
   },
@@ -35,7 +42,7 @@ const sc = StringCodec();
 
 app.post('/process-sale', async (req, res) => {
   // The middleware now handles context creation and correlationId.
-  logger.info({ saleData: req.body }, 'Processing sale...');
+  logger.info('Processing sale...');
 
   const instrumentedNats = syntropyLog.getBroker('nats-default');
   

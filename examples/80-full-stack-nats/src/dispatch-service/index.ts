@@ -8,6 +8,13 @@ async function main() {
       serviceName: 'dispatch-service',
       serializerTimeoutMs: 100,
     },
+    loggingMatrix: {
+      // By default, only log the correlationId and transactionId from the context.
+      default: ['correlationId', 'transactionId'],
+      // On error or fatal, log the entire context.
+      error: ['*'],
+      fatal: ['*'],
+    },
     context: {
       correlationIdHeader: 'x-correlation-id',
       transactionIdHeader: 'x-trace-id',
@@ -17,7 +24,6 @@ async function main() {
         {
           instanceName: 'nats-default',
           adapter: new NatsAdapter('nats://nats-server:4222'),
-          propagateFullContext: true,
         },
       ],
     },
@@ -37,7 +43,7 @@ async function main() {
       try {
         const payload = message.payload.toString();
         const data = JSON.parse(payload);
-        logger.info({ data }, 'Received processed sale. Dispatching order...');
+        logger.info({ orderId: data.customer.id }, 'Received processed sale. Dispatching order...');
       } catch (err) {
         logger.error({ err, payload: message.payload.toString('base64') }, 'Failed to parse message payload.');
       }

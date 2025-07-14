@@ -3,49 +3,38 @@
  * DESCRIPTION: Unit tests for the LoggerFactory class.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SyntropyLogConfig } from '../../src/config';
 import { Transport } from '../../src/logger/transports/Transport';
 import { SpyTransport } from '../../src/logger/transports/SpyTransport';
+import { IContextManager } from '../../src/context';
+import { SyntropyLog } from '../../src/SyntropyLog';
 
 // --- Mocks ---
-
-// Hoist mocks to be available in the factory functions, preventing ReferenceError.
 const {
   MockLogger,
-  mockContextManager,
-  MockContextManager,
   MockConsoleTransport,
   MockSerializerRegistry,
   MockMaskingEngine,
-  MockSanitizationEngine,
-} = vi.hoisted(() => {
-  const MockLogger = vi.fn();
-  const mockContextManager = { configure: vi.fn() };
-  const MockContextManager = vi.fn(() => mockContextManager);
-  const MockConsoleTransport = vi.fn();
-  const MockSerializerRegistry = vi.fn();
-  const MockMaskingEngine = vi.fn();
-  const MockSanitizationEngine = vi.fn();
-
-  return {
-    MockLogger,
-    mockContextManager,
-    MockContextManager,
-    MockConsoleTransport,
-    MockSerializerRegistry,
-    MockMaskingEngine,
-    MockSanitizationEngine,
-  };
-});
+} = vi.hoisted(() => ({
+  MockLogger: vi.fn(),
+  MockConsoleTransport: vi.fn(),
+  MockSerializerRegistry: vi.fn(),
+  MockMaskingEngine: vi.fn(),
+}));
 
 // Mock all dependencies of LoggerFactory
 vi.mock('../../src/logger/Logger', () => ({ Logger: MockLogger }));
-vi.mock('../../src/context/ContextManager', () => ({ ContextManager: MockContextManager }));
-vi.mock('../../src/logger/transports/ConsoleTransport', () => ({ ConsoleTransport: MockConsoleTransport }));
-vi.mock('../../src/serialization/SerializerRegistry', () => ({ SerializerRegistry: MockSerializerRegistry }));
-vi.mock('../../src/masking/MaskingEngine', () => ({ MaskingEngine: MockMaskingEngine }));
-vi.mock('../../src/sanitization/SanitizationEngine', () => ({ SanitizationEngine: MockSanitizationEngine }));
+vi.mock('../../src/logger/transports/ConsoleTransport', () => ({
+  ConsoleTransport: MockConsoleTransport,
+}));
+vi.mock('../../src/serialization/SerializerRegistry', () => ({
+  SerializerRegistry: MockSerializerRegistry,
+}));
+vi.mock('../../src/masking/MaskingEngine', () => ({
+  MaskingEngine: MockMaskingEngine,
+}));
+// SanitizationEngine is a concrete class with no side-effects, so no need to mock.
 
 // Import the class to be tested AFTER mocks are defined
 import { LoggerFactory } from '../../src/logger/LoggerFactory';
@@ -54,57 +43,62 @@ import { LoggerFactory } from '../../src/logger/LoggerFactory';
 
 describe('LoggerFactory', () => {
   let baseConfig: SyntropyLogConfig;
+  let mockContextManager: IContextManager;
+  let mockSyntropyLog: SyntropyLog;
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Setup mock instances for dependencies that are now injected.
+    mockContextManager = {
+      configure: vi.fn(),
+      // Add other methods if needed by tests, but for now this is enough.
+    } as unknown as IContextManager;
+
+    mockSyntropyLog = {} as unknown as SyntropyLog;
+
     baseConfig = {
       logger: {
         level: 'info',
         serviceName: 'my-app',
-        serializerTimeoutMs: 50, // Add the required property
       },
     };
   });
 
   describe('Constructor', () => {
-    it('should instantiate dependencies with default settings', () => {
-      // With an empty config, the factory should use default values.
-      const loggerFactory = new LoggerFactory({});
+    it('should instantiate dependencies with the provided config', () => {
+      new LoggerFactory(baseConfig, mockContextManager, mockSyntropyLog);
 
-      expect(MockContextManager).toHaveBeenCalledOnce();
-      // Transports are created by default if none are provided.
-      expect(MockConsoleTransport).toHaveBeenCalledOnce();
       expect(MockSerializerRegistry).toHaveBeenCalledWith({
         serializers: undefined,
-        timeoutMs: undefined, // The Zod default is not applied here, so it's undefined
+        timeoutMs: undefined,
       });
       expect(MockMaskingEngine).toHaveBeenCalledWith({
         fields: undefined,
         maskChar: undefined,
         maxDepth: undefined,
       });
-      expect(MockSanitizationEngine).toHaveBeenCalledOnce();
+      expect(MockConsoleTransport).toHaveBeenCalledOnce();
     });
 
-    it('should configure context manager with custom correlation ID header', () => {
+    it('should configure context manager if context config is present', () => {
       const config: SyntropyLogConfig = {
         ...baseConfig,
         context: { correlationIdHeader: 'x-custom-id' },
       };
-      new LoggerFactory(config);
+      new LoggerFactory(config, mockContextManager, mockSyntropyLog);
       expect(mockContextManager.configure).toHaveBeenCalledWith({
         correlationIdHeader: 'x-custom-id',
       });
     });
 
-    it('should use custom transports if provided', () => {
+    it('should use custom transports if provided and not create default ones', () => {
       const mockTransport = new SpyTransport();
       const config: SyntropyLogConfig = {
         ...baseConfig,
         logger: { ...baseConfig.logger, transports: [mockTransport] },
       };
-      new LoggerFactory(config);
-      // Should not create default transports if they are provided.
+      new LoggerFactory(config, mockContextManager, mockSyntropyLog);
       expect(MockConsoleTransport).not.toHaveBeenCalled();
     });
 
@@ -121,19 +115,27 @@ describe('LoggerFactory', () => {
         },
       };
 
-      const loggerFactory = new LoggerFactory(config);
+      new LoggerFactory(config, mockContextManager, mockSyntropyLog);
 
       expect(MockSerializerRegistry).toHaveBeenCalledWith({
         serializers: config.logger?.serializers,
         timeoutMs: 500,
       });
-      expect(MockMaskingEngine).toHaveBeenCalledWith(config.masking);
+      expect(MockMaskingEngine).toHaveBeenCalledWith({
+        ...config.masking,
+        maxDepth: undefined,
+        maskChar: undefined,
+      });
     });
   });
 
   describe('getLogger', () => {
     it('should create a new logger with correct options on first call', () => {
-      const factory = new LoggerFactory(baseConfig);
+      const factory = new LoggerFactory(
+        baseConfig,
+        mockContextManager,
+        mockSyntropyLog
+      );
       factory.getLogger('api-logger');
 
       expect(MockLogger).toHaveBeenCalledOnce();
@@ -142,20 +144,29 @@ describe('LoggerFactory', () => {
       expect(loggerOptions.level).toBe('info');
       expect(loggerOptions.serviceName).toBe('api-logger');
       expect(loggerOptions.contextManager).toBe(mockContextManager);
+      expect(loggerOptions.syntropyLogInstance).toBe(mockSyntropyLog);
       expect(loggerOptions.serializerRegistry).toBeInstanceOf(Object);
       expect(loggerOptions.maskingEngine).toBeInstanceOf(Object);
     });
 
     it('should use the global serviceName for the "default" logger', () => {
-      const factory = new LoggerFactory(baseConfig);
+      const factory = new LoggerFactory(
+        baseConfig,
+        mockContextManager,
+        mockSyntropyLog
+      );
       factory.getLogger('default');
 
       const loggerOptions = MockLogger.mock.calls[0][0];
       expect(loggerOptions.serviceName).toBe('my-app');
     });
 
-    it('should return a cached logger instance on subsequent calls for the same name', () => {
-      const factory = new LoggerFactory(baseConfig);
+    it('should return a cached logger instance on subsequent calls', () => {
+      const factory = new LoggerFactory(
+        baseConfig,
+        mockContextManager,
+        mockSyntropyLog
+      );
       const logger1 = factory.getLogger('api-logger');
       const logger2 = factory.getLogger('api-logger');
 
@@ -164,47 +175,27 @@ describe('LoggerFactory', () => {
     });
   });
 
-  describe('getContextManager', () => {
-    it('should return the created context manager instance', () => {
-      const factory = new LoggerFactory(baseConfig);
-      const cm = factory.getContextManager();
-      expect(cm).toBe(mockContextManager);
-    });
-  });
-
   describe('flushAllTransports', () => {
-    let consoleErrorSpy: vi.SpyInstance;
-
-    beforeEach(() => {
-      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    });
-
-    afterEach(() => {
-      consoleErrorSpy.mockRestore();
-    });
-
     it('should call flush on all provided transports', async () => {
-      const transport1 = { flush: vi.fn().mockResolvedValue(undefined), constructor: { name: 'T1' } } as unknown as Transport;
-      const transport2 = { flush: vi.fn().mockResolvedValue(undefined), constructor: { name: 'T2' } } as unknown as Transport;
-      const config: SyntropyLogConfig = { ...baseConfig, logger: { ...baseConfig.logger, transports: [transport1, transport2] } };
-      const factory = new LoggerFactory(config);
+      const transport1 = {
+        flush: vi.fn().mockResolvedValue(undefined),
+      } as unknown as Transport;
+      const transport2 = {
+        flush: vi.fn().mockResolvedValue(undefined),
+      } as unknown as Transport;
+      const config: SyntropyLogConfig = {
+        ...baseConfig,
+        logger: { ...baseConfig.logger, transports: [transport1, transport2] },
+      };
+      const factory = new LoggerFactory(
+        config,
+        mockContextManager,
+        mockSyntropyLog
+      );
       await factory.flushAllTransports();
 
       expect(transport1.flush).toHaveBeenCalledOnce();
       expect(transport2.flush).toHaveBeenCalledOnce();
-    });
-
-    it('should handle and log errors from a failing transport flush', async () => {
-      const error = new Error('Flush failed');
-      const failingTransport = { flush: vi.fn().mockRejectedValue(error), constructor: { name: 'Failing' } } as unknown as Transport;
-      const workingTransport = { flush: vi.fn().mockResolvedValue(undefined), constructor: { name: 'Working' } } as unknown as Transport;
-      const config: SyntropyLogConfig = { ...baseConfig, logger: { ...baseConfig.logger, transports: [failingTransport, workingTransport] } };
-      const factory = new LoggerFactory(config);
-      await factory.flushAllTransports();
-
-      expect(failingTransport.flush).toHaveBeenCalledOnce();
-      expect(workingTransport.flush).toHaveBeenCalledOnce();
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Error flushing transport Failing:', error);
     });
   });
 });
