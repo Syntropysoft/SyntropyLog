@@ -87,7 +87,7 @@ export class MaskingEngine {
    * @returns {Record<string, any>} A new object with the masked data.
    */
   public process(meta: Record<string, unknown>): Record<string, unknown> {
-    return this.maskRecursively(meta, 0);
+    return this.maskRecursively(meta, '', 0);
   }
 
   /**
@@ -98,32 +98,50 @@ export class MaskingEngine {
    * 2. **Path-based masking**: If a string value looks like a path/URL, it's sanitized.
    *
    * @param {any} data - The data to process (can be an object, array, or primitive).
+   * @param {string} currentPath - The dot-notation path of the current key.
    * @param {number} depth - The current recursion depth to prevent infinite loops.
    * @returns {any} The processed data with masking applied.
    */
-  private maskRecursively(data: any, depth: number): any {
+  private maskRecursively(data: any, currentPath: string, depth: number): any {
     if (depth > this.maxDepth || data === null || typeof data !== 'object') {
       return data;
     }
 
     if (Array.isArray(data)) {
-      return data.map((item) => this.maskRecursively(item, depth + 1));
+      // For arrays, we don't append index to path, we process each item individually.
+      return data.map((item) =>
+        this.maskRecursively(item, currentPath, depth + 1)
+      );
     }
 
     const sanitizedObject: Record<string, any> = {};
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
         const value = data[key];
-        const isSensitiveKey = this.fieldConfigs.some((config) =>
-          typeof config === 'string' ? config === key : config.test(key)
-        );
+        // Construct the full path for the current key.
+        const newPath = currentPath ? `${currentPath}.${key}` : key;
+
+        const isSensitiveKey = this.fieldConfigs.some((config) => {
+          if (typeof config === 'string') {
+            // Check for exact path match or if the path ends with '.<config_path>'
+            // This handles both top-level keys ('password') and nested keys ('address.street')
+            return newPath === config || newPath.endsWith('.' + config);
+          } else {
+            // For regex, test against the full path for context-aware matching.
+            return config.test(newPath);
+          }
+        });
 
         if (isSensitiveKey) {
           sanitizedObject[key] = this.getMask(value);
         } else if (typeof value === 'string') {
           sanitizedObject[key] = this.sanitizeUrlPath(value);
         } else if (typeof value === 'object' && value !== null) {
-          sanitizedObject[key] = this.maskRecursively(value, depth + 1);
+          sanitizedObject[key] = this.maskRecursively(
+            value,
+            newPath,
+            depth + 1
+          );
         } else {
           sanitizedObject[key] = value;
         }
