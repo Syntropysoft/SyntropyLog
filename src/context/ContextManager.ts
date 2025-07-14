@@ -16,29 +16,24 @@ import { IContextManager } from './IContextManager';
  * @implements {IContextManager}
  */
 export class ContextManager implements IContextManager {
-  /** @private The underlying AsyncLocalStorage instance that holds the context store. */
-  private als = new AsyncLocalStorage<Record<string, any>>();
-  /** @private The HTTP header name used for the correlation ID. */
+  private asyncLocalStorage: AsyncLocalStorage<Map<string, any>>;
   private correlationIdHeader = 'x-correlation-id';
-  /** @private The key used for storing the transaction ID in the context. */
-  private transactionIdKey = 'transactionId';
+  private transactionIdHeader = 'x-trace-id';
+  private readonly transactionIdKey = 'transactionId';
 
-  /**
-   * Configures the context manager, primarily to set a custom header name
-   * for the correlation ID.
-   * @param options The configuration options.
-   * @param options.correlationIdHeader The custom header name to use (e.g., 'X-Request-ID').
-   * @param options.transactionIdKey The custom key to use for the transaction ID.
-   */
+  constructor() {
+    this.asyncLocalStorage = new AsyncLocalStorage();
+  }
+
   public configure(options?: {
     correlationIdHeader?: string;
-    transactionIdKey?: string;
+    transactionIdHeader?: string;
   }): void {
     if (options?.correlationIdHeader) {
       this.correlationIdHeader = options.correlationIdHeader;
     }
-    if (options?.transactionIdKey) {
-      this.transactionIdKey = options.transactionIdKey;
+    if (options?.transactionIdHeader) {
+      this.transactionIdHeader = options.transactionIdHeader;
     }
   }
 
@@ -52,9 +47,9 @@ export class ContextManager implements IContextManager {
    * @returns {T} The result of the callback function.
    */
   run<T>(callback: () => T): T {
-    const store = this.als.getStore();
+    const store = this.asyncLocalStorage.getStore();
     // Create a new context that inherits from the parent, or create a new empty one.
-    return this.als.run(store ? { ...store } : {}, callback);
+    return this.asyncLocalStorage.run(store ? new Map(store) : new Map(), callback);
   }
 
   /**
@@ -64,7 +59,7 @@ export class ContextManager implements IContextManager {
    * @returns The value, or `undefined` if not found or if outside a context.
    */
   get<T = any>(key: string): T | undefined {
-    return this.als.getStore()?.[key];
+    return this.asyncLocalStorage.getStore()?.get(key);
   }
 
   /**
@@ -72,7 +67,11 @@ export class ContextManager implements IContextManager {
    * @returns {Record<string, any>} An object containing all context data, or an empty object if outside a context.
    */
   getAll(): Record<string, any> {
-    return this.als.getStore() ?? {};
+    const store = this.asyncLocalStorage.getStore();
+    if (!store) {
+      return {};
+    }
+    return Object.fromEntries(store);
   }
 
   /**
@@ -84,9 +83,9 @@ export class ContextManager implements IContextManager {
    * @returns {void}
    */
   set(key: string, value: any): void {
-    const store = this.als.getStore();
+    const store = this.asyncLocalStorage.getStore();
     if (store) {
-      store[key] = value;
+      store.set(key, value);
     }
   }
 
@@ -96,7 +95,7 @@ export class ContextManager implements IContextManager {
    * @returns {string | undefined} The correlation ID, or undefined if not set.
    */
   getCorrelationId(): string | undefined {
-    return this.get(this.correlationIdHeader);
+    return this.get('correlationId');
   }
 
   /**
@@ -121,6 +120,10 @@ export class ContextManager implements IContextManager {
    */
   getCorrelationIdHeaderName(): string {
     return this.correlationIdHeader;
+  }
+
+  public getTransactionIdHeaderName(): string {
+    return this.transactionIdHeader;
   }
 
   /**

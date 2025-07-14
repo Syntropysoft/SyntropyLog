@@ -1,82 +1,101 @@
-# Example 80: Full-Stack Microservices with NATS
+# Example 80: Full-Stack Correlation with NATS
 
-This example demonstrates the full power of `SyntropyLog` in a realistic, distributed, full-stack environment using Docker Compose profiles for service orchestration.
+This example demonstrates how `syntropylog` can be used in a realistic, distributed, full-stack environment to achieve end-to-end correlation across multiple microservices and transport layers (HTTP and NATS).
 
 ## Architecture
 
-We have a system composed of three microservices that communicate via an API Gateway and a NATS message broker to process a "sale" operation.
+The system consists of three microservices orchestrated with Docker Compose:
 
-1.  **API Gateway**: The single entry point for external requests. It receives an HTTP call, creates a new correlation context, and calls the Sales Service.
-2.  **Sales Service**: Receives the HTTP call from the gateway, processes the sale logic, and publishes a `sales.processed` event to a NATS topic.
-3.  **Dispatch Service**: Subscribes to the `sales.processed` topic and logs the reception of the event, simulating the final step in the chain.
+1.  **API Gateway**: A Node.js service using Express. It's the public entry point that receives an HTTP POST request to create an order. It uses an instrumented HTTP client to forward the request to the Sales Service.
+2.  **Sales Service**: Another Node.js service using Express. It exposes an HTTP endpoint, processes the sale, and then publishes a `sales.processed` event to a NATS topic.
+3.  **Dispatch Service**: A lightweight Node.js service that subscribes to the `sales.processed` topic. It listens for messages and logs them, simulating a final processing step like dispatching an order.
 
-The key goal is to show how `SyntropyLog` can maintain a consistent `correlationId` across different transport layers (HTTP and Messaging).
+The key goal is to show how `syntropylog` automatically propagates a consistent `correlationId` from the initial HTTP request through the NATS message, allowing for a unified trace of the entire transaction.
+
+## Prerequisites
+
+Before running the example, please ensure you have the following installed:
+-   Node.js (v18 or higher is recommended).
+-   Docker and Docker Compose.
+
+Additionally, since `syntropylog` is being developed locally and is not yet published to a public registry, you must build it from the source.
+
+From the **root directory** of the project, run:
+```bash
+npm install
+npm run build
+```
 
 ## How to Run
 
-This example uses a shared Docker Compose file located in the root `examples` directory.
+All services for this example are defined in the `docker-compose.yaml` file within this directory.
 
-### 1. Start the Infrastructure
+1.  **Navigate to the example directory:**
+    ```bash
+    cd examples/80-full-stack-nats
+    ```
 
-First, from the `examples` directory, start the shared infrastructure services (NATS, Kafka, RabbitMQ, etc.).
+2.  **Build and start the services:**
+    ```bash
+    docker compose up --build
+    ```
+    This command will build the Docker images for the three services and start them, along with a NATS message broker. You will see the logs from all containers in your terminal.
 
-```bash
-cd examples
-docker compose up -d
-```
+## Testing the Flow
 
-### 2. Start the Application Services
+Once all services are running, you can trigger the end-to-end flow by sending a POST request to the API Gateway.
 
-Once the infrastructure is running, use the `nats-app` profile to build and start only the services related to this example.
+1.  **Send the cURL request:**
+    Open a new terminal and run the following command:
+    ```bash
+    curl -X POST http://localhost:3000/orders \
+    -H "Content-Type: application/json" \
+    -H "X-TRACE-ID: trace-abc-123" \
+    -H "X-SESSION-ID: session-xyz-987" \
+    -H "X-REQUEST-AGENT: curl-client/1.0" \
+    -d '{
+      "productId": "prod-123",
+      "quantity": 2,
+      "customer": {
+        "id": "cust-abc",
+        "name": "Gabriel Gomez"
+      }
+    }'
+    ```
 
-```bash
-# Still inside the examples directory
-docker compose --profile nats-app up --build -d
-```
+2.  **(Optional) Test the Sales Service Directly:**
+    If you suspect issues with the communication between the gateway and the sales service, you can test the `sales-service` directly by exposing its port (as we've done in the `docker-compose.yaml`). This helps isolate networking problems.
 
-### 3. Trigger the Flow
+    ```bash
+    curl -X POST http://localhost:3001/process-sale \
+    -H "Content-Type: application/json" \
+    -H "X-TRACE-ID: direct-trace-456" \
+    -d '{ "item": "direct-test" }'
+    ```
 
-Send a request to the API Gateway to initiate the process:
+3.  **Check the logs:**
+    Observe the output in the terminal where `docker compose` is running. You will see a series of log entries from all three services.
 
-```bash
-curl -X GET http://localhost:3000/create-sale
-```
+## Evidence of Success
 
-You should receive a response like this:
-```json
-{"message":"Sale creation initiated and forwarded to sales-service.","correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"}
-```
+You'll know everything is working correctly when you see the same `correlationId` in the logs from `api-gateway`, `sales-service`, and `dispatch-service`. This demonstrates that the context was successfully propagated across HTTP and NATS.
 
-### 4. Check the Logs
-
-To see the end-to-end trace, view the logs for all three services:
-
-```bash
-docker compose logs api-gateway sales-service dispatch-service
-```
-
-### Evidence of Success
-
-Below is the log output demonstrating the partial success of the correlation flow.
-
-**Key Observations:**
-- **HTTP Correlation Works**: The `api-gateway` generates a `correlationId` (`a0873db3...`) which is successfully propagated to the `sales-service` via the HTTP call. This is thanks to the `contextMiddleware` and the instrumented `Axios` client.
-- **Broker Correlation To Be Fixed**: The trace breaks when publishing to NATS. The `sales-service` context is not automatically propagated to the NATS message headers. The `dispatch-service` receives the message but with an empty context. This is the next point to fix in the library itself.
+**Example Log Flow:**
 
 ```log
-❯ curl -X GET http://localhost:3000/create-sale
-{"message":"Sale creation initiated and forwarded to sales-service.","correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"}%                                                                            
+# 1. API Gateway receives the request and creates a correlationId
+api-gateway-1  | {"context":{"correlationId":"ad027e2b..."}, ...,"service":"api-gateway","msg":"Received request to create a new order."}
 
-❯ docker compose logs api-gateway sales-service dispatch-service
-api-gateway-example  | {"context":{"correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"},"timestamp":"2025-07-13T22:59:57.237Z","level":"info","service":"api-gateway","msg":"Received request to create a new sale."}
-api-gateway-example  | {"context":{"correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"},"timestamp":"2025-07-13T22:59:57.237Z","level":"info","service":"api-gateway","msg":"Calling sales-service..."}
-api-gateway-example  | {"method":"POST","url":"http://sales-service:3001/process-sale","context":{"correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"},"timestamp":"2025-07-13T22:59:57.238Z","level":"info","service":"axios-default","msg":"Starting HTTP request"}
-api-gateway-example  | {"statusCode":200,"url":"http://sales-service:3001/process-sale","method":"POST","durationMs":44,"context":{"correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"},"timestamp":"2025-07-13T22:59:57.259Z","level":"info","service":"axios-default","msg":"HTTP response received"}
-api-gateway-example  | {"response":{"message":"Sale processed and event published.","correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"},"context":{"correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"},"timestamp":"2025-07-13T22:59:57.260Z","level":"info","service":"api-gateway","msg":"Response from sales-service"}
-sales-service-example     | {"saleData":{"item":"example-item","quantity":1},"context":{"correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"},"timestamp":"2025-07-13T22:59:57.253Z","level":"info","service":"sales-service","msg":"Processing sale..."}
-sales-service-example     | {"context":{"correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"},"timestamp":"2025-07-13T22:59:57.253Z","level":"info","service":"sales-service","msg":"Publishing event to NATS..."}
-sales-service-example     | {"topic":"sales.processed","context":{"correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"},"timestamp":"2025-07-13T22:59:57.253Z","level":"info","service":"nats-default","msg":"Publishing message..."}
-sales-service-example     | {"topic":"sales.processed","context":{"correlationId":"a0873db3-b999-4f74-865f-594dc275ee7b"},"timestamp":"2025-07-13T22:59:57.254Z","level":"info","service":"nats-default","msg":"Message published successfully."}
-dispatch-service-example  | {"topic":"sales.processed","context":{},"timestamp":"2025-07-13T22:59:57.256Z","level":"info","service":"nats-default","msg":"Received message."}
-dispatch-service-example  | {"data":{"item":"example-item","quantity":1,"processedAt":"2025-07-13T22:59:57.252Z"},"context":{},"timestamp":"2025-07-13T22:59:57.256Z","level":"info","service":"dispatch-service","msg":"Received processed sale. Dispatching order..."}
+# 2. API Gateway calls the Sales Service, propagating the context
+api-gateway-1  | {"method":"POST",...,"context":{"correlationId":"ad027e2b..."}, ...,"service":"axios-default","msg":"Starting HTTP request"}
+
+# 3. Sales Service receives the request with the same correlationId
+sales-service-1| {"context":{"correlationId":"ad027e2b..."}, ...,"service":"sales-service","msg":"Processing sale..."}
+
+# 4. Sales Service publishes to NATS, and the context is automatically included
+sales-service-1| {"topic":"sales.processed","context":{"correlationId":"ad027e2b..."}, ...,"service":"nats-default","msg":"Publishing message..."}
+
+# 5. Dispatch Service receives the NATS message with the context intact
+dispatch-service-1  | {"topic":"sales.processed","context":{"correlationId":"ad027e2b..."}, ...,"service":"nats-default","msg":"Received message."}
+dispatch-service-1  | {"data":{...},"context":{"correlationId":"ad027e2b..."}, ...,"service":"dispatch-service","msg":"Received processed sale. Dispatching order..."}
 ``` 

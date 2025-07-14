@@ -1,5 +1,6 @@
 import { BrokerMessage, MessageLifecycleControls, syntropyLog } from 'syntropylog';
-import { NatsAdapter } from '../shared/NatsAdapter';
+import { NatsAdapter } from '../../../../external-adapters/brokers/NatsAdapter';
+import { StringCodec } from 'nats';
 
 async function main() {
   syntropyLog.init({
@@ -7,11 +8,16 @@ async function main() {
       serviceName: 'dispatch-service',
       serializerTimeoutMs: 100,
     },
+    context: {
+      correlationIdHeader: 'x-correlation-id',
+      transactionIdHeader: 'x-trace-id',
+    },
     brokers: {
       instances: [
         {
           instanceName: 'nats-default',
-          adapter: new NatsAdapter(),
+          adapter: new NatsAdapter('nats://nats-server:4222'),
+          propagateFullContext: true,
         },
       ],
     },
@@ -40,6 +46,9 @@ async function main() {
     });
 
     logger.info("Subscribed to 'sales.processed'");
+
+    // Keep the process alive to listen for messages
+    process.stdin.resume();
 
   } catch (err) {
     logger.error({ err }, 'Failed to connect or subscribe to NATS topic');

@@ -5,7 +5,7 @@
 import { LogEntry } from '../../types';
 import { Transport, TransportOptions } from './Transport';
 import { LogLevelName } from '../levels';
-import { Chalk, type ChalkInstance } from 'chalk';
+import chalk, { Chalk } from 'chalk';
 
 /**
  * @class BaseConsolePrettyTransport
@@ -15,12 +15,12 @@ import { Chalk, type ChalkInstance } from 'chalk';
  * @extends {Transport}
  */
 export abstract class BaseConsolePrettyTransport extends Transport {
-  protected readonly chalk: ChalkInstance;
+  protected readonly chalk: Chalk;
 
   constructor(options?: TransportOptions) {
     super(options);
-    // Instantiate Chalk for coloring console output.
-    this.chalk = new Chalk();
+    // Chalk v4 is used directly, not instantiated.
+    this.chalk = chalk;
   }
 
   /**

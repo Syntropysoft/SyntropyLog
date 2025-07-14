@@ -14,6 +14,7 @@ import {
   IHttpClientAdapter,
   AdapterHttpError,
 } from './adapters/adapter.types';
+import { HttpClientInstanceConfig } from '../config';
 
 /**
  * @interface InstrumentorOptions
@@ -46,19 +47,33 @@ export interface InstrumentorOptions {
  * context propagation, and timing for all HTTP requests.
  */
 export class InstrumentedHttpClient {
+  private readonly instrumentorOptions: InstrumentorOptions;
   /**
    * @constructor
    * @param {IHttpClientAdapter} adapter - The underlying HTTP client adapter (e.g., AxiosAdapter).
    * @param {ILogger} logger - The logger instance for this client.
    * @param {IContextManager} contextManager - The manager for handling asynchronous contexts.
-   * @param {InstrumentorOptions} [options={}] - Configuration options for instrumentation.
+   * @param {HttpClientInstanceConfig} config - The configuration for this specific instance.
    */
   constructor(
     private readonly adapter: IHttpClientAdapter,
     private readonly logger: ILogger,
     private readonly contextManager: IContextManager,
-    private readonly options: InstrumentorOptions = {}
-  ) {}
+    private readonly config: HttpClientInstanceConfig
+  ) {
+    // Extract instrumentation options from the main config for clarity.
+    this.instrumentorOptions = {
+      logRequestHeaders: this.config.logging?.logRequestHeaders,
+      logRequestBody: this.config.logging?.logRequestBody,
+      logSuccessHeaders: this.config.logging?.logSuccessHeaders,
+      logSuccessBody: this.config.logging?.logSuccessBody,
+      logLevel: {
+        onRequest: this.config.logging?.onRequest,
+        onSuccess: this.config.logging?.onSuccess,
+        onError: this.config.logging?.onError,
+      },
+    };
+  }
 
   /**
    * The single public method. It executes an HTTP request through the wrapped
@@ -77,11 +92,31 @@ export class InstrumentedHttpClient {
       request.headers = {};
     }
 
-    // 1. Inject the Correlation ID generically.
-    const correlationId = this.contextManager.getCorrelationId();
-    if (correlationId) {
-      request.headers[this.contextManager.getCorrelationIdHeaderName()] =
-        correlationId;
+    // 1. Inject context into headers based on the configuration.
+    if (this.config.propagateFullContext) {
+      // Propagate the entire context map.
+      const contextObject = this.contextManager.getAll();
+      for (const key in contextObject) {
+        if (Object.prototype.hasOwnProperty.call(contextObject, key)) {
+          const value = contextObject[key];
+          if (typeof value === 'string') {
+            request.headers[key] = value;
+          }
+        }
+      }
+    } else {
+      // Default behavior: Propagate only correlation and transaction IDs.
+      const correlationId = this.contextManager.getCorrelationId();
+      if (correlationId) {
+        request.headers[this.contextManager.getCorrelationIdHeaderName()] =
+          correlationId;
+      }
+
+      const transactionId = this.contextManager.getTransactionId();
+      if (transactionId) {
+        request.headers[this.contextManager.getTransactionIdHeaderName()] =
+          transactionId;
+      }
     }
 
     // 2. Log the start of the request.
@@ -113,16 +148,16 @@ export class InstrumentedHttpClient {
    * @param {AdapterHttpRequest} request - The outgoing request.
    */
   private logRequestStart(request: AdapterHttpRequest): void {
-    const logLevel = this.options.logLevel?.onRequest ?? 'info';
+    const logLevel = this.instrumentorOptions.logLevel?.onRequest ?? 'info';
     const logPayload: Record<string, any> = {
       method: request.method,
       url: request.url,
     };
 
-    if (this.options.logRequestHeaders) {
+    if (this.instrumentorOptions.logRequestHeaders) {
       logPayload.headers = request.headers;
     }
-    if (this.options.logRequestBody) {
+    if (this.instrumentorOptions.logRequestBody) {
       logPayload.body = request.body;
     }
 
@@ -142,7 +177,7 @@ export class InstrumentedHttpClient {
     response: AdapterHttpResponse<T>,
     durationMs: number
   ): void {
-    const logLevel = this.options.logLevel?.onSuccess ?? 'info';
+    const logLevel = this.instrumentorOptions.logLevel?.onSuccess ?? 'info';
     const logPayload: Record<string, any> = {
       statusCode: response.statusCode,
       url: request.url,
@@ -150,10 +185,10 @@ export class InstrumentedHttpClient {
       durationMs,
     };
 
-    if (this.options.logSuccessHeaders) {
+    if (this.instrumentorOptions.logSuccessHeaders) {
       logPayload.headers = response.headers;
     }
-    if (this.options.logSuccessBody) {
+    if (this.instrumentorOptions.logSuccessBody) {
       logPayload.body = response.data;
     }
 
@@ -172,7 +207,7 @@ export class InstrumentedHttpClient {
     error: unknown,
     durationMs: number
   ): void {
-    const logLevel = this.options.logLevel?.onError ?? 'error';
+    const logLevel = this.instrumentorOptions.logLevel?.onError ?? 'error';
 
     // Use the normalized adapter error if available for richer logging.
     if (error && (error as AdapterHttpError).isAdapterError) {

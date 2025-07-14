@@ -18,11 +18,11 @@ export interface IContextManager {
    * This should be called once during initialization.
    * @param options The configuration options.
    * @param options.correlationIdHeader The custom header name to use for the correlation ID.
-   * @param options.transactionIdKey The custom key to use for the transaction ID.
+   * @param options.transactionIdHeader The custom header name for the transaction ID.
    */
   configure(options?: {
     correlationIdHeader?: string;
-    transactionIdKey?: string;
+    transactionIdHeader?: string;
   }): void;
 
   /**
@@ -66,6 +66,12 @@ export interface IContextManager {
    * @returns {string} The header name.
    */
   getCorrelationIdHeaderName(): string;
+
+  /**
+   * Gets the configured HTTP header name used for the transaction ID.
+   * @returns {string} The header name.
+   */
+  getTransactionIdHeaderName(): string;
 
   /**
    * A convenience method to get the transaction ID from the current context.

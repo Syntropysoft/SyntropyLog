@@ -55,11 +55,13 @@ export class BrokerManager {
           instanceConfig.instanceName
         );
 
-        // Create the instrumented client, passing the user-provided adapter.
+        // Create the instrumented client, passing the user-provided adapter
+        // and the full instance configuration.
         const instrumentedClient = new InstrumentedBrokerClient(
           instanceConfig.adapter, // The adapter is injected by the user via config.
           childLogger,
-          this.options.contextManager
+          this.options.contextManager,
+          instanceConfig
         );
 
         this.instances.set(instanceConfig.instanceName, instrumentedClient);

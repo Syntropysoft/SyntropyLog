@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  nats-server:
+    image: nats:2.9-alpine
+    ports:
+      - "4222:4222"
+
+  api-gateway:
+    build:
+      context: ../..
+      dockerfile: examples/80-full-stack-nats/Dockerfile
+    working_dir: /app/examples/80-full-stack-nats
+    command: sh -c "npm run build && npm run start:api-gateway"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../..:/app
+    depends_on:
+      - nats-server
+
+  sales-service:
+    build:
+      context: ../..
+      dockerfile: examples/80-full-stack-nats/Dockerfile
+    working_dir: /app/examples/80-full-stack-nats
+    command: sh -c "npm run build && npm run start:sales-service"
+    ports:
+      - "3001:3001"
+    volumes:
+      - ../..:/app
+    depends_on:
+      - nats-server
+
+  dispatch-service:
+    build:
+      context: ../..
+      dockerfile: examples/80-full-stack-nats/Dockerfile
+    working_dir: /app/examples/80-full-stack-nats
+    command: sh -c "npm run build && npm run start:dispatch-service"
+    volumes:
+      - ../..:/app
+    depends_on:
+      - nats-server 

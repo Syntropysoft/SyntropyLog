@@ -1,7 +1,7 @@
 import express from 'express';
 import { syntropyLog } from 'syntropylog';
 import { StringCodec } from 'nats';
-import { NatsAdapter } from '../shared/NatsAdapter';
+import { NatsAdapter } from '../../../../external-adapters/brokers/NatsAdapter';
 import { contextMiddleware } from '../shared/context.middleware';
 
 syntropyLog.init({
@@ -9,11 +9,16 @@ syntropyLog.init({
     serviceName: 'sales-service',
     serializerTimeoutMs: 100,
   },
+  context: {
+    correlationIdHeader: 'x-correlation-id',
+    transactionIdHeader: 'x-trace-id',
+  },
   brokers: {
     instances: [
       {
         instanceName: 'nats-default',
-        adapter: new NatsAdapter(), // The manager will call .connect()
+        adapter: new NatsAdapter('nats://nats-server:4222'), // The manager will call .connect()
+        propagateFullContext: true,
       },
     ],
   },

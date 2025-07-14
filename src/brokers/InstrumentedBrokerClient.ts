@@ -12,6 +12,7 @@ import {
   MessageHandler,
   MessageLifecycleControls,
 } from './adapter.types';
+import { BrokerInstanceConfig } from '../config';
 
 /**
  * @class InstrumentedBrokerClient
@@ -24,11 +25,13 @@ export class InstrumentedBrokerClient {
    * @param {IBrokerAdapter} adapter - The concrete broker adapter implementation (e.g., for RabbitMQ, Kafka).
    * @param {ILogger} logger - The logger instance for this client.
    * @param {IContextManager} contextManager - The manager for handling asynchronous contexts.
+   * @param {BrokerInstanceConfig} config - The configuration for this specific instance.
    */
   constructor(
     private readonly adapter: IBrokerAdapter,
     private readonly logger: ILogger,
-    private readonly contextManager: IContextManager
+    private readonly contextManager: IContextManager,
+    private readonly config: BrokerInstanceConfig
   ) {}
 
   /**
@@ -62,15 +65,38 @@ export class InstrumentedBrokerClient {
    * @returns {Promise<void>}
    */
   public async publish(topic: string, message: BrokerMessage): Promise<void> {
-    const correlationId = this.contextManager.getCorrelationId();
-    if (correlationId) {
-      // Ensure headers object exists
-      if (!message.headers) {
-        message.headers = {};
+    if (!message.headers) {
+      message.headers = {};
+    }
+
+    // 1. Inject context into headers based on the configuration.
+    if (this.config.propagateFullContext) {
+      // Propagate the entire context map.
+      const contextObject = this.contextManager.getAll();
+      for (const key in contextObject) {
+        if (Object.prototype.hasOwnProperty.call(contextObject, key)) {
+          const value = contextObject[key];
+          if (typeof value === 'string' || Buffer.isBuffer(value)) {
+            // Note: Broker headers typically support string | Buffer.
+            message.headers[key] = value;
+          }
+        }
       }
-      // Inject the correlation ID
-      message.headers[this.contextManager.getCorrelationIdHeaderName()] =
-        correlationId;
+    } else {
+      // Default behavior: Propagate only correlation and transaction IDs.
+      const correlationId = this.contextManager.getCorrelationId();
+      if (correlationId) {
+        message.headers[
+          this.contextManager.getCorrelationIdHeaderName()
+        ] = correlationId;
+      }
+
+      const transactionId = this.contextManager.getTransactionId();
+      if (transactionId) {
+        message.headers[
+          this.contextManager.getTransactionIdHeaderName()
+        ] = transactionId;
+      }
     }
 
     this.logger.info(
@@ -100,15 +126,16 @@ export class InstrumentedBrokerClient {
 
     // Wrap the user's handler to implement automatic context propagation.
     const instrumentedHandler: MessageHandler = async (message, controls) => {
-      const headerName = this.contextManager.getCorrelationIdHeaderName();
-      const correlationId = message.headers?.[headerName]?.toString();
-
-      // This is the core of the instrumentation: run the handler within a new context.
+      // Restore context from all headers found in the message.
+      // This is more robust as it doesn't assume which headers are present.
       await this.contextManager.run(async () => {
-        if (correlationId) {
-          this.contextManager.set(headerName, correlationId);
+        if (message.headers) {
+          for (const key in message.headers) {
+            this.contextManager.set(key, message.headers[key]);
+          }
         }
-
+        
+        const correlationId = this.contextManager.getCorrelationId();
         this.logger.info({ topic, correlationId }, 'Received message.');
 
         // Also wrap the lifecycle controls to add logging for ack/nack actions.

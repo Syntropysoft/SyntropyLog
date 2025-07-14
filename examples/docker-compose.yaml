@@ -1,3 +1,7 @@
+###################################################################################################
+# This file is only used as a source of truth for the settings that are necessary for the examples.
+###################################################################################################
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
@@ -86,44 +90,6 @@ services:
       - '6379:6379'
     volumes:
       - redis-data:/data
-
-  api-gateway:
-    build:
-      context: ..
-      dockerfile: examples/80-full-stack-nats/Dockerfile
-    container_name: api-gateway-example
-    ports:
-      - '3000:3000'
-    command: node dist/api-gateway/index.js
-    depends_on:
-      - sales-service
-      - nats
-    profiles:
-      - nats-app
-
-  sales-service:
-    build:
-      context: ..
-      dockerfile: examples/80-full-stack-nats/Dockerfile
-    container_name: sales-service-example
-    ports:
-      - '3001:3001'
-    command: node dist/sales-service/index.js
-    depends_on:
-      - nats
-    profiles:
-      - nats-app
-
-  dispatch-service:
-    build:
-      context: ..
-      dockerfile: examples/80-full-stack-nats/Dockerfile
-    container_name: dispatch-service-example
-    command: node dist/dispatch-service/index.js
-    depends_on:
-      - nats
-    profiles:
-      - nats-app
 
 volumes:
   redis-data:

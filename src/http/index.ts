@@ -15,12 +15,6 @@ export type {
   AdapterHttpError,
 } from './adapters/adapter.types';
 
-// 2. EXPORT THE ADAPTERS WE PROVIDE
-// As a convenience for users, we export the adapters that we maintain
-// ourselves (like the one for Axios). This way, they don't have to write
-// it themselves if they use a common library.
-export { AxiosAdapter } from './adapters/AxiosAdapter';
-
 // 3. (OPTIONAL) EXPORT THE INSTRUMENTER
 // Exporting the instrumenter class type can be useful for advanced
 // TypeScript users who want explicit type references.

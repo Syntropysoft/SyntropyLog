@@ -1,5 +1,5 @@
 import amqplib, { Connection, Channel, ConsumeMessage } from 'amqplib';
-import { IBrokerAdapter, BrokerMessage, MessageHandler } from '../../../src/brokers';
+import { IBrokerAdapter, BrokerMessage, MessageHandler } from '../../src/brokers/adapter.types';
 
 export class RabbitMQAdapter implements IBrokerAdapter {
   private connection: Connection | null = null;

@@ -17,7 +17,7 @@ import {
   AdapterHttpResponse,
   IHttpClientAdapter,
   AdapterHttpError,
-} from './adapter.types';
+} from '../../src/http/adapters/adapter.types';
 
 /**
  * A helper function to normalize the Axios headers object.
@@ -79,10 +79,27 @@ export class AxiosAdapter implements IHttpClientAdapter {
     request: AdapterHttpRequest
   ): Promise<AdapterHttpResponse<T>> {
     try {
+      // Sanitize headers before passing them to Axios.
+      // The `request.headers` object from the instrumenter contains the full context,
+      // which might include non-string values or keys that are not valid HTTP headers.
+      // This ensures we only pass valid, string-based headers to the underlying client.
+      const sanitizedHeaders: Record<string, string> = {};
+      const excludedHeaders = ['host', 'connection', 'content-length']; // Headers to exclude
+
+      for (const key in request.headers) {
+        if (
+          Object.prototype.hasOwnProperty.call(request.headers, key) &&
+          typeof request.headers[key] === 'string' &&
+          !excludedHeaders.includes(key.toLowerCase()) // Exclude problematic headers
+        ) {
+          sanitizedHeaders[key] = request.headers[key] as string;
+        }
+      }
+
       const axiosConfig: AxiosRequestConfig = {
         url: request.url,
         method: request.method,
-        headers: request.headers,
+        headers: sanitizedHeaders,
         params: request.queryParams,
         data: request.body,
       };

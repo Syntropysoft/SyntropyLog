@@ -5,7 +5,7 @@
  */
 import { TransportOptions } from './Transport';
 import { LogLevelName } from '../levels';
-import { type ChalkInstance } from 'chalk';
+import { Chalk } from 'chalk';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
 
 /**
@@ -17,7 +17,7 @@ import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
 export class PrettyConsoleTransport extends BaseConsolePrettyTransport {
   private readonly levelColorMap: Record<
     Exclude<LogLevelName, 'silent'>,
-    ChalkInstance
+    Chalk
   >;
 
   /**

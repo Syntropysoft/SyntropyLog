@@ -67,25 +67,13 @@ export class HttpManager {
           instanceConfig.instanceName
         );
 
-        // Extract instrumentation options from the configuration for this instance.
-        const instrumentorOptions: InstrumentorOptions = {
-          logRequestHeaders: instanceConfig.logging?.logRequestHeaders,
-          logRequestBody: instanceConfig.logging?.logRequestBody,
-          logSuccessHeaders: instanceConfig.logging?.logSuccessHeaders,
-          logSuccessBody: instanceConfig.logging?.logSuccessBody,
-          logLevel: {
-            onRequest: instanceConfig.logging?.onRequest,
-            onSuccess: instanceConfig.logging?.onSuccess,
-            onError: instanceConfig.logging?.onError,
-          },
-        };
-
-        // Create the instrumented client, passing the user-provided adapter.
+        // Create the instrumented client, passing the user-provided adapter
+        // and the full instance configuration.
         const instrumentedClient = new InstrumentedHttpClient(
           instanceConfig.adapter,
           childLogger,
           this.contextManager,
-          instrumentorOptions
+          instanceConfig
         );
 
         this.instances.set(instanceConfig.instanceName, instrumentedClient);

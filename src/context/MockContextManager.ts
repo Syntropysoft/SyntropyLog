@@ -19,24 +19,26 @@ export class MockContextManager implements IContextManager {
   private store: Record<string, any> = {};
   /** @private The HTTP header name used for the correlation ID. */
   private correlationIdHeader = 'x-correlation-id';
+  /** @private The HTTP header name used for the transaction ID. */
+  private transactionIdHeader = 'x-trace-id';
   /** @private The key used for storing the transaction ID in the context. */
-  private transactionIdKey = 'transactionId';
+  private readonly transactionIdKey = 'transactionId';
 
   /**
    * Configures the mock context manager.
    * @param options The configuration options.
    * @param options.correlationIdHeader The custom header name to use for the correlation ID.
-   * @param options.transactionIdKey The custom key to use for the transaction ID.
+   * @param options.transactionIdHeader The custom header name for the transaction ID.
    */
   public configure(options?: {
     correlationIdHeader?: string;
-    transactionIdKey?: string;
+    transactionIdHeader?: string;
   }): void {
     if (options?.correlationIdHeader) {
       this.correlationIdHeader = options.correlationIdHeader;
     }
-    if (options?.transactionIdKey) {
-      this.transactionIdKey = options.transactionIdKey;
+    if (options?.transactionIdHeader) {
+      this.transactionIdHeader = options.transactionIdHeader;
     }
   }
 
@@ -118,7 +120,8 @@ export class MockContextManager implements IContextManager {
    * @returns {string | undefined} The correlation ID, or undefined if not set.
    */
   getCorrelationId(): string | undefined {
-    return this.get(this.correlationIdHeader);
+    // The key in the context is always 'correlationId'.
+    return this.get('correlationId');
   }
 
   /**
@@ -143,6 +146,14 @@ export class MockContextManager implements IContextManager {
    */
   getCorrelationIdHeaderName(): string {
     return this.correlationIdHeader;
+  }
+
+  /**
+   * Gets the configured HTTP header name used for the transaction ID.
+   * @returns {string} The header name.
+   */
+  getTransactionIdHeaderName(): string {
+    return this.transactionIdHeader;
   }
 
   /**

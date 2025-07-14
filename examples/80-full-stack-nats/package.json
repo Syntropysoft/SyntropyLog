@@ -6,7 +6,11 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "concurrently \"node dist/api-gateway/index.js\" \"node dist/sales-service/index.js\" \"node dist/dispatch-service/index.js\""
+    "prestart": "npm run build",
+    "start": "concurrently \"npm:start:api-gateway\" \"npm:start:sales-service\" \"npm:start:dispatch-service\"",
+    "start:api-gateway": "node dist/examples/80-full-stack-nats/src/api-gateway/index.js",
+    "start:sales-service": "node dist/examples/80-full-stack-nats/src/sales-service/index.js",
+    "start:dispatch-service": "node dist/examples/80-full-stack-nats/src/dispatch-service/index.js"
   },
   "dependencies": {
     "axios": "^1.6.0",

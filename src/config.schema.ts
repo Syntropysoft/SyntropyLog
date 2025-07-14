@@ -144,6 +144,13 @@ export const httpInstanceConfigSchema = z.object({
   }, "The provided adapter is invalid. It must be an object with a 'request' method."),
 
   /**
+   * If true, propagates the entire asynchronous context map as headers.
+   * If false (default), only propagates `correlationId` and `transactionId`.
+   * @default false
+   */
+  propagateFullContext: z.boolean().optional().default(false),
+
+  /**
    * Logging settings specific to this HTTP client instance.
    */
   logging: z
@@ -205,6 +212,12 @@ export const brokerInstanceConfigSchema = z.object({
       typeof (val as any).subscribe === 'function'
     );
   }, 'The provided broker adapter is invalid.'),
+  /**
+   * If true, propagates the entire asynchronous context map as headers.
+   * If false (default), only propagates `correlationId` and `transactionId`.
+   * @default false
+   */
+  propagateFullContext: z.boolean().optional().default(false),
 });
 
 /**
@@ -239,6 +252,8 @@ export const syntropyLogConfigSchema = z.object({
     .object({
       /** The HTTP header name to use for the correlation ID. @default 'x-correlation-id' */
       correlationIdHeader: z.string().optional(),
+      /** The HTTP header name to use for the external transaction/trace ID. @default 'x-trace-id' */
+      transactionIdHeader: z.string().optional(),
     })
     .optional(),
 
