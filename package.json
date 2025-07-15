@@ -70,7 +70,7 @@
     "clean": "rm -rf dist",
     "lint": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
-    "test": "vitest run",
+    "test": "vitest --run --reporter=verbose",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run -c vitest.integration.config.ts",
     "test:all": "npm test && npm run test:integration",
@@ -136,5 +136,8 @@
     "redis": {
       "optional": true
     }
+  },
+  "lint-staged": {
+    "*.ts": "eslint --fix"
   }
 }
