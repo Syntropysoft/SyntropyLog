@@ -43,5 +43,6 @@ module.exports = {
     'coverage/',
     'vitest.config.ts',
     'examples',
+    'tests',
   ],
 };

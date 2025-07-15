@@ -37,7 +37,7 @@ describe('CompactConsoleTransport', () => {
   });
 
   it('should log a simple message in the correct compact format', async () => {
-    const transport = new CompactConsoleTransport();
+    const transport = new CompactConsoleTransport({ level: 'info' });
     const logEntry = getBaseLogEntry('info', 'Server is running.');
 
     await transport.log(logEntry);
@@ -55,7 +55,7 @@ describe('CompactConsoleTransport', () => {
   });
 
   it('should format and include metadata on a new line', async () => {
-    const transport = new CompactConsoleTransport();
+    const transport = new CompactConsoleTransport({ level: 'debug' });
     const logEntry: LogEntry = {
       ...getBaseLogEntry('debug', 'Processing request.'),
       context: { correlationId: 'xyz-987' },
@@ -86,7 +86,7 @@ describe('CompactConsoleTransport', () => {
   });
 
   it('should use console.error for "error" and "fatal" levels', async () => {
-    const transport = new CompactConsoleTransport();
+    const transport = new CompactConsoleTransport({ level: 'error' });
     const errorEntry = getBaseLogEntry('error', 'Failed to connect to DB.');
     const fatalEntry = getBaseLogEntry('fatal', 'Unrecoverable error.');
 
@@ -99,7 +99,7 @@ describe('CompactConsoleTransport', () => {
   });
 
   it('should use console.warn for "warn" level', async () => {
-    const transport = new CompactConsoleTransport();
+    const transport = new CompactConsoleTransport({ level: 'warn' });
     const warnEntry = getBaseLogEntry('warn', 'API rate limit approaching.');
 
     await transport.log(warnEntry);
@@ -109,7 +109,7 @@ describe('CompactConsoleTransport', () => {
   });
 
   it('should not log anything for the "silent" level', async () => {
-    const transport = new CompactConsoleTransport();
+    const transport = new CompactConsoleTransport({ level: 'info' });
     const logEntry = getBaseLogEntry('silent', 'This should be ignored.');
 
     await transport.log(logEntry);

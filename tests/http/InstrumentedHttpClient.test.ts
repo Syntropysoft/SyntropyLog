@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { InstrumentedHttpClient, InstrumentorOptions } from '../../src/http/InstrumentedHttpClient';
+import { InstrumentedHttpClient } from '../../src/http/InstrumentedHttpClient';
 import { ILogger } from '../../src/logger';
 import { IContextManager } from '../../src/context';
 import {

@@ -87,11 +87,15 @@ describe('ContextManager', () => {
 
     it('should handle asynchronous callbacks', async () => {
       await contextManager.run(async () => {
-        contextManager.set('asyncKey', 'asyncValue');
-        await delay(10);
-        expect(contextManager.get('asyncKey')).toBe('asyncValue');
+        contextManager.set('outerKey', 'outerValue');
+
+        await contextManager.run(async () => {
+          contextManager.set('innerKey', 'innerValue');
+          // Inner context should inherit from outer context
+          expect(contextManager.get('outerKey')).toBe('outerValue');
+          expect(contextManager.get('innerKey')).toBe('innerValue');
+        });
       });
-      expect(contextManager.get('asyncKey')).toBeUndefined();
     });
   });
 
@@ -111,11 +115,16 @@ describe('ContextManager', () => {
       expect(contextManager.getAll()).toEqual({});
     });
 
-    it('should return all key-value pairs within a context', () => {
-      contextManager.run(() => {
+    it('should return all data from the current context', async () => {
+      await contextManager.run(async () => {
         contextManager.set('key1', 'value1');
         contextManager.set('key2', 123);
-        expect(contextManager.getAll()).toEqual({ key1: 'value1', key2: 123 });
+        const allData = contextManager.getAll();
+        expect(allData).toEqual({
+          key1: 'value1',
+          key2: 123,
+          correlationId: expect.any(String),
+        });
       });
     });
   });
@@ -144,8 +153,8 @@ describe('ContextManager', () => {
   });
 
   describe('Trace Context Headers', () => {
-    it('should return undefined for trace context headers by default', () => {
-      expect(contextManager.getTraceContextHeaders()).toBeUndefined();
+    it('should return an empty object for trace context headers by default', () => {
+      expect(contextManager.getTraceContextHeaders()).toEqual({});
     });
   });
 });

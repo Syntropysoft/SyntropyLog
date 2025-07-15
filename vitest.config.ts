@@ -5,6 +5,7 @@ export default defineConfig({
     globals: true, // To avoid having to import describe, it, etc. from 'vitest'
     environment: 'node', // Or 'jsdom' if you need to simulate a browser
     include: ['tests/**/*.{test,spec}.?(c|m)[jt]s?(x)'], // Search for tests only in the 'tests' folder
+    exclude: ['test_integration/**'],
     coverage: {
       provider: 'v8', // or 'istanbul'
       reporter: ['text', 'json', 'html', 'lcov'], // lcov is useful for Codecov and similar tools

@@ -123,17 +123,18 @@ export const redisInstanceConfigSchema = z.discriminatedUnion('mode', [
  */
 export const redisConfigSchema = z
   .object({
+    /** An array of Redis instance configurations. */
     instances: z.array(redisInstanceConfigSchema),
+    /** The name of the default Redis instance to use when no name is provided to `getInstance()`. */
+    default: z.string().optional(),
   })
   .optional();
 
-/** Schema for a single HTTP client instance. */
 /**
  * @description Schema for a single HTTP client instance.
  */
 export const httpInstanceConfigSchema = z.object({
   instanceName: z.string(),
-
   adapter: z.custom<IHttpClientAdapter>((val) => {
     return (
       typeof val === 'object' &&
@@ -142,24 +143,9 @@ export const httpInstanceConfigSchema = z.object({
       typeof (val as any).request === 'function'
     );
   }, "The provided adapter is invalid. It must be an object with a 'request' method."),
-
-  /**
-   * An array of context keys to propagate as headers.
-   * To propagate all keys, provide an array with a single wildcard: `['*']`.
-   * If not provided, only `correlationId` and `transactionId` are propagated by default.
-   */
+  isDefault: z.boolean().optional(),
   propagate: z.array(z.string()).optional(),
-
-  /**
-   * @deprecated Use `propagate` instead.
-   * If true, propagates the entire asynchronous context map as headers.
-   * If false (default), only propagates `correlationId` and `transactionId`.
-   */
   propagateFullContext: z.boolean().optional(),
-
-  /**
-   * Logging settings specific to this HTTP client instance.
-   */
   logging: z
     .object({
       onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
@@ -170,7 +156,7 @@ export const httpInstanceConfigSchema = z.object({
       logRequestBody: z.boolean().default(false),
       logRequestHeaders: z.boolean().default(false),
     })
-    .partial() // Makes all properties within the logging object optional.
+    .partial()
     .optional(),
 });
 
@@ -181,6 +167,8 @@ export const httpConfigSchema = z
   .object({
     /** An array of HTTP client instance configurations. */
     instances: z.array(httpInstanceConfigSchema),
+    /** The name of the default HTTP client instance to use when no name is provided to `getInstance()`. */
+    default: z.string().optional(),
   })
   .optional();
 
@@ -232,6 +220,7 @@ export const brokerInstanceConfigSchema = z.object({
    * If false (default), only propagates `correlationId` and `transactionId`.
    */
   propagateFullContext: z.boolean().optional(),
+  isDefault: z.boolean().optional(),
 });
 
 /**
@@ -241,6 +230,8 @@ export const brokerConfigSchema = z
   .object({
     /** An array of broker client instance configurations. */
     instances: z.array(brokerInstanceConfigSchema),
+    /** The name of the default broker instance to use when no name is provided to `getInstance()`. */
+    default: z.string().optional(),
   })
   .optional();
 

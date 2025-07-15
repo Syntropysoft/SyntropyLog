@@ -3,25 +3,10 @@
  * @description Manages the lifecycle and creation of multiple instrumented HTTP client instances.
  */
 
-import { ILogger } from '../logger';
 import { IContextManager } from '../context';
-import { SyntropyLogConfig } from '../config';
+import { ILogger } from '../logger';
 import { InstrumentedHttpClient } from './InstrumentedHttpClient';
-import { createFailingHttpClient } from '../utils/createFailingClient';
-import { LoggerFactory } from '../logger/LoggerFactory';
-
-/**
- * @interface HttpManagerOptions
- * @description Defines the options required to initialize the HttpManager.
- */
-export interface HttpManagerOptions {
-  /** The main application configuration. */
-  config?: SyntropyLogConfig;
-  /** The factory for creating logger instances. */
-  loggerFactory: LoggerFactory;
-  /** The manager for handling asynchronous contexts. */
-  contextManager: IContextManager;
-}
+import { SyntropyHttpConfig } from '../config';
 
 /**
  * @class HttpManager
@@ -36,63 +21,69 @@ export class HttpManager {
   private readonly logger: ILogger;
   /** @private A reference to the context manager for dependency injection. */
   private readonly contextManager: IContextManager;
-  /** @private A reference to the logger factory for creating child loggers. */
-  private readonly loggerFactory: LoggerFactory;
   /** @private The global application configuration. */
-  private readonly globalConfig: SyntropyLogConfig;
+  private readonly config: SyntropyHttpConfig;
+  /** @private The name of the default HTTP client instance. */
+  private defaultInstance?: InstrumentedHttpClient;
 
-  constructor(options: HttpManagerOptions) {
-    this.loggerFactory = options.loggerFactory;
-    this.contextManager = options.contextManager;
-    this.globalConfig = options.config || {};
-    this.logger = this.loggerFactory.getLogger('http-manager');
+  constructor(
+    config: SyntropyHttpConfig,
+    logger: ILogger,
+    contextManager: IContextManager
+  ) {
+    this.config = config;
+    this.logger = logger.child({ module: 'HttpManager' });
+    this.contextManager = contextManager;
+  }
 
-    const httpInstances = this.globalConfig.http?.instances || [];
-    if (httpInstances.length === 0) {
+  public init() {
+    this.logger.trace('Initializing HttpManager...');
+    if (!this.config.instances || this.config.instances.length === 0) {
       this.logger.debug(
         'HttpManager initialized, but no HTTP client instances were defined.'
       );
       return;
     }
 
-    // The creation logic is now generic. It iterates through the instance
-    // configurations and uses the provided adapter, regardless of its underlying
-    // implementation (e.g., Axios, Got, Fetch).
-    for (const instanceConfig of httpInstances) {
+    for (const instanceConfig of this.config.instances) {
       try {
-        const childLogger = this.loggerFactory.getLogger(
-          instanceConfig.instanceName
-        );
-
-        // Create the instrumented client, passing the user-provided adapter
-        // and the full instance configuration.
-        const instrumentedClient = new InstrumentedHttpClient(
+        const client = new InstrumentedHttpClient(
           instanceConfig.adapter,
-          childLogger,
+          this.logger,
           this.contextManager,
           instanceConfig
         );
-
-        this.instances.set(instanceConfig.instanceName, instrumentedClient);
+        this.instances.set(instanceConfig.instanceName, client);
         this.logger.info(
           `HTTP client instance "${instanceConfig.instanceName}" created successfully via adapter.`
         );
+
+        if (instanceConfig.isDefault) {
+          if (this.defaultInstance) {
+            this.logger.warn(
+              `Multiple default HTTP instances defined. Overwriting previous default "${this.defaultInstance.instanceName}" with "${instanceConfig.instanceName}".`
+            );
+          }
+          this.logger.trace(
+            `Setting default HTTP instance: ${instanceConfig.instanceName}`
+          );
+          this.defaultInstance = client;
+        }
       } catch (error) {
-        // If initialization fails, create a "failing client" for resilience.
-        // This prevents the application from crashing and provides clear error logs
-        // when an attempt is made to use the failing client.
         this.logger.error(
           `Failed to create HTTP client instance "${instanceConfig.instanceName}"`,
           { error }
         );
-        const failingClient = createFailingHttpClient(
-          instanceConfig.instanceName,
-          // We cannot safely access the adapter here if it's the source of the error.
-          'UnknownAdapter',
-          this.logger
-        );
-        this.instances.set(instanceConfig.instanceName, failingClient);
       }
+    }
+
+    if (!this.defaultInstance && this.instances.size > 0) {
+      const firstInstance = this.instances.values().next().value;
+      const firstName = this.instances.keys().next().value;
+      this.logger.trace(
+        `No default HTTP instance configured. Using first available instance: ${firstName}`
+      );
+      this.defaultInstance = firstInstance;
     }
   }
 
@@ -103,11 +94,17 @@ export class HttpManager {
    * @returns {InstrumentedHttpClient} The requested client instance.
    * @throws {Error} If no instance with the given name is found.
    */
-  public getInstance(name: string): InstrumentedHttpClient {
-    const instance = this.instances.get(name);
+  public getInstance(name?: string): InstrumentedHttpClient {
+    const instanceName = name ?? this.defaultInstance?.instanceName;
+    if (!instanceName) {
+      throw new Error(
+        'A specific instance name was not provided and no default HTTP instance is configured.'
+      );
+    }
+    const instance = this.instances.get(instanceName);
     if (!instance) {
       throw new Error(
-        `HTTP client instance with name "${name}" was not found. Check your configuration.`
+        `HTTP client instance with name "${instanceName}" was not found. Check your configuration.`
       );
     }
     return instance;
@@ -117,10 +114,9 @@ export class HttpManager {
    * Clears all managed HTTP client instances. This is a simple cleanup operation.
    */
   public async shutdown(): Promise<void> {
-    if (this.instances.size > 0) {
-      this.logger.info('Shutting down HTTP clients.');
-    }
+    this.logger.info('Shutting down HTTP clients.');
     this.instances.clear();
+    // HTTP clients do not require explicit shutdown, so we just clear the map.
     return Promise.resolve();
   }
 }

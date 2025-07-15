@@ -1,7 +1,7 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
 import path from 'path';
-import { LoggerOptions } from '../logger/Logger';
+import { LoggerOptions } from '../types';
 
 /**
  * Defines the options for customizing the logger configuration loading behavior.

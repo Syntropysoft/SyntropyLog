@@ -47,6 +47,7 @@ export interface InstrumentorOptions {
  * context propagation, and timing for all HTTP requests.
  */
 export class InstrumentedHttpClient {
+  public readonly instanceName: string;
   private readonly instrumentorOptions: InstrumentorOptions;
   /**
    * @constructor
@@ -61,6 +62,7 @@ export class InstrumentedHttpClient {
     private readonly contextManager: IContextManager,
     private readonly config: HttpClientInstanceConfig
   ) {
+    this.instanceName = config.instanceName;
     // Extract instrumentation options from the main config for clarity.
     this.instrumentorOptions = {
       logRequestHeaders: this.config.logging?.logRequestHeaders,

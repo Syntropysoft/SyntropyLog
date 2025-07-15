@@ -1,14 +1,14 @@
-import { Logger, LoggerOptions } from './Logger';
+import { SyntropyLog } from '../SyntropyLog';
+import { SyntropyLogConfig } from '../config';
+import { Logger, LoggerDependencies } from './Logger';
 import { ILogger } from './ILogger';
 import { IContextManager } from '../context/IContextManager';
-import { LogLevelName } from './levels';
+import { MaskingEngine } from '../masking/MaskingEngine';
+import { SerializerRegistry } from '../serialization/SerializerRegistry';
 import { Transport } from './transports/Transport';
 import { ConsoleTransport } from './transports/ConsoleTransport';
-import { SyntropyLogConfig } from '../config';
-import { SerializerRegistry } from '../serialization/SerializerRegistry';
-import { MaskingEngine } from '../masking/MaskingEngine';
+import { LogLevel } from '../types';
 import { SanitizationEngine } from '../sanitization/SanitizationEngine';
-import { SyntropyLog } from '../SyntropyLog';
 
 /**
  * @class LoggerFactory
@@ -24,7 +24,7 @@ export class LoggerFactory {
   /** @private The array of transports to which logs will be dispatched. */
   private readonly transports: Transport[];
   /** @private The global minimum log level for all created loggers. */
-  private readonly globalLogLevel: LogLevelName;
+  private readonly globalLogLevel: LogLevel;
   /** @private The global service name, used as a default for loggers. */
   private readonly serviceName: string;
   /** @private The engine responsible for serializing complex objects. */
@@ -100,21 +100,24 @@ export class LoggerFactory {
    * @returns {ILogger} The logger instance.
    */
   public getLogger(name = 'default'): ILogger {
-    if (!this.loggerPool.has(name)) {
-      const loggerOptions: LoggerOptions = {
-        contextManager: this.contextManager,
-        syntropyLogInstance: this.syntropyLogInstance,
-        transports: this.transports,
-        level: this.globalLogLevel,
-        serviceName: name === 'default' ? this.serviceName : name,
-        serializerRegistry: this.serializerRegistry,
-        maskingEngine: this.maskingEngine,
-      };
-
-      const logger = new Logger(loggerOptions);
-      this.loggerPool.set(name, logger);
+    if (this.loggerPool.has(name)) {
+      return this.loggerPool.get(name) as ILogger;
     }
-    return this.loggerPool.get(name)!;
+
+    const loggerName = name === 'default' ? this.serviceName : name;
+
+    const dependencies: LoggerDependencies = {
+      contextManager: this.contextManager,
+      serializerRegistry: this.serializerRegistry,
+      maskingEngine: this.maskingEngine,
+      syntropyLogInstance: this.syntropyLogInstance,
+    };
+
+    const logger = new Logger(loggerName, this.transports, dependencies);
+    logger.level = this.globalLogLevel;
+
+    this.loggerPool.set(name, logger);
+    return logger;
   }
 
   /**

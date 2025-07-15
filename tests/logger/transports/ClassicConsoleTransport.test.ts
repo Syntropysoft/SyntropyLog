@@ -51,7 +51,7 @@ describe('ClassicConsoleTransport', () => {
   };
 
   it('should log a simple info message in the correct classic format', async () => {
-    const transport = new ClassicConsoleTransport();
+    const transport = new ClassicConsoleTransport({ level: 'info' });
     const logEntry = getBaseLogEntry('info', 'Application started successfully.');
 
     await transport.log(logEntry);
@@ -70,7 +70,7 @@ describe('ClassicConsoleTransport', () => {
   });
 
   it('should include context and other metadata in the log output', async () => {
-    const transport = new ClassicConsoleTransport();
+    const transport = new ClassicConsoleTransport({ level: 'warn' });
     const logEntry: LogEntry = {
       ...getBaseLogEntry('warn', 'User authentication failed.'),
       context: { correlationId: 'abc-123' },
@@ -90,7 +90,7 @@ describe('ClassicConsoleTransport', () => {
   });
 
   it('should use console.error for "error" and "fatal" levels', async () => {
-    const transport = new ClassicConsoleTransport();
+    const transport = new ClassicConsoleTransport({ level: 'error' });
     const errorEntry = getBaseLogEntry('error', 'Database connection failed.');
     const fatalEntry = getBaseLogEntry('fatal', 'Critical system failure.');
 
@@ -103,7 +103,7 @@ describe('ClassicConsoleTransport', () => {
   });
 
   it('should not log anything for the "silent" level', async () => {
-    const transport = new ClassicConsoleTransport();
+    const transport = new ClassicConsoleTransport({ level: 'info' });
     const logEntry = getBaseLogEntry('silent', 'This should not be logged.');
 
     await transport.log(logEntry);
@@ -114,7 +114,7 @@ describe('ClassicConsoleTransport', () => {
   });
 
   it('should handle entries with a missing service name gracefully', async () => {
-    const transport = new ClassicConsoleTransport();
+    const transport = new ClassicConsoleTransport({ level: 'debug' });
     const logEntry: LogEntry = {
       level: 'debug',
       msg: 'A debug message.',
@@ -133,7 +133,7 @@ describe('ClassicConsoleTransport', () => {
   });
 
   it('should correctly pad log levels of different lengths', async () => {
-    const transport = new ClassicConsoleTransport();
+    const transport = new ClassicConsoleTransport({ level: 'trace' });
     await transport.log(getBaseLogEntry('error', ''));
     await transport.log(getBaseLogEntry('trace', ''));
 

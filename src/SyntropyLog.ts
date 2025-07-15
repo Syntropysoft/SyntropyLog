@@ -1,55 +1,42 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/SyntropyLog.ts
- * @description The main singleton class for the SyntropyLog framework.
- * It orchestrates the initialization and shutdown of all managers.
+ * @description The main public-facing singleton class for the SyntropyLog framework.
+ * This class acts as a Facade, providing a simple and clean API surface
+ * while delegating all complex lifecycle and orchestration work to the internal
+ * LifecycleManager.
  */
-import { ZodError } from 'zod';
+import { EventEmitter } from 'events';
 import { SyntropyLogConfig } from './config';
-import { syntropyLogConfigSchema } from './config.schema';
-import { ContextManager, IContextManager } from './context';
+import { IContextManager } from './context';
 import { ILogger } from './logger';
-import { LoggerFactory } from './logger/LoggerFactory';
-import { RedisManager } from './redis/RedisManager';
-import type { IBeaconRedis } from './redis/IBeaconRedis';
-import { sanitizeConfig } from './utils/sanitizeConfig';
-import { HttpManager } from './http/HttpManager';
 import { InstrumentedHttpClient } from './http/InstrumentedHttpClient';
-import { BrokerManager } from './brokers/BrokerManager';
 import { InstrumentedBrokerClient } from './brokers/InstrumentedBrokerClient';
+import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
+import { LogLevel } from './types';
+import { RedisConnectionManager } from './redis/RedisConnectionManager';
 
 /**
  * @class SyntropyLog
- * @description The main entry point and orchestrator for the framework.
- * It follows the Singleton pattern to ensure a single, consistent instance
- * throughout the application's lifecycle.
+ * @description The main public entry point for the framework. It follows the
+ * Singleton pattern and acts as an EventEmitter to report on its lifecycle,
+ * proxying events from its internal LifecycleManager.
  */
-export class SyntropyLog {
-  /** @private The singleton instance. */
+export class SyntropyLog extends EventEmitter {
   private static instance: SyntropyLog;
-  /** @private A flag to ensure the framework is initialized only once. */
-  protected _isInitialized = false;
+  private readonly lifecycleManager: LifecycleManager;
 
-  /** @private The parsed and sanitized configuration for the framework. */
-  protected config: SyntropyLogConfig | undefined;
-  /** @private The manager for the asynchronous context. */
-  protected contextManager: IContextManager | undefined;
-  /** @private The factory for creating and managing logger instances. */
-  protected loggerFactory: LoggerFactory | undefined;
-  /** @private The manager for Redis client instances. */
-  protected redisManager: RedisManager | undefined;
-  /** @private The manager for HTTP client instances. */
-  protected httpManager: HttpManager | undefined;
-  /** @private The manager for message broker client instances. */
-  protected brokerManager: BrokerManager | undefined;
+  private constructor() {
+    super();
+    this.lifecycleManager = new LifecycleManager(this);
 
-  /** @private The constructor is private to enforce the singleton pattern. */
-  private constructor() {}
+    // Proxy events from the lifecycle manager to the public facade
+    this.lifecycleManager.on('ready', () => this.emit('ready'));
+    this.lifecycleManager.on('error', (err) => this.emit('error', err));
+    this.lifecycleManager.on('shutting_down', () => this.emit('shutting_down'));
+    this.lifecycleManager.on('shutdown', () => this.emit('shutdown'));
+  }
 
-  /**
-   * Gets the singleton instance of the SyntropyLog class.
-   * @returns {SyntropyLog} The singleton instance.
-   */
   public static getInstance(): SyntropyLog {
     if (!SyntropyLog.instance) {
       SyntropyLog.instance = new SyntropyLog();
@@ -57,250 +44,79 @@ export class SyntropyLog {
     return SyntropyLog.instance;
   }
 
-  /**
-   * Initializes the framework with the provided configuration.
-   * This method sets up all managers and must be called before any other method.
-   * @param {SyntropyLogConfig} config - The configuration object for the framework.
-   * @returns {Promise<void>}
-   */
+  public getState(): SyntropyLogState {
+    return this.lifecycleManager.getState();
+  }
+
   public async init(config: SyntropyLogConfig): Promise<void> {
-    if (this._isInitialized) {
-      console.warn(
-        '[SyntropyLog] Warning: Framework has already been initialized. Ignoring subsequent init() call.'
-      );
-      return;
-    }
-
-    try {
-      const parsedConfig = syntropyLogConfigSchema.parse(config);
-      const sanitizedConfig = sanitizeConfig(parsedConfig);
-      this.config = sanitizedConfig;
-
-      // 1. Initialize the ContextManager first.
-      this.contextManager = new ContextManager();
-
-      // 2. Pass the context manager and the syntropy instance to the factory.
-      this.loggerFactory = new LoggerFactory(
-        sanitizedConfig,
-        this.contextManager,
-        this
-      );
-      const mainLogger = this.loggerFactory.getLogger('syntropylog-main');
-
-      // 3. Pass dependencies to other managers.
-      this.redisManager = new RedisManager({
-        config: sanitizedConfig.redis,
-        logger: this.loggerFactory.getLogger('redis-manager'),
-      });
-
-      this.httpManager = new HttpManager({
-        config: sanitizedConfig,
-        loggerFactory: this.loggerFactory,
-        contextManager: this.contextManager,
-      });
-
-      this.brokerManager = new BrokerManager({
-        config: sanitizedConfig,
-        loggerFactory: this.loggerFactory,
-        contextManager: this.contextManager,
-      });
-
-      this._isInitialized = true;
-      mainLogger.info('SyntropyLog framework initialized successfully.');
-    } catch (error) {
-      if (error instanceof ZodError) {
-        console.error(
-          '[SyntropyLog] Configuration validation failed:',
-          error.errors
-        );
-      } else {
-        console.error('[SyntropyLog] Failed to initialize framework:', error);
-      }
-      throw error;
-    }
+    return this.lifecycleManager.init(config);
   }
 
-  /**
-   * Resets the singleton's state.
-   * **FOR TESTING AND DEMONSTRATION PURPOSES ONLY.**
-   * This is not intended for production use.
-   * @private
-   */
-  public _resetForTesting(): void {
-    this._isInitialized = false;
-    this.config = undefined;
-    this.contextManager = undefined;
-    this.loggerFactory = undefined;
-    this.redisManager = undefined;
-    this.httpManager = undefined;
-    this.brokerManager = undefined;
-  }
-
-  /**
-   * Retrieves a logger instance by name.
-   * @param {string} [name='default'] - The name of the logger.
-   * @returns {ILogger} The logger instance.
-   */
-  public getLogger(name = 'default'): ILogger {
-    this.ensureInitialized();
-    return this.loggerFactory.getLogger(name);
-  }
-
-  /**
-   * Retrieves a managed Redis client instance by name.
-   * @param {string} name - The name of the Redis instance.
-   * @returns {IBeaconRedis} The Redis client instance.
-   */
-  public getRedis(name: string): IBeaconRedis {
-    this.ensureInitialized();
-    return this.redisManager.getInstance(name);
-  }
-
-  /**
-   * Retrieves a managed and instrumented HTTP client instance by name.
-   * @param {string} name - The name of the HTTP client instance.
-   * @returns {InstrumentedHttpClient} The HTTP client instance.
-   */
-  public getHttp(name: string): InstrumentedHttpClient {
-    this.ensureInitialized();
-    return this.httpManager.getInstance(name);
-  }
-
-  /**
-   * Retrieves the context manager instance.
-   * @returns {IContextManager} The context manager.
-   */
-  public getContextManager(): IContextManager {
-    this.ensureInitialized();
-    return this.contextManager;
-  }
-
-  /**
-   * Retrieves a filtered context object based on the loggingMatrix configuration for a given log level.
-   * This method acts as the "mediator" between the raw context and the logger.
-   *
-   * @param {string} level - The log level ('info', 'error', etc.).
-   * @returns {Record<string, unknown>} A new object containing only the context properties allowed by the matrix.
-   * @internal
-   */
-  public getFilteredContext(level: string): Record<string, unknown> {
-    this.ensureInitialized();
-    const fullContext = this.contextManager.getAll();
-    if (!this.config?.loggingMatrix) {
-      return fullContext; // If no matrix is defined, return everything.
-    }
-
-    const matrix = this.config.loggingMatrix;
-    // Determine the rule: level-specific, or default.
-    const fieldsToKeep = matrix[level as keyof typeof matrix] ?? matrix.default;
-
-    // If no rules apply, return an empty context.
-    if (!fieldsToKeep) {
-      return {};
-    }
-
-    // Wildcard rule: return a clone of the full context.
-    if (fieldsToKeep.includes('*')) {
-      return { ...fullContext };
-    }
-
-    // Apply the filter.
-    const filteredContext: Record<string, unknown> = {};
-    for (const key of fieldsToKeep) {
-      if (Object.prototype.hasOwnProperty.call(fullContext, key)) {
-        filteredContext[key] = fullContext[key];
-      }
-    }
-
-    return filteredContext;
-  }
-
-  /**
-   * Retrieves a managed and instrumented message broker client instance by name.
-   * @param {string} name - The name of the broker client instance.
-   * @returns {InstrumentedBrokerClient} The broker client instance.
-   */
-  public getBroker(name: string): InstrumentedBrokerClient {
-    this.ensureInitialized();
-    return this.brokerManager.getInstance(name);
-  }
-
-  /**
-   * Gracefully shuts down all managed clients and flushes log transports.
-   * @returns {Promise<void>}
-   */
   public async shutdown(): Promise<void> {
-    if (!this.isFullyInitialized()) {
-      return;
-    }
-
-    const mainLogger = this.loggerFactory.getLogger('syntropylog-main');
-    mainLogger.info('Shutting down SyntropyLog framework...');
-
-    const timeout = this.config.shutdownTimeout ?? 5000;
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(
-        () => reject(new Error(`Shutdown timed out after ${timeout}ms`)),
-        timeout
-      )
-    );
-
-    try {
-      const shutdownWork = Promise.allSettled([
-        this.redisManager.shutdown(),
-        this.httpManager.shutdown(),
-        this.brokerManager.shutdown(),
-        this.loggerFactory.flushAllTransports(),
-      ]);
-
-      await Promise.race([shutdownWork, timeoutPromise]);
-      mainLogger.info('SyntropyLog shut down successfully.');
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      mainLogger.warn('Shutdown process timed out.', {
-        detail: 'Some resources may not have been released correctly.',
-        error: message,
-      });
-    } finally {
-      this._isInitialized = false;
-    }
+    return this.lifecycleManager.shutdown();
   }
 
-  /**
-   * @private
-   * Throws an error if the framework has not been initialized. It also serves as
-   * a type assertion function to inform TypeScript that if this method passes,
-   * all manager properties are guaranteed to be defined.
-   */
-  private ensureInitialized(): asserts this is this & {
-    config: SyntropyLogConfig;
-    contextManager: IContextManager;
-    loggerFactory: LoggerFactory;
-    redisManager: RedisManager;
-    httpManager: HttpManager;
-    brokerManager: BrokerManager;
-  } {
-    if (!this.isFullyInitialized()) {
-      throw new Error(
-        'SyntropyLog has not been initialized. Call init() before accessing clients or loggers.'
-      );
+  public getLogger(name = 'default'): ILogger {
+    if (!this.lifecycleManager.loggerFactory) {
+      throw new Error('Logger Factory not available.');
     }
+    return this.lifecycleManager.loggerFactory.getLogger(name);
   }
 
-  /**
-   * @private
-   * A type predicate that narrows the type of `this` to a fully initialized state.
-   * @returns {boolean}
-   */
-  private isFullyInitialized(): this is this & {
-    config: SyntropyLogConfig;
-    contextManager: IContextManager;
-    loggerFactory: LoggerFactory;
-    redisManager: RedisManager;
-    httpManager: HttpManager;
-    brokerManager: BrokerManager;
-  } {
-    return this._isInitialized;
+  public getRedis(name: string): RedisConnectionManager {
+    this.lifecycleManager.ensureReady();
+    return this.lifecycleManager.redisManager.getInstance(name);
+  }
+
+  public getHttp(name: string): InstrumentedHttpClient {
+    this.lifecycleManager.ensureReady();
+    return this.lifecycleManager.httpManager.getInstance(name);
+  }
+
+  public getBroker(name: string): InstrumentedBrokerClient {
+    this.lifecycleManager.ensureReady();
+    return this.lifecycleManager.brokerManager.getInstance(name);
+  }
+
+  public getContextManager(): IContextManager {
+    this.lifecycleManager.ensureReady();
+    return this.lifecycleManager.contextManager;
+  }
+
+  public getConfig(): SyntropyLogConfig {
+    this.lifecycleManager.ensureReady();
+    return this.lifecycleManager.config;
+  }
+
+  public getFilteredContext(level: LogLevel): Record<string, unknown> {
+    this.lifecycleManager.ensureReady();
+    return this.lifecycleManager.contextManager.getFilteredContext(level);
+  }
+
+  public getMasker() {
+    if (!this.lifecycleManager.maskingEngine) {
+      throw new Error('MaskingEngine not available.');
+    }
+    return this.lifecycleManager.maskingEngine;
+  }
+
+  public getSerializer() {
+    if (!this.lifecycleManager.serializerRegistry) {
+      throw new Error('SerializerRegistry not available.');
+    }
+    return this.lifecycleManager.serializerRegistry;
+  }
+
+  public _resetForTesting(): void {
+    // This needs to re-create the lifecycle manager to properly reset state
+    this.lifecycleManager.removeAllListeners();
+    (this as any).lifecycleManager = new LifecycleManager(this);
+    this.removeAllListeners();
+
+    this.lifecycleManager.on('ready', () => this.emit('ready'));
+    this.lifecycleManager.on('error', (err) => this.emit('error', err));
+    this.lifecycleManager.on('shutting_down', () => this.emit('shutting_down'));
+    this.lifecycleManager.on('shutdown', () => this.emit('shutdown'));
   }
 }
 

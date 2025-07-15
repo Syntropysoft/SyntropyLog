@@ -3,34 +3,10 @@
  * @description Manages the lifecycle of multiple instrumented Redis client instances.
  */
 
-import { ILogger } from '../logger/ILogger';
-import {
-  SyntropyRedisConfig,
-  RedisInstanceReconfigurableConfig,
-} from '../config'; // Import from the central configuration
-import { createFailingRedisClient } from '../utils/createFailingClient';
-import { BeaconRedis } from './BeaconRedis';
-import type { IBeaconRedis } from './IBeaconRedis';
+import { IContextManager } from '../context';
+import { ILogger } from '../logger';
+import { SyntropyRedisConfig } from '../config';
 import { RedisConnectionManager } from './RedisConnectionManager';
-import { RedisCommandExecutor } from './RedisCommandExecutor';
-
-/**
- * Defines the options for constructing a `RedisManager`.
- */
-export interface RedisManagerOptions {
-  /** The main Redis configuration object containing all instance definitions. */
-  config?: SyntropyRedisConfig;
-  /** A list of field names whose values should be masked in logs across all instances. */
-  sensitiveCommandValueFields?: string[];
-  /** A list of patterns to match field names for masking across all instances. */
-  sensitiveCommandValuePatterns?: (string | RegExp)[];
-  /**
-   * The central logger instance. This is the only mandatory property.
-   * The manager will create child loggers for each Redis instance.
-   * @type {ILogger}
-   */
-  logger: ILogger;
-}
 
 /**
  * Manages the creation, retrieval, and lifecycle of multiple `IBeaconRedis` instances
@@ -38,117 +14,72 @@ export interface RedisManagerOptions {
  * Redis clients within an application.
  */
 export class RedisManager {
-  private readonly instances = new Map<string, IBeaconRedis>();
+  private readonly instances = new Map<string, RedisConnectionManager>();
+  private defaultInstance?: RedisConnectionManager;
   private readonly logger: ILogger;
-  private readonly sensitiveCommandValueFields: string[];
-  private readonly sensitiveCommandValuePatterns: (string | RegExp)[];
+  private readonly config: SyntropyRedisConfig;
+  private readonly contextManager: IContextManager;
 
-  /**
-   * Constructs a RedisManager.
-   * It iterates through the provided instance configurations, creates the corresponding
-   * native Redis clients, wraps them in `BeaconRedis` for instrumentation, and stores them for retrieval.
-   * @param {RedisManagerOptions} options - The configuration and logger for the manager.
-   */
-  constructor(options: RedisManagerOptions) {
-    const {
-      config,
-      sensitiveCommandValueFields = [],
-      sensitiveCommandValuePatterns = [],
-      logger,
-    } = options;
+  constructor(
+    config: SyntropyRedisConfig,
+    logger: ILogger,
+    contextManager: IContextManager
+  ) {
+    this.config = config;
+    this.logger = logger.child({ module: 'RedisManager' });
+    this.contextManager = contextManager;
+  }
 
-    this.logger = logger;
-    this.sensitiveCommandValueFields = sensitiveCommandValueFields;
-    this.sensitiveCommandValuePatterns = sensitiveCommandValuePatterns;
-
-    if (!config || !config.instances || config.instances.length === 0) {
-      this.logger.debug(
-        'No Redis configuration was provided or no instances were defined. RedisManager initialized empty.'
-      );
+  private init() {
+    this.logger.trace('Initializing RedisManager...');
+    if (
+      !this.config ||
+      !this.config.instances ||
+      this.config.instances.length === 0
+    ) {
+      this.logger.trace('No Redis instances to initialize.');
       return;
     }
 
-    for (const instanceConfig of config.instances) {
-      try {
-        const childLogger = this.logger.child({
-          instance: instanceConfig.instanceName,
-        });
+    for (const instanceConfig of this.config.instances) {
+      const connectionManager = new RedisConnectionManager(
+        instanceConfig,
+        this.logger
+      );
+      this.instances.set(instanceConfig.instanceName, connectionManager);
 
-        // 1. Create the ConnectionManager, passing it the instance configuration.
-        const connectionManager = new RedisConnectionManager(
-          instanceConfig,
-          childLogger
+      if (instanceConfig.instanceName === this.config.default) {
+        this.logger.trace(
+          `Setting default Redis instance: ${instanceConfig.instanceName}`
         );
-
-        // 2. Ask the ConnectionManager for the native client it just created.
-        const nativeClient = connectionManager.getNativeClient();
-
-        // 3. Create the CommandExecutor with that native client.
-        const commandExecutor = new RedisCommandExecutor(nativeClient);
-
-        // 4. Assemble the final instrumented BeaconRedis client with all the pieces.
-        const beaconRedis = new BeaconRedis(
-          instanceConfig,
-          connectionManager,
-          commandExecutor,
-          childLogger
-        );
-
-        this.instances.set(instanceConfig.instanceName, beaconRedis);
-        this.logger.debug(
-          `Redis instance "${instanceConfig.instanceName}" created successfully.`
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to create Redis instance "${instanceConfig.instanceName}"`,
-          { error }
-        );
-        // Instead of omitting the instance, create a "failing" client.
-        // This ensures that getInstance() does not fail, but any operation
-        // with the client will, with a clear message.
-        const failingClient = createFailingRedisClient(
-          instanceConfig.instanceName,
-          error as Error,
-          this.logger
-        );
-        this.instances.set(instanceConfig.instanceName, failingClient);
+        this.defaultInstance = connectionManager;
       }
+    }
+
+    if (!this.defaultInstance && this.instances.size > 0) {
+      const firstInstance = this.instances.values().next().value;
+      const firstName = this.instances.keys().next().value;
+      this.logger.trace(
+        `No default Redis instance configured. Using first available instance: ${firstName}`
+      );
+      this.defaultInstance = firstInstance;
     }
   }
 
-  /**
-   * Retrieves a managed Redis instance by its name.
-   * @param {string} name - The name of the instance to retrieve, as defined in the configuration.
-   * @returns The `IBeaconRedis` instance.
-   * @throws {Error} if no instance with the given name is found.
-   */
-  public getInstance(name: string): IBeaconRedis {
-    const instance = this.instances.get(name);
+  public getInstance(name?: string): RedisConnectionManager {
+    const instanceName = name ?? this.defaultInstance?.instanceName;
+    if (!instanceName) {
+      throw new Error(
+        'A specific instance name was not provided and no default Redis instance is configured.'
+      );
+    }
+    const instance = this.instances.get(instanceName);
     if (!instance) {
       throw new Error(
-        `Redis instance with name "${name}" was not found. Please check that the name is spelled correctly in your configuration and code.`
+        `Redis instance with name "${instanceName}" was not found. Please check that the name is spelled correctly in your configuration and code.`
       );
     }
     return instance;
-  }
-
-  /**
-   * Dynamically updates the configuration of a specific Redis instance.
-   * @param {string} instanceName - The name of the instance to reconfigure.
-   * @param {Partial<RedisInstanceReconfigurableConfig>} newConfig - A partial configuration object with the new reconfigurable options.
-   */
-  public updateInstanceConfig(
-    instanceName: string,
-    newConfig: Partial<RedisInstanceReconfigurableConfig>
-  ): void {
-    const instance = this.instances.get(instanceName);
-    if (instance) {
-      instance.updateConfig(newConfig);
-    } else {
-      this.logger.warn(
-        `Attempted to reconfigure Redis instance "${instanceName}", but it was not found.`
-      );
-    }
   }
 
   /**
@@ -158,7 +89,7 @@ export class RedisManager {
   public async shutdown(): Promise<void> {
     this.logger.info('Closing all Redis connections...');
     const shutdownPromises = Array.from(this.instances.values()).map(
-      (instance) => instance.quit()
+      (instance) => instance.disconnect()
     );
     await Promise.allSettled(shutdownPromises);
     this.logger.info('All Redis connections have been closed.');

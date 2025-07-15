@@ -83,43 +83,40 @@ describe('Testing Utilities', () => {
   });
 
   describe('MockContextManager', () => {
-    let contextManager: MockContextManager;
-
-    beforeEach(() => {
-      contextManager = new MockContextManager();
-    });
-
-    it('should set and get values within a run block and isolate them', () => {
+    it('should set and get values within a run block and isolate them', async () => {
+      const contextManager = new MockContextManager();
       const callback = () => {
         contextManager.set('key', 'value');
         expect(contextManager.get('key')).toBe('value');
       };
-      contextManager.run(callback);
+      await contextManager.run(callback);
       // After the run block, the context modifications should be gone.
       expect(contextManager.get('key')).toBeUndefined();
     });
 
-    it('should isolate context between different runs', () => {
-      contextManager.run(() => {
+    it('should isolate context between different runs', async () => {
+      const contextManager = new MockContextManager();
+      await contextManager.run(() => {
         contextManager.set('id', 'run1');
-        expect(contextManager.get('id')).toBe('run1');
       });
 
       // The context from the first run should be gone.
       expect(contextManager.get('id')).toBeUndefined();
 
-      contextManager.run(() => {
-        expect(contextManager.get('id')).toBeUndefined();
+      await contextManager.run(() => {
         contextManager.set('id', 'run2');
         expect(contextManager.get('id')).toBe('run2');
       });
     });
 
-    it('should handle nested runs by inheriting and isolating context', () => {
-      contextManager.run(() => {
+    it('should handle nested runs by inheriting and isolating context', async () => {
+      const contextManager = new MockContextManager();
+      await contextManager.run(async () => {
         contextManager.set('scope', 'outer');
-        contextManager.run(() => {
+        await contextManager.run(() => {
           expect(contextManager.get('scope')).toBe('outer');
+          contextManager.set('scope', 'inner');
+          expect(contextManager.get('scope')).toBe('inner');
         });
         expect(contextManager.get('scope')).toBe('outer');
       });

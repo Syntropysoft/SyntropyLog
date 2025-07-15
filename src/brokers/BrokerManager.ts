@@ -5,10 +5,9 @@
  * following the same pattern as HttpManager and RedisManager.
  */
 
-import { ILogger } from '../logger/ILogger';
-import { SyntropyLogConfig } from '../config';
-import { IContextManager } from '../context/IContextManager';
-import { LoggerFactory } from '../logger/LoggerFactory';
+import { IContextManager } from '../context';
+import { SyntropyBrokerConfig } from '../config';
+import { ILogger } from '../logger';
 import { InstrumentedBrokerClient } from './InstrumentedBrokerClient';
 
 /**
@@ -17,9 +16,9 @@ import { InstrumentedBrokerClient } from './InstrumentedBrokerClient';
  */
 export interface BrokerManagerOptions {
   /** The main application configuration. */
-  config: SyntropyLogConfig;
+  config: SyntropyBrokerConfig;
   /** The factory for creating logger instances. */
-  loggerFactory: LoggerFactory;
+  loggerFactory: ILogger;
   /** The manager for handling asynchronous contexts. */
   contextManager: IContextManager;
 }
@@ -32,83 +31,93 @@ export interface BrokerManagerOptions {
  */
 export class BrokerManager {
   private readonly instances = new Map<string, InstrumentedBrokerClient>();
+  private defaultInstance?: InstrumentedBrokerClient;
   private readonly logger: ILogger;
+  private readonly config: SyntropyBrokerConfig;
+  private readonly contextManager: IContextManager;
 
-  /**
-   * @constructor
-   * @param {BrokerManagerOptions} options - The configuration options for the manager.
-   */
-  constructor(private readonly options: BrokerManagerOptions) {
-    this.logger = this.options.loggerFactory.getLogger('broker-manager');
-    const brokerInstances = this.options.config.brokers?.instances || [];
+  constructor(
+    config: SyntropyBrokerConfig,
+    logger: ILogger,
+    contextManager: IContextManager
+  ) {
+    this.config = config;
+    this.logger = logger.child({ module: 'BrokerManager' });
+    this.contextManager = contextManager;
+  }
 
-    if (brokerInstances.length === 0) {
+  public async init(): Promise<void> {
+    this.logger.trace('Initializing BrokerManager...');
+    if (!this.config.instances || this.config.instances.length === 0) {
       this.logger.debug(
         'BrokerManager initialized, but no broker instances were defined.'
       );
       return;
     }
 
-    for (const instanceConfig of brokerInstances) {
-      try {
-        const childLogger = this.options.loggerFactory.getLogger(
-          instanceConfig.instanceName
-        );
+    const creationPromises = this.config.instances.map(
+      async (instanceConfig) => {
+        try {
+          const client = new InstrumentedBrokerClient(
+            instanceConfig.adapter,
+            this.logger,
+            this.contextManager,
+            instanceConfig
+          );
+          await client.connect(); // Connect is likely async
+          this.instances.set(instanceConfig.instanceName, client);
+          this.logger.info(
+            `Broker client instance "${instanceConfig.instanceName}" created and connected successfully.`
+          );
 
-        // Create the instrumented client, passing the user-provided adapter
-        // and the full instance configuration.
-        const instrumentedClient = new InstrumentedBrokerClient(
-          instanceConfig.adapter, // The adapter is injected by the user via config.
-          childLogger,
-          this.options.contextManager,
-          instanceConfig
-        );
-
-        this.instances.set(instanceConfig.instanceName, instrumentedClient);
-        this.logger.info(
-          `Broker client instance "${instanceConfig.instanceName}" created successfully via adapter.`
-        );
-      } catch (error) {
-        this.logger.error(
-          `Failed to create broker client instance "${instanceConfig.instanceName}"`,
-          { error }
-        );
-        // A potential improvement here is to implement a "failing client" for brokers,
-        // which would allow `getInstance` to return a client that always fails,
-        // preventing null checks elsewhere in the application.
+          if (instanceConfig.instanceName === this.config.default) {
+            this.logger.trace(
+              `Setting default broker instance: ${instanceConfig.instanceName}`
+            );
+            this.defaultInstance = client;
+          }
+        } catch (error) {
+          this.logger.error(
+            `Failed to create broker instance "${instanceConfig.instanceName}":`,
+            error
+          );
+        }
       }
+    );
+
+    await Promise.all(creationPromises);
+
+    if (!this.defaultInstance && this.instances.size > 0) {
+      const firstInstance = this.instances.values().next().value;
+      const firstName = this.instances.keys().next().value;
+      this.logger.trace(
+        `No default broker instance configured. Using first available instance: ${firstName}`
+      );
+      this.defaultInstance = firstInstance;
     }
   }
 
-  /**
-   * Retrieves a managed and instrumented broker client instance by its name.
-   * @param {string} name - The name of the broker instance to retrieve.
-   * @returns {InstrumentedBrokerClient} The requested broker client instance.
-   * @throws {Error} If no instance with the given name is found.
-   */
-  public getInstance(name: string): InstrumentedBrokerClient {
-    const instance = this.instances.get(name);
-    if (!instance) {
-      // Throwing an error is appropriate here. The application expects the instance
-      // to be configured and available. Failing fast is better than returning null.
+  public getInstance(name?: string): InstrumentedBrokerClient {
+    const instanceName = name ?? this.defaultInstance?.instanceName;
+    if (!instanceName) {
       throw new Error(
-        `Broker client instance with name "${name}" was not found. Check your configuration.`
+        'A specific instance name was not provided and no default Broker instance is configured.'
+      );
+    }
+    const instance = this.instances.get(instanceName);
+    if (!instance) {
+      throw new Error(
+        `Broker client instance with name "${instanceName}" was not found. Check your configuration.`
       );
     }
     return instance;
   }
 
-  /**
-   * Gracefully disconnects all managed broker connections. This is typically
-   * called during application shutdown.
-   * @returns {Promise<void[]>} A promise that resolves when all clients have
-   * attempted to disconnect. It uses `Promise.all` to run disconnections in parallel.
-   */
-  public async shutdown(): Promise<void[]> {
+  public async shutdown(): Promise<void> {
     this.logger.info('Disconnecting all broker clients...');
     const shutdownPromises = Array.from(this.instances.values()).map(
       (instance) => instance.disconnect()
     );
-    return Promise.all(shutdownPromises);
+    await Promise.allSettled(shutdownPromises);
   }
 }

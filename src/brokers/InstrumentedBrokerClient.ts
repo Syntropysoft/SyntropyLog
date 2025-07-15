@@ -20,6 +20,8 @@ import { BrokerInstanceConfig } from '../config';
  * logging, context propagation, and distributed tracing.
  */
 export class InstrumentedBrokerClient {
+  public readonly instanceName: string;
+
   /**
    * @constructor
    * @param {IBrokerAdapter} adapter - The concrete broker adapter implementation (e.g., for RabbitMQ, Kafka).
@@ -32,7 +34,9 @@ export class InstrumentedBrokerClient {
     private readonly logger: ILogger,
     private readonly contextManager: IContextManager,
     private readonly config: BrokerInstanceConfig
-  ) {}
+  ) {
+    this.instanceName = config.instanceName;
+  }
 
   /**
    * Establishes a connection to the broker, wrapping the adapter's connect

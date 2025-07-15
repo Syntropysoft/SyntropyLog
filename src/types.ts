@@ -10,21 +10,43 @@ export type JsonValue =
   | { [key: string]: JsonValue }
   | JsonValue[];
 
-import { LogLevelName } from './logger/levels';
+import { Transport } from './logger/transports/Transport';
 
-/**
- * Represents a single, structured log entry.
- * This is the canonical object that gets passed to all transports.
- */
-export interface LogEntry {
+export type LogLevel =
+  | 'fatal'
+  | 'error'
+  | 'warn'
+  | 'info'
+  | 'debug'
+  | 'trace'
+  | 'silent';
+
+export type LogEntry = {
   /** The severity level of the log. */
-  level: LogLevelName;
+  level: LogLevel;
   /** The main log message, formatted from the arguments. */
-  msg: string;
+  message: string;
   /** The ISO 8601 timestamp of when the log was created. */
   timestamp: string;
-  /** The name of the service generating the log. */
-  service: string;
+  /** Any other properties are treated as structured metadata. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
+};
+
+export type LoggerOptions = {
+  level?: LogLevel;
+  serviceName?: string;
+  transports?: Transport[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bindings?: Record<string, any>;
+};
+
+export interface ILogger {
+  level: LogLevel;
+  /** The main log message, formatted from the arguments. */
+  message: string;
+  /** The ISO 8601 timestamp of when the log was created. */
+  timestamp: string;
   /** Any other properties are treated as structured metadata. */
   [key: string]: unknown;
 }

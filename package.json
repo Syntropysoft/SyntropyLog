@@ -71,8 +71,10 @@
     "lint": "eslint src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "vitest run",
-    "check:deps": "depcheck",
     "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "test:all": "npm test && npm run test:integration",
+    "check:deps": "depcheck",
     "prepublishOnly": "npm run build",
     "prepare": "husky"
   },
@@ -88,6 +90,7 @@
     "inquirer": "^9.2.12",
     "js-yaml": "^4.1.0",
     "on-finished": "^2.4.1",
+    "regex-test": "^0.1.1",
     "uuid": "^9.0.1",
     "yargs": "^17.7.2",
     "zod": "^3.22.4"
@@ -103,6 +106,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.5",
     "@types/on-finished": "^2.3.4",
+    "@types/safe-regex": "^1.1.6",
     "@types/uuid": "^9.0.7",
     "@types/yargs": "^17.0.32",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
@@ -120,6 +124,7 @@
     "rimraf": "^5.0.5",
     "rollup": "^4.9.2",
     "rollup-plugin-dts": "^6.1.0",
+    "safe-regex": "^2.1.1",
     "tslib": "^2.6.2",
     "typescript": "^5.8.3",
     "vitest": "^1.1.0"

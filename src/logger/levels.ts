@@ -1,36 +1,30 @@
 /**
  * @file src/logger/levels.ts
- * @description Defines the standard log levels, their names, and their numeric severity values.
+ * @description Defines the available log levels, their names, and their severity weights.
  */
 
 /**
- * @constant logLevels
- * @description Defines the numeric severity of log levels, based on the Pino logging library standard.
+ * @description A mapping of log level names to their severity weights.
  * Higher numbers indicate higher severity.
  */
-export const logLevels = {
-  trace: 10,
-  debug: 20,
-  info: 30,
-  warn: 40,
-  error: 50,
+export const LOG_LEVEL_WEIGHTS = {
   fatal: 60,
-  /**
-   * 'silent' is a special level used to disable logging. When a logger's level is set
-   * to 'silent', no logs will be processed. Its value is set to Infinity to ensure
-   * it is always the highest severity, meaning no log message can meet its threshold.
-   */
-  silent: Infinity,
+  error: 50,
+  warn: 40,
+  info: 30,
+  debug: 20,
+  trace: 10,
+  silent: 0,
 } as const;
 
 /**
- * @type LogLevelName
- * @description Represents the string name of a log level (e.g., 'info', 'warn', 'error').
+ * @description An array of the available log level names, derived from the weights object.
  */
-export type LogLevelName = keyof typeof logLevels;
+export const logLevels = Object.keys(
+  LOG_LEVEL_WEIGHTS
+) as (keyof typeof LOG_LEVEL_WEIGHTS)[];
 
 /**
- * @type LogLevel
- * @description Represents the numeric value of a log level (e.g., 30, 40, 50).
+ * @description The type representing a valid log level name.
  */
-export type LogLevel = (typeof logLevels)[LogLevelName];
+export type LogLevel = keyof typeof LOG_LEVEL_WEIGHTS;

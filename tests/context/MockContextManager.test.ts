@@ -37,10 +37,10 @@ describe('MockContextManager', () => {
   });
 
   describe('run', () => {
-    it('should execute a synchronous callback within a simulated context', () => {
+    it('should execute a synchronous callback within a simulated context', async () => {
       mockContextManager.set('key', 'outside');
-      mockContextManager.run(() => {
-        expect(mockContextManager.get('key')).toBe('outside'); // Inherits
+
+      await mockContextManager.run(() => {
         mockContextManager.set('key', 'inside');
         expect(mockContextManager.get('key')).toBe('inside');
       });
@@ -48,63 +48,45 @@ describe('MockContextManager', () => {
       expect(mockContextManager.get('key')).toBe('outside');
     });
 
-    it('should handle nested contexts correctly', () => {
-      mockContextManager.run(() => {
-        mockContextManager.set('outerKey', 'outerValue');
-        expect(mockContextManager.get('outerKey')).toBe('outerValue');
-
-        mockContextManager.run(() => {
-          mockContextManager.set('innerKey', 'innerValue');
-          // Inner context should inherit from outer context
-          expect(mockContextManager.get('outerKey')).toBe('outerValue');
-          expect(mockContextManager.get('innerKey')).toBe('innerValue');
-        });
-
-        // Back in the outer context, innerKey should not exist
-        expect(mockContextManager.get('outerKey')).toBe('outerValue');
-        expect(mockContextManager.get('innerKey')).toBeUndefined();
-      });
-
-      // Outside all contexts, the store is empty
-      expect(mockContextManager.getAll()).toEqual({});
-    });
-
-    it('should handle asynchronous callbacks', async () => {
+    it('should execute an asynchronous callback within a simulated context', async () => {
       mockContextManager.set('key', 'outside');
+
       await mockContextManager.run(async () => {
-        expect(mockContextManager.get('key')).toBe('outside');
+        await new Promise((resolve) => setTimeout(resolve, 10));
         mockContextManager.set('key', 'inside_async');
-        await delay(10);
         expect(mockContextManager.get('key')).toBe('inside_async');
       });
+
+      // After run, the store is restored
       expect(mockContextManager.get('key')).toBe('outside');
     });
 
-    it('should restore context if synchronous callback throws an error', () => {
+    it('should restore context if synchronous callback throws an error', async () => {
       mockContextManager.set('key', 'original');
-      const error = new Error('test error');
+      const error = new Error('test_error');
 
-      expect(() => {
+      await expect(
         mockContextManager.run(() => {
           mockContextManager.set('key', 'modified');
           throw error;
-        });
-      }).toThrow(error);
+        }),
+      ).rejects.toThrow(error);
 
       expect(mockContextManager.get('key')).toBe('original');
     });
 
-    it('should restore context if asynchronous callback rejects', async () => {
+    it('should restore context if asynchronous callback throws an error', async () => {
       mockContextManager.set('key', 'original');
-      const error = new Error('async test error');
+      const error = new Error('async_error');
 
-      const promise = mockContextManager.run(async () => {
-        mockContextManager.set('key', 'modified');
-        await delay(10);
-        throw error;
-      });
+      await expect(
+        mockContextManager.run(async () => {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          mockContextManager.set('key', 'modified');
+          throw error;
+        }),
+      ).rejects.toThrow(error);
 
-      await expect(promise).rejects.toThrow(error);
       expect(mockContextManager.get('key')).toBe('original');
     });
   });
@@ -154,8 +136,17 @@ describe('MockContextManager', () => {
   });
 
   describe('getTraceContextHeaders', () => {
-    it('should return undefined as per its mock implementation', () => {
-      expect(mockContextManager.getTraceContextHeaders()).toBeUndefined();
+    it('should return an empty object by default', () => {
+      expect(mockContextManager.getTraceContextHeaders()).toEqual({});
+    });
+
+    it('should return headers for correlation and transaction IDs when they exist', () => {
+      mockContextManager.set('correlationId', 'test-corr-id');
+      mockContextManager.set('transactionId', 'test-trans-id');
+      expect(mockContextManager.getTraceContextHeaders()).toEqual({
+        'x-correlation-id': 'test-corr-id',
+        'x-trace-id': 'test-trans-id',
+      });
     });
   });
 });

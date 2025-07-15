@@ -139,14 +139,16 @@ describe('LoggerFactory', () => {
       factory.getLogger('api-logger');
 
       expect(MockLogger).toHaveBeenCalledOnce();
-      const loggerOptions = MockLogger.mock.calls[0][0];
+      
+      const [name, transports, dependencies] = MockLogger.mock.calls[0];
 
-      expect(loggerOptions.level).toBe('info');
-      expect(loggerOptions.serviceName).toBe('api-logger');
-      expect(loggerOptions.contextManager).toBe(mockContextManager);
-      expect(loggerOptions.syntropyLogInstance).toBe(mockSyntropyLog);
-      expect(loggerOptions.serializerRegistry).toBeInstanceOf(Object);
-      expect(loggerOptions.maskingEngine).toBeInstanceOf(Object);
+      expect(name).toBe('api-logger');
+      expect(transports).toBeInstanceOf(Array);
+      expect(dependencies.contextManager).toBe(mockContextManager);
+      expect(dependencies.syntropyLogInstance).toBe(mockSyntropyLog);
+      expect(dependencies.serializerRegistry).toBeInstanceOf(Object);
+      expect(dependencies.maskingEngine).toBeInstanceOf(Object);
+      // We don't check level here because it's set on the instance after creation
     });
 
     it('should use the global serviceName for the "default" logger', () => {
@@ -157,8 +159,8 @@ describe('LoggerFactory', () => {
       );
       factory.getLogger('default');
 
-      const loggerOptions = MockLogger.mock.calls[0][0];
-      expect(loggerOptions.serviceName).toBe('my-app');
+      const [name] = MockLogger.mock.calls[0];
+      expect(name).toBe('my-app');
     });
 
     it('should return a cached logger instance on subsequent calls', () => {

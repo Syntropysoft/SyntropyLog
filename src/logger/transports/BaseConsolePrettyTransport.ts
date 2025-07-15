@@ -2,10 +2,9 @@
  * @file src/logger/transports/BaseConsolePrettyTransport.ts
  * @description An abstract base class for console transports that provide colored, human-readable output.
  */
-import { LogEntry } from '../../types';
+import chalk from 'chalk';
+import { LogEntry, LogLevel } from '../../types';
 import { Transport, TransportOptions } from './Transport';
-import { LogLevelName } from '../levels';
-import chalk, { Chalk } from 'chalk';
 
 /**
  * @class BaseConsolePrettyTransport
@@ -15,7 +14,7 @@ import chalk, { Chalk } from 'chalk';
  * @extends {Transport}
  */
 export abstract class BaseConsolePrettyTransport extends Transport {
-  protected readonly chalk: Chalk;
+  protected readonly chalk: chalk.Chalk;
 
   constructor(options?: TransportOptions) {
     super(options);
@@ -30,7 +29,7 @@ export abstract class BaseConsolePrettyTransport extends Transport {
    * @returns {Promise<void>}
    */
   public async log(entry: LogEntry): Promise<void> {
-    if (entry.level === 'silent') {
+    if (!this.isLevelEnabled(entry.level)) {
       return;
     }
 
@@ -41,9 +40,7 @@ export abstract class BaseConsolePrettyTransport extends Transport {
     const logString = this.formatLogString(finalObject);
 
     // Select the appropriate console method based on the log level.
-    const consoleMethod = this.getConsoleMethod(
-      finalObject.level as LogLevelName
-    );
+    const consoleMethod = this.getConsoleMethod(finalObject.level as LogLevel);
     consoleMethod(logString);
   }
 
@@ -58,11 +55,11 @@ export abstract class BaseConsolePrettyTransport extends Transport {
 
   /**
    * Determines which console method to use based on the log level.
-   * @param {LogLevelName} level - The log level.
+   * @param {LogLevel} level - The log level.
    * @returns {Function} The corresponding console method (e.g., console.log).
    */
   protected getConsoleMethod(
-    level: LogLevelName
+    level: LogLevel
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): (message?: any, ...optionalParams: any[]) => void {
     switch (level) {

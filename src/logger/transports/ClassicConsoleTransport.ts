@@ -3,7 +3,7 @@
  * @description A transport that formats logs in a classic, single-line, text-based format, similar to Log4j.
  */
 import { TransportOptions } from './Transport';
-import { LogLevelName } from '../levels';
+import { LogLevel } from '../../types';
 import { Chalk } from 'chalk';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
 
@@ -14,10 +14,7 @@ import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
  * @extends {BaseConsolePrettyTransport}
  */
 export class ClassicConsoleTransport extends BaseConsolePrettyTransport {
-  private readonly levelColorMap: Record<
-    Exclude<LogLevelName, 'silent'>,
-    Chalk
-  >;
+  private readonly levelColorMap: Record<Exclude<LogLevel, 'silent'>, Chalk>;
 
   /**
    * @constructor
@@ -62,7 +59,7 @@ export class ClassicConsoleTransport extends BaseConsolePrettyTransport {
     const { timestamp, level, service, msg, context, ...rest } = logObject;
 
     const colorizer =
-      this.levelColorMap[level as Exclude<LogLevelName, 'silent'>] ||
+      this.levelColorMap[level as Exclude<LogLevel, 'silent'>] ||
       this.chalk.white;
 
     // 1. Format the timestamp.

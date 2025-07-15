@@ -8,38 +8,41 @@ import { MaskingEngine, MaskingEngineOptions } from '../../src/masking/MaskingEn
 
 describe('MaskingEngine', () => {
   describe('Constructor and Options', () => {
-    it('should use default options when none are provided', () => {
+    it('should use default options when none are provided', async () => {
       const engine = new MaskingEngine();
-      const result = engine.process({ password: '123' });
+      const result = await engine.process({ password: '123' });
       // No rules are defined, so no masking should occur.
       expect(result.password).toBe('123');
     });
 
-    it('should use a custom maskChar with fixed style', () => {
+    it('should use a custom maskChar with fixed style', async () => {
       const options: MaskingEngineOptions = {
         maskChar: '[REDACTED]',
         fields: ['secret'],
         style: 'fixed',
       };
       const engine = new MaskingEngine(options);
-      const result = engine.process({ secret: 'value' });
+      const result = await engine.process({ secret: 'value' });
       expect(result.secret).toBe('[REDACTED]');
     });
   });
 
   describe('Masking Logic (Fixed Style - Default)', () => {
-    it('should perform full masking on a matching key', () => {
+    it('should perform full masking on a matching key', async () => {
       const options: MaskingEngineOptions = {
         fields: ['password'],
         maskChar: '***',
       };
       const engine = new MaskingEngine(options);
-      const result = engine.process({ user: 'test', password: 'a-secret-password' });
+      const result = await engine.process({
+        user: 'test',
+        password: 'a-secret-password',
+      });
       expect(result.password).toBe('***');
       expect(result.user).toBe('test');
     });
 
-    it('should mask based on a RegExp path using the default fixed mask', () => {
+    it('should mask based on a RegExp path using the default fixed mask', async () => {
       const options: MaskingEngineOptions = {
         fields: [/token/i],
       };
@@ -49,7 +52,7 @@ describe('MaskingEngine', () => {
         refreshToken: 'def',
         user_id: 1,
       };
-      const result = engine.process(data);
+      const result = await engine.process(data);
       expect(result.accessToken).toBe('******');
       expect(result.refreshToken).toBe('******');
       expect(result.user_id).toBe(1);
@@ -57,44 +60,44 @@ describe('MaskingEngine', () => {
   });
 
   describe('Masking Logic (Preserve-Length Style)', () => {
-    it('should mask a string value preserving its length', () => {
+    it('should mask a string value preserving its length', async () => {
       const options: MaskingEngineOptions = {
         fields: ['apiKey'],
         style: 'preserve-length',
         maskChar: '#',
       };
       const engine = new MaskingEngine(options);
-      const result = engine.process({ apiKey: 'abcdef1234567890' });
+      const result = await engine.process({ apiKey: 'abcdef1234567890' });
       expect(result.apiKey).toBe('################');
       expect(result.apiKey.length).toBe(16);
     });
 
-    it('should mask a number value preserving its string length', () => {
+    it('should mask a number value preserving its string length', async () => {
       const options: MaskingEngineOptions = {
         fields: ['accountNumber'],
         style: 'preserve-length',
         maskChar: '*',
       };
       const engine = new MaskingEngine(options);
-      const result = engine.process({ accountNumber: 987654321 });
+      const result = await engine.process({ accountNumber: 987654321 });
       expect(result.accountNumber).toBe('*********');
       expect(result.accountNumber.length).toBe(9);
     });
 
-    it('should use only the first character of maskChar for preserve-length', () => {
+    it('should use only the first character of maskChar for preserve-length', async () => {
       const options: MaskingEngineOptions = {
         fields: ['secret'],
         style: 'preserve-length',
         maskChar: 'XYZ', // Should only use 'X'
       };
       const engine = new MaskingEngine(options);
-      const result = engine.process({ secret: 'test' });
+      const result = await engine.process({ secret: 'test' });
       expect(result.secret).toBe('XXXX');
     });
   });
 
   describe('Recursive Processing', () => {
-    it('should mask fields in nested objects', () => {
+    it('should mask fields in nested objects', async () => {
       const options: MaskingEngineOptions = {
         fields: ['secret'],
       };
@@ -108,13 +111,13 @@ describe('MaskingEngine', () => {
           },
         },
       };
-      const result = engine.process(data);
+      const result = await engine.process(data);
       expect(result.level1.secret).toBe('******');
       expect(result.level1.level2.secret).toBe('******');
       expect(result.level1.level2.data).toBe('unmasked');
     });
 
-    it('should stop recursing at maxDepth', () => {
+    it('should stop recursing at maxDepth', async () => {
       const options: MaskingEngineOptions = {
         maxDepth: 3,
         fields: ['deepSecret'],
@@ -129,7 +132,7 @@ describe('MaskingEngine', () => {
           },
         },
       };
-      const result = engine.process(data);
+      const result = await engine.process(data);
       // The engine now masks by key name regardless of depth, so `deepSecret`
       // at depth 3 should be masked if maxDepth is 3.
       expect(result.a.b.c).toEqual({ deepSecret: '******' });
@@ -137,16 +140,18 @@ describe('MaskingEngine', () => {
   });
 
   describe('Path and URL Masking', () => {
-    it('should mask a path segment with fixed style by default', () => {
+    it('should mask a path segment with fixed style by default', async () => {
       const engine = new MaskingEngine({ fields: ['apiKey'] });
       const data = {
         endpoint: 'https://api.example.com/data/user/apiKey/abcdef12345/more',
       };
-      const result = engine.process(data);
-      expect(result.endpoint).toBe('https://api.example.com/data/user/apiKey/******/more');
+      const result = await engine.process(data);
+      expect(result.endpoint).toBe(
+        'https://api.example.com/data/user/apiKey/******/more',
+      );
     });
 
-    it('should mask a path segment preserving length', () => {
+    it('should mask a path segment preserving length', async () => {
       const options: MaskingEngineOptions = {
         fields: ['secret'],
         style: 'preserve-length',
@@ -156,33 +161,33 @@ describe('MaskingEngine', () => {
       const data = {
         path: '/user/secret/a-very-long-secret-value/data',
       };
-      const result = engine.process(data);
+      const result = await engine.process(data);
       expect(result.path).toBe('/user/secret/########################/data');
     });
 
-    it('should handle multiple sensitive parts in a path using fixed style', () => {
+    it('should handle multiple sensitive parts in a path using fixed style', async () => {
       const engine = new MaskingEngine({ fields: ['token', 'secret'] });
       const data = {
         requestUrl: '/auth/token/abc-123/user/me/secret/xyz-789',
       };
-      const result = engine.process(data);
+      const result = await engine.process(data);
       expect(result.requestUrl).toBe('/auth/token/******/user/me/secret/******');
     });
 
-    it('should be case-insensitive when matching path keywords', () => {
+    it('should be case-insensitive when matching path keywords', async () => {
       const engine = new MaskingEngine({ fields: ['password'] });
       const data = { path: '/api/v1/PASSWORD/my-secret' };
-      const result = engine.process(data);
+      const result = await engine.process(data);
       expect(result.path).toBe('/api/v1/PASSWORD/******');
     });
   });
 
   describe('Dynamic Configuration', () => {
-    it('should add new fields dynamically with addFields()', () => {
+    it('should add new fields dynamically with addFields()', async () => {
       const engine = new MaskingEngine({ fields: ['password'] });
       engine.addFields(['token']);
 
-      const result = engine.process({
+      const result = await engine.process({
         password: '123',
         token: 'abc',
         other: 'data',
@@ -195,31 +200,33 @@ describe('MaskingEngine', () => {
   });
 
   describe('Edge Cases and Immutability', () => {
-    it('should not mutate the original object', () => {
+    it('should not mutate the original object', async () => {
       const engine = new MaskingEngine({ fields: ['secret'] });
       const originalData = { user: 'test', secret: 'value' };
-      engine.process(originalData);
+      await engine.process(originalData);
       expect(originalData.secret).toBe('value');
     });
 
-    it('should handle null and undefined values correctly', () => {
+    it('should handle null and undefined values correctly', async () => {
       const engine = new MaskingEngine({ fields: ['secret'] });
       const data = {
         a: null,
         b: undefined,
         c: { secret: null },
       };
-      const result = engine.process(data);
+      const result = await engine.process(data);
       expect(result.a).toBeNull();
       expect(result.b).toBeUndefined();
       expect(result.c.secret).toBe('******'); // preserve-length of 'null' is 4, but let's use fixed for nulls
     });
 
-    it('should handle non-object inputs gracefully', () => {
+    it('should handle non-object inputs gracefully', async () => {
       const engine = new MaskingEngine();
-      expect(engine.process(null as any)).toBeNull();
-      expect(engine.process('a string' as any)).toBe('a string');
-      expect(engine.process(123 as any)).toBe(123);
+      await expect(engine.process(null as any)).resolves.toBeNull();
+      await expect(engine.process('a string' as any)).resolves.toBe(
+        'a string',
+      );
+      await expect(engine.process(123 as any)).resolves.toBe(123);
     });
   });
 });

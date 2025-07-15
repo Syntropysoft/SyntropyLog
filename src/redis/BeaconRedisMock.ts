@@ -278,6 +278,7 @@ export class BeaconRedisMock implements IBeaconRedis {
       // If no logger is provided, create a lightweight, no-op mock logger
       // to avoid pulling in the entire logging stack.
       this.logger = {
+        level: 'info', // Add missing level property
         debug: () => {},
         info: () => {},
         warn: () => {},

@@ -7,7 +7,20 @@
  */
 
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { randomUUID } from 'crypto';
 import { IContextManager } from './IContextManager';
+import { LogLevel } from '../types';
+
+interface Context {
+  data: Map<string, any>;
+}
+
+export type LoggingMatrix = Partial<Record<LogLevel | 'default', string[]>>;
+
+export interface SyntropyContextConfig {
+  correlationIdHeader?: string;
+  transactionIdHeader?: string;
+}
 
 /**
  * Manages asynchronous context using Node.js `AsyncLocalStorage`.
@@ -16,23 +29,21 @@ import { IContextManager } from './IContextManager';
  * @implements {IContextManager}
  */
 export class ContextManager implements IContextManager {
-  private asyncLocalStorage: AsyncLocalStorage<Map<string, any>>;
+  private storage = new AsyncLocalStorage<Context>();
   private correlationIdHeader = 'x-correlation-id';
   private transactionIdHeader = 'x-trace-id';
-  private readonly transactionIdKey = 'transactionId';
+  private readonly loggingMatrix: LoggingMatrix | undefined;
 
-  constructor() {
-    this.asyncLocalStorage = new AsyncLocalStorage();
+  constructor(loggingMatrix?: LoggingMatrix) {
+    this.storage = new AsyncLocalStorage();
+    this.loggingMatrix = loggingMatrix;
   }
 
-  public configure(options?: {
-    correlationIdHeader?: string;
-    transactionIdHeader?: string;
-  }): void {
-    if (options?.correlationIdHeader) {
+  public configure(options: SyntropyContextConfig): void {
+    if (options.correlationIdHeader) {
       this.correlationIdHeader = options.correlationIdHeader;
     }
-    if (options?.transactionIdHeader) {
+    if (options.transactionIdHeader) {
       this.transactionIdHeader = options.transactionIdHeader;
     }
   }
@@ -46,13 +57,24 @@ export class ContextManager implements IContextManager {
    * @param callback The function to execute within the new context.
    * @returns {T} The result of the callback function.
    */
-  run<T>(callback: () => T): T {
-    const store = this.asyncLocalStorage.getStore();
-    // Create a new context that inherits from the parent, or create a new empty one.
-    return this.asyncLocalStorage.run(
-      store ? new Map(store) : new Map(),
-      callback
-    );
+  public run(fn: () => void | Promise<void>): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const parentContext = this.storage.getStore();
+      const newContextData = new Map(parentContext?.data);
+
+      this.storage.run({ data: newContextData }, async () => {
+        try {
+          // Initialize correlation ID if not present
+          if (!this.get('correlationId')) {
+            this.set('correlationId', randomUUID());
+          }
+          await Promise.resolve(fn());
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
   }
 
   /**
@@ -61,20 +83,20 @@ export class ContextManager implements IContextManager {
    * @param key The key of the value to retrieve.
    * @returns The value, or `undefined` if not found or if outside a context.
    */
-  get<T = any>(key: string): T | undefined {
-    return this.asyncLocalStorage.getStore()?.get(key);
+  public get<T = any>(key: string): T | undefined {
+    return this.storage.getStore()?.data.get(key);
   }
 
   /**
    * Gets the entire key-value store from the current asynchronous context.
    * @returns {Record<string, any>} An object containing all context data, or an empty object if outside a context.
    */
-  getAll(): Record<string, any> {
-    const store = this.asyncLocalStorage.getStore();
+  public getAll(): Record<string, any> {
+    const store = this.storage.getStore();
     if (!store) {
       return {};
     }
-    return Object.fromEntries(store);
+    return Object.fromEntries(store.data.entries());
   }
 
   /**
@@ -85,10 +107,10 @@ export class ContextManager implements IContextManager {
    * @param value The value to store.
    * @returns {void}
    */
-  set(key: string, value: any): void {
-    const store = this.asyncLocalStorage.getStore();
+  public set(key: string, value: any): void {
+    const store = this.storage.getStore();
     if (store) {
-      store.set(key, value);
+      store.data.set(key, value);
     }
   }
 
@@ -97,7 +119,7 @@ export class ContextManager implements IContextManager {
    * This is a convenience method that retrieves the value associated with the configured header name.
    * @returns {string | undefined} The correlation ID, or undefined if not set.
    */
-  getCorrelationId(): string | undefined {
+  public getCorrelationId(): string | undefined {
     return this.get('correlationId');
   }
 
@@ -105,23 +127,23 @@ export class ContextManager implements IContextManager {
    * Gets the transaction ID from the current context.
    * @returns {string | undefined} The transaction ID, or undefined if not set.
    */
-  getTransactionId(): string | undefined {
-    return this.get(this.transactionIdKey);
+  public getTransactionId(): string | undefined {
+    return this.get('transactionId');
   }
 
   /**
    * Sets the transaction ID in the current context.
    * @param transactionId The transaction ID to set.
    */
-  setTransactionId(transactionId: string): void {
-    this.set(this.transactionIdKey, transactionId);
+  public setTransactionId(transactionId: string): void {
+    this.set('transactionId', transactionId);
   }
 
   /**
    * Gets the configured HTTP header name for the correlation ID.
    * @returns {string} The header name.
    */
-  getCorrelationIdHeaderName(): string {
+  public getCorrelationIdHeaderName(): string {
     return this.correlationIdHeader;
   }
 
@@ -134,9 +156,41 @@ export class ContextManager implements IContextManager {
    * This base implementation does not support trace context propagation.
    * @returns `undefined` as this feature is not implemented by default.
    */
-  getTraceContextHeaders(): Record<string, string> | undefined {
-    // This method can be extended in a subclass to support specific tracing
-    // standards like W3C Trace Context.
-    return undefined;
+  public getTraceContextHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    const correlationId = this.getCorrelationId();
+    const transactionId = this.getTransactionId();
+    if (correlationId) {
+      headers[this.getCorrelationIdHeaderName()] = correlationId;
+    }
+    if (transactionId) {
+      headers[this.getTransactionIdHeaderName()] = transactionId;
+    }
+    return headers;
+  }
+
+  public getFilteredContext(level: LogLevel): Record<string, unknown> {
+    const fullContext = this.getAll();
+    if (!this.loggingMatrix) {
+      return fullContext;
+    }
+
+    const fieldsToKeep =
+      this.loggingMatrix[level] ?? this.loggingMatrix.default;
+    if (!fieldsToKeep) {
+      return {};
+    }
+
+    if (fieldsToKeep.includes('*')) {
+      return { ...fullContext };
+    }
+
+    const filteredContext: Record<string, unknown> = {};
+    for (const key of fieldsToKeep) {
+      if (Object.prototype.hasOwnProperty.call(fullContext, key)) {
+        filteredContext[key] = fullContext[key];
+      }
+    }
+    return filteredContext;
   }
 }

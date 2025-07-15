@@ -1,134 +1,155 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BrokerManager, BrokerManagerOptions } from '../../src/brokers/BrokerManager';
-import { IBrokerAdapter } from '../../src/brokers/adapter.types';
+import { BrokerManager } from '../../src/brokers/BrokerManager';
+import { IBrokerAdapter, BrokerInstanceConfig } from '../../src/brokers/adapter.types';
 import { InstrumentedBrokerClient } from '../../src/brokers/InstrumentedBrokerClient';
+import { MockContextManager } from '../../src/context/MockContextManager';
+import { ILogger } from '../../src/logger';
+import { IContextManager } from '../../src/context';
 
-// Mock dependencies
+// Mock the InstrumentedBrokerClient to isolate the BrokerManager's logic
 const mockDisconnect = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../src/brokers/InstrumentedBrokerClient', () => {
   return {
-    InstrumentedBrokerClient: vi.fn().mockImplementation(() => ({
+    InstrumentedBrokerClient: vi.fn().mockImplementation((_adapter, _logger, _context, config) => ({
+      instanceName: config.instanceName, // <-- Store the name from config
       disconnect: mockDisconnect,
+      connect: vi.fn().mockResolvedValue(undefined),
     })),
   };
 });
 
+// Helper to create a mock logger for testing
+const createMockLogger = (): ILogger => ({
+  info: vi.fn(),
+  debug: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  trace: vi.fn(),
+  fatal: vi.fn(),
+  child: vi.fn().mockReturnThis(),
+  withSource: vi.fn().mockReturnThis(),
+});
+
 describe('BrokerManager', () => {
-  let mockOptions: BrokerManagerOptions;
-  let mockLogger: {
-    info: vi.fn;
-    debug: vi.fn;
-    error: vi.fn;
-  };
+  let mockLogger: ILogger;
+  let mockContextManager: IContextManager;
+  let brokerConfig: { instances: BrokerInstanceConfig[] };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLogger = createMockLogger();
+    mockContextManager = new MockContextManager();
+    brokerConfig = { instances: [] };
 
-    // Reset the mock implementation to its default happy-path behavior before each test
-    (InstrumentedBrokerClient as any).mockImplementation(() => ({
+    // Reset the mock implementation to its default happy-path behavior
+    vi.mocked(InstrumentedBrokerClient).mockImplementation((_adapter, _logger, _context, config) => ({
+      instanceName: config.instanceName, // <-- Repeat for reset
       disconnect: mockDisconnect,
+      connect: vi.fn().mockResolvedValue(undefined),
     }));
-
-    mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      error: vi.fn(),
-    };
-
-    mockOptions = {
-      config: {
-        logger: { level: 'info' },
-        brokers: {
-          instances: [],
-        },
-      },
-      loggerFactory: {
-        getLogger: vi.fn().mockReturnValue(mockLogger),
-      } as any,
-      contextManager: {} as any,
-    };
   });
 
   describe('Constructor', () => {
-    it('should log a debug message if no broker instances are configured', () => {
-      new BrokerManager(mockOptions);
+    it('should log a debug message if no broker instances are configured', async () => {
+      const manager = new BrokerManager({ instances: [] }, mockLogger, mockContextManager);
+      await manager.init();
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'BrokerManager initialized, but no broker instances were defined.'
       );
-      expect(mockLogger.info).not.toHaveBeenCalled();
       expect(InstrumentedBrokerClient).not.toHaveBeenCalled();
     });
 
-    it('should create an instrumented client for each configured instance', () => {
+    it('should create and connect an instrumented client for each configured instance', async () => {
       const mockAdapter1: IBrokerAdapter = { connect: vi.fn(), publish: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() };
       const mockAdapter2: IBrokerAdapter = { connect: vi.fn(), publish: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() };
-      mockOptions.config.brokers!.instances = [
-        { instanceName: 'kafka-main', adapter: mockAdapter1 },
-        { instanceName: 'rabbitmq-events', adapter: mockAdapter2 },
-      ];
+      const config = {
+        instances: [
+          { instanceName: 'kafka-main', adapter: mockAdapter1 },
+          { instanceName: 'rabbitmq-events', adapter: mockAdapter2 },
+        ],
+        default: 'rabbitmq-events',
+      };
 
-      new BrokerManager(mockOptions);
+      const manager = new BrokerManager(config, mockLogger, mockContextManager);
+      await manager.init();
 
       expect(InstrumentedBrokerClient).toHaveBeenCalledTimes(2);
 
-      // Check first instance creation
+      // Verify first instance was created correctly
       expect(InstrumentedBrokerClient).toHaveBeenCalledWith(
         mockAdapter1,
-        expect.anything(),
-        mockOptions.contextManager,
-        mockOptions.config.brokers!.instances[0]
+        expect.any(Object), // logger
+        mockContextManager,
+        config.instances[0]
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'Broker client instance "kafka-main" created successfully via adapter.'
+        'Broker client instance "kafka-main" created and connected successfully.'
       );
 
-      // Check second instance creation
+      // Verify second instance was created correctly
       expect(InstrumentedBrokerClient).toHaveBeenCalledWith(
         mockAdapter2,
-        expect.anything(),
-        mockOptions.contextManager,
-        mockOptions.config.brokers!.instances[1]
+        expect.any(Object), // logger
+        mockContextManager,
+        config.instances[1]
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'Broker client instance "rabbitmq-events" created successfully via adapter.'
+        'Broker client instance "rabbitmq-events" created and connected successfully.'
       );
     });
 
-    it('should log an error if a client instance fails to be created', () => {
+    it('should log an error if a client instance fails to be created', async () => {
       const creationError = new Error('Invalid adapter');
-      (InstrumentedBrokerClient as any).mockImplementation(() => {
+      vi.mocked(InstrumentedBrokerClient).mockImplementation(() => {
         throw creationError;
       });
 
       const mockAdapter: IBrokerAdapter = { connect: vi.fn(), publish: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() };
-      mockOptions.config.brokers!.instances = [
-        { instanceName: 'bad-client', adapter: mockAdapter },
-      ];
+      brokerConfig.instances = [{ instanceName: 'bad-client', adapter: mockAdapter }];
 
-      new BrokerManager(mockOptions);
+      const manager = new BrokerManager(brokerConfig, mockLogger, mockContextManager);
+      await manager.init();
 
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to create broker client instance "bad-client"',
-        { error: creationError }
+        'Failed to create broker instance "bad-client":',
+        creationError
       );
     });
   });
 
   describe('getInstance', () => {
-    it('should return the correct client instance', () => {
+    it('should return the correct client instance', async () => {
       const mockAdapter: IBrokerAdapter = { connect: vi.fn(), publish: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() };
-      mockOptions.config.brokers!.instances = [
-        { instanceName: 'my-broker', adapter: mockAdapter },
-      ];
-      const manager = new BrokerManager(mockOptions);
+      brokerConfig.instances = [{ instanceName: 'my-broker', adapter: mockAdapter }];
+      const manager = new BrokerManager(brokerConfig, mockLogger, mockContextManager);
+      await manager.init();
       const client = manager.getInstance('my-broker');
 
       expect(client).toBeDefined();
       expect(client.disconnect).toBe(mockDisconnect);
     });
+    
+    it('should return the default client instance if no name is provided', async () => {
+      const mockAdapter1: IBrokerAdapter = { connect: vi.fn(), publish: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() };
+      const mockAdapter2: IBrokerAdapter = { connect: vi.fn(), publish: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() };
+      const config = {
+        instances: [
+          { instanceName: 'kafka-main', adapter: mockAdapter1 },
+          { instanceName: 'rabbitmq-events', adapter: mockAdapter2 },
+        ],
+        default: 'rabbitmq-events',
+      };
+       const manager = new BrokerManager(config, mockLogger, mockContextManager);
+       await manager.init();
+       const defaultClient = manager.getInstance();
+       
+       expect(defaultClient).toBeDefined();
+       expect(defaultClient.instanceName).toBe('rabbitmq-events');
+    });
 
-    it('should throw an error if the instance name is not found', () => {
-      const manager = new BrokerManager(mockOptions);
+    it('should throw an error if the instance name is not found', async () => {
+      const manager = new BrokerManager(brokerConfig, mockLogger, mockContextManager);
+      await manager.init();
       expect(() => manager.getInstance('non-existent')).toThrow(
         'Broker client instance with name "non-existent" was not found.'
       );
@@ -139,20 +160,21 @@ describe('BrokerManager', () => {
     it('should call disconnect on all client instances', async () => {
       const mockAdapter1: IBrokerAdapter = { connect: vi.fn(), publish: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() };
       const mockAdapter2: IBrokerAdapter = { connect: vi.fn(), publish: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() };
-      mockOptions.config.brokers!.instances = [
+      brokerConfig.instances = [
         { instanceName: 'kafka-main', adapter: mockAdapter1 },
         { instanceName: 'rabbitmq-events', adapter: mockAdapter2 },
       ];
-      const manager = new BrokerManager(mockOptions);
+      const manager = new BrokerManager(brokerConfig, mockLogger, mockContextManager);
+      await manager.init();
 
       await manager.shutdown();
-
       expect(mockLogger.info).toHaveBeenCalledWith('Disconnecting all broker clients...');
       expect(mockDisconnect).toHaveBeenCalledTimes(2);
     });
 
     it('should resolve even if there are no instances to shut down', async () => {
-      const manager = new BrokerManager(mockOptions);
+      const manager = new BrokerManager(brokerConfig, mockLogger, mockContextManager);
+      await manager.init();
       await expect(manager.shutdown()).resolves.not.toThrow();
       expect(mockLogger.info).toHaveBeenCalledWith('Disconnecting all broker clients...');
       expect(mockDisconnect).not.toHaveBeenCalled();

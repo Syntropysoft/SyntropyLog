@@ -13,6 +13,12 @@
     "forceConsistentCasingInFileNames": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts"],
-  "exclude": ["node_modules", "dist", "tests", "examples"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "tests/**/*.ts",
+    "test_integration/**/*.ts",
+    "examples/**/*.ts",
+    "declarations.d.ts"
+  ]
 }

@@ -49,30 +49,18 @@ export class MockContextManager implements IContextManager {
    * @param {() => T} callback The function to execute within the new context.
    * @returns {T} The result of the callback.
    */
-  run<T>(callback: () => T): T {
-    const originalStore = this.store;
-    // Create a new store that inherits from the parent context.
-    this.store = { ...originalStore };
+  public async run(fn: () => void | Promise<void>): Promise<void> {
+    // Deep-clone the original store to ensure true isolation.
+    const originalStore = JSON.parse(JSON.stringify(this.store));
+    this.store = { ...this.store }; // Inherit from parent for the current run.
 
-    let result: T;
     try {
-      result = callback();
-    } catch (e) {
-      // Restore store on synchronous error and re-throw.
+      // Await the callback, which might be sync or async.
+      await fn();
+    } finally {
+      // Always restore the original, unmodified context.
       this.store = originalStore;
-      throw e;
     }
-
-    // If the callback is async, restore the store after the promise settles.
-    if (result instanceof Promise) {
-      return result.finally(() => {
-        this.store = originalStore;
-      }) as T;
-    }
-
-    // For synchronous callbacks, restore the store immediately.
-    this.store = originalStore;
-    return result;
   }
 
   /**
@@ -161,9 +149,20 @@ export class MockContextManager implements IContextManager {
    * In a real tracing scenario, this would be populated.
    * @returns `undefined` as this mock does not implement tracing.
    */
-  getTraceContextHeaders(): Record<string, string> | undefined {
-    // This mock does not propagate trace headers.
-    // It can be extended or spied on in tests if needed.
-    return undefined;
+  public getTraceContextHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {};
+    const correlationId = this.getCorrelationId();
+    const transactionId = this.getTransactionId();
+    if (correlationId) {
+      headers[this.getCorrelationIdHeaderName()] = correlationId;
+    }
+    if (transactionId) {
+      headers[this.getTransactionIdHeaderName()] = transactionId;
+    }
+    return headers;
+  }
+
+  public getFilteredContext(): Record<string, unknown> {
+    return this.getAll();
   }
 }

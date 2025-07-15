@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { JsonValue } from '../types';
-import { LogLevelName } from './levels';
+import { LogLevel } from '../types';
 
 /**
  * Defines the public interface for a logger instance.
@@ -8,6 +7,7 @@ import { LogLevelName } from './levels';
  * including standard logging methods and a fluent API for contextual logging.
  */
 export interface ILogger {
+  level: LogLevel;
   // --- Standard Logging Methods ---
 
   /**
@@ -69,17 +69,17 @@ export interface ILogger {
   /**
    * Creates a new child logger instance with bindings that will be present in every log.
    * The child inherits all settings from the parent, adding or overriding the specified bindings.
-   * @param {Record<string, JsonValue>} bindings - Key-value pairs to bind to the child logger.
+   * @param {Record<string, any>} bindings - Key-value pairs to bind to the child logger.
    * @returns {ILogger} A new `ILogger` instance.
    */
-  child(bindings: Record<string, JsonValue>): ILogger;
+  child(bindings: Record<string, any>): ILogger;
 
   /**
    * Dynamically updates the minimum log level for this logger instance.
    * Any messages with a severity lower than the new level will be ignored.
-   * @param {LogLevelName} level - The new log level to set.
+   * @param {LogLevel} level - The new log level to set.
    */
-  setLevel(level: LogLevelName): void;
+  setLevel(level: LogLevel): void;
 
   // --- Fluent API for Per-Log Context ---
 

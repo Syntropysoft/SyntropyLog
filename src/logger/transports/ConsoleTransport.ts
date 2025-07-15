@@ -28,23 +28,13 @@ export class ConsoleTransport extends Transport {
    * @returns {Promise<void>}
    */
   public async log(entry: LogEntry): Promise<void> {
-    if (entry.level === 'silent') {
+    if (!this.isLevelEnabled(entry.level)) {
       return;
     }
+    const finalObject = this.formatter ? this.formatter.format(entry) : entry;
+    const logString = JSON.stringify(finalObject);
 
-    // First, apply the formatter if it exists.
-    const formattedEntry = this.formatter
-      ? this.formatter.format(entry)
-      : entry;
-
-    // Then, sanitize the result using the injected engine, if it was provided.
-    const sanitizedEntry = this.sanitizationEngine
-      ? this.sanitizationEngine.process(formattedEntry)
-      : formattedEntry;
-
-    const logString = JSON.stringify(sanitizedEntry);
-
-    switch (formattedEntry.level) {
+    switch (entry.level) {
       case 'fatal':
       case 'error':
         console.error(logString);

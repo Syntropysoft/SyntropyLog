@@ -8,6 +8,8 @@
  * can be used interchangeably.
  */
 
+import { LogLevel } from '../types';
+
 /**
  * @interface IContextManager
  * @description The contract for managing asynchronous context.
@@ -20,10 +22,7 @@ export interface IContextManager {
    * @param options.correlationIdHeader The custom header name to use for the correlation ID.
    * @param options.transactionIdHeader The custom header name for the transaction ID.
    */
-  configure(options?: {
-    correlationIdHeader?: string;
-    transactionIdHeader?: string;
-  }): void;
+  configure(options: any): void;
 
   /**
    * Executes a function within a new, isolated asynchronous context.
@@ -32,7 +31,7 @@ export interface IContextManager {
    * @param callback The function to execute within the new context.
    * @returns The return value of the callback function.
    */
-  run<T>(callback: () => T): T;
+  run(fn: () => void | Promise<void>): Promise<void>;
 
   /**
    * Sets a value in the current asynchronous context.
@@ -47,7 +46,7 @@ export interface IContextManager {
    * @param key The key of the value to retrieve.
    * @returns The value associated with the key, or `undefined` if not found.
    */
-  get<T = any>(key: string): T | undefined;
+  get(key: string): any;
 
   /**
    * Gets the entire key-value store from the current context.
@@ -86,5 +85,13 @@ export interface IContextManager {
   setTransactionId(transactionId: string): void;
 
   /** Gets the tracing headers to propagate the context (e.g., W3C Trace Context). */
-  getTraceContextHeaders?(): Record<string, string> | undefined;
+  getTraceContextHeaders(): Record<string, string>;
+
+  /**
+   * Gets a filtered context based on the specified log level.
+   * This is useful for logging purposes to ensure only relevant context is included.
+   * @param level The log level to filter by.
+   * @returns A record containing only the context data relevant for the specified level.
+   */
+  getFilteredContext(level: LogLevel): Record<string, unknown>;
 }

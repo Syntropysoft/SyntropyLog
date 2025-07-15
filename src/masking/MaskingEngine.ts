@@ -3,6 +3,7 @@
  * FILE: src/masking/MaskingEngine.ts
  * DESCRIPTION: Central engine for applying robust, secure data masking to log objects.
  */
+import RegexTest from 'regex-test';
 
 /**
  * @interface FieldMaskConfig
@@ -48,12 +49,15 @@ export class MaskingEngine {
   private readonly maxDepth: number;
   /** @private The masking style to apply. */
   private readonly style: 'fixed' | 'preserve-length';
+  /** @private Secure regex tester with timeout. */
+  private readonly regexTest: RegexTest;
 
   constructor(options?: MaskingEngineOptions) {
     this.fieldConfigs = options?.fields || [];
     this.maskChar = options?.maskChar || '******';
     this.maxDepth = options?.maxDepth ?? 3;
     this.style = options?.style ?? 'fixed';
+    this.regexTest = new RegexTest({ timeout: 100 });
   }
 
   /**
@@ -86,7 +90,9 @@ export class MaskingEngine {
    * @param {Record<string, any>} meta - The metadata object to process.
    * @returns {Record<string, any>} A new object with the masked data.
    */
-  public process(meta: Record<string, unknown>): Record<string, unknown> {
+  public async process(
+    meta: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     return this.maskRecursively(meta, '', 0);
   }
 
@@ -102,15 +108,19 @@ export class MaskingEngine {
    * @param {number} depth - The current recursion depth to prevent infinite loops.
    * @returns {any} The processed data with masking applied.
    */
-  private maskRecursively(data: any, currentPath: string, depth: number): any {
+  private async maskRecursively(
+    data: any,
+    currentPath: string,
+    depth: number
+  ): Promise<any> {
     if (depth > this.maxDepth || data === null || typeof data !== 'object') {
       return data;
     }
 
     if (Array.isArray(data)) {
-      // For arrays, we don't append index to path, we process each item individually.
-      return data.map((item) =>
-        this.maskRecursively(item, currentPath, depth + 1)
+      // For arrays, we process each item individually.
+      return Promise.all(
+        data.map((item) => this.maskRecursively(item, currentPath, depth + 1))
       );
     }
 
@@ -118,26 +128,14 @@ export class MaskingEngine {
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
         const value = data[key];
-        // Construct the full path for the current key.
         const newPath = currentPath ? `${currentPath}.${key}` : key;
 
-        const isSensitiveKey = this.fieldConfigs.some((config) => {
-          if (typeof config === 'string') {
-            // Check for exact path match or if the path ends with '.<config_path>'
-            // This handles both top-level keys ('password') and nested keys ('address.street')
-            return newPath === config || newPath.endsWith('.' + config);
-          } else {
-            // For regex, test against the full path for context-aware matching.
-            return config.test(newPath);
-          }
-        });
-
-        if (isSensitiveKey) {
+        if (await this.isSensitive(newPath)) {
           sanitizedObject[key] = this.getMask(value);
         } else if (typeof value === 'string') {
-          sanitizedObject[key] = this.sanitizeUrlPath(value);
+          sanitizedObject[key] = await this.sanitizeUrlPath(value);
         } else if (typeof value === 'object' && value !== null) {
-          sanitizedObject[key] = this.maskRecursively(
+          sanitizedObject[key] = await this.maskRecursively(
             value,
             newPath,
             depth + 1
@@ -148,6 +146,31 @@ export class MaskingEngine {
       }
     }
     return sanitizedObject;
+  }
+
+  /**
+   * @private
+   * Checks if a given object key path is sensitive based on the configured rules.
+   * @param {string} path - The dot-notation path of the key (e.g., "user.password").
+   * @returns {Promise<boolean>} - True if the path should be masked.
+   */
+  private async isSensitive(path: string): Promise<boolean> {
+    for (const config of this.fieldConfigs) {
+      if (typeof config === 'string') {
+        if (path === config || path.endsWith(`.${config}`)) {
+          return true;
+        }
+      } else if (config instanceof RegExp) {
+        // FIXME: This uses the native .test() method, which does not protect against
+        // Regular Expression Denial of Service (ReDoS) attacks. The 'regex-test'
+        // library was causing timeouts. This should be revisited to find a secure
+        // and performant solution.
+        if (config.test(path)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
@@ -164,9 +187,8 @@ export class MaskingEngine {
    * @param {string} str - The string to sanitize.
    * @returns {string} The sanitized string, or the original if no sensitive keywords were found.
    */
-  private sanitizeUrlPath(str: string): string {
+  private async sanitizeUrlPath(str: string): Promise<string> {
     // Quick check to avoid processing every single string.
-    // It should at least contain a slash to be considered a path.
     if (!str.includes('/')) {
       return str;
     }
@@ -174,24 +196,24 @@ export class MaskingEngine {
     const parts = str.split('/');
     let modified = false;
 
-    // We iterate up to the second to last part, since we're looking ahead.
     for (let i = 0; i < parts.length - 1; i++) {
       const currentPart = parts[i];
       const nextPart = parts[i + 1];
 
-      // Check if the current part is a sensitive keyword
-      const isSensitive = this.fieldConfigs.some((config) =>
-        typeof config === 'string'
-          ? currentPart.toLowerCase() === config.toLowerCase()
-          : config.test(currentPart)
-      );
+      let isSensitive = false;
+      for (const config of this.fieldConfigs) {
+        // Path sanitization should ONLY act on string keywords, not complex regex.
+        if (typeof config === 'string') {
+          if (currentPart.toLowerCase() === config.toLowerCase()) {
+            isSensitive = true;
+            break;
+          }
+        }
+      }
 
-      // If the current part is sensitive and the next part is not empty, mask the next part.
       if (isSensitive && nextPart.length > 0) {
         parts[i + 1] = this.getMask(nextPart);
         modified = true;
-        // Advance the index to avoid re-checking the newly inserted mask character
-        // in cases like /password/part/password/part2
         i++;
       }
     }

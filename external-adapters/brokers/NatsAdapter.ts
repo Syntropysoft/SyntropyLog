@@ -4,7 +4,7 @@ import {
   BrokerMessage,
   MessageHandler,
   MessageLifecycleControls,
-} from '../../src/brokers/adapter.types';
+} from 'syntropylog/brokers/adapter.types';
 import { connect, NatsConnection, StringCodec, headers, Subscription, Msg } from 'nats';
 
 const CORRELATION_ID_KEY = 'x-correlation-id';

@@ -1,205 +1,146 @@
 /**
  * FILE: tests/redis/RedisManager.test.ts
  * DESCRIPTION: Unit tests for the RedisManager class.
+ *
+ * This test suite has been refactored to align with the current architecture where
+ * RedisManager is responsible for creating and managing RedisConnectionManager instances,
+ * not BeaconRedis instances directly.
  */
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 import { RedisManager } from '../../src/redis/RedisManager';
 import { ILogger } from '../../src/logger/ILogger';
+import { IContextManager } from '../../src/context';
 import { SyntropyRedisConfig } from '../../src/config';
-import { BeaconRedis } from '../../src/redis/BeaconRedis';
 import { RedisConnectionManager } from '../../src/redis/RedisConnectionManager';
-import { RedisCommandExecutor } from '../../src/redis/RedisCommandExecutor';
-import { createFailingRedisClient } from '../../src/utils/createFailingClient';
-import { IBeaconRedis } from '../../src/redis/IBeaconRedis';
 
-// Mock all dependencies
-vi.mock('../../src/redis/BeaconRedis');
+// --- Mocks ---
 vi.mock('../../src/redis/RedisConnectionManager');
-vi.mock('../../src/redis/RedisCommandExecutor');
-vi.mock('../../src/utils/createFailingClient');
 
 const createMockLogger = (): ILogger => ({
+  trace: vi.fn(),
   debug: vi.fn(),
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
-  child: vi.fn().mockReturnThis(), // Chainable child logger
+  fatal: vi.fn(),
+  child: vi.fn().mockReturnThis(),
+  withSource: vi.fn().mockReturnThis(),
+});
+
+const createMockContextManager = (): IContextManager => ({
+  run: vi.fn((_, cb) => cb()),
+  get: vi.fn(),
+  set: vi.fn(),
+  create: vi.fn(),
+  configure: vi.fn(),
+  getFilteredContext: vi.fn(),
 });
 
 describe('RedisManager', () => {
   let mockLogger: ILogger;
-  let mockBeaconRedis: vi.Mocked<BeaconRedis>;
-
-  // Mocked constructors and functions
-  const MockedBeaconRedis = vi.mocked(BeaconRedis);
-  const MockedConnectionManager = vi.mocked(RedisConnectionManager);
-  const mockedCreateFailingClient = vi.mocked(createFailingRedisClient);
-  const MockedCommandExecutor = vi.mocked(RedisCommandExecutor);
+  let mockContextManager: IContextManager;
+  let redisConfig: SyntropyRedisConfig;
+  let MockedConnectionManager: Mocked<typeof RedisConnectionManager>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockLogger = createMockLogger();
-
-    // Setup a generic mock for BeaconRedis instances
-    mockBeaconRedis = {
-      getInstanceName: vi.fn().mockReturnValue('mock-instance'),
-      updateConfig: vi.fn(),
-      quit: vi.fn().mockResolvedValue(undefined),
-    } as any;
-    MockedBeaconRedis.mockImplementation(() => mockBeaconRedis);
-
-    // Mock the native client getter from ConnectionManager
-    vi.spyOn(
-      MockedConnectionManager.prototype,
-      'getNativeClient'
-    ).mockReturnValue({} as any);
+    mockContextManager = createMockContextManager();
+    redisConfig = { instances: [] };
+    MockedConnectionManager = vi.mocked(RedisConnectionManager);
   });
 
   describe('Constructor and Initialization', () => {
-    it('should initialize empty and log a debug message if no config is provided', () => {
-      new RedisManager({ logger: mockLogger });
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'No Redis configuration was provided or no instances were defined. RedisManager initialized empty.'
-      );
-      expect(MockedBeaconRedis).not.toHaveBeenCalled();
+    it('should initialize empty and log a trace message if no config is provided', () => {
+      const manager = new RedisManager({ instances: [] }, mockLogger, mockContextManager);
+      manager.init();
+      expect(mockLogger.trace).toHaveBeenCalledWith('No Redis instances to initialize.');
+      expect(MockedConnectionManager).not.toHaveBeenCalled();
     });
 
-    it('should create BeaconRedis instances for each configuration entry', () => {
-      const config: SyntropyRedisConfig = {
-        instances: [
-          { instanceName: 'instance-1', mode: 'single', url: 'redis://a' },
-          { instanceName: 'instance-2', mode: 'single', url: 'redis://b' },
-        ],
-      };
+    it('should create RedisConnectionManager instances for each config entry', () => {
+      redisConfig.instances = [
+        { instanceName: 'instance-1', mode: 'single', url: 'redis://a' },
+        { instanceName: 'instance-2', mode: 'single', url: 'redis://b' },
+      ];
+      const manager = new RedisManager(redisConfig, mockLogger, mockContextManager);
+      manager.init();
 
-      new RedisManager({ config, logger: mockLogger });
-
-      expect(MockedBeaconRedis).toHaveBeenCalledTimes(2);
-      expect(mockLogger.child).toHaveBeenCalledWith({ instance: 'instance-1' });
-      expect(mockLogger.child).toHaveBeenCalledWith({ instance: 'instance-2' });
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Redis instance "instance-1" created successfully.'
+      expect(MockedConnectionManager).toHaveBeenCalledTimes(2);
+      expect(MockedConnectionManager).toHaveBeenCalledWith(
+        redisConfig.instances[0],
+        expect.anything(),
       );
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Redis instance "instance-2" created successfully.'
+      expect(MockedConnectionManager).toHaveBeenCalledWith(
+        redisConfig.instances[1],
+        expect.anything(),
       );
     });
 
-    it('should correctly wire up ConnectionManager, CommandExecutor, and BeaconRedis', () => {
-      const instanceConfig = { instanceName: 'wired-instance', mode: 'single', url: 'redis://c' };
-      const config: SyntropyRedisConfig = { instances: [instanceConfig] };
-      const mockNativeClient = { id: 'native-client' } as any;
+    it('should set the default instance based on the "default" config property', () => {
+        redisConfig.instances = [
+            { instanceName: 'redis-1', mode: 'single', url: 'redis://a' },
+            { instanceName: 'redis-2', mode: 'single', url: 'redis://b' },
+        ];
+        redisConfig.default = 'redis-2';
 
-      vi.spyOn(
-        MockedConnectionManager.prototype,
-        'getNativeClient'
-      ).mockReturnValue(mockNativeClient);
+        const mockInstance1 = { instanceName: 'redis-1' };
+        const mockInstance2 = { instanceName: 'redis-2' };
+        MockedConnectionManager
+            .mockImplementationOnce(() => mockInstance1 as any)
+            .mockImplementationOnce(() => mockInstance2 as any);
 
-      new RedisManager({ config, logger: mockLogger });
-
-      expect(MockedConnectionManager).toHaveBeenCalledWith(instanceConfig, expect.any(Object));
-      expect(MockedCommandExecutor).toHaveBeenCalledWith(mockNativeClient);
-      expect(MockedBeaconRedis).toHaveBeenCalledWith(
-        instanceConfig,
-        expect.any(MockedConnectionManager),
-        expect.any(MockedCommandExecutor),
-        expect.any(Object) // child logger
-      );
+        const manager = new RedisManager(redisConfig, mockLogger, mockContextManager);
+        manager.init();
+        const instance = manager.getInstance();
+        expect(instance.instanceName).toBe('redis-2');
     });
   });
 
   describe('Instance Retrieval', () => {
     it('should return the correct instance when a valid name is provided', () => {
-      const config: SyntropyRedisConfig = {
-        instances: [{ instanceName: 'my-redis', mode: 'single', url: 'redis://a' }],
-      };
-      MockedBeaconRedis.mockReturnValue({ getInstanceName: () => 'my-redis' } as any);
-
-      const manager = new RedisManager({ config, logger: mockLogger });
+      const mockInstance = { instanceName: 'my-redis' };
+      MockedConnectionManager.mockReturnValue(mockInstance as any);
+      redisConfig.instances = [
+        { instanceName: 'my-redis', mode: 'single', url: 'redis://a' },
+      ];
+      
+      const manager = new RedisManager(redisConfig, mockLogger, mockContextManager);
+      manager.init();
       const instance = manager.getInstance('my-redis');
-
-      expect(instance.getInstanceName()).toBe('my-redis');
+      expect(instance.instanceName).toBe('my-redis');
     });
 
     it('should throw an error if the instance name is not found', () => {
-      const manager = new RedisManager({ logger: mockLogger });
+      const manager = new RedisManager({ instances: [] }, mockLogger, mockContextManager);
+      manager.init();
       expect(() => manager.getInstance('non-existent')).toThrow(
-        'Redis instance with name "non-existent" was not found.'
+        'Redis instance with name "non-existent" was not found.',
       );
     });
   });
 
-  describe('Error Handling and Lifecycle', () => {
-    it('should create a failing client if an instance fails to initialize', () => {
-      const error = new Error('Initialization failed');
-      MockedBeaconRedis.mockImplementation(() => {
-        throw error;
-      });
-      const failingClientMock = { isFailing: true } as any;
-      mockedCreateFailingClient.mockReturnValue(failingClientMock);
+  describe('Lifecycle', () => {
+    it('should call disconnect on all instances during shutdown', async () => {
+      const mockInstance1 = { instanceName: 'inst-a', disconnect: vi.fn().mockResolvedValue(undefined) };
+      const mockInstance2 = { instanceName: 'inst-b', disconnect: vi.fn().mockResolvedValue(undefined) };
+      MockedConnectionManager
+        .mockImplementationOnce(() => mockInstance1 as any)
+        .mockImplementationOnce(() => mockInstance2 as any);
 
-      const config: SyntropyRedisConfig = {
-        instances: [{ instanceName: 'failing-instance', mode: 'single', url: 'redis://fail' }],
-      };
-
-      const manager = new RedisManager({ config, logger: mockLogger });
-
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to create Redis instance "failing-instance"',
-        { error }
-      );
-      expect(createFailingRedisClient).toHaveBeenCalledWith('failing-instance', error, expect.any(Object));
-
-      const instance = manager.getInstance('failing-instance');
-      expect(instance).toBe(failingClientMock);
-    });
-
-    it('should call quit on all instances during shutdown', async () => {
-      const instances: IBeaconRedis[] = [
-        { getInstanceName: () => 'inst-a', quit: vi.fn().mockResolvedValue(undefined) } as any,
-        { getInstanceName: () => 'inst-b', quit: vi.fn().mockResolvedValue(undefined) } as any,
+      redisConfig.instances = [
+        { instanceName: 'inst-a', mode: 'single', url: 'redis://a' },
+        { instanceName: 'inst-b', mode: 'single', url: 'redis://b' },
       ];
-      MockedBeaconRedis.mockImplementationOnce(() => instances[0] as BeaconRedis)
-                       .mockImplementationOnce(() => instances[1] as BeaconRedis);
-
-      const config: SyntropyRedisConfig = {
-        instances: [
-          { instanceName: 'inst-a', mode: 'single', url: 'redis://a' },
-          { instanceName: 'inst-b', mode: 'single', url: 'redis://b' },
-        ],
-      };
-      const manager = new RedisManager({ config, logger: mockLogger });
+      const manager = new RedisManager(redisConfig, mockLogger, mockContextManager);
+      manager.init();
 
       await manager.shutdown();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Closing all Redis connections...');
-      expect(instances[0].quit).toHaveBeenCalledOnce();
-      expect(instances[1].quit).toHaveBeenCalledOnce();
+      expect(mockInstance1.disconnect).toHaveBeenCalledOnce();
+      expect(mockInstance2.disconnect).toHaveBeenCalledOnce();
       expect(mockLogger.info).toHaveBeenCalledWith('All Redis connections have been closed.');
-    });
-
-    it('should update the configuration of a specific instance', () => {
-      const config: SyntropyRedisConfig = {
-        instances: [{ instanceName: 'my-redis', mode: 'single', url: 'redis://a' }],
-      };
-      const manager = new RedisManager({ config, logger: mockLogger });
-      const newConfig = { logging: { onSuccess: 'info' as const } };
-
-      manager.updateInstanceConfig('my-redis', newConfig);
-
-      expect(mockBeaconRedis.updateConfig).toHaveBeenCalledWith(newConfig);
-    });
-
-    it('should log a warning when trying to update a non-existent instance', () => {
-      const manager = new RedisManager({ logger: mockLogger });
-      const newConfig = { logging: { onSuccess: 'info' as const } };
-
-      manager.updateInstanceConfig('non-existent', newConfig);
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        'Attempted to reconfigure Redis instance "non-existent", but it was not found.'
-      );
     });
   });
 });

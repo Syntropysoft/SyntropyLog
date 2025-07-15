@@ -37,7 +37,7 @@ describe('PrettyConsoleTransport', () => {
   });
 
   it('should log a simple message in the correct pretty format', async () => {
-    const transport = new PrettyConsoleTransport();
+    const transport = new PrettyConsoleTransport({ level: 'info' });
     const logEntry = getBaseLogEntry('info', 'Application is running.');
 
     await transport.log(logEntry);
@@ -55,7 +55,7 @@ describe('PrettyConsoleTransport', () => {
   });
 
   it('should format and include metadata on a new line, pretty-printed', async () => {
-    const transport = new PrettyConsoleTransport();
+    const transport = new PrettyConsoleTransport({ level: 'debug' });
     const logEntry: LogEntry = {
       ...getBaseLogEntry('debug', 'Processing user request.'),
       userId: 42,
@@ -100,7 +100,7 @@ describe('PrettyConsoleTransport', () => {
   });
 
   it('should use console.error for "error" and "fatal" levels', async () => {
-    const transport = new PrettyConsoleTransport();
+    const transport = new PrettyConsoleTransport({ level: 'error' });
     const errorEntry = getBaseLogEntry('error', 'Database query failed.');
     const fatalEntry = getBaseLogEntry('fatal', 'Service is shutting down.');
 
@@ -113,7 +113,7 @@ describe('PrettyConsoleTransport', () => {
   });
 
   it('should use console.warn for "warn" level', async () => {
-    const transport = new PrettyConsoleTransport();
+    const transport = new PrettyConsoleTransport({ level: 'warn' });
     const warnEntry = getBaseLogEntry('warn', 'Configuration value is deprecated.');
 
     await transport.log(warnEntry);
@@ -123,7 +123,7 @@ describe('PrettyConsoleTransport', () => {
   });
 
   it('should not log anything for the "silent" level', async () => {
-    const transport = new PrettyConsoleTransport();
+    const transport = new PrettyConsoleTransport({ level: 'info' }); // Level 'info' will not log 'silent'
     const logEntry = getBaseLogEntry('silent', 'This should not appear.');
 
     await transport.log(logEntry);

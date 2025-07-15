@@ -3,77 +3,48 @@
  * @file src/logger/Logger.ts
  * @description The core implementation of the ILogger interface.
  */
-import { format } from 'util';
-import type { IContextManager } from '../context/IContextManager';
-import type { ILogger } from './ILogger';
-import { JsonValue, LogEntry } from '../types';
-import { logLevels, LogLevelName } from './levels';
+import * as util from 'node:util';
 import { Transport } from './transports/Transport';
+import { LOG_LEVEL_WEIGHTS } from './levels';
+import type { LogEntry, LogLevel, LoggerOptions } from '../types';
+import { IContextManager } from '../context';
 import { SerializerRegistry } from '../serialization/SerializerRegistry';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
 
-/**
- * @interface LoggerOptions
- * @description Defines the configuration options required to create a Logger instance.
- */
-export interface LoggerOptions {
-  /** The manager for handling asynchronous contexts. */
+export interface LoggerDependencies {
   contextManager: IContextManager;
-  /** The main framework instance, used as a mediator to filter context. */
-  syntropyLogInstance: SyntropyLog;
-  /** An array of transports to which logs will be dispatched. */
-  transports: Transport[];
-  /** The minimum log level for this logger instance. Defaults to 'info'. */
-  level?: LogLevelName;
-  /** The name of the service, included in every log entry. */
-  serviceName?: string;
-  /** A set of key-value pairs to be included in every log entry from this logger. */
-  bindings?: Record<string, JsonValue>;
-  /** The engine responsible for serializing complex objects. */
   serializerRegistry: SerializerRegistry;
-  /** The engine responsible for masking sensitive data. */
   maskingEngine: MaskingEngine;
+  syntropyLogInstance: SyntropyLog;
 }
+
+type LogLevelWithWeight = Exclude<LogLevel, 'silent'>;
 
 /**
  * @class Logger
  * @description The core logger implementation. It orchestrates the entire logging
  * pipeline, from argument parsing and level checking to serialization, masking,
  * and dispatching to transports.
- * @implements {ILogger}
  */
-export class Logger implements ILogger {
-  /** @private The manager for handling asynchronous contexts. */
-  private readonly contextManager: IContextManager;
-  /** @private The main framework instance, used as a mediator to filter context. */
-  private readonly syntropyLogInstance: SyntropyLog;
-  /** @private An array of transports to which logs will be dispatched. */
-  private readonly transports: Transport[];
-  /** @private A set of key-value pairs included in every log entry. */
-  private readonly bindings: Record<string, JsonValue>;
-  /** @private The name of the service, included in every log entry. */
-  private readonly serviceName: string;
-  /** @private The current minimum log level for this logger instance. */
-  private level: LogLevelName;
-  /** @private The engine responsible for serializing complex objects. */
-  private readonly serializerRegistry: SerializerRegistry;
-  /** @private The engine responsible for masking sensitive data. */
-  private readonly maskingEngine: MaskingEngine;
+export class Logger {
+  public level: LogLevel;
+  public name: string;
+  private transports: Transport[];
+  private bindings: Record<string, any>;
+  private dependencies: LoggerDependencies;
 
-  /**
-   * @constructor
-   * @param {LoggerOptions} opts - The configuration options for the logger.
-   */
-  constructor(opts: LoggerOptions) {
-    this.contextManager = opts.contextManager;
-    this.syntropyLogInstance = opts.syntropyLogInstance;
-    this.transports = opts.transports;
-    this.level = opts.level ?? 'info';
-    this.serviceName = opts.serviceName ?? 'any-service';
-    this.bindings = opts.bindings || {};
-    this.serializerRegistry = opts.serializerRegistry;
-    this.maskingEngine = opts.maskingEngine;
+  constructor(
+    name: string,
+    transports: Transport[],
+    dependencies: LoggerDependencies,
+    options: Omit<LoggerOptions, 'transports'> = {}
+  ) {
+    this.name = name;
+    this.transports = transports;
+    this.dependencies = dependencies;
+    this.bindings = options.bindings ?? {};
+    this.level = options.level ?? 'info';
   }
 
   /**
@@ -81,156 +52,138 @@ export class Logger implements ILogger {
    * The core asynchronous logging method that runs the full processing pipeline.
    * It handles argument parsing, level filtering, serialization, masking,
    * and finally dispatches the processed log entry to the appropriate transports.
-   * @param {LogLevelName} level - The severity level of the log message.
+   * @param {LogLevel} level - The severity level of the log message.
    * @param {...any[]} args - The arguments to be logged, following the Pino-like signature (e.g., `(obj, msg, ...)` or `(msg, ...)`).
    * @returns {Promise<void>}
    */
-  private async _log(level: LogLevelName, ...args: any[]): Promise<void> {
-    const loggerLevelValue = logLevels[this.level];
-    const messageLevelValue = logLevels[level];
+  private async _log(level: LogLevel, ...args: unknown[]): Promise<void> {
+    if (level === 'silent') {
+      return;
+    }
+    // Type-guarded access to weights
+    const weightedLevel = level as LogLevelWithWeight;
+    const weightedThisLevel = this.level as LogLevelWithWeight;
 
-    // Discard the log if the message's level is lower than the logger's level.
-    if (messageLevelValue < loggerLevelValue) {
+    if (
+      LOG_LEVEL_WEIGHTS[weightedLevel] < LOG_LEVEL_WEIGHTS[weightedThisLevel]
+    ) {
       return;
     }
 
-    let meta: Record<string, any> = {};
-    let messageArgs = args;
-
-    // Parse arguments to separate the metadata object from the message and its format arguments.
-    if (
-      args.length > 0 &&
-      typeof args[0] === 'object' &&
-      args[0] !== null &&
-      !Array.isArray(args[0])
-    ) {
-      meta = { ...args[0] };
-      messageArgs = args.slice(1);
-    }
-
-    // --- Processing Pipeline Execution ---
-    // 1. Serialization (awaits the result as it can be async)
-    const serializedMeta = await this.serializerRegistry.process(meta, this);
-
-    // 2. Masking (runs on the now-serialized data)
-    const maskedMeta = this.maskingEngine.process(serializedMeta);
-    // --- End of Pipeline ---
-
-    // Extract 'msg' from metadata if it exists, so it doesn't appear twice.
-    const metaMessage = (maskedMeta.msg as string) ?? undefined;
-    if (metaMessage) delete maskedMeta.msg;
-
-    const formattedMessage =
-      messageArgs.length > 0 ? format(...messageArgs) : '';
-    const finalMessage = [metaMessage, formattedMessage]
-      .filter(Boolean)
-      .join(' ');
-
-    const entry: LogEntry = {
+    const context = this.dependencies.contextManager.getFilteredContext(level);
+    const logEntry: LogEntry = {
+      ...context,
       ...this.bindings,
-      ...maskedMeta,
-      context: this.syntropyLogInstance.getFilteredContext(level),
-      timestamp: new Date().toISOString(),
       level,
-      service: this.serviceName,
-      msg: finalMessage,
+      timestamp: new Date().toISOString(),
+      message: '', // Initialize message
     };
 
-    // Dispatch the final log entry to all transports that are configured
-    // to handle this log level.
-    const promises = this.transports
-      .filter((transport) => {
-        if (!transport.level) return true;
-        const transportLevelValue = logLevels[transport.level];
-        return messageLevelValue >= transportLevelValue;
-      })
-      .map((transport) => transport.log(entry));
+    // Extract metadata object if it's the first argument
+    const firstArg = args[0];
+    if (
+      typeof firstArg === 'object' &&
+      firstArg !== null &&
+      !Array.isArray(firstArg)
+    ) {
+      Object.assign(logEntry, firstArg);
+      args.shift(); // Remove it from args
+    }
 
-    // Fire and forget the transport promises. Logging should not block the
-    // application, and a failing transport should not crash the process.
-    Promise.allSettled(promises).catch(() => {
-      // This catch is a safeguard, but allSettled should not reject.
-      // We intentionally do nothing here.
-    });
+    // Format message, allowing metadata message to be a format string
+    const formatString = logEntry.message || (args[0] as string);
+    const formatArgs = logEntry.message ? args : args.slice(1);
+    if (formatString) {
+      logEntry.message = util.format(formatString, ...formatArgs);
+    }
+
+    // 1. Apply custom serializers (e.g., for Error objects)
+    const finalEntry = await this.dependencies.serializerRegistry.process(
+      logEntry,
+      this as any
+    );
+
+    // 2. Apply masking to the entire, serialized entry.
+    const maskedEntry =
+      await this.dependencies.maskingEngine.process(finalEntry);
+
+    // Dispatch to transports
+    await Promise.all(
+      this.transports.map((transport) => {
+        if (transport.isLevelEnabled(level)) {
+          // The type assertion is safe here because the masking engine preserves the structure.
+          return transport.log(maskedEntry as LogEntry);
+        }
+        return Promise.resolve();
+      })
+    );
   }
 
   /**
    * Logs a message at the 'info' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...any[]} args - The arguments to log.
    */
-  public info(...args: any[]): void {
-    this._log('info', ...args);
+  info(...args: unknown[]): Promise<void> {
+    return this._log('info', ...args);
   }
 
   /**
    * Logs a message at the 'warn' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...any[]} args - The arguments to log.
    */
-  public warn(...args: any[]): void {
-    this._log('warn', ...args);
+  warn(...args: unknown[]): Promise<void> {
+    return this._log('warn', ...args);
   }
 
   /**
    * Logs a message at the 'error' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...any[]} args - The arguments to log.
    */
-  public error(...args: any[]): void {
-    this._log('error', ...args);
+  error(...args: unknown[]): Promise<void> {
+    return this._log('error', ...args);
   }
 
   /**
    * Logs a message at the 'debug' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...any[]} args - The arguments to log.
    */
-  public debug(...args: any[]): void {
-    this._log('debug', ...args);
+  debug(...args: unknown[]): Promise<void> {
+    return this._log('debug', ...args);
   }
 
   /**
    * Logs a message at the 'trace' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...any[]} args - The arguments to log.
    */
-  public trace(...args: any[]): void {
-    this._log('trace', ...args);
+  trace(...args: unknown[]): Promise<void> {
+    return this._log('trace', ...args);
   }
 
   /**
    * Logs a message at the 'fatal' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...any[]} args - The arguments to log.
    */
-  public fatal(...args: any[]): void {
-    this._log('fatal', ...args);
+  fatal(...args: unknown[]): Promise<void> {
+    return this._log('fatal', ...args);
   }
 
   /**
    * Dynamically updates the minimum log level for this logger instance.
    * Any messages with a severity lower than the new level will be ignored.
-   * @param {LogLevelName} level - The new minimum log level.
+   * @param {LogLevel} level - The new minimum log level.
    */
-  public setLevel(level: LogLevelName): void {
+  setLevel(level: LogLevel): void {
     this.level = level;
   }
 
   /**
    * Creates a new child logger instance that inherits the parent's configuration
    * and adds a set of persistent key-value bindings.
-   * @param {Record<string, JsonValue>} bindings - Key-value pairs to add to the child logger.
-   * @returns {ILogger} A new logger instance with the combined bindings.
+   * @param {Record<string, any>} bindings - Key-value pairs to add to the child logger.
+   * @returns {Logger} A new logger instance with the combined bindings.
    */
-  public child(bindings: Record<string, JsonValue>): ILogger {
-    return new Logger({
+  child(bindings: Record<string, any>): Logger {
+    return new Logger(this.name, this.transports, this.dependencies, {
       ...this,
       bindings: { ...this.bindings, ...bindings },
     });
@@ -239,9 +192,9 @@ export class Logger implements ILogger {
   /**
    * Creates a new logger instance with a `source` field bound to it.
    * @param {string} source - The name of the source (e.g., 'redis', 'AuthModule').
-   * @returns {ILogger} A new logger instance with the `source` binding.
+   * @returns {Logger} A new logger instance with the `source` binding.
    */
-  public withSource(source: string): ILogger {
+  withSource(source: string): Logger {
     return this.child({ source });
   }
 
@@ -249,9 +202,9 @@ export class Logger implements ILogger {
    * Creates a new logger instance with a `retention` field bound to it.
    * The provided rules object is deep-cloned to ensure immutability.
    * @param {Record<string, any>} rules - A JSON object containing the retention rules.
-   * @returns {ILogger} A new logger instance with the `retention` binding.
+   * @returns {Logger} A new logger instance with the `retention` binding.
    */
-  public withRetention(rules: Record<string, any>): ILogger {
+  withRetention(rules: Record<string, any>): Logger {
     const safeRules = JSON.parse(JSON.stringify(rules));
     return this.child({ retention: safeRules });
   }
@@ -259,9 +212,9 @@ export class Logger implements ILogger {
   /**
    * Creates a new logger instance with a `transactionId` field bound to it.
    * @param {string} transactionId - The unique ID of the transaction.
-   * @returns {ILogger} A new logger instance with the `transactionId` binding.
+   * @returns {Logger} A new logger instance with the `transactionId` binding.
    */
-  public withTransactionId(transactionId: string): ILogger {
+  withTransactionId(transactionId: string): Logger {
     return this.child({ transactionId });
   }
 }

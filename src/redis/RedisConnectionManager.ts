@@ -28,6 +28,7 @@ function isRedisClientType(
  * providing a stable and predictable promise-based interface for connecting and disconnecting.
  */
 export class RedisConnectionManager {
+  public readonly instanceName: string;
   private readonly client: NodeRedisClient;
   private readonly logger: ILogger;
   private connectionPromise: Promise<void> | null = null;
@@ -46,6 +47,7 @@ export class RedisConnectionManager {
    */
   constructor(config: RedisInstanceConfig, logger: ILogger) {
     this.logger = logger;
+    this.instanceName = config.instanceName;
     this.client = this.createNativeClient(config);
     this.setupListeners();
   }

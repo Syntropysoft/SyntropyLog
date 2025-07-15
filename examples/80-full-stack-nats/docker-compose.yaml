@@ -7,38 +7,32 @@ services:
       - "4222:4222"
 
   api-gateway:
-    build:
-      context: ../..
-      dockerfile: examples/80-full-stack-nats/Dockerfile
-    working_dir: /app/examples/80-full-stack-nats
-    command: sh -c "npm run build && npm run start:api-gateway"
+    image: node:18-alpine
+    command: sh -c "node dist/examples/80-full-stack-nats/src/api-gateway/index.js"
     ports:
       - "3000:3000"
     volumes:
       - ../..:/app
+    working_dir: /app
     depends_on:
       - nats-server
 
   sales-service:
-    build:
-      context: ../..
-      dockerfile: examples/80-full-stack-nats/Dockerfile
-    working_dir: /app/examples/80-full-stack-nats
-    command: sh -c "npm run build && npm run start:sales-service"
+    image: node:18-alpine
+    command: sh -c "node dist/examples/80-full-stack-nats/src/sales-service/index.js"
     ports:
       - "3001:3001"
     volumes:
       - ../..:/app
+    working_dir: /app
     depends_on:
       - nats-server
 
   dispatch-service:
-    build:
-      context: ../..
-      dockerfile: examples/80-full-stack-nats/Dockerfile
-    working_dir: /app/examples/80-full-stack-nats
-    command: sh -c "npm run build && npm run start:dispatch-service"
+    image: node:18-alpine
+    command: sh -c "node dist/examples/80-full-stack-nats/src/dispatch-service/index.js"
     volumes:
       - ../..:/app
+    working_dir: /app
     depends_on:
       - nats-server 

@@ -26,7 +26,11 @@ const jsPlugins = [
 ];
 
 // Base configuration for each entry point.
-const createEntryConfig = (inputFile, baseOutputName) => ({
+const createEntryConfig = (
+  inputFile,
+  baseOutputName,
+  options = {},
+) => ({
   input: inputFile,
   output: [
     {
@@ -42,6 +46,7 @@ const createEntryConfig = (inputFile, baseOutputName) => ({
   ],
   plugins: jsPlugins,
   external,
+  ...options,
 });
 
 // Base configuration for each type declaration entry point.
@@ -49,7 +54,7 @@ const createDtsConfig = (inputFile, outputName) => ({
   input: inputFile,
   output: [{ file: outputName, format: 'es' }],
   plugins: [dts()],
-  external: [...Object.keys(pkg.peerDependencies || {})],
+  external: [...Object.keys(pkg.peerDependencies || {}), 'events'],
 });
 
 // Export an array with all build configurations.
@@ -57,13 +62,25 @@ export default [
   // --- JavaScript Bundles ---
   createEntryConfig('src/index.ts', './dist/index'),
   createEntryConfig('src/doctor.ts', './dist/doctor'),
-  createEntryConfig('src/http/index.ts', './dist/http/index'),
-  createEntryConfig('src/brokers/index.ts', './dist/brokers/index'),
-  createEntryConfig('src/testing/index.ts', './dist/testing/index'),
+  createEntryConfig('src/http/index.ts', './dist/http/index', {
+    treeshake: false,
+  }),
+  createEntryConfig('src/brokers/index.ts', './dist/brokers/index', {
+    treeshake: false,
+  }),
+  createEntryConfig('src/testing/index.ts', './dist/testing/index', {
+    treeshake: false,
+  }),
 
   // --- Type Declaration Bundles (.d.ts) ---
-  createDtsConfig('dist/types/index.d.ts', 'dist/index.d.ts'),
-  createDtsConfig('dist/types/http/index.d.ts', 'dist/http/index.d.ts'),
-  createDtsConfig('dist/types/brokers/index.d.ts', 'dist/brokers/index.d.ts'),
-  createDtsConfig('dist/types/testing/index.d.ts', 'dist/testing/index.d.ts'),
+  createDtsConfig('dist/types/src/index.d.ts', 'dist/index.d.ts'),
+  createDtsConfig('dist/types/src/http/index.d.ts', 'dist/http/index.d.ts'),
+  createDtsConfig(
+    'dist/types/src/brokers/index.d.ts',
+    'dist/brokers/index.d.ts',
+  ),
+  createDtsConfig(
+    'dist/types/src/testing/index.d.ts',
+    'dist/testing/index.d.ts',
+  ),
 ];
