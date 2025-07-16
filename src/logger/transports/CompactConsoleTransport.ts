@@ -2,7 +2,7 @@
  * @file src/logger/transports/CompactConsoleTransport.ts
  * @description A transport that formats logs for a compact, human-readable console output.
  */
-import { LogLevel } from '../../types';
+import { LogLevel } from '../levels';
 import { TransportOptions } from './Transport';
 import { Chalk } from 'chalk';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';

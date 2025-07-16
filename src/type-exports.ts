@@ -9,8 +9,8 @@ export type { SyntropyLogConfig } from './config';
 export type { ILogger } from './logger/ILogger';
 export type { IContextManager } from './context/IContextManager';
 export * from './brokers/adapter.types';
-export type { LogEntry } from './types';
-export * from './types';
+export type { LogEntry, JsonValue, LoggerOptions } from './types';
+export type { LogLevel } from './logger/levels';
 
 // --- Transport Interfaces ---
 export type { LogFormatter } from './logger/transports/formatters/LogFormatter';

@@ -3,7 +3,7 @@
  * @description A transport that formats logs in a classic, single-line, text-based format, similar to Log4j.
  */
 import { TransportOptions } from './Transport';
-import { LogLevel } from '../../types';
+import { LogLevel } from '../levels';
 import { Chalk } from 'chalk';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
 

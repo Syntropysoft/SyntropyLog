@@ -665,3 +665,6 @@ $RECYCLE.BIN/
 
 # VSCode editor settings
 .vscode/
+
+# SyntropyLog modules (examples and adapters)
+modules/

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, SpyInstance } from 'vitest';
 import { ConsoleTransport } from '../../../src/logger/transports/ConsoleTransport';
-import { LogEntry, LogLevel } from '../../../src/types';
+import { LogEntry } from '../../../src/types';
+import { LogLevel } from '../../../src/logger/levels';
 import { LogFormatter } from '../../../src/logger/transports/formatters/LogFormatter';
 
 describe('ConsoleTransport', () => {

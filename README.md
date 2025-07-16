@@ -161,7 +161,8 @@ Each example is a self-contained project that demonstrates a specific feature, f
 **[➡️ Explore the Examples](https://github.com/Syntropysoft/syntropylog-examples-)**
 
 ### Example Categories:
-- **01-hello-world**: ✅ **Complete** - Basic logger setup and usage
+- **00-setup-initialization**: ✅ **Complete** - Application setup and initialization
+- **01-hello-world**: ✅ **Complete** - Basic logging concepts
 - **10-basic-context**: 🚧 **In Progress** - Context management fundamentals  
 - **20-context-ts**: 🚧 **In Progress** - TypeScript context examples
 - **30-data-masking**: 🚧 **In Progress** - Security and data protection

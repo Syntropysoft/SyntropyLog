@@ -5,7 +5,8 @@
  */
 import { describe, it, expect, vi, beforeEach, Mocked } from 'vitest';
 import { Logger, LoggerDependencies } from '../../src/logger/Logger';
-import { LogLevel, LogEntry } from '../../src/types';
+import { LogEntry } from '../../src/types';
+import { LogLevel } from '../../src/logger/levels';
 import { SyntropyLog } from '../../src/SyntropyLog';
 import {
   Transport,

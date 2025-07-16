@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { LogLevel } from '../types';
+import { LogLevel } from './levels';
 
 /**
  * Defines the public interface for a logger instance.

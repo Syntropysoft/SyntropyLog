@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, SpyInstance } from 'vitest';
 import { ClassicConsoleTransport } from '../../../src/logger/transports/ClassicConsoleTransport';
-import { LogEntry, LogLevel } from '../../../src/types';
+import { LogEntry } from '../../../src/types';
+import { LogLevel } from '../../../src/logger/levels';
 
 describe('ClassicConsoleTransport', () => {
   let consoleLogSpy: SpyInstance;

@@ -10,16 +10,7 @@ export type JsonValue =
   | { [key: string]: JsonValue }
   | JsonValue[];
 
-import { Transport } from './logger/transports/Transport';
-
-export type LogLevel =
-  | 'fatal'
-  | 'error'
-  | 'warn'
-  | 'info'
-  | 'debug'
-  | 'trace'
-  | 'silent';
+import type { LogLevel } from './logger/levels';
 
 export type LogEntry = {
   /** The severity level of the log. */
@@ -36,17 +27,12 @@ export type LogEntry = {
 export type LoggerOptions = {
   level?: LogLevel;
   serviceName?: string;
-  transports?: Transport[];
+  transports?: any[]; // Will be properly typed in the logger implementation
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bindings?: Record<string, any>;
 };
 
-export interface ILogger {
-  level: LogLevel;
-  /** The main log message, formatted from the arguments. */
-  message: string;
-  /** The ISO 8601 timestamp of when the log was created. */
-  timestamp: string;
-  /** Any other properties are treated as structured metadata. */
-  [key: string]: unknown;
-}
+// Re-export LogLevel for external use
+export type { LogLevel } from './logger/levels';
+
+// ILogger is now defined in its own file: ./logger/ILogger.ts

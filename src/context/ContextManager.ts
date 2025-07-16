@@ -9,7 +9,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'crypto';
 import { IContextManager } from './IContextManager';
-import { LogLevel } from '../types';
+import { LogLevel } from '../logger/levels';
 
 interface Context {
   data: Map<string, any>;

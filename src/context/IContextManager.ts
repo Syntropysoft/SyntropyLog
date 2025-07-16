@@ -8,7 +8,7 @@
  * can be used interchangeably.
  */
 
-import { LogLevel } from '../types';
+import { LogLevel } from '../logger/levels';
 
 /**
  * @interface IContextManager

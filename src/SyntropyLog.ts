@@ -13,7 +13,7 @@ import { ILogger } from './logger';
 import { InstrumentedHttpClient } from './http/InstrumentedHttpClient';
 import { InstrumentedBrokerClient } from './brokers/InstrumentedBrokerClient';
 import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
-import { LogLevel } from './types';
+import { LogLevel } from './logger/levels';
 // Dynamic import for Redis to avoid requiring it when not used
 // import { RedisConnectionManager } from './redis/RedisConnectionManager';
 

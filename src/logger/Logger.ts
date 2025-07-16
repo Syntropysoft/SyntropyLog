@@ -6,7 +6,8 @@
 import * as util from 'node:util';
 import { Transport } from './transports/Transport';
 import { LOG_LEVEL_WEIGHTS } from './levels';
-import type { LogEntry, LogLevel, LoggerOptions } from '../types';
+import type { LogEntry, LoggerOptions } from '../types';
+import type { LogLevel } from './levels';
 import { IContextManager } from '../context';
 import { SerializerRegistry } from '../serialization/SerializerRegistry';
 import { MaskingEngine } from '../masking/MaskingEngine';

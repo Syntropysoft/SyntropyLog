@@ -7,7 +7,7 @@ import { MaskingEngine } from '../masking/MaskingEngine';
 import { SerializerRegistry } from '../serialization/SerializerRegistry';
 import { Transport } from './transports/Transport';
 import { ConsoleTransport } from './transports/ConsoleTransport';
-import { LogLevel } from '../types';
+import { LogLevel } from './levels';
 import { SanitizationEngine } from '../sanitization/SanitizationEngine';
 
 /**

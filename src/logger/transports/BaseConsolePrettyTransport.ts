@@ -3,7 +3,8 @@
  * @description An abstract base class for console transports that provide colored, human-readable output.
  */
 import chalk from 'chalk';
-import { LogEntry, LogLevel } from '../../types';
+import { LogEntry } from '../../types';
+import { LogLevel } from '../levels';
 import { Transport, TransportOptions } from './Transport';
 
 /**
