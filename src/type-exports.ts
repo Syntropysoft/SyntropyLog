@@ -33,3 +33,18 @@ export type {
   AdapterHttpResponse,
   InstrumentedHttpClient,
 } from './http';
+
+// --- Main Framework Exports ---
+export { SyntropyLog, syntropyLog } from './SyntropyLog';
+
+// --- Transport Classes ---
+export { Transport } from './logger/transports/Transport';
+export { ConsoleTransport } from './logger/transports/ConsoleTransport';
+export { PrettyConsoleTransport } from './logger/transports/PrettyConsoleTransport';
+export { CompactConsoleTransport } from './logger/transports/CompactConsoleTransport';
+export { ClassicConsoleTransport } from './logger/transports/ClassicConsoleTransport';
+export { SpyTransport } from './logger/transports/SpyTransport';
+
+// --- Utility Classes ---
+export { MaskingEngine } from './masking/MaskingEngine';
+export { SanitizationEngine } from './sanitization/SanitizationEngine';

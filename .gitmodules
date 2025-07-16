@@ -1,0 +1,3 @@
+[submodule "modules/syntropyLog-examples"]
+	path = modules/syntropyLog-examples
+	url = https://github.com/Syntropysoft/syntropylog-examples-.git

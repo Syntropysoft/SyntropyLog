@@ -6,7 +6,8 @@ import { syntropyLogConfigSchema } from '../config.schema';
 import { ContextManager, IContextManager } from '../context';
 import { ILogger } from '../logger';
 import { LoggerFactory } from '../logger/LoggerFactory';
-import { RedisManager } from '../redis/RedisManager';
+// Dynamic import for Redis to avoid requiring it when not used
+// import { RedisManager } from '../redis/RedisManager';
 import { sanitizeConfig } from '../utils/sanitizeConfig';
 import { HttpManager } from '../http/HttpManager';
 import { BrokerManager } from '../brokers/BrokerManager';
@@ -27,7 +28,7 @@ export class LifecycleManager extends EventEmitter {
   public config: SyntropyLogConfig | undefined;
   public contextManager: IContextManager | undefined;
   public loggerFactory: LoggerFactory | undefined;
-  public redisManager: RedisManager | undefined;
+  public redisManager: any | undefined;
   public httpManager: HttpManager | undefined;
   public brokerManager: BrokerManager | undefined;
   public serializerRegistry: SerializerRegistry;
@@ -83,11 +84,16 @@ export class LifecycleManager extends EventEmitter {
       this.logger = logger;
 
       if (this.config.redis) {
+        try {
+          const { RedisManager } = await import('../redis/RedisManager');
         this.redisManager = new RedisManager(
           this.config.redis,
           logger.withSource('redis-manager'),
           this.contextManager
         );
+        } catch (error) {
+          logger.error('Failed to initialize Redis manager. Make sure redis package is installed.', { error });
+        }
       }
       if (this.config.http) {
         this.httpManager = new HttpManager(
@@ -126,11 +132,16 @@ export class LifecycleManager extends EventEmitter {
   }
 
   public async shutdown(): Promise<void> {
+    this.logger?.info(`🔄 LifecycleManager.shutdown() called. Current state: ${this.state}`);
+    
     if (this.state !== 'READY') {
+      this.logger?.warn(`❌ Cannot perform shutdown. Current state: ${this.state}`);
       return;
     }
+    
     this.state = 'SHUTTING_DOWN';
     this.emit('shutting_down');
+    this.logger?.info('🔄 State changed to SHUTTING_DOWN');
 
     try {
       this.logger?.info('Shutting down SyntropyLog framework...');
@@ -139,16 +150,99 @@ export class LifecycleManager extends EventEmitter {
         this.redisManager?.shutdown(),
         this.brokerManager?.shutdown(),
         this.httpManager?.shutdown(),
+        this.loggerFactory?.shutdown?.(),
       ].filter(Boolean);
 
+      this.logger?.info(`📋 Executing ${shutdownPromises.length} shutdown promises...`);
       await Promise.allSettled(shutdownPromises);
+      this.logger?.info('✅ Shutdown promises completed');
+
+      // Terminate external processes that might keep the process active
+      this.logger?.info('🔍 Starting external process termination...');
+      await this.terminateExternalProcesses();
 
       this.logger?.info('All managers have been shut down.');
       this.state = 'SHUTDOWN';
       this.emit('shutdown');
+      this.logger?.info('✅ State changed to SHUTDOWN');
     } catch (error) {
       this.state = 'ERROR';
       this.emit('error', error);
+      this.logger?.error('❌ Error during shutdown:', { error });
+    }
+  }
+
+  /**
+   * Terminates external processes that might keep the Node.js process active.
+   * This includes regex-test workers and other child processes.
+   */
+  private async terminateExternalProcesses(): Promise<void> {
+    try {
+      this.logger?.info('🔍 Starting external process termination...');
+      
+      // Get all active handles
+      const activeHandles = (process as any)._getActiveHandles?.() || [];
+      this.logger?.debug(`Total active handles: ${activeHandles.length}`);
+      
+      // Filter child processes that need to be terminated
+      const childProcesses = activeHandles.filter((handle: any) => {
+        const isChildProcess = handle.constructor.name === 'ChildProcess';
+        const isConnected = handle.connected;
+        const hasRegexTest = handle.spawnargs?.some((arg: string) => arg.includes('regex-test'));
+        
+        this.logger?.debug(`Handle: ${handle.constructor.name}, connected: ${isConnected}, hasRegexTest: ${hasRegexTest}`);
+        
+        return isChildProcess && isConnected && hasRegexTest;
+      });
+
+      this.logger?.info(`Found ${childProcesses.length} regex-test processes to terminate`);
+
+      if (childProcesses.length > 0) {
+        this.logger?.info(`Terminating ${childProcesses.length} external processes...`);
+        
+        // Terminate each child process directly with SIGKILL for maximum effectiveness
+        for (const childProcess of childProcesses) {
+          try {
+            this.logger?.debug(`Terminating process ${childProcess.pid} with SIGKILL...`);
+            childProcess.kill('SIGKILL');
+            this.logger?.debug(`Process ${childProcess.pid} terminated with SIGKILL`);
+          } catch (error) {
+            this.logger?.warn(`Error terminating process ${childProcess.pid}:`, { error });
+          }
+        }
+
+        // Wait a bit for processes to terminate
+        this.logger?.debug('Waiting 200ms for processes to terminate...');
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Check if processes are still active
+        const remainingHandles = (process as any)._getActiveHandles?.() || [];
+        const remainingChildProcesses = remainingHandles.filter((handle: any) => 
+          handle.constructor.name === 'ChildProcess' && 
+          handle.connected &&
+          handle.spawnargs?.some((arg: string) => arg.includes('regex-test'))
+        );
+        
+        if (remainingChildProcesses.length > 0) {
+          this.logger?.warn(`${remainingChildProcesses.length} regex-test processes still active after SIGKILL`);
+          
+          // Try to disconnect the processes
+          for (const childProcess of remainingChildProcesses) {
+            try {
+              childProcess.disconnect();
+              this.logger?.debug(`Process ${childProcess.pid} disconnected`);
+            } catch (error) {
+              this.logger?.warn(`Error disconnecting process ${childProcess.pid}:`, { error });
+            }
+          }
+        } else {
+          this.logger?.info('✅ All regex-test processes terminated successfully');
+        }
+      } else {
+        this.logger?.info('No regex-test processes found to terminate');
+      }
+    } catch (error) {
+      this.logger?.warn('Error terminating external processes:', { error });
     }
   }
 
@@ -156,7 +250,7 @@ export class LifecycleManager extends EventEmitter {
     config: SyntropyLogConfig;
     contextManager: IContextManager;
     loggerFactory: LoggerFactory;
-    redisManager: RedisManager;
+    redisManager: any;
     httpManager: HttpManager;
     brokerManager: BrokerManager;
   } {

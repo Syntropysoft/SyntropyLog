@@ -63,7 +63,26 @@ const createDtsConfig = (inputFile, outputName) => ({
 // Export an array with all build configurations.
 export default [
   // --- JavaScript Bundles ---
-  createEntryConfig('src/index.ts', './dist/index'),
+  {
+    input: 'src/index.ts',
+    inlineDynamicImports: true,
+    output: [
+      {
+        dir: './dist',
+        entryFileNames: 'index.cjs',
+        format: 'cjs',
+        sourcemap: true,
+      },
+      {
+        dir: './dist',
+        entryFileNames: 'index.mjs',
+        format: 'esm',
+        sourcemap: true,
+      },
+    ],
+    plugins: jsPlugins,
+    external,
+  },
   createEntryConfig('src/doctor.ts', './dist/doctor'),
   createEntryConfig('src/http/index.ts', './dist/http/index', {
     treeshake: false,

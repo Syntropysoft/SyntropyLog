@@ -14,7 +14,8 @@ import { InstrumentedHttpClient } from './http/InstrumentedHttpClient';
 import { InstrumentedBrokerClient } from './brokers/InstrumentedBrokerClient';
 import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
 import { LogLevel } from './types';
-import { RedisConnectionManager } from './redis/RedisConnectionManager';
+// Dynamic import for Redis to avoid requiring it when not used
+// import { RedisConnectionManager } from './redis/RedisConnectionManager';
 
 /**
  * @class SyntropyLog
@@ -63,8 +64,11 @@ export class SyntropyLog extends EventEmitter {
     return this.lifecycleManager.loggerFactory.getLogger(name, bindings);
   }
 
-  public getRedis(name: string): RedisConnectionManager {
+  public async getRedis(name: string): Promise<any> {
     this.lifecycleManager.ensureReady();
+    if (!this.lifecycleManager.redisManager) {
+      throw new Error('Redis manager not available. Make sure Redis is configured and redis package is installed.');
+    }
     return this.lifecycleManager.redisManager.getInstance(name);
   }
 

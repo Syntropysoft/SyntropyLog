@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Syntropysoft/SyntropyLog/main/assets/beaconLog-2.png" alt="SyntropyLog Logo" width="170"/>
+  <img src="./assets/beaconLog-2.png" alt="SyntropyLog Logo" width="170"/>
 </p>
 
 <h1 align="center">SyntropyLog</h1>

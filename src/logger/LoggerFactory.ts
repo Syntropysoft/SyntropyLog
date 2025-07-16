@@ -172,4 +172,35 @@ export class LoggerFactory {
     );
     await Promise.allSettled(flushPromises);
   }
+
+  /**
+   * Shuts down the logger factory and all its transports.
+   * This ensures that all buffered logs are written and resources are cleaned up.
+   */
+  public async shutdown(): Promise<void> {
+    try {
+      // Flush all transports first
+      await this.flushAllTransports();
+      
+      // Clear the logger pool
+      this.loggerPool.clear();
+      
+      // Shutdown all transports if they have a shutdown method
+      const shutdownPromises = this.transports.map((transport) => {
+        if (typeof (transport as any).shutdown === 'function') {
+          return (transport as any).shutdown().catch((err: any) => {
+            console.error(
+              `Error shutting down transport ${transport.constructor.name}:`,
+              err
+            );
+          });
+        }
+        return Promise.resolve();
+      });
+      
+      await Promise.allSettled(shutdownPromises);
+    } catch (error) {
+      console.error('Error during LoggerFactory shutdown:', error);
+    }
+  }
 }
