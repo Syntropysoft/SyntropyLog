@@ -2,37 +2,45 @@ version: '3.8'
 
 services:
   nats-server:
-    image: nats:2.9-alpine
+    image: nats:2.9.25-alpine
     ports:
       - "4222:4222"
+      - "8222:8222" # Expose monitor port
 
   api-gateway:
-    image: node:18-alpine
-    command: sh -c "node dist/examples/80-full-stack-nats/src/api-gateway/index.js"
+    build:
+      context: ../..
+      dockerfile: examples/80-full-stack-nats/Dockerfile
+      args:
+        - NODE_AUTH_TOKEN=${NODE_AUTH_TOKEN}
+    command: node ./dist/api-gateway/index.js
     ports:
       - "3000:3000"
-    volumes:
-      - ../..:/app
-    working_dir: /app
+    environment:
+      - NATS_SERVERS=nats://nats-server:4222
     depends_on:
       - nats-server
 
   sales-service:
-    image: node:18-alpine
-    command: sh -c "node dist/examples/80-full-stack-nats/src/sales-service/index.js"
-    ports:
-      - "3001:3001"
-    volumes:
-      - ../..:/app
-    working_dir: /app
+    build:
+      context: ../..
+      dockerfile: examples/80-full-stack-nats/Dockerfile
+      args:
+        - NODE_AUTH_TOKEN=${NODE_AUTH_TOKEN}
+    command: node ./dist/sales-service/index.js
+    environment:
+      - NATS_SERVERS=nats://nats-server:4222
     depends_on:
       - nats-server
 
   dispatch-service:
-    image: node:18-alpine
-    command: sh -c "node dist/examples/80-full-stack-nats/src/dispatch-service/index.js"
-    volumes:
-      - ../..:/app
-    working_dir: /app
+    build:
+      context: ../..
+      dockerfile: examples/80-full-stack-nats/Dockerfile
+      args:
+        - NODE_AUTH_TOKEN=${NODE_AUTH_TOKEN}
+    command: node ./dist/dispatch-service/index.js
+    environment:
+      - NATS_SERVERS=nats://nats-server:4222
     depends_on:
       - nats-server 

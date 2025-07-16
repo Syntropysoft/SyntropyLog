@@ -1,69 +1,56 @@
-import { BrokerMessage, MessageLifecycleControls, syntropyLog } from 'syntropylog';
-import { NatsAdapter } from '../../../../external-adapters/brokers/NatsAdapter';
-import { StringCodec } from 'nats';
+import { syntropyLog, BrokerMessage, MessageLifecycleControls, SyntropyLog } from 'syntropylog';
+import { NatsAdapter } from '../adapters/NatsAdapter.js';
 
 async function main() {
-  syntropyLog.init({
-    logger: {
-      serviceName: 'dispatch-service',
-      serializerTimeoutMs: 100,
-    },
-    loggingMatrix: {
-      // By default, only log the correlationId and transactionId from the context.
-      default: ['correlationId', 'transactionId'],
-      // On error or fatal, log the entire context.
-      error: ['*'],
-      fatal: ['*'],
-    },
-    context: {
-      correlationIdHeader: 'x-correlation-id',
-      transactionIdHeader: 'x-trace-id',
-    },
+  const natsAdapter = new NatsAdapter();
+  await natsAdapter.connect();
+
+  await syntropyLog.init({
     brokers: {
       instances: [
         {
-          instanceName: 'nats-default',
-          adapter: new NatsAdapter('nats://nats-server:4222'),
+          instanceName: 'nats-broker',
+          adapter: natsAdapter,
+          isDefault: true,
         },
       ],
     },
+    logger: {
+      level: 'trace',
+      serviceName: 'dispatch-service',
+      serializerTimeoutMs: 100,
+    },
   });
 
-  const logger = syntropyLog.getLogger('dispatch-service');
+  const logger = syntropyLog.getLogger();
 
-  try {
-    const instrumentedNats = syntropyLog.getBroker('nats-default');
-    
-    // Explicitly connect the broker client
-    await instrumentedNats.connect();
-    logger.info('Broker client connected successfully.');
+  logger.info('Dispatch service started and connected to NATS.');
 
-    await instrumentedNats.subscribe('sales.processed', async (message: BrokerMessage, controls: MessageLifecycleControls) => {
-      // The BrokerManager wraps this callback in a context, so 'correlationId' is available.
-      try {
-        const payload = message.payload.toString();
-        const data = JSON.parse(payload);
-        logger.info({ orderId: data.customer.id }, 'Received processed sale. Dispatching order...');
-      } catch (err) {
-        logger.error({ err, payload: message.payload.toString('base64') }, 'Failed to parse message payload.');
-      }
-      // Nats Core doesn't support ack/nack, so controls are no-ops, but we call ack for consistency.
-      await controls.ack();
-    });
+  const broker = syntropyLog.getBroker('nats-broker');
 
-    logger.info("Subscribed to 'sales.processed'");
+  await broker.subscribe('dispatch.process', async (message: BrokerMessage, { ack }: MessageLifecycleControls) => {
+    try {
+      const order = JSON.parse(message.payload.toString()) as { orderId: string; items: any[] };
+      logger.info('Processing dispatch for order', { orderId: order.orderId });
 
-    // Keep the process alive to listen for messages
-    process.stdin.resume();
+      // Simulate dispatch processing
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
-  } catch (err) {
-    logger.error({ err }, 'Failed to connect or subscribe to NATS topic');
-    process.exit(1);
-  }
+      logger.info('Dispatch for order completed', { orderId: order.orderId });
+      await ack();
+    } catch (error) {
+      logger.error('Error processing dispatch', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // In a real scenario, you might nack() or send to a dead-letter queue.
+    }
+  });
 }
 
 main().catch((err) => {
-  // Use console.error for unhandled promise rejections before logger is even available
-  console.error('Fatal error during dispatch-service startup:', err);
+  const logger = syntropyLog.getLogger();
+  logger.fatal('Dispatch service failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
   process.exit(1);
 });

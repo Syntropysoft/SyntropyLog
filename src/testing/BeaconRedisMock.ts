@@ -11,7 +11,21 @@ import { IBeaconRedis, IBeaconRedisTransaction } from '../redis/IBeaconRedis';
 import { RedisInstanceReconfigurableConfig } from '../config';
 import { RedisZMember } from '../redis/redis.types';
 
+// Function that throws error for eval in transaction - outside of any mock context
+const throwEvalError = () => {
+  throw new Error('EVAL not supported in transaction (mocked BeaconRedisMock)');
+};
+
 export class BeaconRedisMock implements IBeaconRedis {
+  // Create transaction object outside of mock to avoid hoisting issues
+  private createTransactionObject(): IBeaconRedisTransaction {
+    return {
+      exec: vi.fn().mockResolvedValue([]),
+      // eval is not implemented in transactions, so it should throw
+      eval: throwEvalError,
+    } as any;
+  }
+
   // Lifecycle and Management
   public readonly getInstanceName = vi.fn<[], string>();
   public readonly connect = vi
@@ -24,7 +38,9 @@ export class BeaconRedisMock implements IBeaconRedis {
     [Partial<RedisInstanceReconfigurableConfig>],
     void
   >();
-  public readonly multi = vi.fn<[], IBeaconRedisTransaction>();
+  public readonly multi = vi
+    .fn<[], IBeaconRedisTransaction>()
+    .mockReturnValue(this.createTransactionObject());
 
   // String Commands
   public readonly get = vi.fn<[string], Promise<string | null>>();

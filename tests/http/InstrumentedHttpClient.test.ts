@@ -3,7 +3,7 @@
  * DESCRIPTION: Unit tests for the InstrumentedHttpClient class.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import { InstrumentedHttpClient } from '../../src/http/InstrumentedHttpClient';
 import { ILogger } from '../../src/logger';
 import { IContextManager } from '../../src/context';
@@ -38,13 +38,13 @@ describe('InstrumentedHttpClient', () => {
     };
 
     mockLogger = {
-      info: vi.fn(),
-      debug: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      trace: vi.fn(),
-      fatal: vi.fn(),
-    };
+      info: vi.fn() as any,
+      debug: vi.fn() as any,
+      warn: vi.fn() as any,
+      error: vi.fn() as any,
+      trace: vi.fn() as any,
+      fatal: vi.fn() as any,
+    } as Partial<ILogger> as ILogger;
 
     mockContextManager = {
       run: vi.fn(),
@@ -53,6 +53,8 @@ describe('InstrumentedHttpClient', () => {
       getAll: vi.fn().mockReturnValue({}),
       getCorrelationId: vi.fn(), // No return value by default
       getTransactionId: vi.fn(), // No return value by default
+      setTransactionId: vi.fn(),
+      getFilteredContext: vi.fn().mockReturnValue({}),
       getCorrelationIdHeaderName: vi.fn(() => 'x-correlation-id'),
       getTransactionIdHeaderName: vi.fn(() => 'x-trace-id'),
       configure: vi.fn(),
@@ -74,8 +76,8 @@ describe('InstrumentedHttpClient', () => {
         headers: { 'content-type': 'application/json' },
         data: { message: 'success' },
       };
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue('test-correlation-id');
-      (mockAdapter.request as vi.Mock).mockResolvedValue(mockResponse);
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue('test-correlation-id');
+      (mockAdapter.request as Mock).mockResolvedValue(mockResponse);
 
       const client = new InstrumentedHttpClient(mockAdapter, mockLogger, mockContextManager, mockConfig);
       const response = await client.request(baseRequest);
@@ -97,8 +99,8 @@ describe('InstrumentedHttpClient', () => {
     });
 
     it('should handle requests with pre-existing headers', async () => {
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue('test-correlation-id');
-      (mockAdapter.request as vi.Mock).mockResolvedValue({ statusCode: 200, data: {}, headers: {} });
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue('test-correlation-id');
+      (mockAdapter.request as Mock).mockResolvedValue({ statusCode: 200, data: {}, headers: {} });
 
       const client = new InstrumentedHttpClient(mockAdapter, mockLogger, mockContextManager, mockConfig);
       await client.request({ ...baseRequest, headers: { 'x-custom-header': 'value' } });
@@ -115,8 +117,8 @@ describe('InstrumentedHttpClient', () => {
 
     it('should not inject correlation ID if not present in context', async () => {
       // Explicitly set the mock to return undefined for this test case.
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(undefined);
-      (mockAdapter.request as vi.Mock).mockResolvedValue({
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue(undefined);
+      (mockAdapter.request as Mock).mockResolvedValue({
         statusCode: 200,
         data: {},
         headers: {},
@@ -124,7 +126,7 @@ describe('InstrumentedHttpClient', () => {
 
       const client = new InstrumentedHttpClient(mockAdapter, mockLogger, mockContextManager, mockConfig);
       // Use a fresh request object to prevent test pollution
-      const freshRequest = {
+      const freshRequest: AdapterHttpRequest = {
         method: 'GET',
         url: 'https://api.example.com/data',
         headers: {},
@@ -143,9 +145,9 @@ describe('InstrumentedHttpClient', () => {
   describe('Context Propagation', () => {
     it('should propagate only correlation and transaction IDs when propagateFullContext is false', async () => {
       mockConfig.propagateFullContext = false;
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue('corr-id');
-      (mockContextManager.getTransactionId as vi.Mock).mockReturnValue('trans-id');
-      (mockAdapter.request as vi.Mock).mockResolvedValue({ statusCode: 200, data: {}, headers: {} });
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue('corr-id');
+      (mockContextManager.getTransactionId as Mock).mockReturnValue('trans-id');
+      (mockAdapter.request as Mock).mockResolvedValue({ statusCode: 200, data: {}, headers: {} });
 
       const client = new InstrumentedHttpClient(mockAdapter, mockLogger, mockContextManager, mockConfig);
       await client.request(baseRequest);
@@ -165,8 +167,8 @@ describe('InstrumentedHttpClient', () => {
         'x-trace-id': 'trans-id',
         'x-custom-header': 'custom-value'
       };
-      (mockContextManager.getAll as vi.Mock).mockReturnValue(fullContext);
-      (mockAdapter.request as vi.Mock).mockResolvedValue({ statusCode: 200, data: {}, headers: {} });
+      (mockContextManager.getAll as Mock).mockReturnValue(fullContext);
+      (mockAdapter.request as Mock).mockResolvedValue({ statusCode: 200, data: {}, headers: {} });
 
       const client = new InstrumentedHttpClient(mockAdapter, mockLogger, mockContextManager, mockConfig);
       await client.request(baseRequest);
@@ -188,7 +190,7 @@ describe('InstrumentedHttpClient', () => {
       };
       const requestWithBody = { ...baseRequest, body: { name: 'test' }, headers: { 'x-api-key': 'key' } };
       const mockResponse = { statusCode: 200, data: { id: 1 }, headers: { 'x-response-id': 'res-id' } };
-      (mockAdapter.request as vi.Mock).mockResolvedValue(mockResponse);
+      (mockAdapter.request as Mock).mockResolvedValue(mockResponse);
 
       const client = new InstrumentedHttpClient(mockAdapter, mockLogger, mockContextManager, mockConfig);
       await client.request(requestWithBody);
@@ -220,8 +222,8 @@ describe('InstrumentedHttpClient', () => {
       };
       const mockResponse = { statusCode: 200, data: {}, headers: {} };
       // Be explicit that this test runs without a correlation ID
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(undefined);
-      (mockAdapter.request as vi.Mock).mockResolvedValue(mockResponse);
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue(undefined);
+      (mockAdapter.request as Mock).mockResolvedValue(mockResponse);
 
       const client = new InstrumentedHttpClient(mockAdapter, mockLogger, mockContextManager, mockConfig);
       await client.request(baseRequest);
@@ -240,12 +242,13 @@ describe('InstrumentedHttpClient', () => {
       };
       const adapterError: AdapterHttpError = {
         isAdapterError: true,
+        name: 'AdapterHttpError',
         message: 'Request failed with status code 404',
         response: errorResponse,
         request: baseRequest,
       };
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue('test-correlation-id');
-      (mockAdapter.request as vi.Mock).mockRejectedValue(adapterError);
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue('test-correlation-id');
+      (mockAdapter.request as Mock).mockRejectedValue(adapterError);
 
       const client = new InstrumentedHttpClient(mockAdapter, mockLogger, mockContextManager, mockConfig);
 
@@ -266,9 +269,9 @@ describe('InstrumentedHttpClient', () => {
     });
 
     it('should log and re-throw an unexpected error', async () => {
-      const unexpectedError = new Error('Network connection lost');
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue('test-correlation-id');
-      (mockAdapter.request as vi.Mock).mockRejectedValue(unexpectedError);
+      const unexpectedError = new Error('Network timeout');
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue('test-correlation-id');
+      (mockAdapter.request as Mock).mockRejectedValue(unexpectedError);
 
       const client = new InstrumentedHttpClient(mockAdapter, mockLogger, mockContextManager, mockConfig);
 

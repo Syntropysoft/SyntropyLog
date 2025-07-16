@@ -65,9 +65,12 @@ function prismaUserSerializer(user: unknown): string {
 // --- 3. Initialize SyntropyLog with the Custom Serializer ---
 // We register our serializer function under the key `prismaUser`.
 syntropyLog.init({
-  appName: 'custom-serializer-example',
-  serializers: {
-    prismaUser: prismaUserSerializer,
+  logger: {
+    serviceName: 'custom-serializer-example',
+    serializerTimeoutMs: 100,
+    serializers: {
+      prismaUser: prismaUserSerializer,
+    },
   },
 });
 

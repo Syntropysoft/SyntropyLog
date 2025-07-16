@@ -5,7 +5,7 @@
 
 // Mock the implementation modules before any other imports.
 // This replaces the actual functions with mock functions.
-import { describe, it, expect, vi, afterEach, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach, type Mock, SpyInstance } from 'vitest';
 
 vi.mock('../../src/cli/init', () => ({
   runInit: vi.fn(),
@@ -50,8 +50,8 @@ const parse = async (command: string) => {
 };
 
 describe('SyntropyLog CLI', () => {
-  let mockExit: vi.SpyInstance;
-  let mockConsoleError: vi.SpyInstance;
+  let mockExit: SpyInstance<[code?: string | number | null | undefined], never>;
+  let mockConsoleError: SpyInstance<any[], any>;
 
   beforeEach(() => {
     // Reset all mocks before each test to ensure test isolation.
@@ -59,7 +59,7 @@ describe('SyntropyLog CLI', () => {
 
     // Spy on and mock implementations of process.exit and console.error.
     // This prevents tests from terminating and allows us to assert on error logging.
-    mockExit = vi.spyOn(process, 'exit').mockImplementation((() => {}) as (code?: number) => never);
+    mockExit = vi.spyOn(process, 'exit').mockImplementation((() => {}) as (code?: string | number | null | undefined) => never);
     mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 

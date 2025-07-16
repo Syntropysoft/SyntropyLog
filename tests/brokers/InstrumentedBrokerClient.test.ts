@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
 import { InstrumentedBrokerClient } from '../../src/brokers/InstrumentedBrokerClient';
 import { IBrokerAdapter, BrokerMessage, MessageHandler, MessageLifecycleControls } from '../../src/brokers/adapter.types';
 import { ILogger } from '../../src/logger';
@@ -40,6 +40,12 @@ describe('InstrumentedBrokerClient', () => {
       getTransactionIdHeaderName: vi.fn().mockReturnValue(TRANSACTION_ID_HEADER),
       set: vi.fn(),
       run: vi.fn().mockImplementation(async (callback) => callback()),
+      // Métodos faltantes:
+      configure: vi.fn(),
+      get: vi.fn(),
+      setTransactionId: vi.fn(),
+      getTraceContextHeaders: vi.fn(),
+      getFilteredContext: vi.fn(),
     };
 
     mockConfig = {
@@ -61,7 +67,7 @@ describe('InstrumentedBrokerClient', () => {
 
     it('should propagate errors from adapter.connect', async () => {
       const connectError = new Error('Connection failed');
-      (mockAdapter.connect as vi.Mock).mockRejectedValue(connectError);
+      (mockAdapter.connect as Mock).mockRejectedValue(connectError);
       await expect(client.connect()).rejects.toThrow(connectError);
     });
   });
@@ -76,7 +82,7 @@ describe('InstrumentedBrokerClient', () => {
 
     it('should propagate errors from adapter.disconnect', async () => {
       const disconnectError = new Error('Disconnection failed');
-      (mockAdapter.disconnect as vi.Mock).mockRejectedValue(disconnectError);
+      (mockAdapter.disconnect as Mock).mockRejectedValue(disconnectError);
       await expect(client.disconnect()).rejects.toThrow(disconnectError);
     });
   });
@@ -86,8 +92,8 @@ describe('InstrumentedBrokerClient', () => {
 
     it('should inject correlation and transaction IDs when propagateFullContext is false', async () => {
       const message: BrokerMessage = { payload: Buffer.from('test') };
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(MOCK_CORRELATION_ID);
-      (mockContextManager.getTransactionId as vi.Mock).mockReturnValue(MOCK_TRANSACTION_ID);
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue(MOCK_CORRELATION_ID);
+      (mockContextManager.getTransactionId as Mock).mockReturnValue(MOCK_TRANSACTION_ID);
       
       await client.publish(topic, message);
 
@@ -104,7 +110,7 @@ describe('InstrumentedBrokerClient', () => {
         [TRANSACTION_ID_HEADER]: MOCK_TRANSACTION_ID,
         'x-custom-header': 'custom-value',
       };
-      (mockContextManager.getAll as vi.Mock).mockReturnValue(fullContext);
+      (mockContextManager.getAll as Mock).mockReturnValue(fullContext);
 
       await client.publish(topic, message);
 
@@ -115,7 +121,7 @@ describe('InstrumentedBrokerClient', () => {
     });
 
     it('should create headers object if it does not exist', async () => {
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(MOCK_CORRELATION_ID);
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue(MOCK_CORRELATION_ID);
       const messageWithoutHeaders: BrokerMessage = { payload: Buffer.from('test') };
       
       await client.publish(topic, messageWithoutHeaders);
@@ -126,8 +132,8 @@ describe('InstrumentedBrokerClient', () => {
 
     it('should not inject IDs if they do not exist in context', async () => {
       const message: BrokerMessage = { payload: Buffer.from('test') };
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(undefined);
-      (mockContextManager.getTransactionId as vi.Mock).mockReturnValue(undefined);
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue(undefined);
+      (mockContextManager.getTransactionId as Mock).mockReturnValue(undefined);
       
       await client.publish(topic, message);
 
@@ -153,7 +159,7 @@ describe('InstrumentedBrokerClient', () => {
       await client.subscribe(topic, userHandler);
 
       // Capture the wrapped handler passed to the adapter
-      const subscribeCall = (mockAdapter.subscribe as vi.Mock).mock.calls[0];
+      const subscribeCall = (mockAdapter.subscribe as Mock).mock.calls[0];
       instrumentedHandler = subscribeCall[1];
     });
 
@@ -184,7 +190,7 @@ describe('InstrumentedBrokerClient', () => {
       const controls: MessageLifecycleControls = { ack: vi.fn(), nack: vi.fn() };
 
       // We also need to get the correlationId for the log message
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(MOCK_CORRELATION_ID);
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue(MOCK_CORRELATION_ID);
 
       await instrumentedHandler(message, controls);
 
@@ -199,7 +205,7 @@ describe('InstrumentedBrokerClient', () => {
       const controls: MessageLifecycleControls = { ack: vi.fn(), nack: vi.fn() };
 
       // We need to simulate getting undefined for the log message
-      (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(undefined);
+      (mockContextManager.getCorrelationId as Mock).mockReturnValue(undefined);
 
       await instrumentedHandler(message, controls);
 
@@ -222,12 +228,12 @@ describe('InstrumentedBrokerClient', () => {
         };
 
         // Capture the instrumented controls passed to the user handler
-        (userHandler as vi.Mock).mockImplementation((msg, ctrls) => {
+        (userHandler as Mock).mockImplementation((msg: any, ctrls: any) => {
           instrumentedControls = ctrls;
         });
 
         // Also mock the getCorrelationId for the log inside the handler
-        (mockContextManager.getCorrelationId as vi.Mock).mockReturnValue(MOCK_CORRELATION_ID);
+        (mockContextManager.getCorrelationId as Mock).mockReturnValue(MOCK_CORRELATION_ID);
 
         await instrumentedHandler(message, originalControls);
       });
@@ -236,8 +242,8 @@ describe('InstrumentedBrokerClient', () => {
         await instrumentedControls.ack();
 
         // Ensure original is called first
-        const ackCallOrder = (originalControls.ack as vi.Mock).mock.invocationCallOrder[0];
-        const logCallOrder = (mockLogger.debug as vi.Mock).mock.invocationCallOrder[0];
+        const ackCallOrder = (originalControls.ack as Mock).mock.invocationCallOrder[0];
+        const logCallOrder = (mockLogger.debug as Mock).mock.invocationCallOrder[0];
         expect(ackCallOrder).toBeLessThan(logCallOrder);
 
         expect(originalControls.ack).toHaveBeenCalled();
@@ -251,8 +257,8 @@ describe('InstrumentedBrokerClient', () => {
         await instrumentedControls.nack(true);
 
         // Ensure original is called first
-        const nackCallOrder = (originalControls.nack as vi.Mock).mock.invocationCallOrder[0];
-        const logCallOrder = (mockLogger.warn as vi.Mock).mock.invocationCallOrder[0];
+        const nackCallOrder = (originalControls.nack as Mock).mock.invocationCallOrder[0];
+        const logCallOrder = (mockLogger.warn as Mock).mock.invocationCallOrder[0];
         expect(nackCallOrder).toBeLessThan(logCallOrder);
 
         expect(originalControls.nack).toHaveBeenCalledWith(true);

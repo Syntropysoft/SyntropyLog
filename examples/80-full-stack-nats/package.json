@@ -8,15 +8,15 @@
     "build": "tsc",
     "prestart": "npm run build",
     "start": "concurrently \"npm:start:api-gateway\" \"npm:start:sales-service\" \"npm:start:dispatch-service\"",
-    "start:api-gateway": "node dist/examples/80-full-stack-nats/src/api-gateway/index.js",
-    "start:sales-service": "node dist/examples/80-full-stack-nats/src/sales-service/index.js",
-    "start:dispatch-service": "node dist/examples/80-full-stack-nats/src/dispatch-service/index.js"
+    "start:api-gateway": "node dist/api-gateway/index.js",
+    "start:sales-service": "node dist/sales-service/index.js",
+    "start:dispatch-service": "node dist/dispatch-service/index.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
     "express": "^4.18.2",
     "nats": "^2.17.0",
-    "syntropylog": "file:../..",
+    "syntropylog": "0.4.0",
     "zod": "^3.22.4",
     "redis": "^4.6.12"
   },

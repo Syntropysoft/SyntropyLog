@@ -11,6 +11,7 @@ import {
   beforeEach,
   afterEach,
   type Mocked,
+  SpyInstance,
 } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
@@ -38,9 +39,9 @@ const mockGetAuditPlanTemplate = vi.mocked(getAuditPlanTemplate);
 const MOCK_CWD = '/mock/project';
 
 describe('CLI: runInit', () => {
-  let mockConsoleLog: vi.SpyInstance;
-  let mockConsoleError: vi.SpyInstance;
-  let mockIsTTY: vi.SpyInstance;
+  let mockConsoleLog: SpyInstance;
+  let mockConsoleError: SpyInstance;
+  let mockIsTTY: SpyInstance;
 
   beforeEach(() => {
     vi.clearAllMocks();

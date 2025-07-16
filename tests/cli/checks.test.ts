@@ -118,7 +118,7 @@ describe('CLI: checks', () => {
       it('should return a WARN if NODE_ENV is production and level is debug', () => {
         process.env.NODE_ENV = 'production';
         const config = createMockConfig({
-          logger: { level: 'debug' },
+          logger: { level: 'debug', serializerTimeoutMs: 50 },
         });
         const result = rule.check(config);
         expect(result).toHaveLength(1);
@@ -128,7 +128,7 @@ describe('CLI: checks', () => {
 
       it('should return a WARN if NODE_ENV is production and level is trace', () => {
         process.env.NODE_ENV = 'production';
-        const config = createMockConfig({ logger: { level: 'trace' } });
+        const config = createMockConfig({ logger: { level: 'trace', serializerTimeoutMs: 50 } });
         const result = rule.check(config);
         expect(result).toHaveLength(1);
         expect(result[0].level).toBe('WARN');
@@ -136,14 +136,14 @@ describe('CLI: checks', () => {
 
       it('should return no results if NODE_ENV is production and level is info', () => {
         process.env.NODE_ENV = 'production';
-        const config = createMockConfig({ logger: { level: 'info' } });
+        const config = createMockConfig({ logger: { level: 'info', serializerTimeoutMs: 50 } });
         const result = rule.check(config);
         expect(result).toHaveLength(0);
       });
 
       it('should return no results if NODE_ENV is not production', () => {
         process.env.NODE_ENV = 'development';
-        const config = createMockConfig({ logger: { level: 'debug' } });
+        const config = createMockConfig({ logger: { level: 'debug', serializerTimeoutMs: 50 } });
         const result = rule.check(config);
         expect(result).toHaveLength(0);
       });
@@ -164,7 +164,7 @@ describe('CLI: checks', () => {
       });
 
       it('should return an ERROR if transports is an empty array', () => {
-        const config = createMockConfig({ logger: { transports: [] } });
+        const config = createMockConfig({ logger: { transports: [], serializerTimeoutMs: 50 } });
         const result = rule.check(config);
         expect(result).toHaveLength(1);
         expect(result[0].level).toBe('ERROR');
@@ -174,7 +174,7 @@ describe('CLI: checks', () => {
       it('should return no results if transports has items', () => {
         // The type assertion is needed because Transport is an abstract class.
         const config = createMockConfig({
-          logger: { transports: [{}] as any },
+          logger: { transports: [{}] as any, serializerTimeoutMs: 50 },
         });
         const result = rule.check(config);
         expect(result).toHaveLength(0);
@@ -182,7 +182,7 @@ describe('CLI: checks', () => {
 
       it('should return no results if the transports key is not defined', () => {
         // When 'transports' is missing, the framework uses the default, so no error.
-        const config = createMockConfig({ logger: {} });
+        const config = createMockConfig({ logger: { serializerTimeoutMs: 50 } });
         const result = rule.check(config);
         expect(result).toHaveLength(0);
       });
@@ -221,7 +221,12 @@ describe('CLI: checks', () => {
       it('should return an ERROR if a sentinel instance is missing a name', () => {
         const config = createMockConfig({
           redis: {
-            instances: [{ instanceName: 'my-sentinel', mode: 'sentinel' }],
+            instances: [{ 
+              instanceName: 'my-sentinel', 
+              mode: 'sentinel',
+              // name is missing - this should trigger the error
+              sentinels: [{ host: 'localhost', port: 26379 }]
+            }],
           },
         });
         const result = rule.check(config);
@@ -242,9 +247,21 @@ describe('CLI: checks', () => {
         const config = createMockConfig({
           redis: {
             instances: [
-              { instanceName: 'cache' },
-              { instanceName: 'session' },
-              { instanceName: 'cache' },
+              { 
+                instanceName: 'cache',
+                mode: 'single',
+                url: 'redis://localhost:6379'
+              },
+              { 
+                instanceName: 'session',
+                mode: 'single',
+                url: 'redis://localhost:6380'
+              },
+              { 
+                instanceName: 'cache',
+                mode: 'single',
+                url: 'redis://localhost:6379'
+              },
             ],
           },
         });

@@ -20,10 +20,11 @@ class MockTransport extends Transport {
 }
 
 const mockHttpAdapter: IHttpClientAdapter = {
-  request: () => Promise.resolve({ statusCode: 200, data: {}, headers: {} }),
+  request: () => Promise.resolve({ statusCode: 200, data: {} as any, headers: {} }),
 };
 
 const mockBrokerAdapter: IBrokerAdapter = {
+  connect: () => Promise.resolve(),
   publish: () => Promise.resolve(),
   subscribe: () => Promise.resolve(),
   disconnect: () => Promise.resolve(),

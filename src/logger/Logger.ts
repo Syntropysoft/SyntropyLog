@@ -11,6 +11,7 @@ import { IContextManager } from '../context';
 import { SerializerRegistry } from '../serialization/SerializerRegistry';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
+import { ILogger } from './ILogger';
 
 export interface LoggerDependencies {
   contextManager: IContextManager;
@@ -70,32 +71,51 @@ export class Logger {
       return;
     }
 
+    // Build the base log entry with context and bindings
     const context = this.dependencies.contextManager.getFilteredContext(level);
     const logEntry: LogEntry = {
       ...context,
       ...this.bindings,
       level,
       timestamp: new Date().toISOString(),
-      message: '', // Initialize message
+      service: this.name,
+      message: '', // Will be set below
     };
 
-    // Extract metadata object if it's the first argument
-    const firstArg = args[0];
-    if (
-      typeof firstArg === 'object' &&
-      firstArg !== null &&
-      !Array.isArray(firstArg)
+    // Parse arguments following Pino-like signature
+    let message: string;
+    let metadata: Record<string, any> = {};
+
+    if (args.length === 0) {
+      message = '';
+    } else if (
+      typeof args[0] === 'object' &&
+      args[0] !== null &&
+      !Array.isArray(args[0])
     ) {
-      Object.assign(logEntry, firstArg);
-      args.shift(); // Remove it from args
+      // First argument is metadata object: (metadata, message, ...formatArgs)
+      metadata = args[0] as Record<string, any>;
+      message = (args[1] as string) || '';
+      const formatArgs = args.slice(2);
+
+      if (message && formatArgs.length > 0) {
+        message = util.format(message, ...formatArgs);
+      }
+    } else {
+      // First argument is message: (message, ...formatArgs)
+      message = (args[0] as string) || '';
+      const formatArgs = args.slice(1);
+
+      if (message && formatArgs.length > 0) {
+        message = util.format(message, ...formatArgs);
+      }
     }
 
-    // Format message, allowing metadata message to be a format string
-    const formatString = logEntry.message || (args[0] as string);
-    const formatArgs = logEntry.message ? args : args.slice(1);
-    if (formatString) {
-      logEntry.message = util.format(formatString, ...formatArgs);
-    }
+    // Ensure message is never undefined
+    logEntry.message = message || '';
+
+    // Merge metadata into log entry
+    Object.assign(logEntry, metadata);
 
     // 1. Apply custom serializers (e.g., for Error objects)
     const finalEntry = await this.dependencies.serializerRegistry.process(
@@ -180,21 +200,29 @@ export class Logger {
    * Creates a new child logger instance that inherits the parent's configuration
    * and adds a set of persistent key-value bindings.
    * @param {Record<string, any>} bindings - Key-value pairs to add to the child logger.
-   * @returns {Logger} A new logger instance with the combined bindings.
+   * @returns {ILogger} A new logger instance with the combined bindings.
    */
-  child(bindings: Record<string, any>): Logger {
-    return new Logger(this.name, this.transports, this.dependencies, {
-      ...this,
-      bindings: { ...this.bindings, ...bindings },
-    });
+  child(bindings: Record<string, any>): ILogger {
+    // Determine the child logger name
+    const childName = bindings.name
+      ? `${this.name}:${bindings.name}`
+      : `${this.name}:child-logger`;
+
+    // Call getLogger on the syntropyLog instance to maintain proper hierarchy
+    const childLogger = this.dependencies.syntropyLogInstance.getLogger(
+      childName,
+      bindings
+    );
+
+    return childLogger;
   }
 
   /**
    * Creates a new logger instance with a `source` field bound to it.
    * @param {string} source - The name of the source (e.g., 'redis', 'AuthModule').
-   * @returns {Logger} A new logger instance with the `source` binding.
+   * @returns {ILogger} A new logger instance with the `source` binding.
    */
-  withSource(source: string): Logger {
+  withSource(source: string): ILogger {
     return this.child({ source });
   }
 
@@ -202,9 +230,9 @@ export class Logger {
    * Creates a new logger instance with a `retention` field bound to it.
    * The provided rules object is deep-cloned to ensure immutability.
    * @param {Record<string, any>} rules - A JSON object containing the retention rules.
-   * @returns {Logger} A new logger instance with the `retention` binding.
+   * @returns {ILogger} A new logger instance with the `retention` binding.
    */
-  withRetention(rules: Record<string, any>): Logger {
+  withRetention(rules: Record<string, any>): ILogger {
     const safeRules = JSON.parse(JSON.stringify(rules));
     return this.child({ retention: safeRules });
   }
@@ -212,9 +240,9 @@ export class Logger {
   /**
    * Creates a new logger instance with a `transactionId` field bound to it.
    * @param {string} transactionId - The unique ID of the transaction.
-   * @returns {Logger} A new logger instance with the `transactionId` binding.
+   * @returns {ILogger} A new logger instance with the `transactionId` binding.
    */
-  withTransactionId(transactionId: string): Logger {
+  withTransactionId(transactionId: string): ILogger {
     return this.child({ transactionId });
   }
 }

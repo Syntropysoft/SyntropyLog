@@ -10,7 +10,6 @@ import {
   IHttpClientAdapter,
   AdapterHttpRequest,
   AdapterHttpResponse,
-  HttpInstanceConfig,
 } from '../../src/http/adapters/adapter.types';
 import { InstrumentedHttpClient } from '../../src/http/InstrumentedHttpClient';
 import { IContextManager } from '../../src/context';
@@ -22,7 +21,7 @@ vi.mock('../../src/http/InstrumentedHttpClient', () => {
   return {
     InstrumentedHttpClient: vi.fn().mockImplementation((_adapter, _logger, _context, config) => ({
       instanceName: config.instanceName,
-    })),
+    }) as Partial<InstrumentedHttpClient> as InstrumentedHttpClient),
   };
 });
 
@@ -39,14 +38,18 @@ class MockHttpClientAdapter implements IHttpClientAdapter {
 }
 
 const createMockLogger = (): ILogger => ({
-  info: vi.fn(),
-  debug: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  trace: vi.fn(),
-  fatal: vi.fn(),
+  info: vi.fn() as any,
+  debug: vi.fn() as any,
+  warn: vi.fn() as any,
+  error: vi.fn() as any,
+  trace: vi.fn((...args: any[]) => undefined) as any,
+  fatal: vi.fn((...args: any[]) => undefined) as any,
   child: vi.fn().mockReturnThis(),
   withSource: vi.fn().mockReturnThis(),
+  level: 'info',
+  setLevel: vi.fn(),
+  withRetention: vi.fn().mockReturnThis(),
+  withTransactionId: vi.fn().mockReturnThis(),
 });
 
 // --- Tests ---
@@ -64,7 +67,7 @@ describe('HttpManager', () => {
 
     vi.mocked(InstrumentedHttpClient).mockImplementation((_adapter, _logger, _context, config) => ({
       instanceName: config.instanceName,
-    }));
+    }) as Partial<InstrumentedHttpClient> as InstrumentedHttpClient);
   });
 
   describe('Constructor and Init', () => {
@@ -104,7 +107,7 @@ describe('HttpManager', () => {
           get adapter() {
             throw error;
           },
-        },
+        } as any,
       ];
 
       const manager = new HttpManager(httpConfig, mockLogger, mockContextManager);

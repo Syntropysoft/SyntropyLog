@@ -7,10 +7,13 @@
 // Asumimos que estos tipos son exportados desde tu librería 'syntropylog'
 import { syntropyLog, IBeaconRedis } from 'syntropylog';
 import {
-  InstrumentedHttpClient,
-  AdapterHttpRequest,
-  AdapterHttpResponse,
-} from 'syntropylog/http';
+  IHttpClientAdapter,
+} from 'syntropylog';
+
+// Type aliases for the HTTP types
+type InstrumentedHttpClient = IHttpClientAdapter;
+type AdapterHttpRequest = any;
+type AdapterHttpResponse<T = any> = any;
 
 /**
  * @interface RequestOptions
@@ -70,7 +73,13 @@ export class CachedApiService {
     // Intenta obtener el cliente de Redis solo si se especifica un nombre de instancia.
     if (options.redisInstanceName) {
       try {
-        this.redisClient = syntropyLog.getRedis(options.redisInstanceName);
+        // getRedis returns RedisConnectionManager which has the required methods
+        const redisManager = syntropyLog.getRedis(options.redisInstanceName) as any;
+        this.redisClient = {
+          get: async (key: string) => redisManager.get(key),
+          set: async (key: string, value: string, ttl?: number) => redisManager.set(key, value, ttl),
+          del: async (key: string) => redisManager.del(key),
+        } as IBeaconRedis;
         this.logger.info(
           `Servicio API usando caché con instancia Redis: "${options.redisInstanceName}"`
         );

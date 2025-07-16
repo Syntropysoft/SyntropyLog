@@ -1,69 +1,78 @@
 import express from 'express';
 import { syntropyLog } from 'syntropylog';
-import { NatsAdapter } from '../../../../external-adapters/brokers/NatsAdapter';
 import { randomUUID } from 'crypto';
-import { contextMiddleware } from '../shared/context.middleware';
+import { NatsAdapter } from '../adapters/NatsAdapter.js';
+import { SyntropyLog } from 'syntropylog';
+import { BrokerMessage } from 'syntropylog';
+import { v4 as uuidv4 } from 'uuid';
 
-syntropyLog.init({
-  logger: {
-    serviceName: 'api-gateway',
-    serializerTimeoutMs: 100,
-  },
-  brokers: {
-    instances: [
-      {
-        instanceName: 'nats-main',
-        adapter: new NatsAdapter(),
-        isDefault: true,
-      },
-    ],
-  },
-  context: {
-    correlationIdHeader: 'x-correlation-id',
-    transactionIdHeader: 'x-trace-id',
-  },
-});
+async function main() {
+  const natsAdapter = new NatsAdapter();
+  await natsAdapter.connect();
 
-const app = express();
-app.use(express.json()); // Add JSON body parser middleware
-app.use(contextMiddleware); // Use the context middleware for all requests
+  await syntropyLog.init({
+    brokers: {
+      instances: [
+        {
+          instanceName: 'nats-broker',
+          adapter: natsAdapter,
+          isDefault: true,
+        },
+      ],
+    },
+    logger: {
+      level: 'trace',
+      serviceName: 'api-gateway',
+      serializerTimeoutMs: 100,
+    },
+  });
 
-const port = 3000;
-const logger = syntropyLog.getLogger('api-gateway');
-const contextManager = syntropyLog.getContextManager();
+  const logger = syntropyLog.getLogger();
 
-app.post('/orders', async (req, res) => {
-  // The contextMiddleware has already set up the correlation context.
-  logger.info({ order: req.body }, 'Received request to create a new order.');
+  const app = express();
+  const port = process.env.PORT || 3000;
 
-  try {
-    const broker = syntropyLog.getBroker(); // Gets the default broker
-    
-    // Publish the order details to the NATS topic.
-    // The payload must be a Buffer.
-    await broker.publish('orders.create', {
-      payload: Buffer.from(JSON.stringify(req.body)),
-      // Headers are automatically handled by the instrumented client.
-    });
+  // Middleware to attach logger to request
+  app.use((req, res, next) => {
+    (req as any).logger = logger;
+    next();
+  });
 
-    logger.info('Order successfully published to NATS for processing.');
-    
-    const correlationId = contextManager.get('correlationId');
-    res.status(202).send({
-      message: 'Order creation request received and is being processed.',
-      correlationId,
-    });
+  app.use(express.json());
 
-  } catch (error: any) {
-    logger.error({ err: error.message, stack: error.stack }, 'Failed to publish order to NATS.');
-    const correlationId = contextManager.get('correlationId');
-    res.status(500).send({
-      message: 'Internal server error while processing the order.',
-      correlationId,
-    });
-  }
-});
+  // Endpoint to create a new sale
+  app.post('/sales', async (req: express.Request, res: express.Response) => {
+    const saleData = req.body;
+    const correlationId = (req as any).logger.getCorrelationId?.();
 
-app.listen(port, () => {
-  logger.info(`API Gateway listening at http://localhost:${port}`);
+    const saleMessage: BrokerMessage = {
+      payload: saleData,
+      headers: { 'x-correlation-id': correlationId || uuidv4() },
+    };
+
+    try {
+      logger.info('Received new sale request', { saleData });
+      const broker = syntropyLog.getBroker('nats-broker');
+      await broker.publish('sales.new', saleMessage);
+      logger.info('Sale event published to NATS', { saleData });
+      res.status(202).json({ message: 'Sale processing started' });
+    } catch (error) {
+      logger.error('Failed to publish sale event', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      res.status(500).json({ message: 'Internal Server Error' });
+    }
+  });
+
+  app.listen(port, () => {
+    logger.info(`API Gateway listening on port ${port}`);
+  });
+}
+
+main().catch((err) => {
+  const logger = syntropyLog.getLogger();
+  logger.fatal('API Gateway failed to start', {
+    error: err instanceof Error ? err.message : String(err),
+  });
+  process.exit(1);
 });

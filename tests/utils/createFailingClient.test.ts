@@ -11,12 +11,18 @@ import { IBeaconRedis } from '../../src/redis/IBeaconRedis';
 // --- Mocks ---
 
 const mockLogger: ILogger = {
-  debug: vi.fn(),
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  trace: vi.fn(),
-  fatal: vi.fn(),
+  debug: vi.fn() as any,
+  info: vi.fn() as any,
+  warn: vi.fn() as any,
+  error: vi.fn() as any,
+  trace: vi.fn() as any,
+  fatal: vi.fn() as any,
+  child: vi.fn().mockReturnThis(),
+  withSource: vi.fn().mockReturnThis(),
+  level: 'info',
+  setLevel: vi.fn(),
+  withRetention: vi.fn().mockReturnThis(),
+  withTransactionId: vi.fn().mockReturnThis(),
 };
 
 // --- Tests ---
@@ -66,12 +72,12 @@ describe('createFailingClient', () => {
     it('should reject with an error when calling a command with multiple arguments like "set"', async () => {
       const expectedError = `The Redis client "${instanceName}" could not be initialized. Reason: ${initializationError.message}. Check the configuration and startup logs.`;
 
-      const promise = failingClient.set('my-key', 'my-value', 'EX', 3600);
+      const promise = failingClient.set('my-key', 'my-value', 3600);
 
       await expect(promise).rejects.toThrow(expectedError);
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        { errorMessage: expectedError, arguments: ['my-key', 'my-value', 'EX', 3600] },
+        { errorMessage: expectedError, arguments: ['my-key', 'my-value', 3600] },
         "Attempted to use property 'set' on a failing client."
       );
     });

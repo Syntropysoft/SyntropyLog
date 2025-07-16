@@ -47,7 +47,7 @@ describe('SyntropyLog', () => {
     vi.clearAllMocks();
     resetSyntropySingleton();
     // Ensure the mocked logger factory returns our mock logger
-    MockedLoggerFactory.prototype.getLogger.mockReturnValue(mockLogger);
+    MockedLoggerFactory.prototype.getLogger = vi.fn().mockReturnValue(mockLogger);
   });
 
   afterEach(async () => {
@@ -74,7 +74,7 @@ describe('SyntropyLog', () => {
 
   describe('Initialization (init)', () => {
     const validConfig = {
-      logger: { serializerTimeoutMs: 50, level: 'info' },
+      logger: { serializerTimeoutMs: 50, level: 'info' as const },
       redis: { instances: [] },
       http: { instances: [] },
       brokers: { instances: [] },
@@ -154,7 +154,6 @@ describe('SyntropyLog', () => {
     it('should initialize correctly in silent mode', async () => {
       const syntropy = SyntropyLog.getInstance();
       await syntropy.init({
-        silent: true,
         logger: { serializerTimeoutMs: 100 },
         redis: { instances: [] },
         http: { instances: [] },

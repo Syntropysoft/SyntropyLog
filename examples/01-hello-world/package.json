@@ -9,10 +9,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "syntropylog": "file:../.."
+    "syntropylog": "^0.4.0"
   },
   "devDependencies": {
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
-} 
+}

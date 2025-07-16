@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { LogEntry } from '../../src/types.js';
-import { LogLevelName } from '../../src/logger/levels.js';
+import { LogLevel } from '../../src/logger/levels.js';
 import { MockContextManager, SpyTransport } from '../../src/testing/index.js';
 
 describe('Testing Utilities', () => {
@@ -14,11 +14,11 @@ describe('Testing Utilities', () => {
 
     // Helper to create consistent log entries for tests
     const createLogEntry = (
-      level: LogLevelName,
+      level: LogLevel,
       msg: string
     ): LogEntry => ({
       level,
-      msg,
+      message: msg,
       timestamp: new Date().toISOString(),
       service: 'test-service',
     });

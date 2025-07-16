@@ -11,6 +11,7 @@ import {
   vi,
   afterEach,
   beforeEach,
+  SpyInstance,
 } from 'vitest';
 import path from 'path';
 import { ZodError } from 'zod';
@@ -56,12 +57,12 @@ const mockRunAllChecks = vi.mocked(runAllChecks);
 const MOCK_CWD = '/mock/project/root';
 const MOCK_MANIFEST_PATH = path.resolve(MOCK_CWD, 'syntropylog.doctor.ts');
 const MOCK_CONFIG_PATH = 'config.yaml';
-const MOCK_VALID_CONFIG = { logger: { level: 'info', serializerTimeoutMs: 100 } };
+const MOCK_VALID_CONFIG = { logger: { level: 'info' as const, serializerTimeoutMs: 100 } };
 
 describe('runDoctor', () => {
-  let mockExit: vi.SpyInstance;
-  let mockConsoleLog: vi.SpyInstance;
-  let mockConsoleError: vi.SpyInstance;
+  let mockExit: SpyInstance<[code?: string | number | null | undefined], never>;
+  let mockConsoleLog: SpyInstance<any[], any>;
+  let mockConsoleError: SpyInstance<any[], any>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -71,7 +72,7 @@ describe('runDoctor', () => {
 
     mockExit = vi
       .spyOn(process, 'exit')
-      .mockImplementation((() => {}) as (code?: number) => never);
+      .mockImplementation((() => {}) as (code?: string | number | null | undefined) => never);
     mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
     mockConsoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -110,7 +111,13 @@ describe('runDoctor', () => {
   });
 
   it('should return false and call process.exit(1) if errors are found', async () => {
-    const errorResult = [{ level: 'ERROR', title: 'Big Problem' }];
+    const errorResult = [
+      {
+        level: 'ERROR' as const,
+        title: 'Configuration Error',
+        message: 'Invalid configuration detected',
+      },
+    ];
     mockRunAllChecks.mockReturnValue(errorResult);
 
     await runDoctor({ configPath: MOCK_CONFIG_PATH });
@@ -119,13 +126,19 @@ describe('runDoctor', () => {
       expect.stringContaining('ERROR')
     );
     expect(mockConsoleLog).toHaveBeenCalledWith(
-      expect.stringContaining('Big Problem')
+      expect.stringContaining('Errors were found. It is highly recommended to fix them before deploying.')
     );
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 
   it('should return false but NOT call process.exit if errors are found in audit mode', async () => {
-    const errorResult = [{ level: 'ERROR', title: 'Big Problem' }];
+    const errorResult = [
+      {
+        level: 'ERROR' as const,
+        title: 'Configuration Error',
+        message: 'Invalid configuration detected',
+      },
+    ];
     mockRunAllChecks.mockReturnValue(errorResult);
 
     const result = await runDoctor({
@@ -253,7 +266,7 @@ describe('runDoctor', () => {
 
     // Usamos vi.doMock para un mock dinámico que solo afecta a este test.
     // Es crucial usar `vi.doMock` y no `vi.mock` para evitar el hoisting.
-    vi.doMock(manifestImportPath, () => ({ default: localRules }), { virtual: true });
+    vi.doMock(manifestImportPath, () => ({ default: localRules }));
 
     await runDoctor({ configPath: MOCK_CONFIG_PATH });
 

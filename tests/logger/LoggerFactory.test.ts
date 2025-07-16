@@ -61,6 +61,7 @@ describe('LoggerFactory', () => {
       logger: {
         level: 'info',
         serviceName: 'my-app',
+        serializerTimeoutMs: 100, // Add default value
       },
     };
   });
@@ -71,7 +72,7 @@ describe('LoggerFactory', () => {
 
       expect(MockSerializerRegistry).toHaveBeenCalledWith({
         serializers: undefined,
-        timeoutMs: undefined,
+        timeoutMs: 100, // Default value from config
       });
       expect(MockMaskingEngine).toHaveBeenCalledWith({
         fields: undefined,
@@ -96,7 +97,7 @@ describe('LoggerFactory', () => {
       const mockTransport = new SpyTransport();
       const config: SyntropyLogConfig = {
         ...baseConfig,
-        logger: { ...baseConfig.logger, transports: [mockTransport] },
+        logger: { ...baseConfig.logger, transports: [mockTransport], serializerTimeoutMs: 100 },
       };
       new LoggerFactory(config, mockContextManager, mockSyntropyLog);
       expect(MockConsoleTransport).not.toHaveBeenCalled();
@@ -105,6 +106,8 @@ describe('LoggerFactory', () => {
     it('should pass serializer and masking configs to their engines', () => {
       const config: SyntropyLogConfig = {
         logger: {
+          level: 'info',
+          serviceName: 'my-app',
           serializers: {
             custom: (val: any) => JSON.stringify(val),
           },
@@ -187,7 +190,7 @@ describe('LoggerFactory', () => {
       } as unknown as Transport;
       const config: SyntropyLogConfig = {
         ...baseConfig,
-        logger: { ...baseConfig.logger, transports: [transport1, transport2] },
+        logger: { ...baseConfig.logger, transports: [transport1, transport2], serializerTimeoutMs: 100 },
       };
       const factory = new LoggerFactory(
         config,

@@ -39,7 +39,7 @@ export class CompactConsoleTransport extends BaseConsolePrettyTransport {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected formatLogString(logObject: Record<string, any>): string {
-    const { timestamp, level, service, msg, ...rest } = logObject;
+    const { timestamp, level, service, message, ...rest } = logObject;
 
     const colorizer =
       this.levelColorMap[level as Exclude<LogLevel, 'silent'>] ||
@@ -48,9 +48,9 @@ export class CompactConsoleTransport extends BaseConsolePrettyTransport {
     const time = this.chalk.gray(new Date(timestamp).toLocaleTimeString());
     const levelString = colorizer(`[${level.toUpperCase()}]`);
     const serviceString = this.chalk.blue(`(${service})`);
-    const message = msg;
+    const messageText = message || '';
 
-    let logString = `${time} ${levelString} ${serviceString}: ${message}`;
+    let logString = `${time} ${levelString} ${serviceString}: ${messageText}`;
 
     // Format metadata into a single, compact line.
     const metaKeys = Object.keys(rest);

@@ -2,86 +2,75 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NatsAdapter = void 0;
 const nats_1 = require("nats");
-const CORRELATION_ID_KEY = 'x-correlation-id';
 class NatsAdapter {
-    nc = null;
-    sc = (0, nats_1.StringCodec)();
     natsServers;
+    natsConnection;
+    codec = (0, nats_1.JSONCodec)();
     subscriptions = [];
-    constructor(servers = 'nats://nats:4222') {
-        this.natsServers = Array.isArray(servers) ? servers : [servers];
+    constructor(natsServers = ['nats://localhost:4222']) {
+        this.natsServers = natsServers;
     }
     async connect() {
-        if (this.nc)
+        if (this.natsConnection)
             return;
-        try {
-            this.nc = await (0, nats_1.connect)({ servers: this.natsServers });
-        }
-        catch (err) {
-            // Allow the manager to handle logging of this error.
-            throw new Error(`Failed to connect to NATS servers: ${err}`);
-        }
+        this.natsConnection = await (0, nats_1.connect)({ servers: this.natsServers });
     }
     async disconnect() {
-        if (this.nc) {
-            this.subscriptions.forEach((sub) => sub.drain());
-            await this.nc.drain();
-            this.nc = null;
+        if (this.natsConnection) {
+            await Promise.all(this.subscriptions.map((sub) => sub.drain()));
+            await this.natsConnection.drain();
         }
     }
-    async publish(topic, message) {
-        if (!this.nc) {
-            throw new Error('NATS client not connected. Cannot publish.');
+    async publish(topic, message, options) {
+        if (!this.natsConnection) {
+            throw new Error('NATS client not connected.');
         }
         const natsHeaders = (0, nats_1.headers)();
         if (message.headers) {
-            for (const key in message.headers) {
-                const value = message.headers[key];
-                // The value from InstrumentedBrokerClient will be a string.
-                // NATS header values must be strings.
-                if (typeof value === 'string') {
-                    natsHeaders.append(key, value);
-                }
-                else {
-                    // It's a buffer, so we decode it. This might not be hit
-                    // if the instrumenter always provides strings.
-                    natsHeaders.append(key, this.sc.decode(value));
-                }
+            for (const [key, value] of Object.entries(message.headers)) {
+                natsHeaders.append(key, value.toString());
             }
         }
-        this.nc.publish(topic, message.payload, { headers: natsHeaders });
+        this.natsConnection.publish(topic, this.codec.encode(message.payload), {
+            headers: natsHeaders,
+        });
     }
     async subscribe(topic, handler) {
-        if (!this.nc) {
-            throw new Error('NATS client not connected. Cannot subscribe.');
+        if (!this.natsConnection) {
+            throw new Error('NATS client not connected.');
         }
-        const sub = this.nc.subscribe(topic);
+        const sub = this.natsConnection.subscribe(topic);
         this.subscriptions.push(sub);
+        const subscription = {
+            unsubscribe: async () => {
+                sub.unsubscribe();
+            },
+        };
         (async () => {
             for await (const m of sub) {
-                const brokerMessage = {
-                    payload: Buffer.from(m.data),
+                const msg = {
+                    payload: this.codec.decode(m.data),
                     headers: this.natsHeadersToRecord(m.headers),
                 };
-                const controls = {
-                    ack: async () => { },
-                    nack: async () => { },
-                };
-                // The BrokerManager will wrap this handler call in a context.
-                await handler(brokerMessage, controls);
+                await handler(null, msg, {
+                    ack: async () => {
+                        /* NOP for core NATS */
+                    },
+                    nack: async () => {
+                        /* NOP for core NATS */
+                    },
+                });
             }
-        })().catch((err) => {
-            // Let the BrokerManager's logger handle this.
-            console.error(`Error in NATS subscription for topic "${topic}":`, err);
-        });
+        })();
+        return subscription;
     }
     natsHeadersToRecord(natsHeaders) {
         const record = {};
-        if (!natsHeaders)
-            return record;
-        for (const [key, values] of natsHeaders) {
-            if (values.length > 0) {
-                record[key] = values[0];
+        if (natsHeaders) {
+            for (const [key, values] of natsHeaders.entries()) {
+                if (values.length > 0) {
+                    record[key] = values[0];
+                }
             }
         }
         return record;

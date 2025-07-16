@@ -4,7 +4,7 @@
  * This file tests that the executor correctly delegates commands to the native redis client.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 import { RedisCommandExecutor } from '../../src/redis/RedisCommandExecutor';
 import { RedisClientType } from '@redis/client';
 import { RedisZMember } from '../../src/redis/redis.types';
@@ -51,11 +51,11 @@ const createMockNativeClient = () => {
     decrBy: vi.fn(),
     zAdd: vi.fn(),
     // Add any other methods you need to mock for tests
-  } as unknown as vi.Mocked<RedisClientType>;
+  } as unknown as Mocked<RedisClientType>;
 };
 
 describe('RedisCommandExecutor', () => {
-  let mockNativeClient: vi.Mocked<RedisClientType>;
+  let mockNativeClient: Mocked<RedisClientType>;
   let executor: RedisCommandExecutor;
 
   beforeEach(() => {

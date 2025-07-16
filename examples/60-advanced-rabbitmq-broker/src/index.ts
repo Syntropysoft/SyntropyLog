@@ -1,8 +1,21 @@
 // examples/05-advanced-brokers-rabbitmq/src/index.ts
 import { syntropyLog } from 'syntropylog';
-import { BrokerMessage } from 'syntropylog/brokers';
+import { BrokerMessage } from 'syntropylog';
 import { randomUUID } from 'node:crypto';
-import { RabbitMQAdapter } from './RabbitMQAdapter';
+// Note: RabbitMQAdapter would be implemented in a separate adapter package
+// For this example, we'll use a mock adapter
+const RabbitMQAdapter = class {
+  constructor(url: string, exchange: string) {
+    this.url = url;
+    this.exchange = exchange;
+  }
+  private url: string;
+  private exchange: string;
+  async connect() {}
+  async disconnect() {}
+  async publish(topic: string, message: BrokerMessage) {}
+  async subscribe(queue: string, handler: (message: BrokerMessage, controls: any) => Promise<void>) {}
+};
 
 const exchangeName = 'user-events';
 const userCreatedTopic = 'user.created';

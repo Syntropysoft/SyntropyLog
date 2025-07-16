@@ -31,19 +31,27 @@ const setupMockClient = () => {
   vi.mocked(redis.createClient).mockReturnValue(mockNativeClient);
 };
 
-// Mock logger
+// Mock logger defined inline
 const mockLogger: ILogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
-  child: vi.fn(() => mockLogger),
+  debug: vi.fn() as any,
+  info: vi.fn() as any,
+  warn: vi.fn() as any,
+  error: vi.fn() as any,
+  trace: vi.fn() as any,
+  fatal: vi.fn() as any,
+  child: vi.fn().mockReturnThis(),
+  withSource: vi.fn().mockReturnThis(),
+  level: 'info',
+  setLevel: vi.fn(),
+  withRetention: vi.fn().mockReturnThis(),
+  withTransactionId: vi.fn().mockReturnThis(),
 };
 
 describe('RedisConnectionManager', () => {
   let manager: RedisConnectionManager;
   const mockConfig: RedisInstanceConfig = {
     mode: 'single',
+    instanceName: 'test-instance',
     url: 'redis://localhost:6379',
   };
 
@@ -65,6 +73,7 @@ describe('RedisConnectionManager', () => {
     it('should create a single-node client with the correct URL and reconnect strategy', () => {
       const singleNodeConfig: RedisInstanceConfig = {
         mode: 'single',
+        instanceName: 'test-instance',
         url: 'redis://test-host:1234',
         retryOptions: { maxRetries: 5, retryDelay: 1000 },
       };
@@ -82,6 +91,7 @@ describe('RedisConnectionManager', () => {
     it('should create a sentinel client with the correct options', () => {
       const sentinelConfig: RedisInstanceConfig = {
         mode: 'sentinel',
+        instanceName: 'test-instance',
         sentinels: [{ host: 's1', port: 26379 }],
         name: 'mymaster',
         sentinelPassword: 'spass',
@@ -101,6 +111,7 @@ describe('RedisConnectionManager', () => {
     it('should create a cluster client with the correct root nodes', () => {
       const clusterConfig: RedisInstanceConfig = {
         mode: 'cluster',
+        instanceName: 'test-instance',
         rootNodes: [
           { host: 'c1', port: 7001 },
           { host: 'c2', port: 7002 },
@@ -125,7 +136,9 @@ describe('RedisConnectionManager', () => {
 
     it('should use a reconnectStrategy that returns an error if max retries are exceeded', () => {
       const configWithRetries: RedisInstanceConfig = {
-        ...mockConfig,
+        mode: 'single',
+        instanceName: 'test-instance',
+        url: 'redis://localhost:6379',
         retryOptions: { maxRetries: 5 },
       };
       new RedisConnectionManager(configWithRetries, mockLogger);

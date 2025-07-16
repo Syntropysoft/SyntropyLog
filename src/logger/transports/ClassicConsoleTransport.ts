@@ -56,7 +56,7 @@ export class ClassicConsoleTransport extends BaseConsolePrettyTransport {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected formatLogString(logObject: Record<string, any>): string {
-    const { timestamp, level, service, msg, context, ...rest } = logObject;
+    const { timestamp, level, service, message, context, ...rest } = logObject;
 
     const colorizer =
       this.levelColorMap[level as Exclude<LogLevel, 'silent'>] ||
@@ -71,8 +71,8 @@ export class ClassicConsoleTransport extends BaseConsolePrettyTransport {
     // 3. Format the service name.
     const serviceStr = this.chalk.magenta(`[${service}]`);
 
-    // 4. Combine context and other metadata and format it.
-    const allMeta = { ...context, ...rest };
+    // 4. Combine context, other metadata, and message, then format it.
+    const allMeta = { ...context, ...rest, message };
     const metaKeys = Object.keys(allMeta);
     let metaStr = '';
     if (metaKeys.length > 0) {
@@ -85,11 +85,8 @@ export class ClassicConsoleTransport extends BaseConsolePrettyTransport {
       );
     }
 
-    // 5. The main log message.
-    const message = msg;
-
-    // Assemble the final string, ensuring metadata is placed correctly.
-    const logString = `${timeStr} ${levelStr} ${serviceStr}${metaStr} :: ${message}`;
+    // 5. Assemble the final string.
+    const logString = `${timeStr} ${levelStr} ${serviceStr}${metaStr}`;
     return logString;
   }
 }

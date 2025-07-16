@@ -332,4 +332,40 @@ export class RedisConnectionManager {
     // The .exists() command is supported by both single-node and cluster clients.
     return this.client.exists(keys);
   }
+
+  /**
+   * Executes the Redis GET command.
+   * @param {string} key - The key to retrieve.
+   * @returns {Promise<string | null>} A promise that resolves with the value or null if not found.
+   */
+  public async get(key: string): Promise<string | null> {
+    await this.ensureReady();
+    return this.client.get(key);
+  }
+
+  /**
+   * Executes the Redis SET command.
+   * @param {string} key - The key to set.
+   * @param {string} value - The value to set.
+   * @param {number} [ttl] - Optional TTL in seconds.
+   * @returns {Promise<string>} A promise that resolves with 'OK' on success.
+   */
+  public async set(key: string, value: string, ttl?: number): Promise<string> {
+    await this.ensureReady();
+    if (ttl) {
+      return this.client.setEx(key, ttl, value);
+    }
+    const result = await this.client.set(key, value);
+    return result || 'OK';
+  }
+
+  /**
+   * Executes the Redis DEL command.
+   * @param {string} key - The key to delete.
+   * @returns {Promise<number>} A promise that resolves with the number of keys deleted.
+   */
+  public async del(key: string): Promise<number> {
+    await this.ensureReady();
+    return this.client.del(key);
+  }
 }

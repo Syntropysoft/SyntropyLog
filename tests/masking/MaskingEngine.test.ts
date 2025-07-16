@@ -69,7 +69,7 @@ describe('MaskingEngine', () => {
       const engine = new MaskingEngine(options);
       const result = await engine.process({ apiKey: 'abcdef1234567890' });
       expect(result.apiKey).toBe('################');
-      expect(result.apiKey.length).toBe(16);
+      expect((result.apiKey as string).length).toBe(16);
     });
 
     it('should mask a number value preserving its string length', async () => {
@@ -81,7 +81,7 @@ describe('MaskingEngine', () => {
       const engine = new MaskingEngine(options);
       const result = await engine.process({ accountNumber: 987654321 });
       expect(result.accountNumber).toBe('*********');
-      expect(result.accountNumber.length).toBe(9);
+      expect((result.accountNumber as string).length).toBe(9);
     });
 
     it('should use only the first character of maskChar for preserve-length', async () => {
@@ -112,9 +112,9 @@ describe('MaskingEngine', () => {
         },
       };
       const result = await engine.process(data);
-      expect(result.level1.secret).toBe('******');
-      expect(result.level1.level2.secret).toBe('******');
-      expect(result.level1.level2.data).toBe('unmasked');
+      expect((result.level1 as any).secret).toBe('******');
+      expect((result.level1 as any).level2.secret).toBe('******');
+      expect((result.level1 as any).level2.data).toBe('unmasked');
     });
 
     it('should stop recursing at maxDepth', async () => {
@@ -135,7 +135,7 @@ describe('MaskingEngine', () => {
       const result = await engine.process(data);
       // The engine now masks by key name regardless of depth, so `deepSecret`
       // at depth 3 should be masked if maxDepth is 3.
-      expect(result.a.b.c).toEqual({ deepSecret: '******' });
+      expect((result.a as any).b.c).toEqual({ deepSecret: '******' });
     });
   });
 
@@ -217,7 +217,7 @@ describe('MaskingEngine', () => {
       const result = await engine.process(data);
       expect(result.a).toBeNull();
       expect(result.b).toBeUndefined();
-      expect(result.c.secret).toBe('******'); // preserve-length of 'null' is 4, but let's use fixed for nulls
+      expect((result.c as any).secret).toBe('******'); // preserve-length of 'null' is 4, but let's use fixed for nulls
     });
 
     it('should handle non-object inputs gracefully', async () => {

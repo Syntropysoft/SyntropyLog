@@ -1,12 +1,15 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "es2019",
     "module": "commonjs",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "composite": true,
     "outDir": "./dist"
   },
-  "include": ["src"]
+  "include": ["src/**/*.ts"],
+  "references": [
+    {
+      "path": "../../src"
+    }
+  ]
 } 

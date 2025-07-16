@@ -1,16 +1,11 @@
-/**
- * FILE: tests/logger/transports/CompactConsoleTransport.test.ts
- * DESCRIPTION: Unit tests for the CompactConsoleTransport class.
- */
-
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, SpyInstance } from 'vitest';
 import { CompactConsoleTransport } from '../../../src/logger/transports/CompactConsoleTransport';
 import { LogEntry } from '../../../src/types';
 
 describe('CompactConsoleTransport', () => {
-  let consoleLogSpy: vi.SpyInstance;
-  let consoleWarnSpy: vi.SpyInstance;
-  let consoleErrorSpy: vi.SpyInstance;
+  let consoleLogSpy: SpyInstance;
+  let consoleWarnSpy: SpyInstance;
+  let consoleErrorSpy: SpyInstance;
 
   beforeEach(() => {
     // Spy on console methods to capture output
@@ -30,8 +25,8 @@ describe('CompactConsoleTransport', () => {
   });
 
   const getBaseLogEntry = (level: LogEntry['level'], msg: string): LogEntry => ({
-    level,
-    msg,
+    level: level,
+    message: msg,
     service: 'compact-app',
     timestamp: new Date().toISOString(),
   });

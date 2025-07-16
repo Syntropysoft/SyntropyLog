@@ -30,7 +30,7 @@ export class RedisManager {
     this.contextManager = contextManager;
   }
 
-  private init() {
+  public init() {
     this.logger.trace('Initializing RedisManager...');
     if (
       !this.config ||

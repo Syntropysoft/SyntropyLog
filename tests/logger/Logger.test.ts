@@ -1,80 +1,124 @@
+/// <reference types="vitest/globals" />
 /**
  * FILE: tests/logger/Logger.test.ts
  * DESCRIPTION: Unit tests for the core Logger class.
  */
-import { beforeEach, describe, expect, it, vi, type Mocked } from 'vitest';
+import { describe, it, expect, vi, beforeEach, Mocked } from 'vitest';
 import { Logger, LoggerDependencies } from '../../src/logger/Logger';
+import { LogLevel, LogEntry } from '../../src/types';
+import { SyntropyLog } from '../../src/SyntropyLog';
 import {
   Transport,
-  type TransportOptions,
+  TransportOptions,
 } from '../../src/logger/transports/Transport';
-import type { LogEntry } from '../../src/types';
 import { MaskingEngine } from '../../src/masking/MaskingEngine';
 import { SerializerRegistry } from '../../src/serialization/SerializerRegistry';
 import { IContextManager } from '../../src/context';
-import { MockContextManager } from '../../src/context/MockContextManager';
+import { SpyTransport } from '../../src/logger/transports/SpyTransport';
+import { ILogger } from '../../src/logger';
+// Mock utilities defined inline for this test
+const createMockLogger = (): ILogger => ({
+  debug: vi.fn() as any,
+  info: vi.fn() as any,
+  warn: vi.fn() as any,
+  error: vi.fn() as any,
+  trace: vi.fn() as any,
+  fatal: vi.fn() as any,
+  child: vi.fn().mockReturnThis(),
+  withSource: vi.fn().mockReturnThis(),
+  level: 'info',
+  setLevel: vi.fn(),
+  withRetention: vi.fn().mockReturnThis(),
+  withTransactionId: vi.fn().mockReturnThis(),
+});
 
-// A concrete class for testing purposes that extends the abstract Transport
-class SpyTransport extends Transport {
-  constructor(options: TransportOptions) {
-    super(options);
-  }
+const createMockContextManager = (): IContextManager => ({
+  run: vi.fn().mockImplementation(async (fn) => {
+    await fn();
+  }),
+  get: vi.fn(),
+  set: vi.fn(),
+  getAll: vi.fn().mockReturnValue({}),
+  getFilteredContext: vi.fn().mockReturnValue({ traceId: 'test-trace-id' }),
+  getCorrelationId: vi.fn(),
+  getTransactionId: vi.fn(),
+  setTransactionId: vi.fn(),
+  configure: vi.fn(),
+  getCorrelationIdHeaderName: vi.fn().mockReturnValue('x-correlation-id'),
+  getTransactionIdHeaderName: vi.fn().mockReturnValue('x-trace-id'),
+  getTraceContextHeaders: vi.fn().mockReturnValue({}),
+});
 
-  // The log method is what we want to spy on. We can implement it as a mock function directly.
-  log = vi.fn<[LogEntry], Promise<void>>().mockResolvedValue(undefined);
-}
+const createMockTransport = (): Transport => ({
+  log: vi.fn().mockResolvedValue(undefined),
+  level: 'info',
+  name: 'mock-transport',
+  isLevelEnabled: vi.fn().mockReturnValue(true),
+  flush: vi.fn().mockResolvedValue(undefined),
+});
 
-// --- Mocks for Dependencies ---
-vi.mock('../../src/masking/MaskingEngine');
-vi.mock('../../src/serialization/SerializerRegistry');
+const createMockPipelineComponents = () => ({
+  mockMasker: {
+    process: vi.fn().mockImplementation((entry) => Promise.resolve(entry)),
+  },
+  mockSerializer: {
+    process: vi.fn().mockImplementation((entry) => Promise.resolve(entry)),
+  },
+});
 
 describe('Logger', () => {
-  let mockTransport: SpyTransport;
-  let logger: Logger;
   let mockMasker: Mocked<MaskingEngine>;
   let mockSerializer: Mocked<SerializerRegistry>;
   let mockContextManager: Mocked<IContextManager>;
+  let mockSyntropyLog: Mocked<SyntropyLog>;
+  let dependencies: LoggerDependencies;
+  let transports: Mocked<Transport>[];
+  let logger: Logger;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    const pipelineComponents = createMockPipelineComponents();
+    mockMasker = pipelineComponents.mockMasker as any;
+    mockSerializer = pipelineComponents.mockSerializer as any;
+    mockContextManager = createMockContextManager() as any;
+    mockSyntropyLog = {
+      getLogger: vi.fn().mockImplementation((name, bindings) => {
+        // Return a real Logger instance for child loggers
+        const childLogger = new Logger(name, transports, dependencies);
+        if (bindings) {
+          Object.assign(childLogger.bindings || {}, bindings);
+        }
+        return childLogger;
+      }),
+    } as unknown as Mocked<SyntropyLog>;
 
-    // Create fresh mocks for each dependency
-    mockMasker = new MaskingEngine({}) as Mocked<MaskingEngine>;
-    mockMasker.process = vi.fn((obj) => Promise.resolve(obj)); // Must be async now
-
-    mockSerializer = new SerializerRegistry({}) as Mocked<SerializerRegistry>;
-    mockSerializer.process = vi.fn((obj) => obj);
-
-    mockContextManager = new MockContextManager() as Mocked<IContextManager>;
-    mockContextManager.getFilteredContext = vi
-      .fn()
-      .mockReturnValue({ traceId: 'test-trace-id' });
-
-    const dependencies: LoggerDependencies = {
+    dependencies = {
       maskingEngine: mockMasker,
       serializerRegistry: mockSerializer,
       contextManager: mockContextManager,
+      syntropyLogInstance: mockSyntropyLog,
     };
 
-    mockTransport = new SpyTransport({
-      level: 'info',
-      name: 'mock-transport',
-    });
+    transports = [
+      createMockTransport({ level: 'info', name: 'test-transport-1' }),
+      createMockTransport({ level: 'debug', name: 'test-transport-2' }),
+    ];
 
-    // Create the Logger instance for testing with our mocked dependencies.
-    logger = new Logger('test-logger', [mockTransport], dependencies);
-    logger.level = 'info';
+    logger = new Logger('test-logger', transports, dependencies);
   });
 
-  describe('Core Logging', () => {
+  describe('Logging methods', () => {
+    it('should set initial level correctly', () => {
+      expect(logger.level).toBe('info');
+    });
+
     it('should format a basic log entry and pass it to the transport', async () => {
       await logger.info('hello world');
 
       // Verify the transport was called correctly.
-      expect(mockTransport.log).toHaveBeenCalledOnce();
+      expect(transports[0].log).toHaveBeenCalledOnce();
       // Verify the correct context was requested for the "info" level.
       expect(mockContextManager.getFilteredContext).toHaveBeenCalledWith('info');
-      const logEntry = mockTransport.log.mock.calls[0][0];
+      const logEntry = transports[0].log.mock.calls[0][0];
       expect(logEntry).toMatchObject({
         level: 'info',
         message: 'hello world',
@@ -85,10 +129,10 @@ describe('Logger', () => {
     it('should correctly merge a metadata object with a log message', async () => {
       await logger.info({ userId: 123, component: 'auth' }, 'user logged in');
 
-      expect(mockTransport.log).toHaveBeenCalledOnce();
+      expect(transports[0].log).toHaveBeenCalledOnce();
       expect(mockContextManager.getFilteredContext).toHaveBeenCalledWith('info');
 
-      const logEntry = mockTransport.log.mock.calls[0][0];
+      const logEntry = transports[0].log.mock.calls[0][0];
       expect(logEntry).toMatchObject({
         level: 'info',
         message: 'user logged in',
@@ -100,24 +144,26 @@ describe('Logger', () => {
 
     it('should combine message from metadata and arguments if both are present', async () => {
       await logger.info(
-        { message: 'hello %s' }, // this message should be overwritten
-        'world',
+        { userId: 123 }, // metadata object
+        'hello %s', // message with placeholder
+        'world', // format argument
       );
 
-      expect(mockTransport.log).toHaveBeenCalledOnce();
+      expect(transports[0].log).toHaveBeenCalledOnce();
       expect(mockContextManager.getFilteredContext).toHaveBeenCalledWith('info');
 
-      const logEntry = mockTransport.log.mock.calls[0][0];
+      const logEntry = transports[0].log.mock.calls[0][0];
       expect(logEntry.message).toBe('hello world');
+      expect(logEntry.userId).toBe(123);
     });
 
     it('should format messages with placeholders (util.format style)', async () => {
       await logger.warn('event: %s, user: %s, success: %j', 'login', 'alice', true);
 
-      expect(mockTransport.log).toHaveBeenCalledOnce();
+      expect(transports[0].log).toHaveBeenCalledOnce();
       expect(mockContextManager.getFilteredContext).toHaveBeenCalledWith('warn');
 
-      const logEntry = mockTransport.log.mock.calls[0][0];
+      const logEntry = transports[0].log.mock.calls[0][0];
       expect(logEntry.message).toBe('event: login, user: alice, success: true');
     });
   });
@@ -127,7 +173,7 @@ describe('Logger', () => {
       const logData = { user: { id: 1, password: 'password123' } };
       await logger.info(logData);
 
-      expect(mockTransport.log).toHaveBeenCalledOnce();
+      expect(transports[0].log).toHaveBeenCalledOnce();
       expect(mockContextManager.getFilteredContext).toHaveBeenCalledWith('info');
 
       // Verify that the processing methods were called
@@ -138,7 +184,7 @@ describe('Logger', () => {
       const serializerCallOrder =
         mockSerializer.process.mock.invocationCallOrder[0];
       const maskerCallOrder = mockMasker.process.mock.invocationCallOrder[0];
-      const transportCallOrder = mockTransport.log.mock.invocationCallOrder[0];
+      const transportCallOrder = transports[0].log.mock.invocationCallOrder[0];
 
       // Serializer runs, then masker, then the transport sends the log.
       expect(serializerCallOrder).toBeLessThan(maskerCallOrder);
@@ -153,15 +199,17 @@ describe('Logger', () => {
       // This promise will resolve immediately as the log should be skipped.
       await logger.info('should be ignored');
 
-      expect(mockTransport.log).not.toHaveBeenCalled();
+      expect(transports[0].log).not.toHaveBeenCalled();
     });
 
     it('should not log messages below the transport level', async () => {
-      mockTransport.level = 'error';
+      transports[0].level = 'error';
+      // Mock isLevelEnabled to return false for warn level
+      transports[0].isLevelEnabled = vi.fn().mockReturnValue(false);
 
       await logger.warn('should be ignored by transport');
 
-      expect(mockTransport.log).not.toHaveBeenCalled();
+      expect(transports[0].log).not.toHaveBeenCalled();
     });
 
     it('should log messages at or above the logger level', async () => {
@@ -171,25 +219,30 @@ describe('Logger', () => {
         logger.error('error message'),
       ]);
 
-      expect(mockTransport.log).toHaveBeenCalledTimes(2);
+      expect(transports[0].log).toHaveBeenCalledTimes(2);
       expect(mockContextManager.getFilteredContext).toHaveBeenCalledWith('warn');
       expect(mockContextManager.getFilteredContext).toHaveBeenCalledWith('error');
     });
 
     it('should respect the log level of individual transports', async () => {
-      const infoTransport = new SpyTransport({
+      const infoTransport = {
+        log: vi.fn(),
         level: 'info',
         name: 'info-only',
-      });
-      const errorTransport = new SpyTransport({
+        isLevelEnabled: vi.fn().mockImplementation((level) => ['info', 'warn', 'error', 'fatal'].includes(level)),
+      } as any;
+      const errorTransport = {
+        log: vi.fn(),
         level: 'error',
         name: 'error-only',
-      });
+        isLevelEnabled: vi.fn().mockImplementation((level) => level === 'error'), // Only accept error level
+      } as any;
       
       const dependencies: LoggerDependencies = {
         maskingEngine: mockMasker,
         serializerRegistry: mockSerializer,
         contextManager: mockContextManager,
+        syntropyLogInstance: mockSyntropyLog,
       };
 
       const localLogger = new Logger('multi-transport', [infoTransport, errorTransport], dependencies);
@@ -204,27 +257,30 @@ describe('Logger', () => {
 
       await localLogger.error('test error message'); // should go to both
 
-      expect(infoTransport.log).toHaveBeenCalledOnce();
-      expect(errorTransport.log).toHaveBeenCalledOnce();
+      expect(infoTransport.log).toHaveBeenCalledTimes(1); // Called only for error (info was already called)
+      expect(errorTransport.log).toHaveBeenCalledOnce(); // Called only for error
+      expect(infoTransport.isLevelEnabled).toHaveBeenCalledWith('error');
+      expect(errorTransport.isLevelEnabled).toHaveBeenCalledWith('error');
+      expect(errorTransport.isLevelEnabled).toHaveBeenCalledWith('error');
     });
 
     it('should allow changing the log level dynamically', async () => {
       // Initially, info is the level, so this gets logged
       await logger.info('this should be logged');
-      expect(mockTransport.log).toHaveBeenCalledOnce();
+      expect(transports[0].log).toHaveBeenCalledOnce();
 
       vi.clearAllMocks(); // Reset for next part of test
 
       // Initially, debug is lower than info, so it's ignored
       await logger.debug('this should be ignored');
-      expect(mockTransport.log).not.toHaveBeenCalled();
+      expect(transports[0].log).not.toHaveBeenCalled();
 
       // Change level to allow debug logs
       logger.level = 'debug';
-      mockTransport.level = 'debug'; // Also update the transport's level for the test
+      transports[0].level = 'debug'; // Also update the transport's level for the test
 
       await logger.debug('this should be logged now');
-      expect(mockTransport.log).toHaveBeenCalledOnce();
+      expect(transports[0].log).toHaveBeenCalledOnce();
     });
   });
 
@@ -240,48 +296,50 @@ describe('Logger', () => {
       // 1. Create the "parent" with its base context.
       const parentLogger = new Logger(
         'parent-logger',
-        [mockTransport],
-        {
-          maskingEngine: mockMasker,
-          serializerRegistry: mockSerializer,
-          contextManager: mockContextManager,
-        },
-        { service: 'api' }, // Initial context for the parent
+        transports,
+        dependencies,
+        { bindings: { serviceName: 'parent' } } // Initial context for the parent
       );
       parentLogger.level = 'info';
 
       // 2. The mock context manager should return both contexts when asked.
       // We simulate the context inheritance for this test.
-      mockContextManager.getFilteredContext.mockReturnValue({
+      mockContextManager.getFilteredContext = vi.fn().mockReturnValue({
         traceId: 'test-trace-id',
-        service: 'api', // from parent
+        loggerName: 'parent', // from parent
         component: 'database', // from child
       });
 
       // 3. Create a child logger which will have its own context merged.
-      // The Logger's `child` method should handle this internally now.
       const child = parentLogger.child({ component: 'database' });
       await child.info({ query: 'SELECT *' }, 'Query executed');
 
-      expect(mockTransport.log).toHaveBeenCalledOnce();
-      const logEntry = mockTransport.log.mock.calls[0][0];
+      expect(transports[0].log).toHaveBeenCalledOnce();
+      const logEntry = transports[0].log.mock.calls[0][0];
 
       // 4. Assert that the final log entry contains the merged context.
       expect(logEntry).toMatchObject({
-        service: 'api',
+        loggerName: 'parent',
         component: 'database',
         query: 'SELECT *',
         traceId: 'test-trace-id',
       });
     });
 
-    it('child logger should be able to overwrite parent properties', async () => {
+    it('child logger should overwrite parent properties if `name` is not used', async () => {
       const child = logger.child({ name: 'child-logger' });
       await child.info('test info message');
 
-      expect(mockTransport.log).toHaveBeenCalledOnce();
-      const logEntry = mockTransport.log.mock.calls[0][0];
+      expect(transports[0].log).toHaveBeenCalledOnce();
+      const logEntry = transports[0].log.mock.calls[0][0];
       expect(logEntry.name).toBe('child-logger');
+    });
+
+    it('should call getLogger on syntropyLog instance when creating a child', () => {
+      logger.child({ name: 'child-logger' });
+      expect(mockSyntropyLog.getLogger).toHaveBeenCalledWith('test-logger:child-logger', {
+        name: 'child-logger',
+      });
     });
   });
 });

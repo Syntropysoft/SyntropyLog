@@ -10,12 +10,18 @@ import { ILogger } from '../../src/logger/ILogger';
 // --- Mocks ---
 
 const mockLogger: ILogger = {
-  warn: vi.fn(),
-  info: vi.fn(),
-  debug: vi.fn(),
-  error: vi.fn(),
-  trace: vi.fn(),
-  fatal: vi.fn(),
+  warn: vi.fn() as any,
+  info: vi.fn() as any,
+  debug: vi.fn() as any,
+  error: vi.fn() as any,
+  trace: vi.fn() as any,
+  fatal: vi.fn() as any,
+  child: vi.fn().mockReturnThis(),
+  withSource: vi.fn().mockReturnThis(),
+  level: 'info',
+  setLevel: vi.fn(),
+  withRetention: vi.fn().mockReturnThis(),
+  withTransactionId: vi.fn().mockReturnThis(),
 };
 
 // --- Tests ---
@@ -33,7 +39,7 @@ describe('SerializerRegistry', () => {
     });
 
     it('should use a custom error serializer if provided', () => {
-      const customErrSerializer = (e: Error) => `Custom: ${e.message}`;
+      const customErrSerializer = (e: unknown) => `Custom: ${e instanceof Error ? e.message : String(e)}`;
       const options: SerializerRegistryOptions = {
         serializers: { err: customErrSerializer },
       };
@@ -64,7 +70,7 @@ describe('SerializerRegistry', () => {
       const meta = { err, otherKey: 'value' };
 
       const result = await registry.process(meta, mockLogger);
-      const parsedError = JSON.parse(result.err);
+      const parsedError = JSON.parse(result.err as string);
 
       expect(parsedError.name).toBe('Error');
       expect(parsedError.message).toBe('test error');
@@ -74,7 +80,7 @@ describe('SerializerRegistry', () => {
 
     it('should apply a custom serializer', async () => {
       const options: SerializerRegistryOptions = {
-        serializers: { user: (u) => `User ID: ${u.id}` },
+        serializers: { user: (u: unknown) => `User ID: ${(u as any)?.id}` },
       };
       const registry = new SerializerRegistry(options);
       const meta = { user: { id: 123, name: 'John' } };
@@ -94,8 +100,7 @@ describe('SerializerRegistry', () => {
     });
 
     it('should handle async serializers that resolve successfully', async () => {
-      const asyncSerializer = async (val: any) => {
-        await new Promise((r) => setTimeout(r, 10));
+      const asyncSerializer = (val: unknown) => {
         return `Async: ${val}`;
       };
       const options: SerializerRegistryOptions = {
@@ -119,7 +124,7 @@ describe('SerializerRegistry', () => {
     });
 
     it('should handle a serializer timeout', async () => {
-      const slowSerializer = () => new Promise((resolve) => setTimeout(() => resolve('done'), 100));
+      const slowSerializer = () => new Promise(resolve => setTimeout(() => resolve('done'), 100));
       const options: SerializerRegistryOptions = {
         serializers: { slow: slowSerializer },
         timeoutMs: 50,
@@ -158,7 +163,7 @@ describe('SerializerRegistry', () => {
     });
 
     it('should handle a rejected promise from an async serializer', async () => {
-      const failingAsyncSerializer = async () => {
+      const failingAsyncSerializer = () => {
         throw new Error('Async Fail');
       };
       const options: SerializerRegistryOptions = {

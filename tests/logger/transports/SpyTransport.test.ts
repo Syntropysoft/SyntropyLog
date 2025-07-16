@@ -3,7 +3,7 @@
  * DESCRIPTION: Unit tests for the SpyTransport class.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { SpyTransport } from '../../../src/logger/transports/SpyTransport';
 import { LogEntry } from '../../../src/types';
 
@@ -12,25 +12,23 @@ describe('SpyTransport', () => {
 
   const entry1: LogEntry = {
     level: 'info',
-    msg: 'First entry',
-    service: 'test-app',
-    timestamp: '2023-01-01T12:00:00.000Z',
+    message: 'This is a test message.',
+    service: 'test-service',
+    timestamp: new Date().toISOString(),
   };
-
   const entry2: LogEntry = {
     level: 'warn',
-    msg: 'Second entry',
-    service: 'test-app',
-    timestamp: '2023-01-01T12:01:00.000Z',
+    message: 'Another test message.',
+    service: 'test-service',
+    timestamp: new Date().toISOString(),
     userId: 123,
   };
-
   const entry3: LogEntry = {
     level: 'info',
-    msg: 'Third entry',
-    service: 'api-service',
-    timestamp: '2023-01-01T12:02:00.000Z',
-    userId: 123,
+    message: 'A final test message.',
+    service: 'test-service',
+    timestamp: new Date().toISOString(),
+    userId: 456,
   };
 
   beforeEach(() => {
@@ -89,7 +87,7 @@ describe('SpyTransport', () => {
     });
 
     it('should find entries matching a multi-property predicate', () => {
-      const found = transport.findEntries({ level: 'info', userId: 123 });
+      const found = transport.findEntries({ level: 'info', userId: 456 });
       expect(found).toHaveLength(1);
       expect(found[0]).toBe(entry3);
     });
@@ -106,7 +104,7 @@ describe('SpyTransport', () => {
     });
 
     it('should find entries using a function predicate', () => {
-      const found = transport.findEntries((entry) => entry.msg.includes('Second'));
+      const found = transport.findEntries((entry) => entry.message.includes('Another'));
       expect(found).toHaveLength(1);
       expect(found[0]).toBe(entry2);
     });

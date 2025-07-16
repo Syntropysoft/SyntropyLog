@@ -1,5 +1,15 @@
 import { syntropyLog, CompactConsoleTransport } from 'syntropylog';
-import { AxiosAdapter } from 'syntropylog/http';
+// Note: AxiosAdapter would be implemented in a separate adapter package
+// For this example, we'll use a mock adapter
+const AxiosAdapter = class {
+  constructor(axiosInstance: any) {
+    this.axiosInstance = axiosInstance;
+  }
+  private axiosInstance: any;
+  async request(request: any) {
+    return this.axiosInstance.request(request);
+  }
+};
 import { randomUUID } from 'crypto';
 import nock from 'nock';
 import axios from 'axios';

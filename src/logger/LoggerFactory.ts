@@ -97,11 +97,16 @@ export class LoggerFactory {
    * Retrieves a logger instance by name. If the logger does not exist, it is created
    * and cached for subsequent calls.
    * @param {string} [name='default'] - The name of the logger to retrieve.
+   * @param {Record<string, any>} [bindings] - Optional bindings to apply to the logger.
    * @returns {ILogger} The logger instance.
    */
-  public getLogger(name = 'default'): ILogger {
-    if (this.loggerPool.has(name)) {
-      return this.loggerPool.get(name) as ILogger;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public getLogger(name = 'default', bindings?: Record<string, any>): ILogger {
+    // Create a stable cache key that doesn't depend on object reference
+    const cacheKey = this.createCacheKey(name, bindings);
+
+    if (this.loggerPool.has(cacheKey)) {
+      return this.loggerPool.get(cacheKey) as ILogger;
     }
 
     const loggerName = name === 'default' ? this.serviceName : name;
@@ -113,11 +118,43 @@ export class LoggerFactory {
       syntropyLogInstance: this.syntropyLogInstance,
     };
 
-    const logger = new Logger(loggerName, this.transports, dependencies);
+    const logger = new Logger(loggerName, this.transports, dependencies, {
+      bindings,
+    });
     logger.level = this.globalLogLevel;
 
-    this.loggerPool.set(name, logger);
+    this.loggerPool.set(cacheKey, logger);
     return logger;
+  }
+
+  /**
+   * Creates a stable cache key for logger instances.
+   * @private
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private createCacheKey(name: string, bindings?: Record<string, any>): string {
+    if (!bindings || Object.keys(bindings).length === 0) {
+      return name;
+    }
+
+    // Sort keys to ensure consistent cache keys regardless of property order
+    const sortedBindings = Object.keys(bindings)
+      .sort()
+      .reduce(
+        (result, key) => {
+          result[key] = bindings[key];
+          return result;
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        {} as Record<string, any>
+      );
+
+    try {
+      return `${name}:${JSON.stringify(sortedBindings)}`;
+    } catch {
+      // Fallback for non-serializable objects
+      return `${name}:${Object.keys(sortedBindings).sort().join(',')}`;
+    }
   }
 
   /**

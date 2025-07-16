@@ -21,8 +21,11 @@ const external = [
 const jsPlugins = [
   resolve(),
   commonjs(),
+  typescript({ 
+    tsconfig: './tsconfig.rollup.json',
+    sourceMap: true,
+  }),
   json(),
-  typescript({ tsconfig: './tsconfig.rollup.json' }),
 ];
 
 // Base configuration for each entry point.
@@ -73,14 +76,14 @@ export default [
   }),
 
   // --- Type Declaration Bundles (.d.ts) ---
-  createDtsConfig('dist/types/src/index.d.ts', 'dist/index.d.ts'),
-  createDtsConfig('dist/types/src/http/index.d.ts', 'dist/http/index.d.ts'),
+  createDtsConfig('dist/types/type-exports.d.ts', 'dist/index.d.ts'),
+  createDtsConfig('dist/types/http/index.d.ts', 'dist/http/index.d.ts'),
   createDtsConfig(
-    'dist/types/src/brokers/index.d.ts',
+    'dist/types/brokers/index.d.ts',
     'dist/brokers/index.d.ts',
   ),
   createDtsConfig(
-    'dist/types/src/testing/index.d.ts',
+    'dist/types/testing/index.d.ts',
     'dist/testing/index.d.ts',
   ),
 ];

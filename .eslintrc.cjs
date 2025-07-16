@@ -9,7 +9,7 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2022, // O la versión de ECMAScript que estés usando
     sourceType: 'module',
-    project: './tsconfig.json', // Necesario para algunas reglas de linting avanzadas
+    project: './src/tsconfig.json', // Usar el tsconfig específico de src
   },
   env: {
     es6: true,
@@ -42,7 +42,9 @@ module.exports = {
     '.eslintrc.cjs',
     'coverage/',
     'vitest.config.ts',
-    'examples',
-    'tests',
+    'examples/**/*',
+    'tests/**/*',
+    'external-adapters/**/*',
+    'declarations.d.ts',
   ],
 };

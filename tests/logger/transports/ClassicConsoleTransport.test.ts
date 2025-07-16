@@ -1,16 +1,11 @@
-/**
- * FILE: tests/logger/transports/ClassicConsoleTransport.test.ts
- * DESCRIPTION: Unit tests for the ClassicConsoleTransport class.
- */
-
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, SpyInstance } from 'vitest';
 import { ClassicConsoleTransport } from '../../../src/logger/transports/ClassicConsoleTransport';
-import { LogEntry } from '../../../src/types';
+import { LogEntry, LogLevel } from '../../../src/types';
 
 describe('ClassicConsoleTransport', () => {
-  let consoleLogSpy: vi.SpyInstance;
-  let consoleWarnSpy: vi.SpyInstance;
-  let consoleErrorSpy: vi.SpyInstance;
+  let consoleLogSpy: SpyInstance;
+  let consoleWarnSpy: SpyInstance;
+  let consoleErrorSpy: SpyInstance;
 
   beforeEach(() => {
     // Spy on console methods to capture output without polluting the test runner's console
@@ -30,8 +25,8 @@ describe('ClassicConsoleTransport', () => {
   });
 
   const getBaseLogEntry = (level: LogEntry['level'], msg: string): LogEntry => ({
-    level,
-    msg,
+    level: level,
+    message: msg,
     service: 'test-app',
     timestamp: new Date().toISOString(),
   });
@@ -64,7 +59,7 @@ describe('ClassicConsoleTransport', () => {
     expect(output).toContain(expectedTimestamp);
     expect(output).toContain('INFO '); // Note the padding
     expect(output).toContain('[test-app]');
-    expect(output).toContain(':: Application started successfully.');
+    expect(output).toContain('message="Application started successfully."');
     // Ensure metadata part is not present when no metadata is provided
     expect(output).not.toContain('[]');
   });
@@ -85,8 +80,10 @@ describe('ClassicConsoleTransport', () => {
 
     expect(output).toContain('WARN ');
     // Check for the metadata block with stringified values
-    expect(output).toContain('[correlationId="abc-123" userId=42 reason="Invalid credentials"]');
-    expect(output).toContain(':: User authentication failed.');
+    expect(output).toContain('correlationId="abc-123"');
+    expect(output).toContain('userId=42');
+    expect(output).toContain('reason="Invalid credentials"');
+    expect(output).toContain('message="User authentication failed."');
   });
 
   it('should use console.error for "error" and "fatal" levels', async () => {
@@ -117,7 +114,7 @@ describe('ClassicConsoleTransport', () => {
     const transport = new ClassicConsoleTransport({ level: 'debug' });
     const logEntry: LogEntry = {
       level: 'debug',
-      msg: 'A debug message.',
+      message: 'This is a debug message',
       service: undefined as any, // Test the undefined case
       timestamp: new Date().toISOString(),
     };
@@ -129,7 +126,7 @@ describe('ClassicConsoleTransport', () => {
 
     // The template literal should render `[undefined]`
     expect(output).toContain('[undefined]');
-    expect(output).toContain(':: A debug message.');
+    expect(output).toContain('message="This is a debug message"');
   });
 
   it('should correctly pad log levels of different lengths', async () => {

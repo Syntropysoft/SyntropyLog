@@ -3,6 +3,8 @@
  * FILE: src/masking/MaskingEngine.ts
  * DESCRIPTION: Central engine for applying robust, secure data masking to log objects.
  */
+
+// Using type assertion for regex-test module since it lacks proper TypeScript declarations
 import RegexTest from 'regex-test';
 
 /**
@@ -50,7 +52,7 @@ export class MaskingEngine {
   /** @private The masking style to apply. */
   private readonly style: 'fixed' | 'preserve-length';
   /** @private Secure regex tester with timeout. */
-  private readonly regexTest: RegexTest;
+  private readonly regexTest: any;
 
   constructor(options?: MaskingEngineOptions) {
     this.fieldConfigs = options?.fields || [];

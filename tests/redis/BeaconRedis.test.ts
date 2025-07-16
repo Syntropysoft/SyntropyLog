@@ -3,7 +3,7 @@
  * DESCRIPTION: Unit tests for the BeaconRedis class.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mocked } from 'vitest';
 import { BeaconRedis } from '../../src/redis/BeaconRedis';
 import { ILogger } from '../../src/logger/ILogger';
 import { RedisConnectionManager } from '../../src/redis/RedisConnectionManager';
@@ -30,8 +30,8 @@ const createMockLogger = (): ILogger => {
 };
 
 describe('BeaconRedis', () => {
-  let mockConnectionManager: vi.Mocked<RedisConnectionManager>;
-  let mockCommandExecutor: vi.Mocked<RedisCommandExecutor>;
+  let mockConnectionManager: Mocked<RedisConnectionManager>;
+  let mockCommandExecutor: Mocked<RedisCommandExecutor>;
   let mockLogger: ILogger;
   let beaconRedis: BeaconRedis;
   let baseConfig: RedisInstanceConfig;
@@ -79,7 +79,14 @@ describe('BeaconRedis', () => {
     });
 
     it('should update its internal configuration and use it for subsequent commands', async () => {
-      const newConfig = { logging: { onSuccess: 'info' as const } };
+      const newConfig = { 
+        logging: { 
+          onSuccess: 'info' as const,
+          onError: 'error' as const,
+          logCommandValues: false,
+          logReturnValue: false
+        } 
+      };
       beaconRedis.updateConfig(newConfig);
 
       expect(mockLogger.info).toHaveBeenCalledWith(
@@ -108,7 +115,7 @@ describe('BeaconRedis', () => {
   describe('Command Execution', () => {
     beforeEach(() => {
       // Default to a successful connection for these tests
-      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue();
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(undefined);
     });
 
     it('should execute a simple command successfully and log it', async () => {
@@ -137,6 +144,8 @@ describe('BeaconRedis', () => {
         logging: {
           ...baseConfig.logging,
           logCommandValues: true,
+          onSuccess: 'debug' as const,
+          onError: 'error' as const,
           logReturnValue: true,
         },
       };
@@ -187,6 +196,9 @@ describe('BeaconRedis', () => {
         logging: {
           ...baseConfig.logging,
           logCommandValues: true,
+          onSuccess: 'debug' as const,
+          onError: 'error' as const,
+          logReturnValue: true,
         },
       };
       beaconRedis = new BeaconRedis(

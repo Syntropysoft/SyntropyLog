@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { redactObject, redactHeaders } from '../../../src/http/utils/redact';
+import { redactHeaders, redactObject } from '../../../src/http/utils/redact';
 
 const REDACTED_PLACEHOLDER = '[REDACTED]';
 

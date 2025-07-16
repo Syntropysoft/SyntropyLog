@@ -39,7 +39,7 @@ export class PrettyConsoleTransport extends BaseConsolePrettyTransport {
    * @returns {string} The formatted string.
    */
   protected formatLogString(logObject: Record<string, any>): string {
-    const { timestamp, level, service, msg, ...rest } = logObject;
+    const { timestamp, level, service, message, ...rest } = logObject;
 
     const colorizer =
       this.levelColorMap[level as Exclude<LogLevel, 'silent'>] ||
@@ -49,9 +49,9 @@ export class PrettyConsoleTransport extends BaseConsolePrettyTransport {
     const time = this.chalk.gray(new Date(timestamp).toLocaleTimeString());
     const levelString = colorizer(`[${level.toUpperCase()}]`);
     const serviceString = this.chalk.cyan(`(${service})`);
-    const message = msg;
+    const messageText = message || '';
 
-    let logString = `${time} ${levelString} ${serviceString}: ${message}`;
+    let logString = `${time} ${levelString} ${serviceString}: ${messageText}`;
 
     // Handle additional metadata, ensuring it's not empty
     const metaKeys = Object.keys(rest);

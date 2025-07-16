@@ -64,9 +64,9 @@ export function redactObject(
  * @returns A new headers object with sensitive values redacted.
  */
 export function redactHeaders(
-  headers: Record<string, any>,
+  headers: Record<string, any> | null | undefined,
   sensitiveHeaders: string[] = []
-): Record<string, any> {
+): Record<string, any> | null | undefined {
   if (!headers || !sensitiveHeaders || sensitiveHeaders.length === 0) {
     return headers;
   }

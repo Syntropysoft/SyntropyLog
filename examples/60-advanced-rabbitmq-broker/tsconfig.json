@@ -1,17 +1,15 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "esModuleInterop": true,
-    "outDir": "./dist",
-    "baseUrl": "../../",
-    "paths": {
-      "syntropylog": ["src"],
-      "syntropylog/*": ["src/*"]
-    }
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "composite": true,
+    "outDir": "./dist"
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"]
+  "references": [
+    {
+      "path": "../../src"
+    }
+  ]
 } 

@@ -1,6 +1,11 @@
 {
-  "extends": "./tsconfig.json",
-  // La línea "module": "NodeNext" se elimina, ya que ahora hereda "ESNext"
-  // del archivo base, que es lo que Rollup espera para funcionar correctamente.
-  "exclude": ["node_modules", "dist", "tests", "examples"]
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ES2020",
+    "sourceMap": true,
+    "declaration": false
+  },
+  "include": ["src/**/*.ts", "declarations.d.ts"],
+  "exclude": ["node_modules", "dist", "tests", "examples", "test_integration"]
 }

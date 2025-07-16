@@ -1,10 +1,52 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrokerManager } from '../../src/brokers/BrokerManager';
-import { IBrokerAdapter, BrokerInstanceConfig } from '../../src/brokers/adapter.types';
-import { InstrumentedBrokerClient } from '../../src/brokers/InstrumentedBrokerClient';
-import { MockContextManager } from '../../src/context/MockContextManager';
+import { IBrokerAdapter } from '../../src/brokers/adapter.types';
+import { BrokerInstanceConfig } from '../../src/config';
 import { ILogger } from '../../src/logger';
 import { IContextManager } from '../../src/context';
+import { MockContextManager } from '../../src/context/MockContextManager';
+import { InstrumentedBrokerClient } from '../../src/brokers/InstrumentedBrokerClient';
+
+// Mock de logger que acepta ambas firmas
+const mockLogger = {
+  info: vi.fn(),
+  debug: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  trace: vi.fn(),
+  fatal: vi.fn(),
+  child: vi.fn().mockReturnThis(),
+  withSource: vi.fn().mockReturnThis(),
+  level: 'info',
+  setLevel: vi.fn(),
+  withRetention: vi.fn().mockReturnThis(),
+  withTransactionId: vi.fn().mockReturnThis(),
+} as any;
+
+// Mock de InstrumentedBrokerClient con todas las propiedades requeridas
+vi.mocked(InstrumentedBrokerClient).mockImplementation((_adapter, _logger, _context, config) => ({
+  instanceName: config.instanceName,
+  disconnect: mockDisconnect,
+  connect: vi.fn().mockResolvedValue(undefined),
+  publish: vi.fn().mockResolvedValue(undefined),
+  subscribe: vi.fn().mockResolvedValue(undefined),
+} as any));
+
+// Mock de IContextManager con todos los métodos requeridos
+const mockContextManager = {
+  getAll: vi.fn(),
+  getCorrelationId: vi.fn(),
+  getTransactionId: vi.fn(),
+  getCorrelationIdHeaderName: vi.fn(),
+  getTransactionIdHeaderName: vi.fn(),
+  set: vi.fn(),
+  run: vi.fn(),
+  configure: vi.fn(),
+  get: vi.fn(),
+  setTransactionId: vi.fn(),
+  getTraceContextHeaders: vi.fn(),
+  getFilteredContext: vi.fn(),
+};
 
 // Mock the InstrumentedBrokerClient to isolate the BrokerManager's logic
 const mockDisconnect = vi.fn().mockResolvedValue(undefined);
@@ -28,6 +70,10 @@ const createMockLogger = (): ILogger => ({
   fatal: vi.fn(),
   child: vi.fn().mockReturnThis(),
   withSource: vi.fn().mockReturnThis(),
+  level: 'info',
+  setLevel: vi.fn(),
+  withRetention: vi.fn().mockReturnThis(),
+  withTransactionId: vi.fn().mockReturnThis(),
 });
 
 describe('BrokerManager', () => {
@@ -43,10 +89,12 @@ describe('BrokerManager', () => {
 
     // Reset the mock implementation to its default happy-path behavior
     vi.mocked(InstrumentedBrokerClient).mockImplementation((_adapter, _logger, _context, config) => ({
-      instanceName: config.instanceName, // <-- Repeat for reset
+      instanceName: config.instanceName,
       disconnect: mockDisconnect,
       connect: vi.fn().mockResolvedValue(undefined),
-    }));
+      publish: vi.fn().mockResolvedValue(undefined),
+      subscribe: vi.fn().mockResolvedValue(undefined),
+    } as any));
   });
 
   describe('Constructor', () => {

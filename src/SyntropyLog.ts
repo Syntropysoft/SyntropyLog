@@ -56,11 +56,11 @@ export class SyntropyLog extends EventEmitter {
     return this.lifecycleManager.shutdown();
   }
 
-  public getLogger(name = 'default'): ILogger {
+  public getLogger(name = 'default', bindings?: Record<string, any>): ILogger {
     if (!this.lifecycleManager.loggerFactory) {
       throw new Error('Logger Factory not available.');
     }
-    return this.lifecycleManager.loggerFactory.getLogger(name);
+    return this.lifecycleManager.loggerFactory.getLogger(name, bindings);
   }
 
   public getRedis(name: string): RedisConnectionManager {

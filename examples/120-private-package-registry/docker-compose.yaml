@@ -1,0 +1,51 @@
+services:
+  # --------------------------------------------------------------------------
+  # Verdaccio: The lightweight private npm registry
+  # --------------------------------------------------------------------------
+  # This service runs Verdaccio, allowing us to publish our `syntropylog`
+  # library to a private registry that is only available within our Docker
+  # network. This simulates a real-world production setup.
+  # --------------------------------------------------------------------------
+  verdaccio:
+    image: verdaccio/verdaccio:5
+    container_name: verdaccio_registry
+    ports:
+      # Port 4873 is for publishing the library from your local machine
+      - '4873:4873'
+    volumes:
+      # These volumes persist Verdaccio's data, so you don't have to
+      # republish the library every time you restart the containers.
+      - ./storage:/verdaccio/storage
+      - ./conf:/verdaccio/conf
+      - ./plugins:/verdaccio/plugins
+    # Healthcheck para asegurar que Verdaccio está realmente listo
+    # Usamos curl y un start_period para darle tiempo a inicializar.
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:4873/-/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # --------------------------------------------------------------------------
+  # Consumer App: A simple service that uses our library
+  # --------------------------------------------------------------------------
+  # This service will be a simple Node.js application. Its only job is to
+  # install `syntropylog` from our private `verdaccio` registry and use it.
+  # This proves that the decoupling is successful.
+  # --------------------------------------------------------------------------
+  consumer-app:
+    build:
+      context: ./consumer-app
+      dockerfile: Dockerfile
+    container_name: consumer_app
+    # The app won't start until Verdaccio is healthy
+    depends_on:
+      verdaccio:
+        condition: service_healthy # Espera a que el healthcheck de Verdaccio pase
+    # Environment variables can be used to pass config to the app
+    environment:
+      - NODE_ENV=production
+    # Al iniciar el contenedor, primero instala las dependencias (ahora sí puede ver a `verdaccio`)
+    # y luego se queda esperando.
+    command: sh -c "npm install && tail -f /dev/null"

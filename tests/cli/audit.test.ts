@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, SpyInstance } from 'vitest';
 import path from 'path';
 import { runAudit } from '../../src/cli/audit';
 import * as doctor from '../../src/cli/doctor';
@@ -12,9 +12,9 @@ const AUDIT_FILE_NAME = 'syntropylog.audit.ts';
 const MANIFEST_PATH = path.resolve(MOCK_CWD, AUDIT_FILE_NAME);
 
 describe('CLI: runAudit', () => {
-  let consoleLogSpy: vi.SpyInstance;
-  let consoleErrorSpy: vi.SpyInstance;
-  let processExitSpy: vi.SpyInstance;
+  let consoleLogSpy: SpyInstance<any[], any>;
+  let consoleErrorSpy: SpyInstance<any[], any>;
+  let processExitSpy: SpyInstance<[code?: string | number | null | undefined], never>;
 
   const mockJobs = [
     { name: 'Production Job', configFile: 'config.prod.json', rules: [{ id: 'rule1' }] },
@@ -28,7 +28,7 @@ describe('CLI: runAudit', () => {
     // Spy on console and process methods
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    processExitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as (code?: number) => never);
+    processExitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as (code?: string | number | null | undefined) => never);
     
     // Mock process.cwd() to control the manifest path resolution
     vi.spyOn(process, 'cwd').mockReturnValue(MOCK_CWD);
@@ -41,7 +41,7 @@ describe('CLI: runAudit', () => {
 
   it('should run all jobs successfully and not exit with an error code', async () => {
     // Arrange: Mock a valid manifest and a successful doctor run
-    vi.doMock(MANIFEST_PATH, () => ({ default: mockJobs }), { virtual: true });
+    vi.doMock(MANIFEST_PATH, () => ({ default: mockJobs }));
     vi.mocked(doctor.runDoctor).mockResolvedValue(true);
 
     // Act
@@ -62,7 +62,7 @@ describe('CLI: runAudit', () => {
 
   it('should exit with code 1 if any job fails', async () => {
     // Arrange: Mock one successful and one failed job
-    vi.doMock(MANIFEST_PATH, () => ({ default: mockJobs }), { virtual: true });
+    vi.doMock(MANIFEST_PATH, () => ({ default: mockJobs }));
     vi.mocked(doctor.runDoctor)
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(false);
@@ -80,7 +80,7 @@ describe('CLI: runAudit', () => {
     // Arrange: Mock the import to throw a module-not-found error
     const error = new Error('Module not found');
     (error as any).code = 'ERR_MODULE_NOT_FOUND';
-    vi.doMock(MANIFEST_PATH, () => { throw error; }, { virtual: true });
+    vi.doMock(MANIFEST_PATH, () => { throw error; });
 
     // Act
     await runAudit();
@@ -93,7 +93,7 @@ describe('CLI: runAudit', () => {
 
   it('should exit with code 1 if manifest default export is not an array', async () => {
     // Arrange: Mock a manifest with an invalid export
-    vi.doMock(MANIFEST_PATH, () => ({ default: { not: 'an array' } }), { virtual: true });
+    vi.doMock(MANIFEST_PATH, () => ({ default: { not: 'an array' } }));
 
     // Act
     await runAudit();
@@ -112,7 +112,7 @@ describe('CLI: runAudit', () => {
       get default() {
         throw genericError;
       },
-    }), { virtual: true });
+    }));
 
     // Act
     await runAudit();

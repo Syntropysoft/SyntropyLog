@@ -14,33 +14,45 @@ import { SyntropyRedisConfig } from '../../src/config';
 import { RedisConnectionManager } from '../../src/redis/RedisConnectionManager';
 
 // --- Mocks ---
-vi.mock('../../src/redis/RedisConnectionManager');
+vi.mock('../../src/redis/RedisConnectionManager', () => ({
+  RedisConnectionManager: vi.fn(),
+}));
 
 const createMockLogger = (): ILogger => ({
-  trace: vi.fn(),
-  debug: vi.fn(),
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  fatal: vi.fn(),
+  trace: vi.fn() as any,
+  debug: vi.fn() as any,
+  info: vi.fn() as any,
+  warn: vi.fn() as any,
+  error: vi.fn() as any,
+  fatal: vi.fn() as any,
   child: vi.fn().mockReturnThis(),
   withSource: vi.fn().mockReturnThis(),
+  level: 'info',
+  setLevel: vi.fn(),
+  withRetention: vi.fn().mockReturnThis(),
+  withTransactionId: vi.fn().mockReturnThis(),
 });
 
 const createMockContextManager = (): IContextManager => ({
-  run: vi.fn((_, cb) => cb()),
+  run: vi.fn((fn: () => void | Promise<void>) => Promise.resolve(fn())),
   get: vi.fn(),
   set: vi.fn(),
-  create: vi.fn(),
   configure: vi.fn(),
   getFilteredContext: vi.fn(),
+  getAll: vi.fn(),
+  getCorrelationId: vi.fn(),
+  getCorrelationIdHeaderName: vi.fn(),
+  getTransactionIdHeaderName: vi.fn(),
+  getTransactionId: vi.fn(),
+  setTransactionId: vi.fn(),
+  getTraceContextHeaders: vi.fn(),
 });
 
 describe('RedisManager', () => {
   let mockLogger: ILogger;
   let mockContextManager: IContextManager;
   let redisConfig: SyntropyRedisConfig;
-  let MockedConnectionManager: Mocked<typeof RedisConnectionManager>;
+  let MockedConnectionManager: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -87,8 +99,8 @@ describe('RedisManager', () => {
         const mockInstance1 = { instanceName: 'redis-1' };
         const mockInstance2 = { instanceName: 'redis-2' };
         MockedConnectionManager
-            .mockImplementationOnce(() => mockInstance1 as any)
-            .mockImplementationOnce(() => mockInstance2 as any);
+            .mockReturnValueOnce(mockInstance1 as any)
+            .mockReturnValueOnce(mockInstance2 as any);
 
         const manager = new RedisManager(redisConfig, mockLogger, mockContextManager);
         manager.init();
@@ -100,7 +112,7 @@ describe('RedisManager', () => {
   describe('Instance Retrieval', () => {
     it('should return the correct instance when a valid name is provided', () => {
       const mockInstance = { instanceName: 'my-redis' };
-      MockedConnectionManager.mockReturnValue(mockInstance as any);
+      MockedConnectionManager.mockReturnValueOnce(mockInstance as any);
       redisConfig.instances = [
         { instanceName: 'my-redis', mode: 'single', url: 'redis://a' },
       ];
@@ -125,8 +137,8 @@ describe('RedisManager', () => {
       const mockInstance1 = { instanceName: 'inst-a', disconnect: vi.fn().mockResolvedValue(undefined) };
       const mockInstance2 = { instanceName: 'inst-b', disconnect: vi.fn().mockResolvedValue(undefined) };
       MockedConnectionManager
-        .mockImplementationOnce(() => mockInstance1 as any)
-        .mockImplementationOnce(() => mockInstance2 as any);
+        .mockReturnValueOnce(mockInstance1 as any)
+        .mockReturnValueOnce(mockInstance2 as any);
 
       redisConfig.instances = [
         { instanceName: 'inst-a', mode: 'single', url: 'redis://a' },
