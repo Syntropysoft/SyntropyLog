@@ -154,11 +154,11 @@ main();
 
 ## 📂 Learn by Example
 
-The best way to learn SyntropyLog is to see it in action. We have a comprehensive collection of examples in the `/modules/syntropyLog-examples` directory.
+The best way to learn SyntropyLog is to see it in action. We have a comprehensive collection of examples in our dedicated examples repository.
 
 Each example is a self-contained project that demonstrates a specific feature, from data masking to building a fully correlated full-stack application.
 
-**[➡️ Explore the Examples](./modules/syntropyLog-examples/README.md)**
+**[➡️ Explore the Examples](https://github.com/Syntropysoft/syntropylog-examples-)**
 
 ### Example Categories:
 - **01-hello-world**: ✅ **Complete** - Basic logger setup and usage
@@ -203,10 +203,10 @@ npm run test:coverage       # Coverage report
 
 ### Project Structure
 
-SyntropyLog has been reorganized into a modular structure:
+SyntropyLog is organized into multiple repositories:
 
 - **`syntropyLog/`**: Main library source code and tests
-- **`modules/syntropyLog-examples/`**: Complete examples demonstrating framework features
+- **[`syntropylog-examples-`](https://github.com/Syntropysoft/syntropylog-examples-)**: Complete examples demonstrating framework features
 - **`modules/syntropyLog-adapters/`**: External adapters for HTTP clients and message brokers
 
 ### Prerequisites
