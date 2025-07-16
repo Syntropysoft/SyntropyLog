@@ -18,18 +18,18 @@
 </p>
 
 # SyntropyLog
-[![Project Status: Beta](https://img.shields.io/badge/status-beta-blue.svg)](https://shields.io/)
+[![Project Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)](https://shields.io/)
 
 **The Observability Framework for High-Performance Teams.**
 Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
-> ## 🚀 Project Status: Beta Version 🚀
+> ## 🚀 Project Status: Alpha Version 🚀
 >
-> **SyntropyLog has reached a stable beta phase with comprehensive test coverage and production-ready architecture.**
+> **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
 >
-> The core API is stable and well-tested with **95.6% test coverage** across **530+ tests**. The framework is ready for production use with proper configuration and monitoring.
+> The core API is taking shape with **95.6% test coverage** across **530+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
 >
-> We continue to add features and improvements based on community feedback. Your contributions and feedback are welcome!
+> We're actively working on completing examples, refining the API, and adding missing features. Your feedback and contributions are highly welcome!
 
 ---
 
@@ -155,23 +155,29 @@ main();
 
 ## 📂 Learn by Example
 
-The best way to learn SyntropyLog is to see it in action. We have a comprehensive collection of examples in the `/examples` directory.
+The best way to learn SyntropyLog is to see it in action. We have a comprehensive collection of examples in the `/modules/syntropyLog-examples` directory.
 
 Each example is a self-contained project that demonstrates a specific feature, from data masking to building a fully correlated full-stack application.
 
-**[➡️ Explore the Examples](./examples/README.md)**
+**[➡️ Explore the Examples](./modules/syntropyLog-examples/README.md)**
 
 ### Example Categories:
-- **01-hello-world**: Basic logger setup
-- **10-basic-context**: Context management fundamentals  
-- **20-context-ts**: TypeScript context examples
-- **30-data-masking**: Security and data protection
-- **40-basic-http-correlation**: HTTP request correlation
-- **50-basic-kafka-correlation**: Message broker correlation
-- **70-full-stack-correlation**: Complete distributed tracing
-- **90-compliance-retention**: Log retention and compliance
-- **100-custom-serializers**: Custom data serialization
-- **110-diagnostics-doctor**: Configuration validation
+- **01-hello-world**: ✅ **Complete** - Basic logger setup and usage
+- **10-basic-context**: 🚧 **In Progress** - Context management fundamentals  
+- **20-context-ts**: 🚧 **In Progress** - TypeScript context examples
+- **30-data-masking**: 🚧 **In Progress** - Security and data protection
+- **40-basic-http-correlation**: 🚧 **In Progress** - HTTP request correlation
+- **45-custom-http-adapter**: 🚧 **In Progress** - Custom HTTP adapters
+- **50-basic-kafka-correlation**: 🚧 **In Progress** - Message broker correlation
+- **60-advanced-rabbitmq-broker**: 🚧 **In Progress** - Advanced RabbitMQ integration
+- **70-full-stack-correlation**: 🚧 **In Progress** - Complete distributed tracing
+- **75-full-stack-correlation-http-redis**: 🚧 **In Progress** - HTTP + Redis correlation
+- **80-full-stack-nats**: 🚧 **In Progress** - NATS microservices architecture
+- **90-compliance-retention**: 🚧 **In Progress** - Log retention and compliance
+- **100-custom-serializers**: 🚧 **In Progress** - Custom data serialization
+- **110-diagnostics-doctor**: 🚧 **In Progress** - Configuration validation
+- **120-private-package-registry**: 🚧 **In Progress** - Private package registry setup
+- **130-github-packages-consumer**: 🚧 **In Progress** - GitHub packages integration
 
 ---
 
@@ -195,6 +201,14 @@ npm run test:coverage       # Coverage report
 ---
 
 ## 🛠️ Development
+
+### Project Structure
+
+SyntropyLog has been reorganized into a modular structure:
+
+- **`syntropyLog/`**: Main library source code and tests
+- **`modules/syntropyLog-examples/`**: Complete examples demonstrating framework features
+- **`modules/syntropyLog-adapters/`**: External adapters for HTTP clients and message brokers
 
 ### Prerequisites
 - Node.js 18+
@@ -223,6 +237,8 @@ npm run format             # Format code
 ---
 
 ## 📦 Installation
+
+> **⚠️ Alpha Version Warning**: SyntropyLog is currently in alpha phase. The API may change between versions. Use with caution in production environments.
 
 ```bash
 npm install syntropylog
