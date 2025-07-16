@@ -11,10 +11,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yml/badge.svg" alt="Build Status"></a>
   <a href="https://www.npmjs.com/package/syntropylog"><img src="https://img.shields.io/npm/v/syntropylog.svg" alt="NPM Version"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
-  <a href="#"><img src="https://img.shields.io/badge/coverage-95.6%25-brightgreen" alt="Test Coverage"></a>
+  <a href="#"><img src="https://img.shields.io/badge/coverage-94.97%25-brightgreen" alt="Test Coverage"></a>
 </p>
 
 # SyntropyLog
@@ -27,7 +26,7 @@ Ship resilient, secure, and cost-effective Node.js applications with confidence.
 >
 > **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
 >
-> The core API is taking shape with **95.6% test coverage** across **530+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
+> The core API is taking shape with **94.97% test coverage** across **530+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
 >
 > We're actively working on completing examples, refining the API, and adding missing features. Your feedback and contributions are highly welcome!
 
@@ -185,7 +184,7 @@ Each example is a self-contained project that demonstrates a specific feature, f
 
 SyntropyLog is built with quality and reliability in mind:
 
-- **95.6% Test Coverage** across 530+ tests
+- **94.97% Test Coverage** across 530+ tests
 - **42 Test Files** covering all major components
 - **Integration Tests** for end-to-end scenarios
 - **Comprehensive Mock System** for easy testing
