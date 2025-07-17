@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.5.11",
+  "version": "0.5.13-alpha.0",
   "description": "A modern, composable observability framework for Node.js",
   "author": "Gabriel Alejandro Gomez",
   "license": "Apache-2.0",
@@ -78,7 +78,18 @@
     "test:all": "npm test && npm run test:integration",
     "check:deps": "depcheck",
     "prepublishOnly": "npm run build",
-    "prepare": "husky"
+    "prepare": "husky",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor",
+    "version:major": "npm version major",
+    "version:alpha": "npm version prerelease --preid=alpha",
+    "version:beta": "npm version prerelease --preid=beta",
+    "version:rc": "npm version prerelease --preid=rc",
+    "publish:alpha": "./scripts/release-alpha.sh patch",
+    "publish:alpha:minor": "./scripts/release-alpha.sh minor",
+    "publish:alpha:major": "./scripts/release-alpha.sh major",
+    "publish:stable": "npm run test:all && npm run build && npm publish",
+    "release:alpha": "./scripts/release-alpha.sh"
   },
   "repository": {
     "type": "git",
