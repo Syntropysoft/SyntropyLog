@@ -182,7 +182,7 @@ const prismaSerializer = new PrismaSerializer();
 const kafkaAdapter = new KafkaAdapter({ brokers: ['localhost:9092'] });
 ```
 
-**[📖 Full Adapters Documentation](ADAPTERS.md)**
+**[📖 Full Adapters Documentation](https://github.com/Syntropysoft/syntropylog-adapters)**
 
 ---
 
@@ -242,7 +242,7 @@ SyntropyLog is organized into multiple repositories:
 
 - **`syntropyLog/`**: Main library source code and tests
 - **[`syntropylog-examples-`](https://github.com/Syntropysoft/syntropylog-examples-)**: Complete examples demonstrating framework features
-- **`modules/syntropyLog-adapters/`**: External adapters for HTTP clients and message brokers
+- **[`syntropylog-adapters-`](https://github.com/Syntropysoft/syntropylog-adapters)**: External adapters for HTTP clients and message brokers
 
 ### Prerequisites
 - Node.js 18+
