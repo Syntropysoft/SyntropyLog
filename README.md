@@ -22,7 +22,7 @@
 **The Observability Framework for High-Performance Teams.**
 Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
-> ## 🚀 Project Status: Alpha Version v0.5.9 🚀
+> ## 🚀 Project Status: Alpha Version v0.5.11 🚀
 >
 > **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
 >
