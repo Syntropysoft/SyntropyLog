@@ -1,3 +1,6 @@
 [submodule "modules/syntropyLog-examples"]
 	path = modules/syntropyLog-examples
 	url = https://github.com/Syntropysoft/syntropylog-examples-.git
+[submodule "external-adapters"]
+	path = external-adapters
+	url = https://github.com/Syntropysoft/syntropylog-adapters.git

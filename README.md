@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/syntropylog"><img src="https://img.shields.io/npm/v/syntropylog.svg" alt="NPM Version"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
-  <a href="#"><img src="https://img.shields.io/badge/coverage-94.97%25-brightgreen" alt="Test Coverage"></a>
+  <a href="#"><img src="https://img.shields.io/badge/coverage-94.53%25-brightgreen" alt="Test Coverage"></a>
 </p>
 
 # SyntropyLog
@@ -22,11 +22,17 @@
 **The Observability Framework for High-Performance Teams.**
 Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
-> ## 🚀 Project Status: Alpha Version 🚀
+> ## 🚀 Project Status: Alpha Version v0.5.9 🚀
 >
 > **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
 >
-> The core API is taking shape with **94.97% test coverage** across **530+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
+> The core API is taking shape with **94.53% test coverage** across **604+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
+>
+> ### 🎯 Latest Achievements (v0.5.9)
+> - **Robust Serialization Pipeline**: Implemented intelligent serialization with precise complexity tracking
+> - **Enhanced Test Suite**: Achieved 94.53% coverage with 604+ comprehensive tests
+> - **Precision Architecture**: Pipeline terminates immediately on serialization failures (no rescue attempts)
+> - **Real Functionality Testing**: Tests validate actual behavior, not just mocks
 >
 > We're actively working on completing examples, refining the API, and adding missing features. Your feedback and contributions are highly welcome!
 
@@ -152,6 +158,34 @@ main();
 
 ---
 
+## 🔌 External Adapters
+
+SyntropyLog provides a rich ecosystem of external adapters for various databases, HTTP clients, and message brokers. These adapters are available as a separate package for maximum flexibility.
+
+### Quick Install
+```bash
+npm install @syntropylog/adapters
+```
+
+### Available Adapters
+- **Database Serializers**: Prisma, TypeORM, MySQL, PostgreSQL, SQL Server, Oracle, MongoDB
+- **HTTP Clients**: Axios, Fetch, Got, Request
+- **Message Brokers**: Kafka, NATS, RabbitMQ
+
+### Usage Example
+```typescript
+import { syntropyLog } from 'syntropylog';
+import { PrismaSerializer, KafkaAdapter } from '@syntropylog/adapters';
+
+// Use adapters independently
+const prismaSerializer = new PrismaSerializer();
+const kafkaAdapter = new KafkaAdapter({ brokers: ['localhost:9092'] });
+```
+
+**[📖 Full Adapters Documentation](ADAPTERS.md)**
+
+---
+
 ## 📂 Learn by Example
 
 The best way to learn SyntropyLog is to see it in action. We have a comprehensive collection of examples in our dedicated examples repository.
@@ -185,8 +219,8 @@ Each example is a self-contained project that demonstrates a specific feature, f
 
 SyntropyLog is built with quality and reliability in mind:
 
-- **94.97% Test Coverage** across 530+ tests
-- **42 Test Files** covering all major components
+- **94.53% Test Coverage** across 604+ tests
+- **45 Test Files** covering all major components
 - **Integration Tests** for end-to-end scenarios
 - **Comprehensive Mock System** for easy testing
 - **Type Safety** with full TypeScript support
