@@ -68,7 +68,6 @@
   ],
   "scripts": {
     "setup": "node scripts/setup-env.js",
-    "postinstall": "npm run setup",
     "build": "npm run clean && npm run build:types && rollup -c",
     "build:types": "tsc -p src/tsconfig.json",
     "dev": "rollup -c -w",
