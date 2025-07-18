@@ -7,4 +7,18 @@
 [18 Julio 2024] - Eliminación GotAdapter por problemas de compatibilidad Node.js
 [18 Julio 2024] - Limpieza de backup que causaba problemas con TypeScript
 [18 Julio 2024] - Submódulo funcionando correctamente con estado limpio
-[18 Julio 2024] - Commit de cambios en submódulo con imports corregidos 
+[18 Julio 2024] - Commit de cambios en submódulo con imports corregidos
+
+[18 Julio 2024] - RESOLUCIÓN COMPLETA DE PROBLEMAS DE EJEMPLOS
+[18 Julio 2024] - Identificación y corrección del problema de postinstall script que causaba fallos de instalación
+[18 Julio 2024] - Publicación de nueva versión syntropylog@0.5.13-alpha.2 sin postinstall problemático
+[18 Julio 2024] - Actualización de ejemplos 00 y 01 para usar versiones NPM en lugar de referencias locales
+[18 Julio 2024] - Resolución de conflictos de workspace npm con flag --no-workspaces
+[18 Julio 2024] - Documentación de solución en READMEs de ejemplos individuales
+[18 Julio 2024] - Reparación completa del "maldito" ejemplo 10 (HTTP correlation)
+[18 Julio 2024] - Creación de boilerplate reutilizable para inicialización y shutdown
+[18 Julio 2024] - Corrección de timing issues en inicialización asíncrona
+[18 Julio 2024] - Demostración exitosa de correlación automática con 9ms de performance
+[18 Julio 2024] - Actualización de documentación con output real y instrucciones correctas
+[18 Julio 2024] - Sincronización completa de repositorio de ejemplos con GitHub
+[18 Julio 2024] - ESTADO ACTUAL: Ejemplos 00, 01 y 10 funcionando perfectamente 

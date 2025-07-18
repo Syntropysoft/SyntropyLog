@@ -4,6 +4,9 @@
  * This file is processed by rollup-plugin-dts to generate type declarations.
  */
 
+// --- Internal Types (for advanced usage and Slytherin magic) ---
+export * from './internal-types';
+
 // --- Core Types for Configuration and Usage ---
 export type { SyntropyLogConfig } from './config';
 export type { ILogger } from './logger/ILogger';

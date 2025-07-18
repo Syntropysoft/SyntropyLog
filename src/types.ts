@@ -1,19 +1,17 @@
 /**
- * SyntropyLog Types - Imports shared types from @syntropylog/types
+ * SyntropyLog Types - Internal types for the framework
  *
- * This file now imports the fundamental types from the shared types package
- * and only contains types specific to this module.
+ * This file now uses internal types and only contains types specific to this module.
  */
 
-// Import shared types from @syntropylog/types
-export {
+// Import internal types
+import type {
   JsonValue,
   LogMetadata,
   LogBindings,
   LogRetentionRules,
   LogFormatArg,
   LogArguments,
-  errorToJsonValue,
   MetadataObject,
   ContextValue,
   ContextData,
@@ -49,7 +47,56 @@ export {
   SerializationMetrics,
   // Logging types
   LoggerDependencies,
-} from '@syntropylog/types';
+} from './internal-types';
+
+// Import errorToJsonValue as value (not type)
+import { errorToJsonValue } from './internal-types';
+
+// Re-export internal types
+export {
+  JsonValue,
+  LogMetadata,
+  LogBindings,
+  LogRetentionRules,
+  LogFormatArg,
+  LogArguments,
+  MetadataObject,
+  ContextValue,
+  ContextData,
+  ContextConfig,
+  ContextHeaders,
+  ContextCallback,
+  LoggingMatrix,
+  FilteredContext,
+  LogContext,
+  PipelineContext,
+  SanitizationContext,
+  RedisValue,
+  RedisListElement,
+  RedisSetMember,
+  RedisSortedSetMember,
+  RedisHashValue,
+  RedisCommandOptions,
+  RedisPipelineOperation,
+  RedisConnectionParams,
+  ILogger,
+  IContextManager,
+  // Serialization types
+  SerializedData,
+  SerializationContextConfig,
+  SanitizationConfig,
+  SerializationPipelineContext,
+  StepDurations,
+  SerializationMetadata,
+  SerializationResult,
+  ComplexityDistribution,
+  SerializerDistribution,
+  TimeoutStrategyDistribution,
+  SerializationMetrics,
+  // Logging types
+  LoggerDependencies,
+  errorToJsonValue,
+};
 
 // Redefine SerializableData as 'any' for maximum flexibility in this module
 export type SerializableData = any;
