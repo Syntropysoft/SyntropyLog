@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.5.13-alpha.2",
+  "version": "0.5.14-alpha.2",
   "description": "A modern, composable observability framework for Node.js",
   "author": "Gabriel Alejandro Gomez",
   "license": "Apache-2.0",
@@ -101,7 +101,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@syntropylog/types": "file:./modules/@syntropylog/types",
+    "@syntropylog/types": "0.1.4",
     "chalk": "^4.1.2",
     "inquirer": "^9.2.12",
     "js-yaml": "^4.1.0",
