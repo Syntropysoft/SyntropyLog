@@ -22,17 +22,19 @@
 **The Observability Framework for High-Performance Teams.**
 Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
-> ## 🚀 Project Status: Alpha Version v0.5.11 🚀
+> ## 🚀 Project Status: Alpha Version v0.6.1-alpha.0 🚀
 >
 > **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
 >
 > The core API is taking shape with **94.53% test coverage** across **604+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
 >
-> ### 🎯 Latest Achievements (v0.5.9)
-> - **Robust Serialization Pipeline**: Implemented intelligent serialization with precise complexity tracking
+> ### 🎯 Latest Achievements (v0.6.1-alpha.0)
+> - **Framework Agnostic Design**: Removed deprecated `request` library, now supports any HTTP client via adapters
+> - **Enhanced Examples**: Complete examples 10 and 11 with comprehensive documentation
+> - **Custom Adapter System**: Full support for custom HTTP client adapters
+> - **Improved Type Safety**: Better TypeScript support and type exports
+> - **Robust Serialization Pipeline**: Intelligent serialization with precise complexity tracking
 > - **Enhanced Test Suite**: Achieved 94.53% coverage with 604+ comprehensive tests
-> - **Precision Architecture**: Pipeline terminates immediately on serialization failures (no rescue attempts)
-> - **Real Functionality Testing**: Tests validate actual behavior, not just mocks
 >
 > We're actively working on completing examples, refining the API, and adding missing features. Your feedback and contributions are highly welcome!
 
@@ -169,9 +171,9 @@ npm install @syntropylog/adapters
 ```
 
 ### Available Adapters
-- **Database Serializers**: Prisma, TypeORM, MySQL, PostgreSQL, SQL Server, Oracle, MongoDB
-- **HTTP Clients**: Axios, Fetch, Got, Request
-- **Message Brokers**: Kafka, NATS, RabbitMQ
+- **HTTP Clients**: Axios, Fetch (with custom adapter support)
+- **Message Brokers**: Kafka, NATS, RabbitMQ (planned)
+- **Database Serializers**: Prisma, TypeORM, MySQL, PostgreSQL (planned)
 
 ### Usage Example
 ```typescript
@@ -198,21 +200,18 @@ Each example is a self-contained project that demonstrates a specific feature, f
 ### Example Categories:
 - **00-setup-initialization**: ✅ **Complete** - Application setup and initialization
 - **01-hello-world**: ✅ **Complete** - Basic logging concepts
-- **10-basic-context**: 🚧 **In Progress** - Context management fundamentals  
-- **20-context-ts**: 🚧 **In Progress** - TypeScript context examples
+- **10-basic-http-correlation**: ✅ **Complete** - HTTP request correlation with automatic context propagation
+- **11-custom-adapter**: ✅ **Complete** - Custom HTTP adapters for framework-agnostic design
+- **13-adapter-comparison**: 🚧 **In Progress** - Official vs custom adapter comparison
+- **20-basic-kafka-correlation**: 🚧 **In Progress** - Message broker correlation
 - **30-data-masking**: 🚧 **In Progress** - Security and data protection
-- **40-basic-http-correlation**: 🚧 **In Progress** - HTTP request correlation
-- **45-custom-http-adapter**: 🚧 **In Progress** - Custom HTTP adapters
-- **50-basic-kafka-correlation**: 🚧 **In Progress** - Message broker correlation
-- **60-advanced-rabbitmq-broker**: 🚧 **In Progress** - Advanced RabbitMQ integration
-- **70-full-stack-correlation**: 🚧 **In Progress** - Complete distributed tracing
-- **75-full-stack-correlation-http-redis**: 🚧 **In Progress** - HTTP + Redis correlation
-- **80-full-stack-nats**: 🚧 **In Progress** - NATS microservices architecture
-- **90-compliance-retention**: 🚧 **In Progress** - Log retention and compliance
-- **100-custom-serializers**: 🚧 **In Progress** - Custom data serialization
-- **110-diagnostics-doctor**: 🚧 **In Progress** - Configuration validation
-- **120-private-package-registry**: 🚧 **In Progress** - Private package registry setup
-- **130-github-packages-consumer**: 🚧 **In Progress** - GitHub packages integration
+- **40-advanced-rabbitmq-broker**: 🚧 **In Progress** - Advanced RabbitMQ integration
+- **50-full-stack-correlation**: 🚧 **In Progress** - Complete distributed tracing
+- **60-full-stack-correlation-http-redis**: 🚧 **In Progress** - HTTP + Redis correlation
+- **70-full-stack-nats**: 🚧 **In Progress** - NATS microservices architecture
+- **80-compliance-retention**: 🚧 **In Progress** - Log retention and compliance
+- **90-custom-serializers**: 🚧 **In Progress** - Custom data serialization
+- **100-diagnostics-doctor**: 🚧 **In Progress** - Configuration validation
 
 ---
 
@@ -284,10 +283,10 @@ npm install syntropylog
 SyntropyLog includes built-in adapters for popular libraries. Here are the supported versions:
 
 ### HTTP Clients
-- **Axios**: `^1.10.0` ✅ **Available in @syntropylog/adapters**
-- **Fetch**: Native browser API ✅ **Available in @syntropylog/adapters**
+- **Axios**: `^1.10.0` ✅ **Built-in adapter**
+- **Fetch**: Native browser API ✅ **Custom adapter support**
 - **Got**: `^12.0.0` (planned)
-- **Request**: `^2.88.2` ✅ **Available in @syntropylog/adapters**
+- **Request**: `^2.88.2` (deprecated, removed in v0.6.0)
 
 ### Message Brokers
 - **Kafka**: `kafkajs ^2.2.4` (planned)

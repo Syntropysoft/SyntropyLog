@@ -1,6 +1,6 @@
 /**
  * Internal Types for SyntropyLog Framework
- * 
+ *
  * These types and utilities are for advanced usage and internal framework operations.
  * Use with caution - they may change between versions.
  */
@@ -9,9 +9,15 @@
  * Represents any value that can be safely serialized to JSON.
  * This is a recursive type used to ensure type safety for log metadata.
  */
-export type JsonValue = string | number | boolean | null | {
-  [key: string]: JsonValue;
-} | JsonValue[];
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | {
+      [key: string]: JsonValue;
+    }
+  | JsonValue[];
 
 /**
  * Helper function to convert unknown error to JsonValue
@@ -59,12 +65,22 @@ export type LogFormatArg = string | number | boolean | null | undefined;
  * Type for the arguments that can be passed to logging methods
  * This follows the Pino-like signature: (obj, msg, ...args) or (msg, ...args)
  */
-export type LogArguments = [LogMetadata, string?, ...LogFormatArg[]] | [string, ...LogFormatArg[]] | [];
+export type LogArguments =
+  | [LogMetadata, string?, ...LogFormatArg[]]
+  | [string, ...LogFormatArg[]]
+  | [];
 
 /**
  * Type for values that can be stored in context
  */
-export type ContextValue = string | number | boolean | null | undefined | Buffer | JsonValue;
+export type ContextValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Buffer
+  | JsonValue;
 
 /**
  * Type for context data structure
@@ -139,9 +155,17 @@ export type SanitizationContext = {
 /**
  * Type for Redis values - covers all valid Redis data types
  */
-export type RedisValue = string | number | boolean | Buffer | null | undefined | RedisValue[] | {
-  [key: string]: RedisValue;
-};
+export type RedisValue =
+  | string
+  | number
+  | boolean
+  | Buffer
+  | null
+  | undefined
+  | RedisValue[]
+  | {
+      [key: string]: RedisValue;
+    };
 
 /**
  * Type for Redis list elements
@@ -372,7 +396,10 @@ export interface MessageLifecycleControls {
 /**
  * Type for message handler function
  */
-export type MessageHandler = (message: BrokerMessage, controls: MessageLifecycleControls) => Promise<void>;
+export type MessageHandler = (
+  message: BrokerMessage,
+  controls: MessageLifecycleControls
+) => Promise<void>;
 
 /**
  * Interface for broker adapters
@@ -487,4 +514,4 @@ export interface IContextManager {
   clearContext(): void;
   runWithContext<T>(context: ContextData, fn: () => T | Promise<T>): Promise<T>;
   runWithContext<T>(context: ContextData, fn: () => T): T;
-} 
+}

@@ -82,10 +82,15 @@ log_info "🔍 Ejecutando linting..."
 npm run lint
 log_success "Linting completado"
 
-# Incrementar versión alpha
-log_info "📈 Incrementando versión ($VERSION_TYPE) con alpha..."
+# Incrementar versión según el tipo especificado
+log_info "📈 Incrementando versión ($VERSION_TYPE)..."
+INTERMEDIATE_VERSION=$(npm version $VERSION_TYPE --no-git-tag-version)
+log_info "Versión intermedia: $INTERMEDIATE_VERSION"
+
+# Convertir a versión alpha
+log_info "🔄 Convirtiendo a versión alpha..."
 NEW_VERSION=$(npm version prerelease --preid=alpha --no-git-tag-version)
-log_success "Nueva versión: $NEW_VERSION"
+log_success "Nueva versión final: $NEW_VERSION"
 
 # Reconstruir el paquete
 log_info "🔨 Reconstruyendo paquete..."
@@ -121,6 +126,9 @@ log_warning "NO usar en producción"
 
 # Preguntar si publicar
 log_warning "¿Publicar versión ALPHA $NEW_VERSION en npm?"
+log_info "Tipo de versión: $VERSION_TYPE"
+log_info "Versión anterior: $CURRENT_VERSION"
+log_info "Versión nueva: $NEW_VERSION"
 read -p "¿Continuar con la publicación? (y/N): " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -136,10 +144,11 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     log_success "Tag creado: v$NEW_VERSION"
     
     log_success "🎉 Release ALPHA completado exitosamente!"
-    log_info "Versión $NEW_VERSION publicada en npm con tag 'alpha'"
-    log_info "Tag git: v$NEW_VERSION"
+    log_info "📦 Versión $NEW_VERSION publicada en npm con tag 'alpha'"
+    log_info "🏷️  Tag git: v$NEW_VERSION"
+    log_info "📈 Progreso: $CURRENT_VERSION → $INTERMEDIATE_VERSION → $NEW_VERSION"
     log_warning "⚠️  Recuerda: Esta es una versión ALPHA - APIs pueden cambiar"
-    log_info "Para publicar versión estable: npm version $VERSION_TYPE && npm publish"
+    log_info "🔄 Para publicar versión estable: npm version $VERSION_TYPE && npm publish"
 else
     log_warning "Publicación cancelada. El paquete está construido pero no publicado."
     log_info "Para publicar manualmente: npm publish --tag alpha"
