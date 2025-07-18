@@ -4,3 +4,6 @@
 [submodule "modules/external-adapters"]
 	path = modules/external-adapters
 	url = https://github.com/Syntropysoft/syntropylog-adapters.git
+[submodule "modules/@syntropylog/types"]
+	path = modules/@syntropylog/types
+	url = https://github.com/Syntropysoft/syntropylog-types.git
