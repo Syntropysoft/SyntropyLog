@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/SyntropyLog.ts
  * @description The main public-facing singleton class for the SyntropyLog framework.
@@ -67,7 +66,9 @@ export class SyntropyLog extends EventEmitter {
   public async getRedis(name: string): Promise<any> {
     this.lifecycleManager.ensureReady();
     if (!this.lifecycleManager.redisManager) {
-      throw new Error('Redis manager not available. Make sure Redis is configured and redis package is installed.');
+      throw new Error(
+        'Redis manager not available. Make sure Redis is configured and redis package is installed.'
+      );
     }
     return this.lifecycleManager.redisManager.getInstance(name);
   }

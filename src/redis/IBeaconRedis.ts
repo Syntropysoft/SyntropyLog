@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/redis/IBeaconRedis.ts
  * @description Defines the contract for an instrumented Redis client.
@@ -6,6 +5,14 @@
  */
 
 import { RedisZMember, TransactionResult } from './redis.types';
+import {
+  RedisValue,
+  RedisListElement,
+  RedisSetMember,
+  RedisSortedSetMember,
+  RedisHashValue,
+  RedisCommandOptions,
+} from '../types';
 
 /**
  * Defines the contract for a Redis transaction (MULTI/EXEC).
@@ -16,7 +23,7 @@ export interface IBeaconRedisTransaction {
   /** Queues a GET command. */
   get(key: string): this;
   /** Queues a SET command. */
-  set(key: string, value: any, ttlSeconds?: number): this;
+  set(key: string, value: RedisValue, ttlSeconds?: number): this;
   /** Queues a DEL command. */
   del(key: string | string[]): this;
   /** Queues an EXISTS command. */
@@ -38,9 +45,9 @@ export interface IBeaconRedisTransaction {
   /** Queues an HGET command. */
   hGet(key: string, field: string): this;
   /** Queues an HSET command for a single field. */
-  hSet(key: string, field: string, value: any): this;
+  hSet(key: string, field: string, value: RedisHashValue): this;
   /** Queues an HSET command for multiple fields. */
-  hSet(key: string, fieldsAndValues: Record<string, any>): this;
+  hSet(key: string, fieldsAndValues: Record<string, RedisHashValue>): this;
   /** Queues an HGETALL command. */
   hGetAll(key: string): this;
   /** Queues an HDEL command. */
@@ -52,9 +59,9 @@ export interface IBeaconRedisTransaction {
 
   // --- List Commands ---
   /** Queues an LPUSH command. */
-  lPush(key: string, elements: any | any[]): this;
+  lPush(key: string, elements: RedisListElement | RedisListElement[]): this;
   /** Queues an RPUSH command. */
-  rPush(key: string, elements: any | any[]): this;
+  rPush(key: string, elements: RedisListElement | RedisListElement[]): this;
   /** Queues an LPOP command. */
   lPop(key: string): this;
   /** Queues an RPOP command. */
@@ -68,41 +75,41 @@ export interface IBeaconRedisTransaction {
 
   // --- Set Commands ---
   /** Queues an SADD command. */
-  sAdd(key: string, members: any | any[]): this;
+  sAdd(key: string, members: RedisSetMember | RedisSetMember[]): this;
   /** Queues an SMEMBERS command. */
   sMembers(key: string): this;
   /** Queues an SISMEMBER command. */
-  sIsMember(key: string, member: any): this;
+  sIsMember(key: string, member: RedisSetMember): this;
   /** Queues an SREM command. */
-  sRem(key: string, members: any | any[]): this;
+  sRem(key: string, members: RedisSetMember | RedisSetMember[]): this;
   /** Queues an SCARD command. */
   sCard(key: string): this;
 
   // --- Sorted Set Commands ---
   /** Queues a ZADD command for a single member. */
-  zAdd(key: string, score: number, member: any): this;
+  zAdd(key: string, score: number, member: RedisValue): this;
   /** Queues a ZADD command for multiple members. */
-  zAdd(key: string, members: { score: number; value: any }[]): this;
+  zAdd(key: string, members: RedisSortedSetMember[]): this;
   /** Queues a ZRANGE command. */
   zRange(
     key: string,
     min: string | number,
     max: string | number,
-    options?: any
+    options?: RedisCommandOptions
   ): this;
   /** Queues a ZRANGE command with scores. */
   zRangeWithScores(
     key: string,
     min: string | number,
     max: string | number,
-    options?: any
+    options?: RedisCommandOptions
   ): this;
   /** Queues a ZREM command. */
-  zRem(key: string, members: any | any[]): this;
+  zRem(key: string, members: RedisValue | RedisValue[]): this;
   /** Queues a ZCARD command. */
   zCard(key: string): this;
   /** Queues a ZSCORE command. */
-  zScore(key: string, member: any): this;
+  zScore(key: string, member: RedisValue): this;
 
   // --- Server Commands ---
   /** Queues a PING command. */
@@ -138,7 +145,7 @@ export interface IBeaconRedis {
    * Dynamically updates the configuration for this Redis instance.
    * @param newConfig A partial configuration object with the new values.
    */
-  updateConfig(newConfig: Partial<any>): void;
+  updateConfig(newConfig: Partial<Record<string, unknown>>): void;
 
   /**
    * Establishes a connection to the Redis server if not already connected.
@@ -249,17 +256,20 @@ export interface IBeaconRedis {
    * Sets the string value of a hash field. Corresponds to the Redis HSET command.
    * @param {string} key The key of the hash.
    * @param {string} field The field to set in the hash.
-   * @param {any} value The value to set for the field.
+   * @param {RedisHashValue} value The value to set for the field.
    * @returns {Promise<number>} A promise that resolves with the number of fields that were added.
    */
-  hSet(key: string, field: string, value: any): Promise<number>;
+  hSet(key: string, field: string, value: RedisHashValue): Promise<number>;
   /**
    * Sets multiple hash fields to multiple values. Corresponds to the Redis HSET command.
    * @param {string} key The key of the hash.
-   * @param {Record<string, any>} fieldsAndValues An object of field-value pairs to set.
+   * @param {Record<string, RedisHashValue>} fieldsAndValues An object of field-value pairs to set.
    * @returns {Promise<number>} A promise that resolves with the number of fields that were added.
    */
-  hSet(key: string, fieldsAndValues: Record<string, any>): Promise<number>;
+  hSet(
+    key: string,
+    fieldsAndValues: Record<string, RedisHashValue>
+  ): Promise<number>;
 
   /**
    * Gets all the fields and values in a hash. Corresponds to the Redis HGETALL command.
@@ -298,18 +308,24 @@ export interface IBeaconRedis {
   /**
    * Prepends one or multiple values to a list. Corresponds to the Redis LPUSH command.
    * @param {string} key The key of the list.
-   * @param {any | any[]} elements The value or values to prepend.
+   * @param {RedisListElement | RedisListElement[]} elements The value or values to prepend.
    * @returns {Promise<number>} A promise that resolves with the length of the list after the push operation.
    */
-  lPush(key: string, elements: any | any[]): Promise<number>;
+  lPush(
+    key: string,
+    elements: RedisListElement | RedisListElement[]
+  ): Promise<number>;
 
   /**
    * Appends one or multiple values to a list. Corresponds to the Redis RPUSH command.
    * @param {string} key The key of the list.
-   * @param {any | any[]} elements The value or values to append.
+   * @param {RedisListElement | RedisListElement[]} elements The value or values to append.
    * @returns {Promise<number>} A promise that resolves with the length of the list after the push operation.
    */
-  rPush(key: string, elements: any | any[]): Promise<number>;
+  rPush(
+    key: string,
+    elements: RedisListElement | RedisListElement[]
+  ): Promise<number>;
 
   /**
    * Removes and gets the first element in a list. Corresponds to the Redis LPOP command.
@@ -355,10 +371,13 @@ export interface IBeaconRedis {
   /**
    * Adds one or more members to a set. Corresponds to the Redis SADD command.
    * @param {string} key The key of the set.
-   * @param {any | any[]} members The member or members to add.
+   * @param {RedisSetMember | RedisSetMember[]} members The member or members to add.
    * @returns {Promise<number>} A promise that resolves with the number of members that were added to the set.
    */
-  sAdd(key: string, members: any | any[]): Promise<number>;
+  sAdd(
+    key: string,
+    members: RedisSetMember | RedisSetMember[]
+  ): Promise<number>;
 
   /**
    * Gets all the members in a set. Corresponds to the Redis SMEMBERS command.
@@ -370,18 +389,21 @@ export interface IBeaconRedis {
   /**
    * Determines if a given value is a member of a set. Corresponds to the Redis SISMEMBER command.
    * @param {string} key The key of the set.
-   * @param {any} member The member to check for.
+   * @param {RedisSetMember} member The member to check for.
    * @returns {Promise<boolean>} A promise that resolves with true if the member exists in the set, false otherwise.
    */
-  sIsMember(key: string, member: any): Promise<boolean>;
+  sIsMember(key: string, member: RedisSetMember): Promise<boolean>;
 
   /**
    * Removes one or more members from a set. Corresponds to the Redis SREM command.
    * @param {string} key The key of the set.
-   * @param {any | any[]} members The member or members to remove.
+   * @param {RedisSetMember | RedisSetMember[]} members The member or members to remove.
    * @returns {Promise<number>} A promise that resolves with the number of members that were removed from the set.
    */
-  sRem(key: string, members: any | any[]): Promise<number>;
+  sRem(
+    key: string,
+    members: RedisSetMember | RedisSetMember[]
+  ): Promise<number>;
 
   /**
    * Gets the number of members in a set. Corresponds to the Redis SCARD command.
@@ -396,31 +418,31 @@ export interface IBeaconRedis {
    * Adds a member to a sorted set, or updates its score if it already exists. Corresponds to the Redis ZADD command.
    * @param {string} key The key of the sorted set.
    * @param {number} score The score for the member.
-   * @param {any} member The member to add.
+   * @param {RedisValue} member The member to add.
    * @returns {Promise<number>} A promise that resolves with the number of elements added to the sorted set.
    */
-  zAdd(key: string, score: number, member: any): Promise<number>;
+  zAdd(key: string, score: number, member: RedisValue): Promise<number>;
   /**
    * Adds multiple members to a sorted set, or updates their scores if they already exist. Corresponds to the Redis ZADD command.
    * @param {string} key The key of the sorted set.
-   * @param {{ score: number; value: any }[]} members An array of member-score objects to add.
+   * @param {RedisSortedSetMember[]} members An array of member-score objects to add.
    * @returns {Promise<number>} A promise that resolves with the number of elements added to the sorted set.
    */
-  zAdd(key: string, members: { score: number; value: any }[]): Promise<number>;
+  zAdd(key: string, members: RedisSortedSetMember[]): Promise<number>;
 
   /**
    * Returns a range of members in a sorted set, by index. Corresponds to the Redis ZRANGE command.
    * @param {string} key The key of the sorted set.
    * @param {string | number} min The minimum index or score.
    * @param {string | number} max The maximum index or score.
-   * @param {any} [options] Additional options (e.g., { REV: true }).
+   * @param {RedisCommandOptions} [options] Additional options (e.g., { REV: true }).
    * @returns {Promise<string[]>} A promise that resolves with an array of members in the specified range.
    */
   zRange(
     key: string,
     min: string | number,
     max: string | number,
-    options?: any
+    options?: RedisCommandOptions
   ): Promise<string[]>;
 
   /**
@@ -428,23 +450,23 @@ export interface IBeaconRedis {
    * @param {string} key The key of the sorted set.
    * @param {string | number} min The minimum index or score.
    * @param {string | number} max The maximum index or score.
-   * @param {any} [options] Additional options (e.g., { REV: true }).
+   * @param {RedisCommandOptions} [options] Additional options (e.g., { REV: true }).
    * @returns {Promise<RedisZMember[]>} A promise that resolves with an array of members and their scores.
    */
   zRangeWithScores(
     key: string,
     min: string | number,
     max: string | number,
-    options?: any
+    options?: RedisCommandOptions
   ): Promise<RedisZMember[]>;
 
   /**
    * Removes one or more members from a sorted set. Corresponds to the Redis ZREM command.
    * @param {string} key The key of the sorted set.
-   * @param {any | any[]} members The member or members to remove.
+   * @param {RedisValue | RedisValue[]} members The member or members to remove.
    * @returns {Promise<number>} A promise that resolves with the number of members removed.
    */
-  zRem(key: string, members: any | any[]): Promise<number>;
+  zRem(key: string, members: RedisValue | RedisValue[]): Promise<number>;
 
   /**
    * Gets the number of members in a sorted set. Corresponds to the Redis ZCARD command.
@@ -456,10 +478,10 @@ export interface IBeaconRedis {
   /**
    * Gets the score associated with the given member in a sorted set. Corresponds to the Redis ZSCORE command.
    * @param {string} key The key of the sorted set.
-   * @param {any} member The member whose score to retrieve.
+   * @param {RedisValue} member The member whose score to retrieve.
    * @returns {Promise<number | null>} A promise that resolves with the score of the member, or null if the member does not exist.
    */
-  zScore(key: string, member: any): Promise<number | null>;
+  zScore(key: string, member: RedisValue): Promise<number | null>;
 
   // --- Server Commands ---
 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * FILE: src/config.schema.ts
  * DESCRIPTION: Defines the Zod validation schemas for the entire library's configuration.

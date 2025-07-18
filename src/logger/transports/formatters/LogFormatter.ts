@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/logger/transports/formatters/LogFormatter.ts
  * @description Defines the public contract for log entry formatters.
  */
 
-import { LogEntry } from '../../../types';
+import { LogEntry, JsonValue } from '../../../types';
 
 /**
  * @interface LogFormatter
@@ -16,7 +15,7 @@ export interface LogFormatter {
   /**
    * Transforms a LogEntry object into a new object with the desired format.
    * @param {LogEntry} entry - The standard log entry object to be transformed.
-   * @returns {Record<string, any>} A new object representing the log in the target format.
+   * @returns {Record<string, JsonValue>} A new object representing the log in the target format.
    */
-  format(entry: LogEntry): Record<string, any>;
+  format(entry: LogEntry): Record<string, JsonValue>;
 }

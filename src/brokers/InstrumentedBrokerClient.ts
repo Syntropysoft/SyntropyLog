@@ -121,12 +121,12 @@ export class InstrumentedBrokerClient {
     }
 
     this.logger.info(
-      { topic, messageId: message.headers?.['id'] },
+      { topic, messageId: message.headers?.['id'] instanceof Buffer ? message.headers?.['id'].toString() : message.headers?.['id'] } as any,
       'Publishing message...'
     );
     await this.adapter.publish(topic, message);
     this.logger.info(
-      { topic, messageId: message.headers?.['id'] },
+      { topic, messageId: message.headers?.['id'] instanceof Buffer ? message.headers?.['id'].toString() : message.headers?.['id'] } as any,
       'Message published successfully.'
     );
   }
@@ -157,21 +157,21 @@ export class InstrumentedBrokerClient {
         }
 
         const correlationId = this.contextManager.getCorrelationId();
-        this.logger.info({ topic, correlationId }, 'Received message.');
+        this.logger.info({ topic, correlationId } as any, 'Received message.');
 
         // Also wrap the lifecycle controls to add logging for ack/nack actions.
         const instrumentedControls: MessageLifecycleControls = {
           ack: async () => {
             await controls.ack();
             this.logger.debug(
-              { topic, correlationId },
+              { topic, correlationId } as any,
               'Message acknowledged (ack).'
             );
           },
           nack: async (requeue) => {
             await controls.nack(requeue);
             this.logger.warn(
-              { topic, correlationId, requeue },
+              { topic, correlationId, requeue } as any,
               'Message negatively acknowledged (nack).'
             );
           },

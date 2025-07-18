@@ -2,6 +2,7 @@
 
 exports[`Main entry point (src/index.ts) > should match the public API snapshot to prevent unintentional changes 1`] = `
 [
+  "AxiosAdapter",
   "ClassicConsoleTransport",
   "CompactConsoleTransport",
   "ConsoleTransport",

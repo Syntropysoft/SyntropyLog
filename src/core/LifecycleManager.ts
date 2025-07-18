@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { EventEmitter } from 'events';
 import { ZodError } from 'zod';
 import { SyntropyLogConfig } from '../config';
@@ -14,6 +13,7 @@ import { BrokerManager } from '../brokers/BrokerManager';
 import { SerializerRegistry } from '../serialization/SerializerRegistry';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
+import { errorToJsonValue } from '../types';
 
 export type SyntropyLogState =
   | 'NOT_INITIALIZED'
@@ -86,13 +86,16 @@ export class LifecycleManager extends EventEmitter {
       if (this.config.redis) {
         try {
           const { RedisManager } = await import('../redis/RedisManager');
-        this.redisManager = new RedisManager(
-          this.config.redis,
-          logger.withSource('redis-manager'),
-          this.contextManager
-        );
+          this.redisManager = new RedisManager(
+            this.config.redis,
+            logger.withSource('redis-manager'),
+            this.contextManager
+          );
         } catch (error) {
-          logger.error('Failed to initialize Redis manager. Make sure redis package is installed.', { error });
+          logger.error(
+            'Failed to initialize Redis manager. Make sure redis package is installed.',
+            { error: errorToJsonValue(error) }
+          );
         }
       }
       if (this.config.http) {
@@ -132,13 +135,17 @@ export class LifecycleManager extends EventEmitter {
   }
 
   public async shutdown(): Promise<void> {
-    this.logger?.info(`🔄 LifecycleManager.shutdown() called. Current state: ${this.state}`);
-    
+    this.logger?.info(
+      `🔄 LifecycleManager.shutdown() called. Current state: ${this.state}`
+    );
+
     if (this.state !== 'READY') {
-      this.logger?.warn(`❌ Cannot perform shutdown. Current state: ${this.state}`);
+      this.logger?.warn(
+        `❌ Cannot perform shutdown. Current state: ${this.state}`
+      );
       return;
     }
-    
+
     this.state = 'SHUTTING_DOWN';
     this.emit('shutting_down');
     this.logger?.info('🔄 State changed to SHUTTING_DOWN');
@@ -153,7 +160,9 @@ export class LifecycleManager extends EventEmitter {
         this.loggerFactory?.shutdown?.(),
       ].filter(Boolean);
 
-      this.logger?.info(`📋 Executing ${shutdownPromises.length} shutdown promises...`);
+      this.logger?.info(
+        `📋 Executing ${shutdownPromises.length} shutdown promises...`
+      );
       await Promise.allSettled(shutdownPromises);
       this.logger?.info('✅ Shutdown promises completed');
 
@@ -168,7 +177,7 @@ export class LifecycleManager extends EventEmitter {
     } catch (error) {
       this.state = 'ERROR';
       this.emit('error', error);
-      this.logger?.error('❌ Error during shutdown:', { error });
+      this.logger?.error('❌ Error during shutdown:', { error: errorToJsonValue(error) });
     }
   }
 
@@ -179,70 +188,93 @@ export class LifecycleManager extends EventEmitter {
   private async terminateExternalProcesses(): Promise<void> {
     try {
       this.logger?.info('🔍 Starting external process termination...');
-      
+
       // Get all active handles
       const activeHandles = (process as any)._getActiveHandles?.() || [];
       this.logger?.debug(`Total active handles: ${activeHandles.length}`);
-      
+
       // Filter child processes that need to be terminated
       const childProcesses = activeHandles.filter((handle: any) => {
         const isChildProcess = handle.constructor.name === 'ChildProcess';
         const isConnected = handle.connected;
-        const hasRegexTest = handle.spawnargs?.some((arg: string) => arg.includes('regex-test'));
-        
-        this.logger?.debug(`Handle: ${handle.constructor.name}, connected: ${isConnected}, hasRegexTest: ${hasRegexTest}`);
-        
+        const hasRegexTest = handle.spawnargs?.some((arg: string) =>
+          arg.includes('regex-test')
+        );
+
+        this.logger?.debug(
+          `Handle: ${handle.constructor.name}, connected: ${isConnected}, hasRegexTest: ${hasRegexTest}`
+        );
+
         return isChildProcess && isConnected && hasRegexTest;
       });
 
-      this.logger?.info(`Found ${childProcesses.length} regex-test processes to terminate`);
+      this.logger?.info(
+        `Found ${childProcesses.length} regex-test processes to terminate`
+      );
 
       if (childProcesses.length > 0) {
-        this.logger?.info(`Terminating ${childProcesses.length} external processes...`);
-        
+        this.logger?.info(
+          `Terminating ${childProcesses.length} external processes...`
+        );
+
         // Terminate each child process directly with SIGKILL for maximum effectiveness
         for (const childProcess of childProcesses) {
           try {
-            this.logger?.debug(`Terminating process ${childProcess.pid} with SIGKILL...`);
+            this.logger?.debug(
+              `Terminating process ${childProcess.pid} with SIGKILL...`
+            );
             childProcess.kill('SIGKILL');
-            this.logger?.debug(`Process ${childProcess.pid} terminated with SIGKILL`);
+            this.logger?.debug(
+              `Process ${childProcess.pid} terminated with SIGKILL`
+            );
           } catch (error) {
-            this.logger?.warn(`Error terminating process ${childProcess.pid}:`, { error });
+            this.logger?.warn(
+              `Error terminating process ${childProcess.pid}:`,
+              { error: errorToJsonValue(error) }
+            );
           }
         }
 
         // Wait a bit for processes to terminate
         this.logger?.debug('Waiting 200ms for processes to terminate...');
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
         // Check if processes are still active
         const remainingHandles = (process as any)._getActiveHandles?.() || [];
-        const remainingChildProcesses = remainingHandles.filter((handle: any) => 
-          handle.constructor.name === 'ChildProcess' && 
-          handle.connected &&
-          handle.spawnargs?.some((arg: string) => arg.includes('regex-test'))
+        const remainingChildProcesses = remainingHandles.filter(
+          (handle: any) =>
+            handle.constructor.name === 'ChildProcess' &&
+            handle.connected &&
+            handle.spawnargs?.some((arg: string) => arg.includes('regex-test'))
         );
-        
+
         if (remainingChildProcesses.length > 0) {
-          this.logger?.warn(`${remainingChildProcesses.length} regex-test processes still active after SIGKILL`);
-          
+          this.logger?.warn(
+            `${remainingChildProcesses.length} regex-test processes still active after SIGKILL`
+          );
+
           // Try to disconnect the processes
           for (const childProcess of remainingChildProcesses) {
             try {
               childProcess.disconnect();
               this.logger?.debug(`Process ${childProcess.pid} disconnected`);
             } catch (error) {
-              this.logger?.warn(`Error disconnecting process ${childProcess.pid}:`, { error });
+              this.logger?.warn(
+                `Error disconnecting process ${childProcess.pid}:`,
+                { error: errorToJsonValue(error) }
+              );
             }
           }
         } else {
-          this.logger?.info('✅ All regex-test processes terminated successfully');
+          this.logger?.info(
+            '✅ All regex-test processes terminated successfully'
+          );
         }
       } else {
         this.logger?.info('No regex-test processes found to terminate');
       }
     } catch (error) {
-      this.logger?.warn('Error terminating external processes:', { error });
+      this.logger?.warn('Error terminating external processes:', { error: errorToJsonValue(error) });
     }
   }
 

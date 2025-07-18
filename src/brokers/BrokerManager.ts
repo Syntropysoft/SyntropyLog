@@ -9,6 +9,7 @@ import { IContextManager } from '../context';
 import { SyntropyBrokerConfig } from '../config';
 import { ILogger } from '../logger';
 import { InstrumentedBrokerClient } from './InstrumentedBrokerClient';
+import { errorToJsonValue } from '../types';
 
 /**
  * @interface BrokerManagerOptions
@@ -79,7 +80,7 @@ export class BrokerManager {
         } catch (error) {
           this.logger.error(
             `Failed to create broker instance "${instanceConfig.instanceName}":`,
-            error
+            errorToJsonValue(error)
           );
         }
       }

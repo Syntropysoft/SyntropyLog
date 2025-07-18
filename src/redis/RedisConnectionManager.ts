@@ -17,8 +17,10 @@ import { RedisInstanceConfig } from '../config';
 function isRedisClientType(
   client: NodeRedisClient
 ): client is RedisClientType<RedisModules, RedisFunctions, RedisScripts> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return typeof (client as any).ping === 'function' && !('commands' in client);
+  return (
+    typeof (client as { ping?: () => Promise<string> }).ping === 'function' &&
+    !('commands' in client)
+  );
 }
 
 /**
@@ -110,8 +112,7 @@ export class RedisConnectionManager {
       default: {
         const _exhaustiveCheck: never = config;
         throw new Error(
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          `Unsupported Redis mode: "${(_exhaustiveCheck as any).mode}"`
+          `Unsupported Redis mode: "${(_exhaustiveCheck as { mode: string }).mode}"`
         ); // NOSONAR
       }
     }
@@ -140,7 +141,7 @@ export class RedisConnectionManager {
       this.isConnectedAndReadyState = false;
     });
     this.client.on('error', (err: Error) => {
-      this.logger.error(`Client Error.`, { error: err });
+      this.logger.error(`Client Error.`, { error: err } as any);
       if (this.connectionReject) {
         this.connectionReject(err);
         this.connectionPromise = null;
@@ -235,7 +236,7 @@ export class RedisConnectionManager {
       try {
         await this.client.quit();
       } catch (error) {
-        this.logger.error('Error during client.quit().', { error });
+        this.logger.error('Error during client.quit().', { error } as any);
         throw error;
       }
     } else {
@@ -276,7 +277,7 @@ export class RedisConnectionManager {
       this.logger.debug(`PING response: ${pong}`);
       return pong === 'PONG';
     } catch (error) {
-      this.logger.error(`PING failed during health check.`, { error });
+      this.logger.error(`PING failed during health check.`, { error } as any);
       return false;
     }
   }

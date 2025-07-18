@@ -35,7 +35,7 @@ function createFailingProxy(
         // This covers method calls like .get(), .post(), .set(), etc.
         return (...args: unknown[]) => {
           logger.warn(
-            { errorMessage, arguments: args },
+            { errorMessage, arguments: args } as any,
             `Attempted to use property '${prop}' on a failing client.`
           );
           return Promise.reject(new Error(errorMessage));

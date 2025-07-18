@@ -7,6 +7,7 @@ import { IContextManager } from '../context';
 import { ILogger } from '../logger';
 import { InstrumentedHttpClient } from './InstrumentedHttpClient';
 import { SyntropyHttpConfig } from '../config';
+import { errorToJsonValue } from '../types';
 
 /**
  * @class HttpManager
@@ -71,8 +72,8 @@ export class HttpManager {
         }
       } catch (error) {
         this.logger.error(
-          `Failed to create HTTP client instance "${instanceConfig.instanceName}"`,
-          { error }
+          { error: errorToJsonValue(error) },
+          `Failed to create HTTP client instance "${instanceConfig.instanceName}"`
         );
       }
     }

@@ -1,7 +1,9 @@
-import { PipelineStep, PipelineContext } from '../SerializationPipeline';
+import { PipelineStep } from '../SerializationPipeline';
+import { SerializationPipelineContext } from '../../types';
 import { ISerializer } from '../types';
+import { SerializableData } from '../../types';
 
-export class SerializationStep implements PipelineStep<any> {
+export class SerializationStep implements PipelineStep<SerializableData> {
   name = 'serialization';
   private serializers: ISerializer[] = [];
 
@@ -21,7 +23,10 @@ export class SerializationStep implements PipelineStep<any> {
     }
   }
 
-  async execute(data: any, context: PipelineContext): Promise<any> {
+  async execute(
+    data: SerializableData,
+    context: SerializationPipelineContext
+  ): Promise<SerializableData> {
     const startTime = Date.now();
 
     // 1. Encontrar serializador apropiado
@@ -41,7 +46,7 @@ export class SerializationStep implements PipelineStep<any> {
       data,
       context.serializationContext
     );
-    const timeoutPromise = new Promise<any>((_, reject) => {
+    const timeoutPromise = new Promise<SerializableData>((_, reject) => {
       setTimeout(() => {
         const error = new Error(`Serialización lenta: >10ms`);
         (error as any).serializer = serializer.name;
@@ -79,7 +84,7 @@ export class SerializationStep implements PipelineStep<any> {
     }
   }
 
-  private findSerializer(data: any): ISerializer | null {
+  private findSerializer(data: SerializableData): ISerializer | null {
     // Los serializers ya están ordenados por prioridad (mayor primero)
     // debido al método addSerializer, así que solo necesitamos encontrar el primero
     // que pueda serializar los datos

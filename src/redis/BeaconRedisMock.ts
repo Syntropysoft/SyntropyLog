@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/redis/BeaconRedisMock.ts
  * @description
@@ -279,12 +278,12 @@ export class BeaconRedisMock implements IBeaconRedis {
       // to avoid pulling in the entire logging stack.
       this.logger = {
         level: 'info', // Add missing level property
-        debug: () => {},
-        info: () => {},
-        warn: () => {},
-        error: () => {},
-        fatal: () => {},
-        trace: () => {},
+        debug: async () => {},
+        info: async () => {},
+        warn: async () => {},
+        error: async () => {},
+        fatal: async () => {},
+        trace: async () => {},
         child: () => this.logger,
         withSource: () => this.logger,
         setLevel: () => {},
@@ -817,6 +816,6 @@ export class BeaconRedisMock implements IBeaconRedis {
    * @param {Partial<any>} newConfig - The configuration object.
    */
   public updateConfig(newConfig: Partial<any>): void {
-    this.logger.debug('[BeaconRedisMock] updateConfig called', { newConfig });
+    this.logger.debug('[BeaconRedisMock] updateConfig called', { newConfig: JSON.stringify(newConfig) });
   }
 }

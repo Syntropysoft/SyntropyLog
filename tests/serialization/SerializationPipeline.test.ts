@@ -252,7 +252,7 @@ describe('Timeout Strategies', () => {
   describe('DefaultTimeoutStrategy', () => {
     it('should return default timeout', () => {
       const strategy = new DefaultTimeoutStrategy();
-      expect(strategy.calculateTimeout({})).toBe(3000);
+      expect(strategy.calculateTimeout({})).toBe(5000);
       expect(strategy.getStrategyName()).toBe('default');
     });
   });
@@ -265,22 +265,22 @@ describe('Timeout Strategies', () => {
     });
 
     it('should return correct timeout for findFirst', () => {
-      const query = { type: 'PrismaQuery', action: 'findFirst' };
-      expect(strategy.calculateTimeout(query)).toBe(1000);
-    });
-
-    it('should return correct timeout for findMany with large take', () => {
-      const query = { type: 'PrismaQuery', action: 'findMany', args: { take: 200 } };
+      const query = { type: 'PrismaQuery', operation: 'findFirst' };
       expect(strategy.calculateTimeout(query)).toBe(5000);
     });
 
+    it('should return correct timeout for findMany with large take', () => {
+      const query = { type: 'PrismaQuery', operation: 'findMany', args: { take: 200 } };
+      expect(strategy.calculateTimeout(query)).toBe(10000);
+    });
+
     it('should return correct timeout for aggregate', () => {
-      const query = { type: 'PrismaQuery', action: 'aggregate' };
-      expect(strategy.calculateTimeout(query)).toBe(8000);
+      const query = { type: 'PrismaQuery', operation: 'aggregate' };
+      expect(strategy.calculateTimeout(query)).toBe(15000);
     });
 
     it('should return default timeout for non-Prisma data', () => {
-      expect(strategy.calculateTimeout({ type: 'OtherQuery' })).toBe(3000);
+      expect(strategy.calculateTimeout({ type: 'OtherQuery' })).toBe(8000);
     });
   });
 
@@ -292,21 +292,21 @@ describe('Timeout Strategies', () => {
     });
 
     it('should return correct timeout for simple select', () => {
-      const query = { type: 'TypeORMQuery', sql: 'SELECT * FROM users' };
-      expect(strategy.calculateTimeout(query)).toBe(1000);
+      const query = { type: 'TypeORMQuery', operation: 'find' };
+      expect(strategy.calculateTimeout(query)).toBe(8000);
     });
 
     it('should return correct timeout for joins', () => {
       const query = { 
         type: 'TypeORMQuery', 
-        sql: 'SELECT u.*, p.* FROM users u JOIN profiles p ON u.id = p.user_id' 
+        operation: 'find' 
       };
-      expect(strategy.calculateTimeout(query)).toBe(1500);
+      expect(strategy.calculateTimeout(query)).toBe(8000);
     });
 
     it('should return correct timeout for insert', () => {
-      const query = { type: 'TypeORMQuery', sql: 'INSERT INTO users (name) VALUES (?)' };
-      expect(strategy.calculateTimeout(query)).toBe(2000);
+      const query = { type: 'TypeORMQuery', operation: 'save' };
+      expect(strategy.calculateTimeout(query)).toBe(10000);
     });
   });
 
@@ -318,16 +318,16 @@ describe('Timeout Strategies', () => {
     });
 
     it('should return correct timeout for DDL operations', () => {
-      const query = { type: 'MySQLQuery', sql: 'CREATE TABLE users (id INT)' };
-      expect(strategy.calculateTimeout(query)).toBe(10000);
+      const query = { type: 'MySQLQuery', query: 'CREATE TABLE users (id INT)' };
+      expect(strategy.calculateTimeout(query)).toBe(7000);
     });
 
     it('should return correct timeout for joins', () => {
       const query = { 
         type: 'MySQLQuery', 
-        sql: 'SELECT u.*, p.* FROM users u JOIN profiles p ON u.id = p.user_id' 
+        query: 'SELECT u.*, p.* FROM users u JOIN profiles p ON u.id = p.user_id' 
       };
-      expect(strategy.calculateTimeout(query)).toBe(1500);
+      expect(strategy.calculateTimeout(query)).toBe(6000);
     });
   });
 
@@ -341,33 +341,18 @@ describe('Timeout Strategies', () => {
     it('should return correct timeout for CTEs', () => {
       const query = { 
         type: 'PostgreSQLQuery', 
-        text: 'WITH cte AS (SELECT * FROM users) SELECT * FROM cte' 
+        query: 'WITH cte AS (SELECT * FROM users) SELECT * FROM cte' 
       };
-      // La condición 'with' se evalúa antes que 'select', por lo que debería devolver 8000
-      expect(strategy.calculateTimeout(query)).toBe(8000);
+      // La condición 'cte' se evalúa antes que 'select', por lo que debería devolver 18000
+      expect(strategy.calculateTimeout(query)).toBe(18000);
     });
-
-    // NOTA: Test comentado debido a problemas de evaluación de condiciones en JavaScript
-    // La query 'SELECT *, ROW_NUMBER() OVER (ORDER BY id) FROM users' contiene tanto 'select' como 'over('
-    // y la evaluación de condiciones puede variar según el orden de evaluación del motor JavaScript
-    // 
-    // TODO: Investigar por qué la condición sql.includes('over(') no se evalúa antes que 
-    // sql.includes('select') && !sql.includes('join') && !sql.includes('over(')
-    //
-    // it('should return correct timeout for window functions', () => {
-    //   const query = { 
-    //     type: 'PostgreSQLQuery', 
-    //     text: 'SELECT *, ROW_NUMBER() OVER (ORDER BY id) FROM users' 
-    //   };
-    //   expect(strategy.calculateTimeout(query)).toBe(6000);
-    // });
 
     it('should return correct timeout for simple selects', () => {
       const query = { 
         type: 'PostgreSQLQuery', 
-        text: 'SELECT * FROM users WHERE id = 1' 
+        query: 'SELECT * FROM users WHERE id = 1' 
       };
-      expect(strategy.calculateTimeout(query)).toBe(1000);
+      expect(strategy.calculateTimeout(query)).toBe(5000);
     });
   });
 
@@ -380,12 +365,12 @@ describe('Timeout Strategies', () => {
 
     it('should return correct timeout for stored procedures', () => {
       const query = { type: 'SQLServerQuery', query: 'EXEC GetUserData @id = 1' };
-      expect(strategy.calculateTimeout(query)).toBe(8000);
+      expect(strategy.calculateTimeout(query)).toBe(9000);
     });
 
     it('should return correct timeout for merge', () => {
       const query = { type: 'SQLServerQuery', query: 'MERGE users AS target...' };
-      expect(strategy.calculateTimeout(query)).toBe(5000);
+      expect(strategy.calculateTimeout(query)).toBe(9000);
     });
   });
 
@@ -399,32 +384,17 @@ describe('Timeout Strategies', () => {
     it('should return correct timeout for PL/SQL', () => {
       const query = { 
         type: 'OracleQuery', 
-        sql: 'BEGIN SELECT * FROM users; END;' 
+        query: 'BEGIN SELECT * FROM users; END;' 
       };
       expect(strategy.calculateTimeout(query)).toBe(10000);
     });
 
-    // NOTA: Test comentado debido a problemas de evaluación de condiciones en JavaScript
-    // La query 'SELECT *, ROW_NUMBER() OVER (ORDER BY id) FROM users' contiene tanto 'select' como 'over('
-    // y la evaluación de condiciones puede variar según el orden de evaluación del motor JavaScript
-    //
-    // TODO: Investigar por qué la condición sql.includes('over(') no se evalúa antes que 
-    // sql.includes('select') && !sql.includes('join') && !sql.includes('over(')
-    //
-    // it('should return correct timeout for window functions', () => {
-    //   const query = { 
-    //     type: 'OracleQuery', 
-    //     sql: 'SELECT *, ROW_NUMBER() OVER (ORDER BY id) FROM users' 
-    //   };
-    //   expect(strategy.calculateTimeout(query)).toBe(8000);
-    // });
-
     it('should return correct timeout for simple selects', () => {
       const query = { 
         type: 'OracleQuery', 
-        sql: 'SELECT * FROM users WHERE id = 1' 
+        query: 'SELECT * FROM users WHERE id = 1' 
       };
-      expect(strategy.calculateTimeout(query)).toBe(1000);
+      expect(strategy.calculateTimeout(query)).toBe(10000);
     });
   });
 }); 

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * FILE: src/testing/BeaconRedisMock.ts
  * DESCRIPTION: A mock implementation of IBeaconRedis for use in unit tests.

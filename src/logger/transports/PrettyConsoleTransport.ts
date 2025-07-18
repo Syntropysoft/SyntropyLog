@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/logger/transports/PrettyConsoleTransport.ts
  * @description A transport that formats logs for human readability in a development console, using colors.
@@ -7,6 +6,7 @@ import { LogLevel } from '../levels';
 import { TransportOptions } from './Transport';
 import { Chalk } from 'chalk';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
+import { LogEntry } from '../../types';
 
 /**
  * @class PrettyConsoleTransport
@@ -35,10 +35,10 @@ export class PrettyConsoleTransport extends BaseConsolePrettyTransport {
 
   /**
    * Formats the log object into a pretty, human-readable string.
-   * @param {Record<string, any>} logObject - The log object to format.
+   * @param {LogEntry} logObject - The log object to format.
    * @returns {string} The formatted string.
    */
-  protected formatLogString(logObject: Record<string, any>): string {
+  protected formatLogString(logObject: LogEntry): string {
     const { timestamp, level, service, message, ...rest } = logObject;
 
     const colorizer =

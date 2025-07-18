@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/logger/Logger.ts
  * @description The core implementation of the ILogger interface.
@@ -6,7 +5,15 @@
 import * as util from 'node:util';
 import { Transport } from './transports/Transport';
 import { LOG_LEVEL_WEIGHTS } from './levels';
-import type { LogEntry, LoggerOptions } from '../types';
+import type {
+  LogEntry,
+  LoggerOptions,
+  LogBindings,
+  LogMetadata,
+  LogRetentionRules,
+  LogFormatArg,
+  JsonValue,
+} from '../types';
 import type { LogLevel } from './levels';
 import { IContextManager } from '../context';
 import { SerializerRegistry } from '../serialization/SerializerRegistry';
@@ -33,7 +40,7 @@ export class Logger {
   public level: LogLevel;
   public name: string;
   private transports: Transport[];
-  private bindings: Record<string, any>;
+  private bindings: LogBindings;
   private dependencies: LoggerDependencies;
 
   constructor(
@@ -55,10 +62,10 @@ export class Logger {
    * It handles argument parsing, level filtering, serialization, masking,
    * and finally dispatches the processed log entry to the appropriate transports.
    * @param {LogLevel} level - The severity level of the log message.
-   * @param {...any[]} args - The arguments to be logged, following the Pino-like signature (e.g., `(obj, msg, ...)` or `(msg, ...)`).
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to be logged, following the Pino-like signature (e.g., `(obj, msg, ...)` or `(msg, ...)`).
    * @returns {Promise<void>}
    */
-  private async _log(level: LogLevel, ...args: unknown[]): Promise<void> {
+  private async _log(level: LogLevel, ...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
     if (level === 'silent') {
       return;
     }
@@ -85,7 +92,7 @@ export class Logger {
 
     // Parse arguments following Pino-like signature
     let message: string;
-    let metadata: Record<string, any> = {};
+    let metadata: LogMetadata = {};
 
     if (args.length === 0) {
       message = '';
@@ -95,7 +102,7 @@ export class Logger {
       !Array.isArray(args[0])
     ) {
       // First argument is metadata object: (metadata, message, ...formatArgs)
-      metadata = args[0] as Record<string, any>;
+      metadata = args[0] as LogMetadata;
       message = (args[1] as string) || '';
       const formatArgs = args.slice(2);
 
@@ -121,7 +128,7 @@ export class Logger {
     // 1. Apply custom serializers (e.g., for Error objects)
     const finalEntry = await this.dependencies.serializerRegistry.process(
       logEntry,
-      this as any
+      this as ILogger
     );
 
     // 2. Apply masking to the entire, serialized entry.
@@ -142,49 +149,49 @@ export class Logger {
 
   /**
    * Logs a message at the 'info' level.
-   * @param {...any[]} args - The arguments to log.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  info(...args: unknown[]): Promise<void> {
+  info(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
     return this._log('info', ...args);
   }
 
   /**
    * Logs a message at the 'warn' level.
-   * @param {...any[]} args - The arguments to log.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  warn(...args: unknown[]): Promise<void> {
+  warn(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
     return this._log('warn', ...args);
   }
 
   /**
    * Logs a message at the 'error' level.
-   * @param {...any[]} args - The arguments to log.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  error(...args: unknown[]): Promise<void> {
+  error(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
     return this._log('error', ...args);
   }
 
   /**
    * Logs a message at the 'debug' level.
-   * @param {...any[]} args - The arguments to log.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  debug(...args: unknown[]): Promise<void> {
+  debug(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
     return this._log('debug', ...args);
   }
 
   /**
    * Logs a message at the 'trace' level.
-   * @param {...any[]} args - The arguments to log.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  trace(...args: unknown[]): Promise<void> {
+  trace(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
     return this._log('trace', ...args);
   }
 
   /**
    * Logs a message at the 'fatal' level.
-   * @param {...any[]} args - The arguments to log.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  fatal(...args: unknown[]): Promise<void> {
+  fatal(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
     return this._log('fatal', ...args);
   }
 
@@ -199,22 +206,20 @@ export class Logger {
 
   /**
    * Creates a new child logger instance that inherits the parent's configuration
-   * and adds a set of persistent key-value bindings.
-   * @param {Record<string, any>} bindings - Key-value pairs to add to the child logger.
-   * @returns {ILogger} A new logger instance with the combined bindings.
+   * and adds the specified bindings.
+   * @param {LogBindings} bindings - Key-value pairs to bind to the child logger.
+   * @returns {ILogger} A new logger instance with the specified bindings.
    */
-  child(bindings: Record<string, any>): ILogger {
-    // Determine the child logger name
-    const childName = bindings.name
-      ? `${this.name}:${bindings.name}`
-      : `${this.name}:child-logger`;
-
-    // Call getLogger on the syntropyLog instance to maintain proper hierarchy
-    const childLogger = this.dependencies.syntropyLogInstance.getLogger(
-      childName,
-      bindings
+  child(bindings: LogBindings): ILogger {
+    const childLogger = new Logger(
+      this.name,
+      this.transports,
+      this.dependencies,
+      {
+        level: this.level,
+        bindings: { ...this.bindings, ...bindings },
+      }
     );
-
     return childLogger;
   }
 
@@ -229,13 +234,11 @@ export class Logger {
 
   /**
    * Creates a new logger instance with a `retention` field bound to it.
-   * The provided rules object is deep-cloned to ensure immutability.
-   * @param {Record<string, any>} rules - A JSON object containing the retention rules.
+   * @param {LogRetentionRules} rules - A JSON object containing the retention rules.
    * @returns {ILogger} A new logger instance with the `retention` binding.
    */
-  withRetention(rules: Record<string, any>): ILogger {
-    const safeRules = JSON.parse(JSON.stringify(rules));
-    return this.child({ retention: safeRules });
+  withRetention(rules: LogRetentionRules): ILogger {
+    return this.child({ retention: rules } as any);
   }
 
   /**

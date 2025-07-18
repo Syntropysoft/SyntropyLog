@@ -1,5 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { LogLevel } from './levels';
+import {
+  LogMetadata,
+  LogBindings,
+  LogRetentionRules,
+  LogFormatArg,
+  JsonValue,
+} from '../types';
 
 /**
  * Defines the public interface for a logger instance.
@@ -12,67 +18,49 @@ export interface ILogger {
 
   /**
    * Logs a message at the 'fatal' level. The application will likely exit.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  fatal(obj: object, message?: string, ...args: any[]): void;
-  fatal(message: string, ...args: any[]): void;
+  fatal(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
 
   /**
    * Logs a message at the 'error' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  error(obj: object, message?: string, ...args: any[]): void;
-  error(message: string, ...args: any[]): void;
+  error(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
 
   /**
    * Logs a message at the 'warn' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  warn(obj: object, message?: string, ...args: any[]): void;
-  warn(message: string, ...args: any[]): void;
+  warn(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
 
   /**
    * Logs a message at the 'info' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  info(obj: object, message?: string, ...args: any[]): void;
-  info(message: string, ...args: any[]): void;
+  info(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
 
   /**
    * Logs a message at the 'debug' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  debug(obj: object, message?: string, ...args: any[]): void;
-  debug(message: string, ...args: any[]): void;
+  debug(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
 
   /**
    * Logs a message at the 'trace' level.
-   * @param {object} obj - An object with properties to be included in the log.
-   * @param {string} [message] - The log message, with optional format placeholders.
-   * @param {...any[]} args - Values to substitute into the message placeholders.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  trace(obj: object, message?: string, ...args: any[]): void;
-  trace(message: string, ...args: any[]): void;
+  trace(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
 
   // --- Lifecycle and Persistent Context Methods ---
 
   /**
    * Creates a new child logger instance with bindings that will be present in every log.
    * The child inherits all settings from the parent, adding or overriding the specified bindings.
-   * @param {Record<string, any>} bindings - Key-value pairs to bind to the child logger.
+   * @param {LogBindings} bindings - Key-value pairs to bind to the child logger.
    * @returns {ILogger} A new `ILogger` instance.
    */
-  child(bindings: Record<string, any>): ILogger;
+  child(bindings: LogBindings): ILogger;
 
   /**
    * Dynamically updates the minimum log level for this logger instance.
@@ -94,10 +82,10 @@ export interface ILogger {
   /**
    * Creates a new logger instance with a `retention` field bound to it.
    * The provided rules object will be deep-cloned to ensure immutability.
-   * @param {Record<string, any>} rules - A JSON object containing the retention rules.
+   * @param {LogRetentionRules} rules - A JSON object containing the retention rules.
    * @returns {ILogger} A new `ILogger` instance with the `retention` binding.
    */
-  withRetention(rules: Record<string, any>): ILogger;
+  withRetention(rules: LogRetentionRules): ILogger;
 
   /**
    * Creates a new logger instance with a `transactionId` field bound to it.

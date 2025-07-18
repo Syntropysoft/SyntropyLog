@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  * @file src/context/ContextManager.ts
  * @description The default implementation of the IContextManager interface. It uses Node.js's
@@ -10,16 +9,18 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'crypto';
 import { IContextManager } from './IContextManager';
 import { LogLevel } from '../logger/levels';
+import {
+  ContextValue,
+  ContextData,
+  ContextConfig,
+  ContextCallback,
+  ContextHeaders,
+  FilteredContext,
+  LoggingMatrix,
+} from '../types';
 
 interface Context {
-  data: Map<string, any>;
-}
-
-export type LoggingMatrix = Partial<Record<LogLevel | 'default', string[]>>;
-
-export interface SyntropyContextConfig {
-  correlationIdHeader?: string;
-  transactionIdHeader?: string;
+  data: Map<string, ContextValue>;
 }
 
 /**
@@ -39,7 +40,7 @@ export class ContextManager implements IContextManager {
     this.loggingMatrix = loggingMatrix;
   }
 
-  public configure(options: SyntropyContextConfig): void {
+  public configure(options: ContextConfig): void {
     if (options.correlationIdHeader) {
       this.correlationIdHeader = options.correlationIdHeader;
     }
@@ -57,7 +58,7 @@ export class ContextManager implements IContextManager {
    * @param callback The function to execute within the new context.
    * @returns {T} The result of the callback function.
    */
-  public run(fn: () => void | Promise<void>): Promise<void> {
+  public run(fn: ContextCallback): Promise<void> {
     return new Promise((resolve, reject) => {
       const parentContext = this.storage.getStore();
       const newContextData = new Map(parentContext?.data);
@@ -83,15 +84,15 @@ export class ContextManager implements IContextManager {
    * @param key The key of the value to retrieve.
    * @returns The value, or `undefined` if not found or if outside a context.
    */
-  public get<T = any>(key: string): T | undefined {
-    return this.storage.getStore()?.data.get(key);
+  public get<T = ContextValue>(key: string): T | undefined {
+    return this.storage.getStore()?.data.get(key) as T | undefined;
   }
 
   /**
    * Gets the entire key-value store from the current asynchronous context.
-   * @returns {Record<string, any>} An object containing all context data, or an empty object if outside a context.
+   * @returns {ContextData} An object containing all context data, or an empty object if outside a context.
    */
-  public getAll(): Record<string, any> {
+  public getAll(): ContextData {
     const store = this.storage.getStore();
     if (!store) {
       return {};
@@ -107,7 +108,7 @@ export class ContextManager implements IContextManager {
    * @param value The value to store.
    * @returns {void}
    */
-  public set(key: string, value: any): void {
+  public set(key: string, value: ContextValue): void {
     const store = this.storage.getStore();
     if (store) {
       store.data.set(key, value);
@@ -156,8 +157,8 @@ export class ContextManager implements IContextManager {
    * This base implementation does not support trace context propagation.
    * @returns `undefined` as this feature is not implemented by default.
    */
-  public getTraceContextHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {};
+  public getTraceContextHeaders(): ContextHeaders {
+    const headers: ContextHeaders = {};
     const correlationId = this.getCorrelationId();
     const transactionId = this.getTransactionId();
     if (correlationId) {
@@ -169,7 +170,7 @@ export class ContextManager implements IContextManager {
     return headers;
   }
 
-  public getFilteredContext(level: LogLevel): Record<string, unknown> {
+  public getFilteredContext(level: LogLevel): FilteredContext {
     const fullContext = this.getAll();
     if (!this.loggingMatrix) {
       return fullContext;
@@ -185,7 +186,7 @@ export class ContextManager implements IContextManager {
       return { ...fullContext };
     }
 
-    const filteredContext: Record<string, unknown> = {};
+    const filteredContext: FilteredContext = {};
     for (const key of fieldsToKeep) {
       if (Object.prototype.hasOwnProperty.call(fullContext, key)) {
         filteredContext[key] = fullContext[key];

@@ -6,6 +6,7 @@ import { TransportOptions } from './Transport';
 import { LogLevel } from '../levels';
 import { Chalk } from 'chalk';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
+import { LogEntry } from '../../types';
 
 /**
  * @class ClassicConsoleTransport
@@ -51,11 +52,10 @@ export class ClassicConsoleTransport extends BaseConsolePrettyTransport {
 
   /**
    * Formats the log object into a classic, single-line string.
-   * @param {Record<string, any>} logObject - The log object to format.
+   * @param {LogEntry} logObject - The log object to format.
    * @returns {string} The formatted string.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  protected formatLogString(logObject: Record<string, any>): string {
+  protected formatLogString(logObject: LogEntry): string {
     const { timestamp, level, service, message, context, ...rest } = logObject;
 
     const colorizer =
@@ -72,14 +72,14 @@ export class ClassicConsoleTransport extends BaseConsolePrettyTransport {
     const serviceStr = this.chalk.magenta(`[${service}]`);
 
     // 4. Combine context, other metadata, and message, then format it.
-    const allMeta = { ...context, ...rest, message };
+    const allMeta = { ...(context as Record<string, unknown> || {}), ...rest, message };
     const metaKeys = Object.keys(allMeta);
     let metaStr = '';
     if (metaKeys.length > 0) {
       metaStr = this.chalk.dim(
         ' [' +
           metaKeys
-            .map((key) => `${key}=${JSON.stringify(allMeta[key])}`)
+            .map((key) => `${key}=${JSON.stringify((allMeta as Record<string, unknown>)[key])}`)
             .join(' ') +
           ']'
       );

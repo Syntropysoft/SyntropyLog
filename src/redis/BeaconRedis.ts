@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/redis/BeaconRedis.ts
  * @description Implementation of IBeaconRedis that wraps a native `redis` client.
@@ -14,6 +13,16 @@ import { ILogger } from '../logger/ILogger';
 import { RedisCommandExecutor } from './RedisCommandExecutor';
 import { RedisConnectionManager } from './RedisConnectionManager';
 import { RedisZMember } from './redis.types';
+import {
+  RedisValue,
+  RedisListElement,
+  RedisSetMember,
+  RedisSortedSetMember,
+  RedisHashValue,
+  RedisCommandOptions,
+  JsonValue,
+  errorToJsonValue,
+} from '../types';
 
 /**
  * The primary implementation of the `IBeaconRedis` interface.
@@ -76,9 +85,10 @@ export class BeaconRedis implements IBeaconRedis {
   public updateConfig(
     newConfig: Partial<RedisInstanceReconfigurableConfig>
   ): void {
-    this.logger.info('Dynamically updating Redis instance configuration...', {
-      newConfig,
-    });
+    this.logger.info(
+      { newConfig },
+      'Dynamically updating Redis instance configuration...'
+    );
     Object.assign(this.config, newConfig);
   }
 
@@ -100,14 +110,14 @@ export class BeaconRedis implements IBeaconRedis {
    * @template T The expected return type of the command.
    * @param {string} commandName - The name of the Redis command (e.g., 'GET', 'HSET').
    * @param {() => Promise<T>} commandFn - A function that, when called, executes the native Redis command.
-   * @param {...any[]} params - The parameters passed to the original command, used for logging.
+   * @param {...RedisValue[]} params - The parameters passed to the original command, used for logging.
    * @returns {Promise<T>} A promise that resolves with the result of the command.
    * @throws The error from the native command is re-thrown after being logged.
    */
   private async _executeCommand<T>(
     commandName: string,
     commandFn: () => Promise<T>,
-    ...params: any[]
+    ...params: RedisValue[]
   ): Promise<T> {
     const startTime = Date.now();
     // Use a base logger with the source pre-set for this command.
@@ -125,7 +135,7 @@ export class BeaconRedis implements IBeaconRedis {
       // Determine the log level from the instance's specific configuration.
       const logLevel = this.config.logging?.onSuccess ?? 'debug';
 
-      const logPayload: Record<string, any> = {
+      const logPayload: Record<string, RedisValue> = {
         command: commandName,
         instance: this.getInstanceName(),
         durationMs,
@@ -136,12 +146,12 @@ export class BeaconRedis implements IBeaconRedis {
         logPayload.params = params;
       }
       if (this.config.logging?.logReturnValue) {
-        logPayload.result = result;
+        logPayload.result = result as RedisValue;
       }
 
       // The log is sent to the central pipeline where serialization and masking occur.
       commandLogger[logLevel](
-        logPayload,
+        logPayload as Record<string, JsonValue>,
         `Redis command [${commandName}] executed successfully.`
       );
 
@@ -156,9 +166,9 @@ export class BeaconRedis implements IBeaconRedis {
           command: commandName,
           instance: this.getInstanceName(),
           durationMs,
-          err: error,
+          err: errorToJsonValue(error),
           params: this.config.logging?.logCommandValues ? params : undefined,
-        },
+        } as any,
         `Redis command [${commandName}] failed.`
       );
 
@@ -297,13 +307,17 @@ export class BeaconRedis implements IBeaconRedis {
    */
   public async hSet(
     key: string,
-    fieldsAndValues: Record<string, any>
+    fieldsAndValues: Record<string, RedisHashValue>
   ): Promise<number>;
-  public async hSet(key: string, field: string, value: any): Promise<number>;
   public async hSet(
     key: string,
-    fieldOrFields: string | Record<string, any>,
-    value?: any
+    field: string,
+    value: RedisHashValue
+  ): Promise<number>;
+  public async hSet(
+    key: string,
+    fieldOrFields: string | Record<string, RedisHashValue>,
+    value?: RedisHashValue
   ): Promise<number> {
     if (typeof fieldOrFields === 'string') {
       // Handle single field-value pair.
@@ -374,11 +388,14 @@ export class BeaconRedis implements IBeaconRedis {
   /**
    * @inheritdoc
    */
-  public async lPush(key: string, element: any): Promise<number>;
-  public async lPush(key: string, elements: any[]): Promise<number>;
+  public async lPush(key: string, element: RedisListElement): Promise<number>;
   public async lPush(
     key: string,
-    elementOrElements: any | any[]
+    elements: RedisListElement[]
+  ): Promise<number>;
+  public async lPush(
+    key: string,
+    elementOrElements: RedisListElement | RedisListElement[]
   ): Promise<number> {
     return this._executeCommand(
       'LPUSH',
@@ -390,11 +407,14 @@ export class BeaconRedis implements IBeaconRedis {
   /**
    * @inheritdoc
    */
-  public async rPush(key: string, element: any): Promise<number>;
-  public async rPush(key: string, elements: any[]): Promise<number>;
+  public async rPush(key: string, element: RedisListElement): Promise<number>;
   public async rPush(
     key: string,
-    elementOrElements: any | any[]
+    elements: RedisListElement[]
+  ): Promise<number>;
+  public async rPush(
+    key: string,
+    elementOrElements: RedisListElement | RedisListElement[]
   ): Promise<number> {
     return this._executeCommand(
       'RPUSH',
@@ -468,11 +488,11 @@ export class BeaconRedis implements IBeaconRedis {
   /**
    * @inheritdoc
    */
-  public async sAdd(key: string, member: any): Promise<number>;
-  public async sAdd(key: string, members: any[]): Promise<number>;
+  public async sAdd(key: string, member: RedisSetMember): Promise<number>;
+  public async sAdd(key: string, members: RedisSetMember[]): Promise<number>;
   public async sAdd(
     key: string,
-    memberOrMembers: any | any[]
+    memberOrMembers: RedisSetMember | RedisSetMember[]
   ): Promise<number> {
     return this._executeCommand(
       'SADD',
@@ -494,7 +514,10 @@ export class BeaconRedis implements IBeaconRedis {
   /**
    * @inheritdoc
    */
-  public async sIsMember(key: string, member: any): Promise<boolean> {
+  public async sIsMember(
+    key: string,
+    member: RedisSetMember
+  ): Promise<boolean> {
     return this._executeCommand(
       'SISMEMBER',
       () => this.commandExecutor.sIsMember(key, member),
@@ -509,7 +532,7 @@ export class BeaconRedis implements IBeaconRedis {
   public async sRem(key: string, members: any[]): Promise<number>;
   public async sRem(
     key: string,
-    memberOrMembers: any | any[]
+    memberOrMembers: RedisSetMember | RedisSetMember[]
   ): Promise<number> {
     return this._executeCommand(
       'SREM',
@@ -538,8 +561,8 @@ export class BeaconRedis implements IBeaconRedis {
   ): Promise<number>;
   public async zAdd(
     key: string,
-    scoreOrMembers: any,
-    member?: any
+    scoreOrMembers: number | RedisSortedSetMember[],
+    member?: RedisValue
   ): Promise<number> {
     // Check if we are using the array overload for multiple members.
     if (Array.isArray(scoreOrMembers)) {
@@ -566,7 +589,7 @@ export class BeaconRedis implements IBeaconRedis {
     key: string,
     min: string | number,
     max: string | number,
-    options?: any
+    options?: RedisCommandOptions
   ): Promise<string[]> {
     return this._executeCommand(
       'ZRANGE',
@@ -584,7 +607,7 @@ export class BeaconRedis implements IBeaconRedis {
     key: string,
     min: string | number,
     max: string | number,
-    options?: any
+    options?: RedisCommandOptions
   ): Promise<RedisZMember[]> {
     return this._executeCommand(
       'ZRANGE_WITHSCORES',
@@ -598,7 +621,10 @@ export class BeaconRedis implements IBeaconRedis {
   /**
    * @inheritdoc
    */
-  public async zRem(key: string, members: any | any[]): Promise<number> {
+  public async zRem(
+    key: string,
+    members: RedisValue | RedisValue[]
+  ): Promise<number> {
     return this._executeCommand(
       'ZREM',
       () => this.commandExecutor.zRem(key, members),
@@ -619,7 +645,7 @@ export class BeaconRedis implements IBeaconRedis {
   /**
    * @inheritdoc
    */
-  public async zScore(key: string, member: any): Promise<number | null> {
+  public async zScore(key: string, member: RedisValue): Promise<number | null> {
     return this._executeCommand(
       'ZSCORE',
       () => this.commandExecutor.zScore(key, member),
@@ -694,7 +720,7 @@ export class BeaconRedis implements IBeaconRedis {
     script: string,
     keys: string[],
     args: string[]
-  ): Promise<any> {
+  ): Promise<RedisValue> {
     return this._executeCommand(
       'EVAL',
       () => this.commandExecutor.eval(script, keys, args),

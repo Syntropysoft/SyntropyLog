@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  * @file src/context/MockContextManager.ts
  * @description Provides a mock implementation of the IContextManager interface,
@@ -6,6 +5,14 @@
  */
 
 import type { IContextManager } from './IContextManager';
+import {
+  ContextValue,
+  ContextData,
+  ContextConfig,
+  ContextCallback,
+  ContextHeaders,
+  FilteredContext,
+} from '../types';
 
 /**
  * @class MockContextManager
@@ -16,7 +23,7 @@ import type { IContextManager } from './IContextManager';
  */
 export class MockContextManager implements IContextManager {
   /** @private The in-memory key-value store for the context. */
-  private store: Record<string, any> = {};
+  private store: ContextData = {};
   /** @private The HTTP header name used for the correlation ID. */
   private correlationIdHeader = 'x-correlation-id';
   /** @private The HTTP header name used for the transaction ID. */
@@ -28,10 +35,7 @@ export class MockContextManager implements IContextManager {
    * @param options.correlationIdHeader The custom header name to use for the correlation ID.
    * @param options.transactionIdHeader The custom header name for the transaction ID.
    */
-  public configure(options?: {
-    correlationIdHeader?: string;
-    transactionIdHeader?: string;
-  }): void {
+  public configure(options?: ContextConfig): void {
     if (options?.correlationIdHeader) {
       this.correlationIdHeader = options.correlationIdHeader;
     }
@@ -49,7 +53,7 @@ export class MockContextManager implements IContextManager {
    * @param {() => T} callback The function to execute within the new context.
    * @returns {T} The result of the callback.
    */
-  public async run(fn: () => void | Promise<void>): Promise<void> {
+  public async run(fn: ContextCallback): Promise<void> {
     // Deep-clone the original store to ensure true isolation.
     const originalStore = JSON.parse(JSON.stringify(this.store));
     this.store = { ...this.store }; // Inherit from parent for the current run.
@@ -69,15 +73,15 @@ export class MockContextManager implements IContextManager {
    * @param {string} key The key of the value to retrieve.
    * @returns The value, or `undefined` if not found.
    */
-  get<T = any>(key: string): T | undefined {
-    return this.store[key];
+  get<T = ContextValue>(key: string): T | undefined {
+    return this.store[key] as T | undefined;
   }
 
   /**
    * Gets a shallow copy of the entire mock context store.
-   * @returns {Record<string, any>} An object containing all context data.
+   * @returns {ContextData} An object containing all context data.
    */
-  getAll(): Record<string, any> {
+  getAll(): ContextData {
     // Return a shallow copy to prevent direct mutation of the internal store.
     return { ...this.store };
   }
@@ -85,10 +89,10 @@ export class MockContextManager implements IContextManager {
   /**
    * Sets a key-value pair in the mock context.
    * @param {string} key The key for the value.
-   * @param {any} value The value to store.
+   * @param {ContextValue} value The value to store.
    * @returns {void}
    */
-  set(key: string, value: any): void {
+  set(key: string, value: ContextValue): void {
     this.store[key] = value;
   }
 
@@ -149,8 +153,8 @@ export class MockContextManager implements IContextManager {
    * In a real tracing scenario, this would be populated.
    * @returns `undefined` as this mock does not implement tracing.
    */
-  public getTraceContextHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {};
+  public getTraceContextHeaders(): ContextHeaders {
+    const headers: ContextHeaders = {};
     const correlationId = this.getCorrelationId();
     const transactionId = this.getTransactionId();
     if (correlationId) {
@@ -162,7 +166,7 @@ export class MockContextManager implements IContextManager {
     return headers;
   }
 
-  public getFilteredContext(): Record<string, unknown> {
+  public getFilteredContext(): FilteredContext {
     return this.getAll();
   }
 }

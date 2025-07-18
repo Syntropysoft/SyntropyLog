@@ -9,6 +9,7 @@ import { Transport } from './transports/Transport';
 import { ConsoleTransport } from './transports/ConsoleTransport';
 import { LogLevel } from './levels';
 import { SanitizationEngine } from '../sanitization/SanitizationEngine';
+import { JsonValue } from '../types';
 
 /**
  * @class LoggerFactory
@@ -97,11 +98,13 @@ export class LoggerFactory {
    * Retrieves a logger instance by name. If the logger does not exist, it is created
    * and cached for subsequent calls.
    * @param {string} [name='default'] - The name of the logger to retrieve.
-   * @param {Record<string, any>} [bindings] - Optional bindings to apply to the logger.
+   * @param {Record<string, JsonValue>} [bindings] - Optional bindings to apply to the logger.
    * @returns {ILogger} The logger instance.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public getLogger(name = 'default', bindings?: Record<string, any>): ILogger {
+  public getLogger(
+    name = 'default',
+    bindings?: Record<string, JsonValue>
+  ): ILogger {
     // Create a stable cache key that doesn't depend on object reference
     const cacheKey = this.createCacheKey(name, bindings);
 
@@ -131,8 +134,10 @@ export class LoggerFactory {
    * Creates a stable cache key for logger instances.
    * @private
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private createCacheKey(name: string, bindings?: Record<string, any>): string {
+  private createCacheKey(
+    name: string,
+    bindings?: Record<string, JsonValue>
+  ): string {
     if (!bindings || Object.keys(bindings).length === 0) {
       return name;
     }
@@ -145,8 +150,7 @@ export class LoggerFactory {
           result[key] = bindings[key];
           return result;
         },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        {} as Record<string, any>
+        {} as Record<string, JsonValue>
       );
 
     try {
@@ -181,23 +185,28 @@ export class LoggerFactory {
     try {
       // Flush all transports first
       await this.flushAllTransports();
-      
+
       // Clear the logger pool
       this.loggerPool.clear();
-      
+
       // Shutdown all transports if they have a shutdown method
       const shutdownPromises = this.transports.map((transport) => {
-        if (typeof (transport as any).shutdown === 'function') {
-          return (transport as any).shutdown().catch((err: any) => {
-            console.error(
-              `Error shutting down transport ${transport.constructor.name}:`,
-              err
-            );
-          });
+        if (
+          typeof (transport as { shutdown?: () => Promise<void> }).shutdown ===
+          'function'
+        ) {
+          return (transport as unknown as { shutdown: () => Promise<void> })
+            .shutdown()
+            .catch((err: unknown) => {
+              console.error(
+                `Error shutting down transport ${transport.constructor.name}:`,
+                err
+              );
+            });
         }
         return Promise.resolve();
       });
-      
+
       await Promise.allSettled(shutdownPromises);
     } catch (error) {
       console.error('Error during LoggerFactory shutdown:', error);

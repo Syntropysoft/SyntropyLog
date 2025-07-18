@@ -3,39 +3,34 @@
  * @description Intelligent serialization manager with auto-detection and adaptive timeouts
  */
 
-import { ISerializer, SerializationContext, SerializationResult, SerializationComplexity } from './types';
-import { SerializationPipeline, PipelineContext } from './SerializationPipeline';
+import {
+  ISerializer,
+  SerializationContext,
+  SerializationResult,
+  SerializationComplexity,
+} from './types';
+import {
+  SerializationPipeline,
+} from './SerializationPipeline';
+import { SerializationPipelineContext } from '../types';
 import { SerializationStep } from './pipeline/SerializationStep';
 import { SanitizationStep } from './pipeline/SanitizationStep';
 import { TimeoutStep } from './pipeline/TimeoutStep';
+import {
+  SerializableData,
+  SerializationContextConfig,
+  SerializationMetrics,
+  SanitizationConfig,
+  ComplexityDistribution,
+  SerializerDistribution,
+  TimeoutStrategyDistribution,
+} from '../types';
 
 export interface SerializationManagerConfig {
   timeoutMs?: number;
   enableMetrics?: boolean;
   sanitizeSensitiveData?: boolean;
-  sanitizationContext?: {
-    sensitiveFields?: string[];
-    redactPatterns?: RegExp[];
-    maxStringLength?: number;
-    enableDeepSanitization?: boolean;
-  };
-}
-
-export interface SerializationMetrics {
-  totalSerializations: number;
-  successfulSerializations: number;
-  failedSerializations: number;
-  averageSerializationDuration: number;
-  averageOperationTimeout: number;
-  maxSerializationDuration: number;
-  minSerializationDuration: number;
-  complexityDistribution: {
-    low: number;
-    medium: number;
-    high: number;
-  };
-  serializerDistribution: { [key: string]: number };
-  timeoutStrategyDistribution: { [key: string]: number };
+  sanitizationContext?: SanitizationConfig;
 }
 
 export class SerializationManager {
@@ -52,9 +47,9 @@ export class SerializationManager {
     totalOperationTimeout: number;
     maxSerializationDuration: number;
     minSerializationDuration: number;
-    complexityDistribution: { low: number; medium: number; high: number };
-    serializerDistribution: { [key: string]: number };
-    timeoutStrategyDistribution: { [key: string]: number };
+    complexityDistribution: ComplexityDistribution;
+    serializerDistribution: SerializerDistribution;
+    timeoutStrategyDistribution: TimeoutStrategyDistribution;
   };
 
   constructor(config: SerializationManagerConfig = {}) {
@@ -64,18 +59,27 @@ export class SerializationManager {
       sanitizeSensitiveData: config.sanitizeSensitiveData ?? true,
       sanitizationContext: {
         sensitiveFields: config.sanitizationContext?.sensitiveFields || [
-          'password', 'token', 'secret', 'key', 'auth', 'credential', 
-          'api_key', 'private_key', 'connection_string', 'wallet_location'
+          'password',
+          'token',
+          'secret',
+          'key',
+          'auth',
+          'credential',
+          'api_key',
+          'private_key',
+          'connection_string',
+          'wallet_location',
         ],
         redactPatterns: config.sanitizationContext?.redactPatterns || [
           /password\s*=\s*['"][^'"]*['"]/gi,
           /user\s*=\s*['"][^'"]*['"]/gi,
           /token\s*=\s*['"][^'"]*['"]/gi,
-          /secret\s*=\s*['"][^'"]*['"]/gi
+          /secret\s*=\s*['"][^'"]*['"]/gi,
         ],
         maxStringLength: config.sanitizationContext?.maxStringLength || 300,
-        enableDeepSanitization: config.sanitizationContext?.enableDeepSanitization ?? true
-      }
+        enableDeepSanitization:
+          config.sanitizationContext?.enableDeepSanitization ?? true,
+      },
     };
 
     this.metrics = {
@@ -88,12 +92,12 @@ export class SerializationManager {
       minSerializationDuration: 0,
       complexityDistribution: { low: 0, medium: 0, high: 0 },
       serializerDistribution: {},
-      timeoutStrategyDistribution: {}
+      timeoutStrategyDistribution: {},
     };
 
     // Inicializar pipeline
     this.pipeline = new SerializationPipeline();
-    
+
     // Crear pasos del pipeline
     this.serializationStep = new SerializationStep();
     this.sanitizationStep = new SanitizationStep();
@@ -109,21 +113,23 @@ export class SerializationManager {
     this.serializationStep.addSerializer(serializer);
   }
 
-  async serialize(data: any, context: SerializationContext = {
-    depth: 0,
-    maxDepth: 10,
-    sensitiveFields: [],
-    sanitize: true
-  }): Promise<SerializationResult> {
-
+  async serialize(
+    data: SerializableData,
+    context: SerializationContextConfig = {
+      depth: 0,
+      maxDepth: 10,
+      sensitiveFields: [],
+      sanitize: true,
+    }
+  ): Promise<SerializationResult> {
     const startTime = Date.now();
-    
+
     // Crear contexto del pipeline
-    const pipelineContext: PipelineContext = {
+    const pipelineContext: SerializationPipelineContext = {
       serializationContext: context,
       sanitizeSensitiveData: this.config.sanitizeSensitiveData,
       sanitizationContext: this.config.sanitizationContext,
-      enableMetrics: this.config.enableMetrics
+      enableMetrics: this.config.enableMetrics,
     };
 
     // Ejecutar pipeline
@@ -137,19 +143,30 @@ export class SerializationManager {
     return result;
   }
 
-  private updateMetrics(result: SerializationResult, totalDuration: number): void {
+  private updateMetrics(
+    result: SerializationResult,
+    _totalDuration: number
+  ): void {
     this.metrics.totalSerializations++;
-    
+
     if (result.success) {
       this.metrics.successfulSerializations++;
-      
+
       // Métricas de serialización (deberían ser muy bajas)
-      const serializationDuration = result.metadata.stepDurations?.serialization || 0;
+      const serializationDuration =
+        result.metadata.stepDurations?.serialization || 0;
       this.metrics.totalSerializationDuration += serializationDuration;
-      this.metrics.maxSerializationDuration = Math.max(this.metrics.maxSerializationDuration, serializationDuration);
-      this.metrics.minSerializationDuration = this.metrics.minSerializationDuration === 0 
-        ? serializationDuration 
-        : Math.min(this.metrics.minSerializationDuration, serializationDuration);
+      this.metrics.maxSerializationDuration = Math.max(
+        this.metrics.maxSerializationDuration,
+        serializationDuration
+      );
+      this.metrics.minSerializationDuration =
+        this.metrics.minSerializationDuration === 0
+          ? serializationDuration
+          : Math.min(
+              this.metrics.minSerializationDuration,
+              serializationDuration
+            );
 
       // Métricas de timeout de operación
       const operationTimeout = result.metadata.operationTimeout || 0;
@@ -157,20 +174,22 @@ export class SerializationManager {
 
       // Distribución por complejidad
       const complexity = result.complexity || SerializationComplexity.SIMPLE;
-      if (complexity === SerializationComplexity.SIMPLE) this.metrics.complexityDistribution.low++;
-      else if (complexity === SerializationComplexity.COMPLEX) this.metrics.complexityDistribution.medium++;
-      else if (complexity === SerializationComplexity.CRITICAL) this.metrics.complexityDistribution.high++;
+      if (complexity === SerializationComplexity.SIMPLE)
+        this.metrics.complexityDistribution.low++;
+      else if (complexity === SerializationComplexity.COMPLEX)
+        this.metrics.complexityDistribution.medium++;
+      else if (complexity === SerializationComplexity.CRITICAL)
+        this.metrics.complexityDistribution.high++;
 
       // Distribución por serializador
       const serializer = result.serializer || 'unknown';
-      this.metrics.serializerDistribution[serializer] = 
+      this.metrics.serializerDistribution[serializer] =
         (this.metrics.serializerDistribution[serializer] || 0) + 1;
 
       // Distribución por estrategia de timeout
       const timeoutStrategy = result.metadata.timeoutStrategy || 'unknown';
-      this.metrics.timeoutStrategyDistribution[timeoutStrategy] = 
+      this.metrics.timeoutStrategyDistribution[timeoutStrategy] =
         (this.metrics.timeoutStrategyDistribution[timeoutStrategy] || 0) + 1;
-
     } else {
       this.metrics.failedSerializations++;
     }
@@ -181,17 +200,23 @@ export class SerializationManager {
       totalSerializations: this.metrics.totalSerializations,
       successfulSerializations: this.metrics.successfulSerializations,
       failedSerializations: this.metrics.failedSerializations,
-      averageSerializationDuration: this.metrics.totalSerializations > 0 
-        ? this.metrics.totalSerializationDuration / this.metrics.totalSerializations 
-        : 0,
-      averageOperationTimeout: this.metrics.successfulSerializations > 0 
-        ? this.metrics.totalOperationTimeout / this.metrics.successfulSerializations 
-        : 0,
+      averageSerializationDuration:
+        this.metrics.totalSerializations > 0
+          ? this.metrics.totalSerializationDuration /
+            this.metrics.totalSerializations
+          : 0,
+      averageOperationTimeout:
+        this.metrics.successfulSerializations > 0
+          ? this.metrics.totalOperationTimeout /
+            this.metrics.successfulSerializations
+          : 0,
       maxSerializationDuration: this.metrics.maxSerializationDuration,
       minSerializationDuration: this.metrics.minSerializationDuration,
       complexityDistribution: { ...this.metrics.complexityDistribution },
       serializerDistribution: { ...this.metrics.serializerDistribution },
-      timeoutStrategyDistribution: { ...this.metrics.timeoutStrategyDistribution }
+      timeoutStrategyDistribution: {
+        ...this.metrics.timeoutStrategyDistribution,
+      },
     };
   }
 
@@ -206,7 +231,7 @@ export class SerializationManager {
       minSerializationDuration: 0,
       complexityDistribution: { low: 0, medium: 0, high: 0 },
       serializerDistribution: {},
-      timeoutStrategyDistribution: {}
+      timeoutStrategyDistribution: {},
     };
   }
 
@@ -217,4 +242,4 @@ export class SerializationManager {
   getPipelineMetrics() {
     return this.pipeline.getMetrics();
   }
-} 
+}

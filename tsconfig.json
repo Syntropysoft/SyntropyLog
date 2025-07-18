@@ -1,23 +1,28 @@
 {
   "compilerOptions": {
     "module": "ESNext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "paths": {
+      "@syntropylog/types": [
+        "./modules/@syntropylog/types/src"
+      ],
+      "@syntropylog/types/*": [
+        "./modules/@syntropylog/types/src/*"
+      ]
+    }
   },
-  "files": ["declarations.d.ts"],
+  "files": [
+    "declarations.d.ts"
+  ],
   "references": [
-    { "path": "./src" },
-    { "path": "./tests" },
-    { "path": "./test_integration" },
-    { "path": "./examples/01-hello-world" },
-    { "path": "./examples/20-context-ts" },
-    { "path": "./examples/30-data-masking" },
-    { "path": "./examples/40-basic-http-correlation" },
-    { "path": "./examples/45-custom-http-adapter" },
-    { "path": "./examples/50-basic-kafka-correlation" },
-    { "path": "./examples/60-advanced-rabbitmq-broker" },
-    { "path": "./examples/70-full-stack-correlation" },
-    { "path": "./examples/80-full-stack-nats" },
-    { "path": "./examples/90-compliance-retention" },
-    { "path": "./examples/100-custom-serializers" }
+    {
+      "path": "./src"
+    },
+    {
+      "path": "./tests"
+    },
+    {
+      "path": "./test_integration"
+    }
   ]
 }

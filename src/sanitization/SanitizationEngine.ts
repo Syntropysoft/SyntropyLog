@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/sanitization/SanitizationEngine.ts
  * @description Final security layer that sanitizes log entries before they are written by a transport.

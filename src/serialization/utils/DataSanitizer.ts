@@ -3,6 +3,8 @@
  * @description Simple data sanitization utility for sensitive data redaction
  */
 
+import { SerializableData, SanitizationConfig } from '../../types';
+
 export interface SanitizationContext {
   sensitiveFields?: string[];
   maxDepth?: number;
@@ -11,18 +13,37 @@ export interface SanitizationContext {
 
 export class DataSanitizer {
   private defaultSensitiveFields = [
-    'password', 'token', 'secret', 'key', 'auth', 'authorization',
-    'api_key', 'apikey', 'private_key', 'privatekey', 'credential',
-    'credential_id', 'credentialid', 'access_token', 'accesstoken',
-    'refresh_token', 'refreshtoken', 'session_id', 'sessionid'
+    'password',
+    'token',
+    'secret',
+    'key',
+    'auth',
+    'authorization',
+    'api_key',
+    'apikey',
+    'private_key',
+    'privatekey',
+    'credential',
+    'credential_id',
+    'credentialid',
+    'access_token',
+    'accesstoken',
+    'refresh_token',
+    'refreshtoken',
+    'session_id',
+    'sessionid',
   ];
 
   private defaultMaxDepth = 10;
 
-  sanitize(data: any, context: SanitizationContext = {}): any {
-    const sensitiveFields = context.sensitiveFields || this.defaultSensitiveFields;
-    const maxDepth = context.maxDepth || this.defaultMaxDepth;
-    const currentDepth = context.currentDepth || 0;
+  sanitize(
+    data: SerializableData,
+    context: SanitizationConfig | SanitizationContext = {}
+  ): SerializableData {
+    const sensitiveFields =
+      context.sensitiveFields || this.defaultSensitiveFields;
+    const maxDepth = (context as SanitizationContext).maxDepth || this.defaultMaxDepth;
+    const currentDepth = (context as SanitizationContext).currentDepth || 0;
 
     if (currentDepth >= maxDepth) {
       return '[MAX_DEPTH_REACHED]';
@@ -41,20 +62,20 @@ export class DataSanitizer {
     }
 
     if (Array.isArray(data)) {
-      return data.map((item, index) => 
-        this.sanitize(item, {
+      return data.map((_item, _index) =>
+        this.sanitize(_item, {
           ...context,
-          currentDepth: currentDepth + 1
+          currentDepth: currentDepth + 1,
         })
       );
     }
 
     if (typeof data === 'object') {
-      const sanitized: any = {};
-      
+      const sanitized: Record<string, SerializableData> = {};
+
       for (const [key, value] of Object.entries(data)) {
         const lowerKey = key.toLowerCase();
-        const isSensitive = sensitiveFields.some(field => 
+        const isSensitive = sensitiveFields.some((field) =>
           lowerKey.includes(field.toLowerCase())
         );
 
@@ -63,7 +84,7 @@ export class DataSanitizer {
         } else {
           sanitized[key] = this.sanitize(value, {
             ...context,
-            currentDepth: currentDepth + 1
+            currentDepth: currentDepth + 1,
           });
         }
       }
@@ -73,4 +94,4 @@ export class DataSanitizer {
 
     return data;
   }
-} 
+}

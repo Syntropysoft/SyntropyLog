@@ -278,6 +278,38 @@ npm run format             # Format code
 npm install syntropylog
 ```
 
+## 🔌 Supported Dependencies
+
+SyntropyLog includes built-in adapters for popular libraries. Here are the supported versions:
+
+### HTTP Clients
+- **Axios**: `^1.10.0` ✅ **Built-in support**
+- **Fetch**: Native browser API ✅ **Built-in support**
+- **Got**: `^12.0.0` (planned)
+- **Request**: `^2.88.2` (planned)
+
+### Message Brokers
+- **Kafka**: `kafkajs ^2.2.4` (planned)
+- **RabbitMQ**: `amqplib ^0.10.8` (planned)
+- **NATS**: `nats ^2.17.0` (planned)
+
+### Database Serializers
+- **Prisma**: (planned)
+- **TypeORM**: (planned)
+- **MySQL**: (planned)
+- **PostgreSQL**: (planned)
+
+### Usage Example
+```typescript
+import { syntropyLog, AxiosAdapter } from 'syntropylog';
+import axios from 'axios';
+
+// Use the built-in AxiosAdapter
+const adapter = new AxiosAdapter(axios.create({ 
+  baseURL: 'https://api.example.com' 
+}));
+```
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

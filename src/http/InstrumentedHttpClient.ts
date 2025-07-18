@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/http/InstrumentedHttpClient.ts
  * @description This class is the heart of the HTTP instrumentation architecture.

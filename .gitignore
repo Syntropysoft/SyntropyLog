@@ -670,5 +670,3 @@ $RECYCLE.BIN/
 modules/
 # Allow git submodules to be tracked
 !modules/@syntropylog/
-!modules/external-adapters
-!modules/syntropyLog-examples

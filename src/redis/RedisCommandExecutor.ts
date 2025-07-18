@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * @file src/redis/RedisCommandExecutor.ts
  * @description A thin wrapper around the native `node-redis` client that directly executes commands.
@@ -7,6 +6,14 @@
  */
 
 import { NodeRedisClient, RedisZMember } from './redis.types';
+import {
+  RedisValue,
+  RedisListElement,
+  RedisSetMember,
+  RedisSortedSetMember,
+  RedisHashValue,
+  RedisCommandOptions,
+} from '../types';
 
 /**
  * Executes Redis commands against a native `node-redis` client.
@@ -35,13 +42,13 @@ export class RedisCommandExecutor {
    * Executes the native SET command.
    * @param {string} key The key to set.
    * @param {string} value The value to set.
-   * @param {any} [options] Optional SET options (e.g., EX, NX).
+   * @param {RedisCommandOptions} [options] Optional SET options (e.g., EX, NX).
    * @returns {Promise<string | null>} 'OK' if successful, or null.
    */
   public set(
     key: string,
     value: string,
-    options?: any
+    options?: RedisCommandOptions
   ): Promise<string | null> {
     return this.client.set(key, value, options);
   }
@@ -136,17 +143,17 @@ export class RedisCommandExecutor {
   /**
    * Executes the native HSET command.
    * @param {string} key The key of the hash.
-   * @param {string | Record<string, any>} fieldOrFields The field to set or an object of field-value pairs.
-   * @param {any} [value] The value to set if a single field is provided.
+   * @param {string | Record<string, RedisHashValue>} fieldOrFields The field to set or an object of field-value pairs.
+   * @param {RedisHashValue} [value] The value to set if a single field is provided.
    * @returns {Promise<number>} The number of fields that were added.
    */
   public hSet(
     key: string,
-    fieldOrFields: string | Record<string, any>,
-    value?: any
+    fieldOrFields: string | Record<string, RedisHashValue>,
+    value?: RedisHashValue
   ): Promise<number> {
     if (typeof fieldOrFields === 'string') {
-      return this.client.hSet(key, fieldOrFields, value as any);
+      return this.client.hSet(key, fieldOrFields, value as RedisHashValue);
     }
     // When fieldOrFields is an object, call the two-argument overload.
     return this.client.hSet(key, fieldOrFields);
@@ -201,21 +208,33 @@ export class RedisCommandExecutor {
   /**
    * Executes the native LPUSH command.
    * @param {string} key The key of the list.
-   * @param {any | any[]} elements The element or elements to prepend.
+   * @param {RedisListElement | RedisListElement[]} elements The element or elements to prepend.
    * @returns {Promise<number>} The length of the list after the operation.
    */
-  public lPush(key: string, elements: any | any[]): Promise<number> {
-    return this.client.lPush(key, elements as any);
+  public lPush(
+    key: string,
+    elements: RedisListElement | RedisListElement[]
+  ): Promise<number> {
+    return this.client.lPush(
+      key,
+      elements as any
+    );
   }
 
   /**
    * Executes the native RPUSH command.
    * @param {string} key The key of the list.
-   * @param {any | any[]} elements The element or elements to append.
+   * @param {RedisListElement | RedisListElement[]} elements The element or elements to append.
    * @returns {Promise<number>} The length of the list after the operation.
    */
-  public rPush(key: string, elements: any | any[]): Promise<number> {
-    return this.client.rPush(key, elements as any);
+  public rPush(
+    key: string,
+    elements: RedisListElement | RedisListElement[]
+  ): Promise<number> {
+    return this.client.rPush(
+      key,
+      elements as any
+    );
   }
 
   /**
@@ -272,10 +291,13 @@ export class RedisCommandExecutor {
   /**
    * Executes the native SADD command.
    * @param {string} key The key of the set.
-   * @param {any | any[]} members The member or members to add.
+   * @param {RedisSetMember | RedisSetMember[]} members The member or members to add.
    * @returns {Promise<number>} The number of members added to the set.
    */
-  public sAdd(key: string, members: any | any[]): Promise<number> {
+  public sAdd(
+    key: string,
+    members: RedisSetMember | RedisSetMember[]
+  ): Promise<number> {
     return this.client.sAdd(key, members as any);
   }
 
@@ -291,20 +313,23 @@ export class RedisCommandExecutor {
   /**
    * Executes the native SISMEMBER command.
    * @param {string} key The key of the set.
-   * @param {any} member The member to check for.
+   * @param {RedisSetMember} member The member to check for.
    * @returns {Promise<boolean>} True if the member is in the set, false otherwise.
    */
-  public sIsMember(key: string, member: any): Promise<boolean> {
+  public sIsMember(key: string, member: RedisSetMember): Promise<boolean> {
     return this.client.sIsMember(key, member as any);
   }
 
   /**
    * Executes the native SREM command.
    * @param {string} key The key of the set.
-   * @param {any | any[]} members The member or members to remove.
+   * @param {RedisSetMember | RedisSetMember[]} members The member or members to remove.
    * @returns {Promise<number>} The number of members removed from the set.
    */
-  public sRem(key: string, members: any | any[]): Promise<number> {
+  public sRem(
+    key: string,
+    members: RedisSetMember | RedisSetMember[]
+  ): Promise<number> {
     return this.client.sRem(key, members as any);
   }
 
@@ -322,20 +347,20 @@ export class RedisCommandExecutor {
   /**
    * Executes the native ZADD command.
    * @param {string} key The key of the sorted set.
-   * @param {any} scoreOrMembers The score for a single member, or an array of member-score objects.
-   * @param {any} [member] The member to add if a single score is provided.
+   * @param {number | RedisSortedSetMember[]} scoreOrMembers The score for a single member, or an array of member-score objects.
+   * @param {RedisValue} [member] The member to add if a single score is provided.
    * @returns {Promise<number>} The number of elements added to the sorted set.
    */
   public zAdd(
     key: string,
-    scoreOrMembers: number | { score: number; value: any }[],
-    member?: any
+    scoreOrMembers: number | RedisSortedSetMember[],
+    member?: RedisValue
   ): Promise<number> {
     if (Array.isArray(scoreOrMembers)) {
-      return this.client.zAdd(key, scoreOrMembers);
+      return this.client.zAdd(key, scoreOrMembers as any);
     }
     // For a single member, the native client expects a ZMember object or an array of them.
-    return this.client.zAdd(key, { score: scoreOrMembers, value: member });
+    return this.client.zAdd(key, { score: scoreOrMembers, value: member } as any);
   }
 
   /**
@@ -343,14 +368,14 @@ export class RedisCommandExecutor {
    * @param {string} key The key of the sorted set.
    * @param {string | number} min The minimum index or score.
    * @param {string | number} max The maximum index or score.
-   * @param {any} [options] Additional options (e.g., REV).
+   * @param {RedisCommandOptions} [options] Additional options (e.g., REV).
    * @returns {Promise<string[]>} An array of members in the specified range.
    */
   public zRange(
     key: string,
     min: string | number,
     max: string | number,
-    options?: any
+    options?: RedisCommandOptions
   ): Promise<string[]> {
     return this.client.zRange(key, min, max, options);
   }
@@ -360,14 +385,14 @@ export class RedisCommandExecutor {
    * @param {string} key The key of the sorted set.
    * @param {string | number} min The minimum index or score.
    * @param {string | number} max The maximum index or score.
-   * @param {any} [options] Additional options (e.g., REV).
+   * @param {RedisCommandOptions} [options] Additional options (e.g., REV).
    * @returns {Promise<RedisZMember[]>} An array of members and their scores.
    */
   public zRangeWithScores(
     key: string,
     min: string | number,
     max: string | number,
-    options?: any
+    options?: RedisCommandOptions
   ): Promise<RedisZMember[]> {
     return this.client.zRangeWithScores(key, min, max, options);
   }
@@ -375,10 +400,13 @@ export class RedisCommandExecutor {
   /**
    * Executes the native ZREM command.
    * @param {string} key The key of the sorted set.
-   * @param {any | any[]} members The member or members to remove.
+   * @param {RedisValue | RedisValue[]} members The member or members to remove.
    * @returns {Promise<number>} The number of members removed.
    */
-  public zRem(key: string, members: any | any[]): Promise<number> {
+  public zRem(
+    key: string,
+    members: RedisValue | RedisValue[]
+  ): Promise<number> {
     return this.client.zRem(key, members as any);
   }
 
@@ -394,10 +422,10 @@ export class RedisCommandExecutor {
   /**
    * Executes the native ZSCORE command.
    * @param {string} key The key of the sorted set.
-   * @param {any} member The member whose score to retrieve.
+   * @param {RedisValue} member The member whose score to retrieve.
    * @returns {Promise<number | null>} The score of the member, or null if it does not exist.
    */
-  public zScore(key: string, member: any): Promise<number | null> {
+  public zScore(key: string, member: RedisValue): Promise<number | null> {
     return this.client.zScore(key, member as any);
   }
 
@@ -410,7 +438,11 @@ export class RedisCommandExecutor {
    * @param {string[]} args An array of argument values.
    * @returns {Promise<any>} The result of the script execution.
    */
-  public eval(script: string, keys: string[], args: string[]): Promise<any> {
+  public eval(
+    script: string,
+    keys: string[],
+    args: string[]
+  ): Promise<RedisValue> {
     return this.client.eval(script, { keys, arguments: args });
   }
 

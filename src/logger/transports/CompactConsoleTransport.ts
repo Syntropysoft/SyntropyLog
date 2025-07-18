@@ -6,6 +6,7 @@ import { LogLevel } from '../levels';
 import { TransportOptions } from './Transport';
 import { Chalk } from 'chalk';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
+import { LogEntry } from '../../types';
 
 /**
  * @class CompactConsoleTransport
@@ -34,11 +35,10 @@ export class CompactConsoleTransport extends BaseConsolePrettyTransport {
 
   /**
    * Formats the log object into a compact, human-readable string.
-   * @param {Record<string, any>} logObject - The log object to format.
+   * @param {LogEntry} logObject - The log object to format.
    * @returns {string} The formatted string.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  protected formatLogString(logObject: Record<string, any>): string {
+  protected formatLogString(logObject: LogEntry): string {
     const { timestamp, level, service, message, ...rest } = logObject;
 
     const colorizer =

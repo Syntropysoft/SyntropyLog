@@ -91,16 +91,17 @@ export function loadLoggerConfig(
   try {
     // Load and parse the YAML file.
     const fileContents = fs.readFileSync(configPath, 'utf8');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const yamlConfig = yaml.load(fileContents) as Record<string, any> | null;
+    const yamlConfig = yaml.load(fileContents) as Record<
+      string,
+      unknown
+    > | null;
 
     // If the YAML has the config under a 'logger' key, extract it.
     // Otherwise, assume the root object is the configuration.
     return yamlConfig?.logger || yamlConfig || {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw new Error(
-      `[BeaconLog] Failed to load or parse config file at ${configPath}: ${error.message}`
+      `[BeaconLog] Failed to load or parse config file at ${configPath}: ${error instanceof Error ? error.message : String(error)}`
     );
   }
 }

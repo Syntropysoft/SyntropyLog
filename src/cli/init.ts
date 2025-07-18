@@ -170,8 +170,7 @@ export async function runInit(options: InitOptions): Promise<void> {
       chalk.cyan("   You can now customize it to define your project's rules.")
     );
   } catch (error) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((error as any).code === 'EEXIST') {
+    if ((error as { code?: string }).code === 'EEXIST') {
       console.error(
         chalk.yellow(
           `⚠️ A \`${manifestFileName}\` file already exists. No changes were made.`

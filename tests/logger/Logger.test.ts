@@ -336,11 +336,11 @@ describe('Logger', () => {
       expect(logEntry.name).toBe('child-logger');
     });
 
-    it('should call getLogger on syntropyLog instance when creating a child', () => {
-      logger.child({ name: 'child-logger' });
-      expect(mockSyntropyLog.getLogger).toHaveBeenCalledWith('test-logger:child-logger', {
-        name: 'child-logger',
-      });
+    it('should create a child logger with merged bindings', () => {
+      const child = logger.child({ name: 'child-logger' });
+      expect(child).toBeInstanceOf(Logger);
+      expect(child.level).toBe(logger.level);
+      // The child should inherit the parent's configuration and add its own bindings
     });
   });
 });

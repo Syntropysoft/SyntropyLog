@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * FILE: src/masking/MaskingEngine.ts
  * DESCRIPTION: Central engine for applying robust, secure data masking to log objects.
