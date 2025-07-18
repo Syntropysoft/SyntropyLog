@@ -102,7 +102,8 @@ graph TD
 This example shows how to initialize the logger and make an instrumented HTTP request.
 
 ```typescript
-import { syntropyLog, PrettyConsoleTransport, AxiosAdapter } from 'syntropylog';
+import { syntropyLog, PrettyConsoleTransport } from 'syntropylog';
+import { AxiosAdapter } from '@syntropylog/adapters';
 import axios from 'axios';
 
 // 1. Configure SyntropyLog once in your application's entry point.
@@ -283,10 +284,10 @@ npm install syntropylog
 SyntropyLog includes built-in adapters for popular libraries. Here are the supported versions:
 
 ### HTTP Clients
-- **Axios**: `^1.10.0` ✅ **Built-in support**
-- **Fetch**: Native browser API ✅ **Built-in support**
+- **Axios**: `^1.10.0` ✅ **Available in @syntropylog/adapters**
+- **Fetch**: Native browser API ✅ **Available in @syntropylog/adapters**
 - **Got**: `^12.0.0` (planned)
-- **Request**: `^2.88.2` (planned)
+- **Request**: `^2.88.2` ✅ **Available in @syntropylog/adapters**
 
 ### Message Brokers
 - **Kafka**: `kafkajs ^2.2.4` (planned)
@@ -301,10 +302,11 @@ SyntropyLog includes built-in adapters for popular libraries. Here are the suppo
 
 ### Usage Example
 ```typescript
-import { syntropyLog, AxiosAdapter } from 'syntropylog';
+import { syntropyLog } from 'syntropylog';
+import { AxiosAdapter } from '@syntropylog/adapters';
 import axios from 'axios';
 
-// Use the built-in AxiosAdapter
+// Use the AxiosAdapter from the adapters package
 const adapter = new AxiosAdapter(axios.create({ 
   baseURL: 'https://api.example.com' 
 }));

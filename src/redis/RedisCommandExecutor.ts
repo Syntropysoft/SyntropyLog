@@ -215,10 +215,7 @@ export class RedisCommandExecutor {
     key: string,
     elements: RedisListElement | RedisListElement[]
   ): Promise<number> {
-    return this.client.lPush(
-      key,
-      elements as any
-    );
+    return this.client.lPush(key, elements as any);
   }
 
   /**
@@ -231,10 +228,7 @@ export class RedisCommandExecutor {
     key: string,
     elements: RedisListElement | RedisListElement[]
   ): Promise<number> {
-    return this.client.rPush(
-      key,
-      elements as any
-    );
+    return this.client.rPush(key, elements as any);
   }
 
   /**
@@ -360,7 +354,10 @@ export class RedisCommandExecutor {
       return this.client.zAdd(key, scoreOrMembers as any);
     }
     // For a single member, the native client expects a ZMember object or an array of them.
-    return this.client.zAdd(key, { score: scoreOrMembers, value: member } as any);
+    return this.client.zAdd(key, {
+      score: scoreOrMembers,
+      value: member,
+    } as any);
   }
 
   /**

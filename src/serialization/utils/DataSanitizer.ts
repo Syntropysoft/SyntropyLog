@@ -42,7 +42,8 @@ export class DataSanitizer {
   ): SerializableData {
     const sensitiveFields =
       context.sensitiveFields || this.defaultSensitiveFields;
-    const maxDepth = (context as SanitizationContext).maxDepth || this.defaultMaxDepth;
+    const maxDepth =
+      (context as SanitizationContext).maxDepth || this.defaultMaxDepth;
     const currentDepth = (context as SanitizationContext).currentDepth || 0;
 
     if (currentDepth >= maxDepth) {

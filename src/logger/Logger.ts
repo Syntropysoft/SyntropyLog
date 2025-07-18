@@ -65,7 +65,10 @@ export class Logger {
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to be logged, following the Pino-like signature (e.g., `(obj, msg, ...)` or `(msg, ...)`).
    * @returns {Promise<void>}
    */
-  private async _log(level: LogLevel, ...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
+  private async _log(
+    level: LogLevel,
+    ...args: (LogFormatArg | LogMetadata | JsonValue)[]
+  ): Promise<void> {
     if (level === 'silent') {
       return;
     }

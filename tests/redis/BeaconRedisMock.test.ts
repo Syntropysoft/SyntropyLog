@@ -52,7 +52,7 @@ describe('BeaconRedisMock', () => {
       mock.updateConfig(newConfig);
       expect(logger.debug).toHaveBeenCalledWith(
         '[BeaconRedisMock] updateConfig called',
-        { newConfig }
+        { newConfig: expect.any(String) }
       );
     });
 

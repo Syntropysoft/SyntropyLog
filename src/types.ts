@@ -1,6 +1,6 @@
 /**
  * SyntropyLog Types - Imports shared types from @syntropylog/types
- * 
+ *
  * This file now imports the fundamental types from the shared types package
  * and only contains types specific to this module.
  */
@@ -48,7 +48,7 @@ export {
   TimeoutStrategyDistribution,
   SerializationMetrics,
   // Logging types
-  LoggerDependencies
+  LoggerDependencies,
 } from '@syntropylog/types';
 
 // Redefine SerializableData as 'any' for maximum flexibility in this module

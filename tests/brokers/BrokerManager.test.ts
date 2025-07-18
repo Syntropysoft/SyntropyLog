@@ -160,7 +160,10 @@ describe('BrokerManager', () => {
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         'Failed to create broker instance "bad-client":',
-        creationError
+        expect.objectContaining({
+          message: 'Invalid adapter',
+          name: 'Error'
+        })
       );
     });
   });

@@ -9,9 +9,7 @@ import {
   SerializationResult,
   SerializationComplexity,
 } from './types';
-import {
-  SerializationPipeline,
-} from './SerializationPipeline';
+import { SerializationPipeline } from './SerializationPipeline';
 import { SerializationPipelineContext } from '../types';
 import { SerializationStep } from './pipeline/SerializationStep';
 import { SanitizationStep } from './pipeline/SanitizationStep';

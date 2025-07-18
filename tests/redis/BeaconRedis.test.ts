@@ -90,8 +90,8 @@ describe('BeaconRedis', () => {
       beaconRedis.updateConfig(newConfig);
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        'Dynamically updating Redis instance configuration...',
-        { newConfig }
+        { newConfig },
+        'Dynamically updating Redis instance configuration...'
       );
 
       // Now execute a command and verify the new logging level is used
@@ -183,7 +183,10 @@ describe('BeaconRedis', () => {
         expect.objectContaining({
           command: 'GET',
           instance: 'test-instance',
-          err: commandError,
+          err: expect.objectContaining({
+            message: 'Redis command failed',
+            name: 'Error'
+          }),
           params: undefined,
         }),
         'Redis command [GET] failed.'
@@ -217,7 +220,10 @@ describe('BeaconRedis', () => {
         expect.objectContaining({
           command: 'GET',
           instance: 'test-instance',
-          err: commandError,
+          err: expect.objectContaining({
+            message: 'Redis command failed',
+            name: 'Error'
+          }),
           params: ['failing-key'],
         }),
         'Redis command [GET] failed.'
@@ -1294,7 +1300,10 @@ describe('BeaconRedis', () => {
         expect.objectContaining({
           command: 'GET',
           instance: 'test-instance',
-          err: connectionError,
+          err: expect.objectContaining({
+            message: 'Connection failed',
+            name: 'Error'
+          }),
         }),
         'Redis command [GET] failed.'
       );

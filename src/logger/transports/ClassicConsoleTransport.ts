@@ -72,14 +72,21 @@ export class ClassicConsoleTransport extends BaseConsolePrettyTransport {
     const serviceStr = this.chalk.magenta(`[${service}]`);
 
     // 4. Combine context, other metadata, and message, then format it.
-    const allMeta = { ...(context as Record<string, unknown> || {}), ...rest, message };
+    const allMeta = {
+      ...((context as Record<string, unknown>) || {}),
+      ...rest,
+      message,
+    };
     const metaKeys = Object.keys(allMeta);
     let metaStr = '';
     if (metaKeys.length > 0) {
       metaStr = this.chalk.dim(
         ' [' +
           metaKeys
-            .map((key) => `${key}=${JSON.stringify((allMeta as Record<string, unknown>)[key])}`)
+            .map(
+              (key) =>
+                `${key}=${JSON.stringify((allMeta as Record<string, unknown>)[key])}`
+            )
             .join(' ') +
           ']'
       );

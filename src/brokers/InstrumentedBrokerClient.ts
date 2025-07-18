@@ -121,12 +121,24 @@ export class InstrumentedBrokerClient {
     }
 
     this.logger.info(
-      { topic, messageId: message.headers?.['id'] instanceof Buffer ? message.headers?.['id'].toString() : message.headers?.['id'] } as any,
+      {
+        topic,
+        messageId:
+          message.headers?.['id'] instanceof Buffer
+            ? message.headers?.['id'].toString()
+            : message.headers?.['id'],
+      } as any,
       'Publishing message...'
     );
     await this.adapter.publish(topic, message);
     this.logger.info(
-      { topic, messageId: message.headers?.['id'] instanceof Buffer ? message.headers?.['id'].toString() : message.headers?.['id'] } as any,
+      {
+        topic,
+        messageId:
+          message.headers?.['id'] instanceof Buffer
+            ? message.headers?.['id'].toString()
+            : message.headers?.['id'],
+      } as any,
       'Message published successfully.'
     );
   }

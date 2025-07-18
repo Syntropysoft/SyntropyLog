@@ -114,8 +114,13 @@ describe('HttpManager', () => {
       manager.init();
 
       expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to create HTTP client instance "faulty-api"',
-        { error },
+        expect.objectContaining({
+          error: expect.objectContaining({
+            message: 'Adapter configuration is broken',
+            name: 'Error'
+          })
+        }),
+        'Failed to create HTTP client instance "faulty-api"'
       );
     });
   });

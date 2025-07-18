@@ -816,6 +816,8 @@ export class BeaconRedisMock implements IBeaconRedis {
    * @param {Partial<any>} newConfig - The configuration object.
    */
   public updateConfig(newConfig: Partial<any>): void {
-    this.logger.debug('[BeaconRedisMock] updateConfig called', { newConfig: JSON.stringify(newConfig) });
+    this.logger.debug('[BeaconRedisMock] updateConfig called', {
+      newConfig: JSON.stringify(newConfig),
+    });
   }
 }

@@ -177,7 +177,9 @@ export class LifecycleManager extends EventEmitter {
     } catch (error) {
       this.state = 'ERROR';
       this.emit('error', error);
-      this.logger?.error('❌ Error during shutdown:', { error: errorToJsonValue(error) });
+      this.logger?.error('❌ Error during shutdown:', {
+        error: errorToJsonValue(error),
+      });
     }
   }
 
@@ -274,7 +276,9 @@ export class LifecycleManager extends EventEmitter {
         this.logger?.info('No regex-test processes found to terminate');
       }
     } catch (error) {
-      this.logger?.warn('Error terminating external processes:', { error: errorToJsonValue(error) });
+      this.logger?.warn('Error terminating external processes:', {
+        error: errorToJsonValue(error),
+      });
     }
   }
 
