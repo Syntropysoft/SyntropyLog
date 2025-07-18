@@ -668,3 +668,7 @@ $RECYCLE.BIN/
 
 # SyntropyLog modules (examples and adapters)
 modules/
+# Allow git submodules to be tracked
+!modules/@syntropylog/
+!modules/external-adapters
+!modules/syntropyLog-examples
