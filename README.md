@@ -22,6 +22,15 @@
 **The Observability Framework for High-Performance Teams.**
 Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
+> **⚠️ ALPHA VERSION WARNING** ⚠️
+> 
+> **SyntropyLog is currently in ALPHA phase (v0.6.1-alpha.0).**
+> 
+> - **Not ready for production use**
+> - **API may change between versions**
+> - **Use for learning and experimentation only**
+> - **Examples use alpha version: `syntropylog@0.6.1-alpha.0`**
+
 > ## 🚀 Project Status: Alpha Version v0.6.1-alpha.0 🚀
 >
 > **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
@@ -100,6 +109,8 @@ graph TD
 ---
 
 ## ⚡ Quick Start
+
+> **⚠️ ALPHA VERSION**: This example uses `syntropylog@0.6.1-alpha.0`. For production use, wait for stable release.
 
 This example shows how to initialize the logger and make an instrumented HTTP request.
 
@@ -272,10 +283,17 @@ npm run format             # Format code
 
 ## 📦 Installation
 
-> **⚠️ Alpha Version Warning**: SyntropyLog is currently in alpha phase. The API may change between versions. Use with caution in production environments.
+> **⚠️ ALPHA VERSION WARNING** ⚠️
+> 
+> **SyntropyLog is currently in ALPHA phase (v0.6.1-alpha.0).**
+> 
+> - **Not ready for production use**
+> - **API may change between versions**
+> - **Use for learning and experimentation only**
+> - **Examples require alpha version: `syntropylog@0.6.1-alpha.0`**
 
 ```bash
-npm install syntropylog
+npm install syntropylog@0.6.1-alpha.0
 ```
 
 ## 🔌 Supported Dependencies
