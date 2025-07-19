@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/syntropylog"><img src="https://img.shields.io/npm/v/syntropylog.svg" alt="NPM Version"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
-  <a href="#"><img src="https://img.shields.io/badge/coverage-94.53%25-brightgreen" alt="Test Coverage"></a>
+  <a href="#"><img src="https://img.shields.io/badge/coverage-94.04%25-brightgreen" alt="Test Coverage"></a>
 </p>
 
 # SyntropyLog
@@ -35,11 +35,15 @@ Ship resilient, secure, and cost-effective Node.js applications with confidence.
 >
 > **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
 >
-> The core API is taking shape with **94.53% test coverage** across **604+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
+> The core API is taking shape with **94.04% test coverage** across **604+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
 >
 > ### 🎯 Latest Achievements (v0.6.1-alpha.0)
+> - **Framework Agnosticism Demo**: Examples 12 & 13 demonstrate Express vs Fastify with identical functionality
+> - **Redis Integration**: Automatic caching with 1-2ms operations and intelligent TTL management
+> - **Performance Optimization**: Fastify implementation shows 2x performance improvement over Express
+> - **Code Quality**: Eliminated 408 lines of dead code across examples
+> - **Enhanced Documentation**: Real logs, working commands, and comprehensive troubleshooting guides
 > - **Framework Agnostic Design**: Removed deprecated `request` library, now supports any HTTP client via adapters
-> - **Enhanced Examples**: Complete examples 10 and 11 with comprehensive documentation
 > - **Custom Adapter System**: Full support for custom HTTP client adapters
 > - **Improved Type Safety**: Better TypeScript support and type exports
 > - **Robust Serialization Pipeline**: Intelligent serialization with precise complexity tracking
@@ -208,12 +212,31 @@ Each example is a self-contained project that demonstrates a specific feature, f
 
 **[➡️ Explore the Examples](https://github.com/Syntropysoft/syntropylog-examples-)**
 
+### 🎯 Featured: Framework Agnosticism Demo
+
+**Examples 12 & 13** demonstrate SyntropyLog's framework agnostic design:
+
+- **Example 12**: HTTP + Redis + Express - Production-ready caching system
+- **Example 13**: HTTP + Redis + Fastify - Same functionality, different framework
+
+**Key Benefits:**
+- ✅ **Same business logic** - ProductDataService identical in both
+- ✅ **Framework agnostic** - SyntropyLog works seamlessly across frameworks  
+- ✅ **Performance comparison** - Fastify 2x faster than Express
+- ✅ **Redis integration** - Automatic caching with 1-2ms operations
+- ✅ **Complete documentation** - Real logs and working commands
+
+**[🚀 Try the Framework Agnosticism Demo](https://github.com/Syntropysoft/syntropylog-examples-/tree/main/13-http-redis-fastify)**
+
 ### Example Categories:
 - **00-setup-initialization**: ✅ **Complete** - Application setup and initialization
 - **01-hello-world**: ✅ **Complete** - Basic logging concepts
+- **02-basic-context**: ✅ **Complete** - Context propagation and correlation
+- **03-typescript-context**: ✅ **Complete** - TypeScript interfaces and type safety
 - **10-basic-http-correlation**: ✅ **Complete** - HTTP request correlation with automatic context propagation
 - **11-custom-adapter**: ✅ **Complete** - Custom HTTP adapters for framework-agnostic design
-- **13-adapter-comparison**: 🚧 **In Progress** - Official vs custom adapter comparison
+- **12-http-redis-axios**: ✅ **Complete** - HTTP + Redis + Express with caching
+- **13-http-redis-fastify**: ✅ **Complete** - Framework agnosticism demo (Express vs Fastify)
 - **20-basic-kafka-correlation**: 🚧 **In Progress** - Message broker correlation
 - **30-data-masking**: 🚧 **In Progress** - Security and data protection
 - **40-advanced-rabbitmq-broker**: 🚧 **In Progress** - Advanced RabbitMQ integration

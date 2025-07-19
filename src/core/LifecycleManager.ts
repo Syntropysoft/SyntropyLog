@@ -5,8 +5,7 @@ import { syntropyLogConfigSchema } from '../config.schema';
 import { ContextManager, IContextManager } from '../context';
 import { ILogger } from '../logger';
 import { LoggerFactory } from '../logger/LoggerFactory';
-// Dynamic import for Redis to avoid requiring it when not used
-// import { RedisManager } from '../redis/RedisManager';
+import { RedisManager } from '../redis/RedisManager';
 import { sanitizeConfig } from '../utils/sanitizeConfig';
 import { HttpManager } from '../http/HttpManager';
 import { BrokerManager } from '../brokers/BrokerManager';
@@ -14,6 +13,7 @@ import { SerializerRegistry } from '../serialization/SerializerRegistry';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
 import { errorToJsonValue } from '../types';
+import { IBeaconRedis } from '../redis/IBeaconRedis';
 
 export type SyntropyLogState =
   | 'NOT_INITIALIZED'
@@ -28,7 +28,7 @@ export class LifecycleManager extends EventEmitter {
   public config: SyntropyLogConfig | undefined;
   public contextManager: IContextManager | undefined;
   public loggerFactory: LoggerFactory | undefined;
-  public redisManager: any | undefined;
+  public redisManager: any | undefined; // ✅ Internal, no exposed
   public httpManager: HttpManager | undefined;
   public brokerManager: BrokerManager | undefined;
   public serializerRegistry: SerializerRegistry;
@@ -91,6 +91,7 @@ export class LifecycleManager extends EventEmitter {
             logger.withSource('redis-manager'),
             this.contextManager
           );
+          this.redisManager.init();
         } catch (error) {
           logger.error(
             'Failed to initialize Redis manager. Make sure redis package is installed.',
@@ -286,7 +287,7 @@ export class LifecycleManager extends EventEmitter {
     config: SyntropyLogConfig;
     contextManager: IContextManager;
     loggerFactory: LoggerFactory;
-    redisManager: any;
+    redisManager: any; // ✅ Internal, no exposed
     httpManager: HttpManager;
     brokerManager: BrokerManager;
   } {

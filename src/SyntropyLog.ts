@@ -15,6 +15,7 @@ import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
 import { LogLevel } from './logger/levels';
 // Dynamic import for Redis to avoid requiring it when not used
 // import { RedisConnectionManager } from './redis/RedisConnectionManager';
+import { IBeaconRedis } from './redis/IBeaconRedis';
 
 /**
  * @class SyntropyLog
@@ -63,7 +64,7 @@ export class SyntropyLog extends EventEmitter {
     return this.lifecycleManager.loggerFactory.getLogger(name, bindings);
   }
 
-  public async getRedis(name: string): Promise<any> {
+  public async getRedis(name: string): Promise<IBeaconRedis> {
     this.lifecycleManager.ensureReady();
     if (!this.lifecycleManager.redisManager) {
       throw new Error(
