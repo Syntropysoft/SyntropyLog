@@ -38,6 +38,9 @@ Ship resilient, secure, and cost-effective Node.js applications with confidence.
 > The core API is taking shape with **94.04% test coverage** across **604+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
 >
 > ### 🎯 Latest Achievements (v0.6.1-alpha.0)
+> - **Redis Architecture Improvements**: Refactored RedisManager to use BeaconRedis for better separation of concerns
+> - **Enhanced Error Handling**: Graceful handling of empty Redis configurations without throwing errors
+> - **Robust Test Suite**: Fixed RedisManager tests with proper mocking and achieved 94.04% coverage (604 tests)
 > - **Framework Agnosticism Demo**: Examples 12 & 13 demonstrate Express vs Fastify with identical functionality
 > - **Redis Integration**: Automatic caching with 1-2ms operations and intelligent TTL management
 > - **Performance Optimization**: Fastify implementation shows 2x performance improvement over Express
@@ -47,7 +50,6 @@ Ship resilient, secure, and cost-effective Node.js applications with confidence.
 > - **Custom Adapter System**: Full support for custom HTTP client adapters
 > - **Improved Type Safety**: Better TypeScript support and type exports
 > - **Robust Serialization Pipeline**: Intelligent serialization with precise complexity tracking
-> - **Enhanced Test Suite**: Achieved 94.53% coverage with 604+ comprehensive tests
 >
 > We're actively working on completing examples, refining the API, and adding missing features. Your feedback and contributions are highly welcome!
 
