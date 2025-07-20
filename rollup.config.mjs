@@ -4,6 +4,7 @@ import resolve from '@rollup/plugin-node-resolve';
 import json from '@rollup/plugin-json';
 import dts from 'rollup-plugin-dts';
 import { builtinModules } from 'node:module';
+import path from 'path';
 // --- THE FIX IS HERE ---
 // Use the new, standard `with` syntax for JSON imports.
 // This is compatible with modern Node.js versions (including 20 and 22).
@@ -37,12 +38,14 @@ const createEntryConfig = (
   input: inputFile,
   output: [
     {
-      file: `${baseOutputName}.cjs`,
+      dir: path.dirname(baseOutputName),
+      entryFileNames: path.basename(baseOutputName) + '.cjs',
       format: 'cjs',
       sourcemap: true,
     },
     {
-      file: `${baseOutputName}.mjs`,
+      dir: path.dirname(baseOutputName),
+      entryFileNames: path.basename(baseOutputName) + '.mjs',
       format: 'esm',
       sourcemap: true,
     },
@@ -68,14 +71,12 @@ export default [
     inlineDynamicImports: true,
     output: [
       {
-        dir: './dist',
-        entryFileNames: 'index.cjs',
+        file: './dist/index.cjs',
         format: 'cjs',
         sourcemap: true,
       },
       {
-        dir: './dist',
-        entryFileNames: 'index.mjs',
+        file: './dist/index.mjs',
         format: 'esm',
         sourcemap: true,
       },

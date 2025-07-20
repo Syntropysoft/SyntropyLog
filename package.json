@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.6.3-alpha.0",
+  "version": "0.6.4-alpha.0",
   "description": "A modern, composable observability framework for Node.js",
   "author": "Gabriel Alejandro Gomez",
   "license": "Apache-2.0",
@@ -128,7 +128,7 @@
     "lint-staged": "^15.5.2",
     "prettier": "^3.1.1",
     "redis": "^4.6.12",
-    "rollup": "^4.9.2",
+    "rollup": "^3.29.5",
     "rollup-plugin-dts": "^6.1.0",
     "tslib": "^2.6.2",
     "typescript": "^5.8.3",
