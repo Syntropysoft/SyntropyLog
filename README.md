@@ -24,20 +24,20 @@ Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
 > **⚠️ ALPHA VERSION WARNING** ⚠️
 > 
-> **SyntropyLog is currently in ALPHA phase (0.6.3-alpha.0).**
+> **SyntropyLog is currently in ALPHA phase (0.6.2-alpha.0).**
 > 
 > - **Not ready for production use**
 > - **API may change between versions**
 > - **Use for learning and experimentation only**
-> - **Examples use alpha version: `syntropylog@0.6.3-alpha.0`**
+> - **Examples use alpha version: `syntropylog@0.6.2-alpha.0`**
 
-> ## 🚀 Project Status: Alpha Version 0.6.3-alpha.0 🚀
+> ## 🚀 Project Status: Alpha Version 0.6.2-alpha.0 🚀
 >
 > **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
 >
 > The core API is taking shape with **94.04% test coverage** across **604+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
 >
-> ### 🎯 Latest Achievements (0.6.3-alpha.0)
+> ### 🎯 Latest Achievements (0.6.2-alpha.0)
 > - **Redis Architecture Improvements**: Refactored RedisManager to use BeaconRedis for better separation of concerns
 > - **Enhanced Error Handling**: Graceful handling of empty Redis configurations without throwing errors
 > - **Robust Test Suite**: Fixed RedisManager tests with proper mocking and achieved 94.04% coverage (604 tests)
@@ -116,7 +116,7 @@ graph TD
 
 ## ⚡ Quick Start
 
-> **⚠️ ALPHA VERSION**: This example uses `syntropylog@0.6.3-alpha.0`. For production use, wait for stable release.
+> **⚠️ ALPHA VERSION**: This example uses `syntropylog@0.6.2-alpha.0`. For production use, wait for stable release.
 
 ### 🚀 Basic Configuration (Get Started in 30 Seconds)
 
@@ -889,7 +889,7 @@ Each example is a self-contained project that demonstrates a specific feature, f
 
 SyntropyLog is built with quality and reliability in mind:
 
-- **94.53% Test Coverage** across 604+ tests
+- **94.04% Test Coverage** across 604+ tests
 - **45 Test Files** covering all major components
 - **Integration Tests** for end-to-end scenarios
 - **Comprehensive Mock System** for easy testing
@@ -944,15 +944,15 @@ npm run format             # Format code
 
 > **⚠️ ALPHA VERSION WARNING** ⚠️
 > 
-> **SyntropyLog is currently in ALPHA phase (0.6.3-alpha.0).**
+> **SyntropyLog is currently in ALPHA phase (0.6.2-alpha.0).**
 > 
 > - **Not ready for production use**
 > - **API may change between versions**
 > - **Use for learning and experimentation only**
-> - **Examples require alpha version: `syntropylog@0.6.3-alpha.0`**
+> - **Examples require alpha version: `syntropylog@0.6.2-alpha.0`**
 
 ```bash
-npm install syntropylog@0.6.3-alpha.0
+npm install syntropylog@0.6.2-alpha.0
 ```
 
 ## 🔌 Supported Dependencies
