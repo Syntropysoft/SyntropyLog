@@ -24,20 +24,20 @@ Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
 > **⚠️ ALPHA VERSION WARNING** ⚠️
 > 
-> **SyntropyLog is currently in ALPHA phase (v0.6.1-alpha.0).**
+> **SyntropyLog is currently in ALPHA phase (0.6.3-alpha.0).**
 > 
 > - **Not ready for production use**
 > - **API may change between versions**
 > - **Use for learning and experimentation only**
-> - **Examples use alpha version: `syntropylog@0.6.1-alpha.0`**
+> - **Examples use alpha version: `syntropylog@0.6.3-alpha.0`**
 
-> ## 🚀 Project Status: Alpha Version v0.6.1-alpha.0 🚀
+> ## 🚀 Project Status: Alpha Version 0.6.3-alpha.0 🚀
 >
 > **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
 >
 > The core API is taking shape with **94.04% test coverage** across **604+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
 >
-> ### 🎯 Latest Achievements (v0.6.1-alpha.0)
+> ### 🎯 Latest Achievements (0.6.3-alpha.0)
 > - **Redis Architecture Improvements**: Refactored RedisManager to use BeaconRedis for better separation of concerns
 > - **Enhanced Error Handling**: Graceful handling of empty Redis configurations without throwing errors
 > - **Robust Test Suite**: Fixed RedisManager tests with proper mocking and achieved 94.04% coverage (604 tests)
@@ -116,23 +116,44 @@ graph TD
 
 ## ⚡ Quick Start
 
-> **⚠️ ALPHA VERSION**: This example uses `syntropylog@0.6.1-alpha.0`. For production use, wait for stable release.
+> **⚠️ ALPHA VERSION**: This example uses `syntropylog@0.6.3-alpha.0`. For production use, wait for stable release.
 
-This example shows how to initialize the logger and make an instrumented HTTP request.
+### 🚀 Basic Configuration (Get Started in 30 Seconds)
+
+The simplest way to get started with SyntropyLog:
+
+```typescript
+import { syntropyLog } from 'syntropylog';
+
+// Initialize with minimal configuration
+await syntropyLog.init({
+  logger: {
+    serviceName: 'my-app',
+    level: 'info',
+  },
+});
+
+// Use it immediately
+const logger = syntropyLog.getLogger();
+logger.info('Hello, SyntropyLog!');
+```
+
+### 🔧 Standard Configuration (Most Common Use Case)
+
+For most applications, you'll want HTTP instrumentation and context management:
 
 ```typescript
 import { syntropyLog, PrettyConsoleTransport } from 'syntropylog';
 import { AxiosAdapter } from '@syntropylog/adapters';
 import axios from 'axios';
 
-// 1. Configure SyntropyLog once in your application's entry point.
-syntropyLog.init({
+await syntropyLog.init({
   logger: {
     level: 'info',
     serviceName: 'my-app',
     transports: [new PrettyConsoleTransport()], // Human-readable for dev
   },
-  // Define what context gets logged. Keep it minimal by default, but verbose on error.
+  // Smart context logging: minimal by default, verbose on errors
   loggingMatrix: {
     default: ['correlationId'],
     error: ['*'], // '*' means log the entire context
@@ -151,11 +172,10 @@ syntropyLog.init({
   },
 });
 
-// 2. Get the instrumented client and logger anywhere you need them.
+// Use the instrumented client and logger
 const apiClient = syntropyLog.getHttp('myApi');
 const logger = syntropyLog.getLogger();
 
-// 3. Use them. The framework handles the rest.
 async function main() {
     // Add extra data to the context for this specific operation
     syntropyLog.getContextManager().set('userId', 123);
@@ -175,6 +195,620 @@ async function main() {
 
 main();
 ```
+
+### 🦚 Complete Configuration Reference (Show Off Mode)
+
+Ready to see the full power of SyntropyLog? Here's every configuration option available:
+
+```typescript
+import { syntropyLog, PrettyConsoleTransport, ClassicConsoleTransport } from 'syntropylog';
+import { AxiosAdapter, FetchAdapter } from '@syntropylog/adapters';
+import { KafkaAdapter, NatsAdapter, RabbitMQAdapter } from '@syntropylog/adapters';
+import { PrismaSerializer, TypeORMSerializer } from '@syntropylog/adapters';
+import axios from 'axios';
+
+await syntropyLog.init({
+  // 🎯 Logger Configuration
+  logger: {
+    name: 'my-custom-logger',
+    level: 'info', // 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'silent'
+    serviceName: 'my-enterprise-app',
+    transports: process.env.NODE_ENV !== 'production' 
+      ? [new PrettyConsoleTransport()] // Human-readable for development
+      : [
+          new ClassicConsoleTransport(), // JSON for production
+          new CustomDataDogTransport(), // Custom transport for DataDog
+          new KafkaLogTransport({ // Send logs to Kafka for aggregation
+            brokers: ['log-kafka:9092'],
+            topic: 'application-logs',
+          }),
+          // You can create custom transports for any logging service
+          // new ElasticsearchTransport({ url: 'http://elasticsearch:9200' }),
+          // new SplunkTransport({ token: process.env.SPLUNK_TOKEN }),
+          // new OpenTelemetryTransport({ // 🚧 Coming Soon
+          //   endpoint: 'http://otel-collector:4317',
+          //   serviceName: 'my-enterprise-app',
+          //   serviceVersion: '1.0.0',
+          // }),
+        ],
+    serializers: {
+      // Custom serializers for complex objects
+      user: (user) => `${user.id}:${user.email}`,
+      request: (req) => `${req.method} ${req.url}`,
+    },
+    serializerTimeoutMs: 50, // Prevent slow serializers from blocking
+    prettyPrint: {
+      enabled: process.env.NODE_ENV !== 'production',
+    },
+  },
+
+  // 🧠 Smart Context Logging Matrix
+  loggingMatrix: {
+    default: ['correlationId', 'serviceName'], // Minimal context for success logs
+    trace: ['*'], // Full context for debugging
+    debug: ['correlationId', 'userId', 'operation'],
+    info: ['correlationId', 'serviceName'],
+    warn: ['correlationId', 'userId', 'errorCode'],
+    error: ['*'], // Full context when things go wrong
+    fatal: ['*'], // Everything for critical failures
+  },
+
+  // 🌐 HTTP Client Configuration
+  http: {
+    instances: [
+      {
+        instanceName: 'userApi',
+        adapter: new AxiosAdapter(axios.create({ 
+          baseURL: 'https://api.users.com',
+          timeout: 5000,
+        })),
+        isDefault: true,
+        propagate: ['correlationId', 'userId', 'tenantId'], // Custom context propagation
+        logging: {
+          onSuccess: 'debug', // Log successful requests at debug level
+          onError: 'error',
+          logSuccessBody: false, // Don't log response bodies
+          logSuccessHeaders: false,
+          onRequest: 'info',
+          logRequestBody: true, // Log request bodies for debugging
+          logRequestHeaders: false,
+        },
+      },
+      {
+        instanceName: 'paymentApi',
+        adapter: new FetchAdapter(), // Use native fetch
+        propagate: ['correlationId', 'paymentId'],
+        logging: {
+          onSuccess: 'info',
+          onError: 'warn',
+          logSuccessBody: true, // Log payment responses
+          logRequestHeaders: true, // Log auth headers
+        },
+      },
+    ],
+    default: 'userApi',
+  },
+
+  // 📡 Message Broker Configuration
+  brokers: {
+    instances: [
+      {
+        instanceName: 'events',
+        adapter: new KafkaAdapter({
+          brokers: ['localhost:9092'],
+          clientId: 'my-app',
+        }),
+        propagate: ['correlationId', 'userId', 'eventType'],
+      },
+      {
+        instanceName: 'notifications',
+        adapter: new NatsAdapter({
+          servers: ['nats://localhost:4222'],
+        }),
+        propagate: ['*'], // Propagate all context
+      },
+      {
+        instanceName: 'orderProducer',
+        adapter: new RabbitMQAdapter({
+          url: 'amqp://localhost:5672',
+          exchange: 'orders',
+          routingKey: 'order.created',
+        }),
+        propagate: ['correlationId', 'userId', 'orderId'],
+      },
+      {
+        instanceName: 'orderConsumer',
+        adapter: new RabbitMQAdapter({
+          url: 'amqp://localhost:5672',
+          queue: 'order-processing',
+          exchange: 'orders',
+          routingKey: 'order.created',
+        }),
+        propagate: ['correlationId', 'orderId', 'processorId'],
+      },
+      {
+        instanceName: 'analyticsCluster',
+        adapter: new RabbitMQAdapter({
+          urls: [
+            'amqp://rabbit1:5672',
+            'amqp://rabbit2:5672',
+            'amqp://rabbit3:5672',
+          ],
+          exchange: 'analytics',
+          routingKey: 'data.processed',
+        }),
+        propagate: ['correlationId', 'dataType', 'processedAt'],
+      },
+    ],
+    default: 'events',
+  },
+
+  // 🗄️ Redis Configuration
+  redis: {
+    instances: [
+      {
+        instanceName: 'cache',
+        mode: 'single',
+        url: 'redis://localhost:6379',
+        retryOptions: {
+          maxRetries: 3,
+          retryDelay: 1000,
+        },
+        logging: {
+          onSuccess: 'debug',
+          onError: 'error',
+          logCommandValues: true, // Log Redis commands
+          logReturnValue: false, // Don't log return values
+        },
+      },
+      {
+        instanceName: 'session',
+        mode: 'sentinel',
+        name: 'mymaster',
+        sentinels: [
+          { host: 'sentinel1', port: 26379 },
+          { host: 'sentinel2', port: 26379 },
+        ],
+        sentinelPassword: 'secret',
+        logging: {
+          onSuccess: 'trace', // Very detailed logging
+          onError: 'fatal',
+          logCommandValues: false, // Don't log session data
+          logReturnValue: false,
+        },
+      },
+      {
+        instanceName: 'analytics',
+        mode: 'cluster',
+        rootNodes: [
+          { host: 'cluster1', port: 7000 },
+          { host: 'cluster2', port: 7000 },
+        ],
+      },
+    ],
+    default: 'cache',
+  },
+
+  // 🔒 Data Masking Configuration
+  masking: {
+    fields: [
+      'password',
+      'creditCard',
+      'ssn',
+      /token/i, // Regex for any field containing 'token'
+      /secret/i,
+    ],
+    maskChar: '*',
+    maxDepth: 3, // Don't mask deeper than 3 levels
+    style: 'fixed', // 'fixed' | 'preserve-length'
+  },
+
+  // 🔗 Context Propagation Configuration
+  context: {
+    correlationIdHeader: 'X-Correlation-ID',
+    transactionIdHeader: 'X-Trace-ID',
+  },
+
+  // ⏱️ Shutdown Configuration
+  shutdownTimeout: 10000, // 10 seconds for graceful shutdown
+
+  // 🩺 Doctor CLI Configuration
+  doctor: {
+    disableRules: ['rule-id-1', 'rule-id-2'], // Disable specific validation rules
+  },
+});
+```
+
+### 🎯 What This Configuration Gives You
+
+- **🔍 Granular Logging Control**: Different log levels for different operations
+- **🛡️ Security by Default**: Automatic masking of sensitive data
+- **🌐 Multi-Client Support**: HTTP, Redis, and message brokers with custom adapters
+- **📡 Multi-Broker Architecture**: Kafka, NATS, and RabbitMQ with producer/consumer patterns
+- **📊 Context-Aware Logging**: Smart context inclusion based on log level
+- **🚀 Environment-Aware Transports**: Different logging strategies for dev vs production
+- **⚡ Performance Optimization**: Configurable timeouts and retry strategies
+- **🔧 Framework Agnostic**: Works with any HTTP client, database, or message broker
+- **🩺 Built-in Diagnostics**: Doctor CLI for configuration validation
+- **🏗️ Scalable Architecture**: Support for clusters, sentinels, and distributed systems
+
+### 🎭 Logger API Showcase
+
+See the full power of the fluent logger API:
+
+```typescript
+// Get the logger instance
+const logger = syntropyLog.getLogger('user-service');
+
+// Basic logging with context
+logger.info('User logged in successfully');
+
+// Fluent API with source and transaction tracking
+logger
+  .withSource('auth-controller')
+  .withTransactionId('tx-12345')
+  .withRetention('audit') // Special retention for compliance
+  .info('User authentication completed', { 
+    userId: 123, 
+    method: 'oauth2',
+    provider: 'google' 
+  });
+
+// Error logging with full context
+logger
+  .withSource('payment-processor')
+  .withTransactionId('tx-67890')
+  .error({ err: paymentError }, 'Payment processing failed', {
+    orderId: 'ord-456',
+    amount: 99.99,
+    currency: 'USD'
+  });
+
+// Debug with custom context
+logger
+  .withSource('cache-manager')
+  .debug('Cache miss for user profile', {
+    cacheKey: 'user:123:profile',
+    ttl: 3600,
+    hitRate: 0.85
+  });
+
+// Fatal with retention and source
+logger
+  .withSource('database-connection')
+  .withRetention('permanent') // Never delete these logs
+  .fatal('Database connection pool exhausted', {
+    activeConnections: 100,
+    maxConnections: 100,
+    queueLength: 50
+  });
+
+// Trace with detailed context
+logger
+  .withSource('sql-query')
+  .trace('Executing complex query', {
+    query: 'SELECT * FROM users WHERE status = ? AND created_at > ?',
+    params: ['active', '2024-01-01'],
+    executionTime: 45.2
+  });
+```
+
+### 🛡️ Compliance & Security Features
+
+#### 📋 **Retention Rules (Reglas de Retención)**
+
+SyntropyLog provides flexible retention policies with JSON-based configuration:
+
+```typescript
+// Retention Configuration Enums - Type-safe compliance rules
+enum Duration {
+  TEMPORARY = '7d',    // 7 days
+  STANDARD = '30d',    // 30 days
+  ARCHIVE = '1y',      // 1 year
+  AUDIT = '7y',        // 7 years
+  FOREVER = 'forever'  // Never delete
+}
+
+enum Compliance {
+  BASIC = 'basic',
+  SOX = 'SOX',         // Sarbanes-Oxley
+  SEC = 'SEC',         // Securities and Exchange Commission
+  GDPR = 'GDPR',       // General Data Protection Regulation
+  PCI_DSS = 'PCI-DSS', // Payment Card Industry
+  HIPAA = 'HIPAA'      // Health Insurance Portability
+}
+
+enum Encryption {
+  AES_128 = 'AES-128',
+  AES_256 = 'AES-256',
+  FIPS_140_2 = 'FIPS-140-2'
+}
+
+enum Backup {
+  STANDARD = 'standard',
+  GEO_REDUNDANT = 'geo-redundant',
+  MULTI_REGION = 'multi-region'
+}
+
+enum Access {
+  READ_WRITE = 'read-write',
+  READ_ONLY = 'read-only',
+  RESTRICTED = 'restricted'
+}
+
+enum Audit {
+  NONE = 'none',
+  BASIC = 'basic',
+  FULL_TRAIL = 'full-trail'
+}
+
+enum Legal {
+  NONE = 'none',
+  HOLD = 'hold',
+  LITIGATION = 'litigation'
+}
+
+// Retention Policy Enum - Predefined JSON configurations
+enum RetentionPolicy {
+  STANDARD = {
+    duration: Duration.STANDARD,
+    compliance: Compliance.BASIC,
+    encryption: Encryption.AES_128
+  },
+  AUDIT = {
+    duration: Duration.AUDIT,
+    compliance: Compliance.SOX,
+    encryption: Encryption.AES_256,
+    audit: Audit.FULL_TRAIL
+  },
+  PERMANENT = {
+    duration: Duration.FOREVER,
+    compliance: Compliance.SEC,
+    encryption: Encryption.FIPS_140_2,
+    legal: Legal.HOLD
+  },
+  TEMPORARY = {
+    duration: Duration.TEMPORARY,
+    compliance: Compliance.BASIC,
+    encryption: Encryption.AES_128,
+    deletion: 'automatic'
+  },
+  ARCHIVE = {
+    duration: Duration.ARCHIVE,
+    compliance: Compliance.BASIC,
+    encryption: Encryption.AES_256,
+    backup: Backup.STANDARD
+  }
+}
+
+// Usage with predefined JSON enum
+logger
+  .withRetention(RetentionPolicy.AUDIT)  // ✅ Valid - 7 years retention with SOX compliance
+  .info('Sensitive audit log');
+
+// Usage with custom JSON configuration using enums
+logger
+  .withRetention({
+    duration: Duration.AUDIT,           // 7 years
+    compliance: Compliance.SOX,         // SOX compliance
+    encryption: Encryption.AES_256,     // Encrypted storage
+    backup: Backup.GEO_REDUNDANT,       // Geographic redundancy
+    access: Access.READ_ONLY           // Immutable after creation
+  })
+  .info('Financial transaction log');
+
+// ⚠️ IMPORTANT: JSON is completely flexible - no field restrictions!
+// You can use any JSON structure, nested objects, arrays, etc.
+logger
+  .withRetention({
+    // Custom fields - no restrictions
+    myCustomField: 'any value',
+    nestedObject: {
+      level1: {
+        level2: {
+          level3: 'deep nesting is allowed'
+        }
+      }
+    },
+    arrayOfValues: ['item1', 'item2', 'item3'],
+    complexStructure: {
+      rules: {
+        retention: '7y',
+        encryption: 'AES-256',
+        customFlags: {
+          audit: true,
+          backup: 'geo-redundant',
+          compliance: ['SOX', 'GDPR']
+        }
+      }
+    }
+  })
+  .info('Log with completely custom retention configuration');
+
+// More custom retention examples
+logger
+  .withRetention({
+    duration: Duration.STANDARD,        // 30 days (custom 90d would need string)
+    compliance: Compliance.GDPR,        // GDPR compliance
+    anonymization: 'after-30d',         // Anonymize after 30 days
+    deletion: 'automatic'               // Auto-delete after duration
+  })
+  .info('User data log');
+
+logger
+  .withRetention({
+    duration: Duration.FOREVER,         // Never delete
+    compliance: Compliance.SEC,         // SEC compliance
+    encryption: Encryption.FIPS_140_2,  // FIPS encryption
+    audit: Audit.FULL_TRAIL,           // Full audit trail
+    legal: Legal.HOLD                  // Legal hold
+  })
+  .fatal('Security incident log');
+```
+
+#### 🔒 **Security & Validation**
+
+**Text-Only Validation**: All log messages are validated as plain text for security:
+
+```typescript
+// ✅ Valid - Plain text messages
+logger.info('User authentication successful');
+logger.error('Database connection failed');
+
+// ✅ Valid - JSON objects (automatically serialized to text)
+logger.info('User data', { userId: 123, email: 'user@example.com' });
+
+// ✅ Valid - Complex objects (serialized safely)
+logger.error('API Error', { 
+  error: new Error('Network timeout'),
+  context: { requestId: 'req-123', endpoint: '/api/users' }
+});
+
+// ❌ Invalid - HTML/Script injection attempts are blocked
+logger.info('<script>alert("xss")</script>');  // Throws validation error
+logger.error('User input: ${userInput}');      // Sanitized automatically
+```
+
+#### 🛡️ **Compliance Standards (Estándares de Cumplimiento)**
+
+SyntropyLog supports major compliance standards with built-in configurations:
+
+```typescript
+// SOX Compliance - Financial reporting
+logger
+  .withRetention({
+    duration: Duration.AUDIT,        // 7 years retention
+    compliance: Compliance.SOX,      // Sarbanes-Oxley Act
+    encryption: Encryption.AES_256,  // Strong encryption
+    audit: Audit.FULL_TRAIL         // Complete audit trail
+  })
+  .info('Financial transaction processed');
+
+// GDPR Compliance - Data privacy
+logger
+  .withRetention({
+    duration: Duration.STANDARD,     // 30 days (configurable)
+    compliance: Compliance.GDPR,     // General Data Protection Regulation
+    anonymization: 'after-30d',      // Auto-anonymize personal data
+    deletion: 'automatic'            // Right to be forgotten
+  })
+  .info('User data accessed');
+
+// PCI-DSS Compliance - Payment security
+logger
+  .withRetention({
+    duration: Duration.AUDIT,        // 7 years for payments
+    compliance: Compliance.PCI_DSS,  // Payment Card Industry
+    encryption: Encryption.AES_256,  // Card data encryption
+    access: Access.RESTRICTED        // Restricted access
+  })
+  .info('Payment card processed');
+
+// SEC Compliance - Securities trading
+logger
+  .withRetention({
+    duration: Duration.FOREVER,      // Permanent retention
+    compliance: Compliance.SEC,      // Securities and Exchange Commission
+    encryption: Encryption.FIPS_140_2, // FIPS encryption
+    legal: Legal.HOLD               // Legal hold capability
+  })
+  .fatal('Trading anomaly detected');
+```
+
+#### 📊 **Flexible Format Support**
+
+```typescript
+// Text format (default)
+logger.info('Simple text message');
+
+// JSON format (automatic)
+logger.info('Structured data', { 
+  event: 'user_login',
+  timestamp: Date.now(),
+  metadata: { browser: 'Chrome', os: 'macOS' }
+});
+
+// Mixed format (text + context)
+logger.error('Operation failed', { 
+  operation: 'database_query',
+  duration: 1500,
+  error: 'Connection timeout'
+});
+```
+
+#### 📝 **JSON Flexibility Notes**
+
+- **✅ Standard JSON Values**: Only primitive values (string, number, boolean, null)
+- **✅ No Field Restrictions**: Use any JSON structure you want
+- **✅ Nested Objects**: Deep nesting is fully supported (recursive)
+- **✅ Arrays**: Include arrays of any valid JSON type
+- **✅ Custom Fields**: Add your own fields alongside standard ones
+- **✅ Mixed Types**: Combine strings, numbers, booleans, objects, arrays
+- **✅ Dynamic Structure**: Change structure per log entry if needed
+- **✅ Type Safety**: Full TypeScript validation with recursive types
+
+```typescript
+// Examples of flexible JSON usage with all primitive types:
+.withRetention({
+  // String values
+  duration: '7y',
+  algorithm: 'AES-256',
+  
+  // Number values
+  ttl: 2555,
+  version: 2024,
+  keyRotation: 90,
+  
+  // Boolean values
+  enabled: true,
+  audit: false,
+  
+  // Null values
+  metadata: null,
+  
+  // Nested object with mixed types
+  compliance: {
+    standard: 'SOX',
+    version: 2024,
+    active: true,
+    requirements: ['audit', 'encryption', 'backup']
+  },
+  
+  // Array of objects with mixed types
+  rules: [
+    { type: 'retention', value: '7y', enabled: true, priority: 1 },
+    { type: 'encryption', value: 'AES-256', level: 256, active: true },
+    { type: 'backup', value: 'geo-redundant', frequency: 24, enabled: false }
+  ],
+  
+  // Deep nesting with all primitive types
+  enterprise: {
+    policies: {
+      security: {
+        encryption: {
+          algorithm: 'AES-256',
+          keyRotation: 90,
+          enabled: true,
+          metadata: null,
+          levels: [128, 256, 512],
+          flags: {
+            fips: true,
+            quantum: false,
+            legacy: null
+          }
+        }
+      }
+    }
+  }
+})
+```
+
+### 🚧 Coming Soon Features
+
+- **📊 OpenTelemetry Integration**: Seamless logs-to-traces correlation
+- **📈 Custom Metrics**: Built-in metrics collection and reporting
+- **🔍 Advanced Search**: Full-text search across log context
+- **🔄 Log Replay**: Replay logs for debugging and testing
 
 ---
 
@@ -310,15 +944,15 @@ npm run format             # Format code
 
 > **⚠️ ALPHA VERSION WARNING** ⚠️
 > 
-> **SyntropyLog is currently in ALPHA phase (v0.6.1-alpha.0).**
+> **SyntropyLog is currently in ALPHA phase (0.6.3-alpha.0).**
 > 
 > - **Not ready for production use**
 > - **API may change between versions**
 > - **Use for learning and experimentation only**
-> - **Examples require alpha version: `syntropylog@0.6.1-alpha.0`**
+> - **Examples require alpha version: `syntropylog@0.6.3-alpha.0`**
 
 ```bash
-npm install syntropylog@0.6.1-alpha.0
+npm install syntropylog@0.6.3-alpha.0
 ```
 
 ## 🔌 Supported Dependencies
