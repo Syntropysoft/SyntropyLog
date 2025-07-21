@@ -989,7 +989,7 @@ Each example is a self-contained project that demonstrates a specific feature, f
 - **12-http-redis-axios**: ✅ **Complete** - HTTP + Redis + Express with caching
 - **13-http-redis-fastify**: ✅ **Complete** - Framework agnosticism demo (Express vs Fastify)
 
-#### **Message Brokers (20-29) ✅ MOSTLY COMPLETE**
+#### **Message Brokers (20-24) ✅ COMPLETE**
 - **20-basic-kafka-correlation**: ✅ **Tested with Docker** - Kafka message broker integration
 - **21-basic-rabbitmq-broker**: ✅ **Tested with Docker** - RabbitMQ integration
 - **22-basic-nats-broker**: ✅ **Tested with Docker** - NATS integration
