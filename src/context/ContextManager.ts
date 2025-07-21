@@ -1,9 +1,7 @@
-/*
- * @file src/context/ContextManager.ts
- * @description The default implementation of the IContextManager interface. It uses Node.js's
- * `AsyncLocalStorage` to create and manage asynchronous contexts, enabling
- * seamless propagation of data like correlation IDs across async operations.
- */
+// @file src/context/ContextManager.ts
+// @description The default implementation of the IContextManager interface. It uses Node.js's
+// `AsyncLocalStorage` to create and manage asynchronous contexts, enabling
+// seamless propagation of data like correlation IDs across async operations.
 
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'crypto';
@@ -65,10 +63,11 @@ export class ContextManager implements IContextManager {
 
       this.storage.run({ data: newContextData }, async () => {
         try {
-          // Initialize correlation ID if not present
-          if (!this.get('correlationId')) {
-            this.set('correlationId', randomUUID());
-          }
+          // Simple strategy: Use existing correlation ID from header or generate new one
+          const correlationId =
+            this.get(this.correlationIdHeader) ?? randomUUID();
+          this.set(this.correlationIdHeader, correlationId);
+
           await Promise.resolve(fn());
           resolve();
         } catch (error) {
@@ -117,11 +116,20 @@ export class ContextManager implements IContextManager {
 
   /**
    * Gets the correlation ID from the current context.
-   * This is a convenience method that retrieves the value associated with the configured header name.
+   * This returns the value from the configured header name to avoid duplication in logs.
    * @returns {string | undefined} The correlation ID, or undefined if not set.
    */
   public getCorrelationId(): string | undefined {
-    return this.get('correlationId');
+    return this.get(this.correlationIdHeader);
+  }
+
+  /**
+   * Sets the correlation ID in the current context.
+   * This sets the value in the configured header name.
+   * @param correlationId The correlation ID to set.
+   */
+  public setCorrelationId(correlationId: string): void {
+    this.set(this.correlationIdHeader, correlationId);
   }
 
   /**
@@ -172,8 +180,19 @@ export class ContextManager implements IContextManager {
 
   public getFilteredContext(level: LogLevel): FilteredContext {
     const fullContext = this.getAll();
+
     if (!this.loggingMatrix) {
-      return fullContext;
+      // Si no hay loggingMatrix, siempre incluir el correlationId
+      const context = { ...fullContext };
+      const headerCorrelationId = this.get(this.correlationIdHeader);
+      const internalCorrelationId = this.get('correlationId');
+      
+      // Si no existe el correlationId del header, usar el interno
+      if (!headerCorrelationId && internalCorrelationId) {
+        context[this.correlationIdHeader] = internalCorrelationId;
+      }
+      
+      return context;
     }
 
     const fieldsToKeep =
@@ -183,15 +202,45 @@ export class ContextManager implements IContextManager {
     }
 
     if (fieldsToKeep.includes('*')) {
-      return { ...fullContext };
+      return fullContext;
     }
 
     const filteredContext: FilteredContext = {};
-    for (const key of fieldsToKeep) {
-      if (Object.prototype.hasOwnProperty.call(fullContext, key)) {
-        filteredContext[key] = fullContext[key];
+    
+    // Mapeo de nombres de campos del loggingMatrix a claves reales del contexto
+    const fieldMapping: Record<string, string[]> = {
+      'correlationId': [this.correlationIdHeader, 'correlationId'],
+      'transactionId': [this.transactionIdHeader, 'transactionId'],
+      'userId': ['userId'],
+      'serviceName': ['serviceName'],
+      'operation': ['operation'],
+      'errorCode': ['errorCode'],
+      'tenantId': ['tenantId'],
+      'paymentId': ['paymentId'],
+      'orderId': ['orderId'],
+      'processorId': ['processorId'],
+      'eventType': ['eventType']
+    };
+
+    for (const field of fieldsToKeep) {
+      // Buscar en el mapeo de campos
+      const possibleKeys = fieldMapping[field] || [field];
+      
+      // Buscar la primera clave que exista en el contexto
+      for (const key of possibleKeys) {
+        if (Object.prototype.hasOwnProperty.call(fullContext, key)) {
+          filteredContext[field] = fullContext[key];
+          break;
+        }
+      }
+      
+      // Si no se encontró en el mapeo, buscar directamente
+      if (!Object.prototype.hasOwnProperty.call(filteredContext, field) && 
+          Object.prototype.hasOwnProperty.call(fullContext, field)) {
+        filteredContext[field] = fullContext[field];
       }
     }
+
     return filteredContext;
   }
 }

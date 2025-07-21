@@ -123,17 +123,17 @@ describe('ContextManager', () => {
         expect(allData).toEqual({
           key1: 'value1',
           key2: 123,
-          correlationId: expect.any(String),
+          'x-correlation-id': expect.any(String),
         });
       });
     });
   });
 
   describe('Correlation ID methods', () => {
-    it('should get correlation ID using the normalized key', () => {
+    it('should get correlation ID using the header key', () => {
       const correlationId = 'abc-123';
       contextManager.run(() => {
-        contextManager.set('correlationId', correlationId);
+        contextManager.set('x-correlation-id', correlationId);
         expect(contextManager.getCorrelationId()).toBe(correlationId);
       });
     });
@@ -155,6 +155,135 @@ describe('ContextManager', () => {
   describe('Trace Context Headers', () => {
     it('should return an empty object for trace context headers by default', () => {
       expect(contextManager.getTraceContextHeaders()).toEqual({});
+    });
+  });
+
+  describe('getFilteredContext with loggingMatrix', () => {
+    it('should include correlationId when specified in loggingMatrix', async () => {
+      const loggingMatrix = {
+        default: ['correlationId'],
+        error: ['*']
+      };
+      
+      const contextManagerWithMatrix = new ContextManager(loggingMatrix);
+      
+      await contextManagerWithMatrix.run(async () => {
+        // Establecer correlationId usando el header configurado
+        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set('userId', 'user-456');
+        
+        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        
+        expect(filteredContext).toHaveProperty('correlationId');
+        expect(filteredContext.correlationId).toBe('test-correlation-123');
+        expect(filteredContext).not.toHaveProperty('userId'); // No debe incluir userId en default
+      });
+    });
+
+    it('should include correlationId when stored as internal key', async () => {
+      const loggingMatrix = {
+        default: ['correlationId'],
+        error: ['*']
+      };
+      
+      const contextManagerWithMatrix = new ContextManager(loggingMatrix);
+      
+      await contextManagerWithMatrix.run(async () => {
+        // Establecer correlationId usando la clave interna
+        contextManagerWithMatrix.set('correlationId', 'internal-correlation-789');
+        contextManagerWithMatrix.set('userId', 'user-456');
+        
+        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        
+        expect(filteredContext).toHaveProperty('correlationId');
+        expect(filteredContext.correlationId).toBe('internal-correlation-789');
+        expect(filteredContext).not.toHaveProperty('userId');
+      });
+    });
+
+    it('should include all fields when using wildcard (*)', async () => {
+      const loggingMatrix = {
+        default: ['correlationId'],
+        error: ['*']
+      };
+      
+      const contextManagerWithMatrix = new ContextManager(loggingMatrix);
+      
+      await contextManagerWithMatrix.run(async () => {
+        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set('userId', 'user-456');
+        contextManagerWithMatrix.set('operation', 'test-operation');
+        
+        const filteredContext = contextManagerWithMatrix.getFilteredContext('error');
+        
+        expect(filteredContext).toHaveProperty('correlationId');
+        expect(filteredContext).toHaveProperty('userId');
+        expect(filteredContext).toHaveProperty('operation');
+        expect(filteredContext.correlationId).toBe('test-correlation-123');
+        expect(filteredContext.userId).toBe('user-456');
+        expect(filteredContext.operation).toBe('test-operation');
+      });
+    });
+
+    it('should handle custom correlationId header name', async () => {
+      const loggingMatrix = {
+        default: ['correlationId'],
+        error: ['*']
+      };
+      
+      const contextManagerWithMatrix = new ContextManager(loggingMatrix);
+      contextManagerWithMatrix.configure({ correlationIdHeader: 'X-Custom-Correlation-ID' });
+      
+      await contextManagerWithMatrix.run(async () => {
+        // Establecer correlationId usando el header personalizado
+        contextManagerWithMatrix.set('X-Custom-Correlation-ID', 'custom-correlation-456');
+        contextManagerWithMatrix.set('userId', 'user-789');
+        
+        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        
+        expect(filteredContext).toHaveProperty('correlationId');
+        expect(filteredContext.correlationId).toBe('custom-correlation-456');
+        expect(filteredContext).not.toHaveProperty('userId');
+      });
+    });
+
+    it('should return empty object when no fields are configured for level', async () => {
+      const loggingMatrix = {
+        default: ['correlationId'],
+        info: [] // Sin campos para info
+      };
+      
+      const contextManagerWithMatrix = new ContextManager(loggingMatrix);
+      
+      await contextManagerWithMatrix.run(async () => {
+        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set('userId', 'user-456');
+        
+        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        
+        expect(filteredContext).toEqual({});
+      });
+    });
+
+    it('should handle unknown fields gracefully', async () => {
+      const loggingMatrix = {
+        default: ['correlationId', 'unknownField'],
+        error: ['*']
+      };
+      
+      const contextManagerWithMatrix = new ContextManager(loggingMatrix);
+      
+      await contextManagerWithMatrix.run(async () => {
+        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set('knownField', 'known-value');
+        
+        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        
+        expect(filteredContext).toHaveProperty('correlationId');
+        expect(filteredContext.correlationId).toBe('test-correlation-123');
+        expect(filteredContext).not.toHaveProperty('unknownField');
+        expect(filteredContext).not.toHaveProperty('knownField'); // No está en el mapeo
+      });
     });
   });
 });
