@@ -13,6 +13,7 @@ import {
   ContextHeaders,
   FilteredContext,
 } from '../types';
+import { randomUUID } from 'crypto';
 
 /**
  * @class MockContextManager
@@ -107,11 +108,16 @@ export class MockContextManager implements IContextManager {
 
   /**
    * A convenience method to get the correlation ID from the mock context.
-   * @returns {string | undefined} The correlation ID, or undefined if not set.
+   * @returns {string} The correlation ID, or a generated one if not set.
    */
-  getCorrelationId(): string | undefined {
+  getCorrelationId(): string {
     // Return the value from the configured header name to avoid duplication in logs.
-    return this.get(this.correlationIdHeader);
+    let correlationId = this.get(this.correlationIdHeader);
+    if (!correlationId || typeof correlationId !== 'string') {
+      correlationId = randomUUID();
+      this.set(this.correlationIdHeader, correlationId);
+    }
+    return correlationId as string;
   }
 
   /**
@@ -155,6 +161,10 @@ export class MockContextManager implements IContextManager {
    */
   public getTraceContextHeaders(): ContextHeaders {
     const headers: ContextHeaders = {};
+    // Only include headers if we have an active context (store is not empty)
+    if (Object.keys(this.store).length === 0) {
+      return headers; // Return empty object if no context is active
+    }
     const correlationId = this.getCorrelationId();
     const transactionId = this.getTransactionId();
     if (correlationId) {

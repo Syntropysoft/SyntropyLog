@@ -119,11 +119,13 @@ describe('ContextManager', () => {
       await contextManager.run(async () => {
         contextManager.set('key1', 'value1');
         contextManager.set('key2', 123);
+        // Get correlationId to trigger auto-generation
+        const correlationId = contextManager.getCorrelationId();
         const allData = contextManager.getAll();
         expect(allData).toEqual({
           key1: 'value1',
           key2: 123,
-          'x-correlation-id': expect.any(String),
+          'x-correlation-id': correlationId,
         });
       });
     });

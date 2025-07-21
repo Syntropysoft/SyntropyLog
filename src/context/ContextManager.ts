@@ -63,11 +63,6 @@ export class ContextManager implements IContextManager {
 
       this.storage.run({ data: newContextData }, async () => {
         try {
-          // Simple strategy: Use existing correlation ID from header or generate new one
-          const correlationId =
-            this.get(this.correlationIdHeader) ?? randomUUID();
-          this.set(this.correlationIdHeader, correlationId);
-
           await Promise.resolve(fn());
           resolve();
         } catch (error) {
@@ -116,11 +111,20 @@ export class ContextManager implements IContextManager {
 
   /**
    * Gets the correlation ID from the current context.
-   * This returns the value from the configured header name to avoid duplication in logs.
-   * @returns {string | undefined} The correlation ID, or undefined if not set.
+   * If no correlation ID exists, generates one automatically to ensure tracing continuity.
+   * @returns {string} The correlation ID (never undefined).
    */
-  public getCorrelationId(): string | undefined {
-    return this.get(this.correlationIdHeader);
+  public getCorrelationId(): string {
+    let correlationId =
+      this.get(this.correlationIdHeader) || this.get('correlationId');
+
+    if (!correlationId || typeof correlationId !== 'string') {
+      // Generate correlationId if none exists to ensure tracing continuity
+      correlationId = randomUUID();
+      this.set(this.correlationIdHeader, correlationId);
+    }
+
+    return correlationId as string;
   }
 
   /**
@@ -167,6 +171,13 @@ export class ContextManager implements IContextManager {
    */
   public getTraceContextHeaders(): ContextHeaders {
     const headers: ContextHeaders = {};
+
+    // Only include headers if we're inside an active context
+    const store = this.storage.getStore();
+    if (!store) {
+      return headers; // Return empty object if outside context
+    }
+
     const correlationId = this.getCorrelationId();
     const transactionId = this.getTransactionId();
     if (correlationId) {
@@ -186,12 +197,12 @@ export class ContextManager implements IContextManager {
       const context = { ...fullContext };
       const headerCorrelationId = this.get(this.correlationIdHeader);
       const internalCorrelationId = this.get('correlationId');
-      
+
       // Si no existe el correlationId del header, usar el interno
       if (!headerCorrelationId && internalCorrelationId) {
         context[this.correlationIdHeader] = internalCorrelationId;
       }
-      
+
       return context;
     }
 
@@ -201,31 +212,49 @@ export class ContextManager implements IContextManager {
       return {};
     }
 
+    // Mapeo de nombres de campos del loggingMatrix a claves reales del contexto
+    const fieldMapping: Record<string, string[]> = {
+      correlationId: [this.correlationIdHeader, 'correlationId'],
+      transactionId: [this.transactionIdHeader, 'transactionId'],
+      userId: ['userId'],
+      serviceName: ['serviceName'],
+      operation: ['operation'],
+      errorCode: ['errorCode'],
+      tenantId: ['tenantId'],
+      paymentId: ['paymentId'],
+      orderId: ['orderId'],
+      processorId: ['processorId'],
+      eventType: ['eventType'],
+    };
+
     if (fieldsToKeep.includes('*')) {
-      return fullContext;
+      // Apply field mapping even for wildcard to ensure consistency
+      const mappedContext: FilteredContext = {};
+
+      // Map all fields using the same logic as specific fields
+      for (const [key, value] of Object.entries(fullContext)) {
+        // Find the mapped field name for this key
+        let mappedFieldName = key;
+        for (const [matrixField, possibleKeys] of Object.entries(
+          fieldMapping
+        )) {
+          if (possibleKeys.includes(key)) {
+            mappedFieldName = matrixField;
+            break;
+          }
+        }
+        mappedContext[mappedFieldName] = value;
+      }
+
+      return mappedContext;
     }
 
     const filteredContext: FilteredContext = {};
-    
-    // Mapeo de nombres de campos del loggingMatrix a claves reales del contexto
-    const fieldMapping: Record<string, string[]> = {
-      'correlationId': [this.correlationIdHeader, 'correlationId'],
-      'transactionId': [this.transactionIdHeader, 'transactionId'],
-      'userId': ['userId'],
-      'serviceName': ['serviceName'],
-      'operation': ['operation'],
-      'errorCode': ['errorCode'],
-      'tenantId': ['tenantId'],
-      'paymentId': ['paymentId'],
-      'orderId': ['orderId'],
-      'processorId': ['processorId'],
-      'eventType': ['eventType']
-    };
 
     for (const field of fieldsToKeep) {
       // Buscar en el mapeo de campos
       const possibleKeys = fieldMapping[field] || [field];
-      
+
       // Buscar la primera clave que exista en el contexto
       for (const key of possibleKeys) {
         if (Object.prototype.hasOwnProperty.call(fullContext, key)) {
@@ -233,10 +262,12 @@ export class ContextManager implements IContextManager {
           break;
         }
       }
-      
+
       // Si no se encontró en el mapeo, buscar directamente
-      if (!Object.prototype.hasOwnProperty.call(filteredContext, field) && 
-          Object.prototype.hasOwnProperty.call(fullContext, field)) {
+      if (
+        !Object.prototype.hasOwnProperty.call(filteredContext, field) &&
+        Object.prototype.hasOwnProperty.call(fullContext, field)
+      ) {
         filteredContext[field] = fullContext[field];
       }
     }

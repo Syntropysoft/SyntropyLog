@@ -24,20 +24,20 @@ Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
 > **⚠️ ALPHA VERSION WARNING** ⚠️
 > 
-> **SyntropyLog is currently in ALPHA phase (0.6.4-alpha.0).**
+> **SyntropyLog is currently in ALPHA phase (0.6.7).**
 > 
 > - **Not ready for production use**
 > - **API may change between versions**
 > - **Use for learning and experimentation only**
-> - **Examples use alpha version: `syntropylog@0.6.4-alpha.0`**
+> - **Examples use alpha version: `syntropylog@0.6.7`**
 
-> ## 🚀 Project Status: Alpha Version 0.6.4-alpha.0 🚀
+> ## 🚀 Project Status: Alpha Version 0.6.7 🚀
 >
 > **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
 >
 > The core API is taking shape with **94.04% test coverage** across **604+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
 >
-> ### 🎯 Latest Achievements (0.6.4-alpha.0)
+> ### 🎯 Latest Achievements (0.6.7)
 > - **🚀 Build System Fixed**: Resolved Rollup configuration issues with proper bundle generation (144KB bundle size)
 > - **🔧 Rollup v3.29.5**: Downgraded to stable version for reliable builds and tree shaking
 > - **📦 Bundle Optimization**: Single-file bundles with proper exports (no more minified export names)

@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.6.7-alpha.0",
+  "version": "0.6.7",
   "description": "A modern, composable observability framework for Node.js",
   "author": "Gabriel Alejandro Gomez",
   "license": "Apache-2.0",
@@ -8,7 +8,7 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "bin": {
-    "syntropylog": "./dist/cli.js"
+    "syntropylog": "dist/cli.js"
   },
   "exports": {
     ".": {

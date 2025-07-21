@@ -63,9 +63,10 @@ export interface IContextManager {
 
   /**
    * A convenience method to get the correlation ID from the current context.
-   * @returns {string | undefined} The correlation ID, or undefined if not set.
+   * If no correlation ID exists, generates one automatically to ensure tracing continuity.
+   * @returns {string} The correlation ID (never undefined).
    */
-  getCorrelationId(): string | undefined;
+  getCorrelationId(): string;
 
   /**
    * Gets the configured HTTP header name used for the correlation ID.
