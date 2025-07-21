@@ -117,10 +117,9 @@ describe('MockContextManager', () => {
   });
 
   describe('Correlation ID methods', () => {
-    it('should get correlation ID using the normalized key', () => {
+    it('should get correlation ID using the header key', () => {
       const correlationId = 'abc-123';
-      // In a real scenario, the middleware sets both the header key and the normalized key.
-      mockContextManager.set('correlationId', correlationId);
+      mockContextManager.set('x-correlation-id', correlationId);
       expect(mockContextManager.getCorrelationId()).toBe(correlationId);
     });
   });
@@ -141,7 +140,7 @@ describe('MockContextManager', () => {
     });
 
     it('should return headers for correlation and transaction IDs when they exist', () => {
-      mockContextManager.set('correlationId', 'test-corr-id');
+      mockContextManager.set('x-correlation-id', 'test-corr-id');
       mockContextManager.set('transactionId', 'test-trans-id');
       expect(mockContextManager.getTraceContextHeaders()).toEqual({
         'x-correlation-id': 'test-corr-id',

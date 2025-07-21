@@ -111,10 +111,11 @@ graph TD
       fatal: ['*']
     }
     ```
--   **Automated Governance with Doctor CLI**: The `syntropylog doctor` is your automated gatekeeper for CI/CD. It validates configurations *before* deployment, preventing costly mistakes like overly verbose logging in production (saving on ingestion costs) or insecure setups.
+-   **Automated Governance with Doctor CLI**: The `syntropylog doctor` is your automated gatekeeper for CI/CD. It validates SyntropyLog configurations *before* deployment, preventing costly mistakes like overly verbose logging in production (saving on ingestion costs) or missing Redis configurations.ecure setups.
 -   **Tame Your ORMs with Custom Serializers**: Stop leaking data or polluting logs with massive objects. Define a serializer once for your `Prisma` or `TypeORM` models to ensure that only clean, safe data is ever logged.
 -   **Security by Default**: A powerful, zero-dependency masking engine automatically finds and redacts sensitive data like `"password"` or `"creditCardNumber"` at any level of your log objects, ensuring you stay compliant.
 -   **Production-Ready Transports**: Multiple transport options including JSON for production tools and human-readable formats for development environments.
+-   **Configuration Validation**: The Doctor CLI validates your SyntropyLog configuration before deployment, catching common issues like verbose logging in production or missing Redis configurations.
 </details>
 
 ---
@@ -422,6 +423,111 @@ await syntropyLog.init({
     disableRules: ['rule-id-1', 'rule-id-2'], // Disable specific validation rules
   },
 });
+
+### 🩺 **Doctor CLI: Flexible Configuration Validator**
+
+The SyntropyLog Doctor is a **flexible configuration validator** that can validate any configuration files using customizable rules. It comes with built-in rules for SyntropyLog but is completely configurable for any validation needs.
+
+#### **Core Capabilities:**
+- ✅ **Flexible Configuration Validation**: Validates any YAML/JSON configuration files
+- ✅ **Customizable Rules**: Use built-in rules, create your own, or mix both
+- ✅ **Environment-Specific Rules**: Different validation rules for different environments
+- ✅ **Multi-File Auditing**: Analyze multiple configurations with different rule sets
+- ✅ **CI/CD Integration**: Proper exit codes for pipeline integration
+
+#### **Built-in SyntropyLog Rules (Optional):**
+1. **Production Logger Level Check**: Warns if logger level is too verbose in production
+2. **Logger Transports Validation**: Errors if no logger transports are defined
+3. **Data Masking Rules Check**: Warns if no sensitive data protection is configured
+4. **Redis Configuration Validation**: Errors for invalid Redis sentinel configurations
+5. **Redis Instance Name Uniqueness**: Errors for duplicate Redis instance names
+
+> **Note**: These rules are optional. You can use them, ignore them, or replace them entirely with your own custom rules.
+
+#### **Usage:**
+```bash
+# Validate a single configuration file (uses local rules or core rules)
+syntropylog doctor syntropylog.config.yaml
+
+# Run comprehensive audit across multiple files with different rule sets
+syntropylog audit
+
+# Initialize custom rules manifest
+syntropylog init --rules
+
+# Initialize audit plan for multiple files
+syntropylog init --audit
+```
+
+#### **Rule Customization Examples:**
+
+**1. Use all core rules plus custom ones:**
+```typescript
+// syntropylog.doctor.ts
+import { coreRules } from 'syntropylog/doctor';
+
+export default [
+  ...coreRules,
+  {
+    id: 'my-custom-rule',
+    description: 'My custom validation rule',
+    check: (config) => { /* your logic */ return []; }
+  }
+];
+```
+
+**2. Filter out specific core rules:**
+```typescript
+// syntropylog.doctor.ts
+import { coreRules } from 'syntropylog/doctor';
+
+export default coreRules.filter(rule => rule.id !== 'prod-log-level');
+```
+
+**3. Replace all core rules with your own:**
+```typescript
+// syntropylog.doctor.ts
+export default [
+  {
+    id: 'my-rule-1',
+    description: 'Custom rule 1',
+    check: (config) => { /* your logic */ return []; }
+  },
+  {
+    id: 'my-rule-2', 
+    description: 'Custom rule 2',
+    check: (config) => { /* your logic */ return []; }
+  }
+];
+```
+
+**4. Different rules for different environments:**
+```typescript
+// syntropylog.audit.ts
+import { coreRules } from 'syntropylog/doctor';
+
+export default [
+  {
+    name: 'Production Config',
+    configFile: './config/production.yaml',
+    rules: [...coreRules, ...productionRules] // All rules for production
+  },
+  {
+    name: 'Development Config', 
+    configFile: './config/development.yaml',
+    rules: coreRules.filter(r => r.id !== 'prod-log-level') // Less strict for dev
+  }
+];
+```
+
+#### **Current Limitations:**
+- ❌ No performance analysis or optimization recommendations
+- ❌ No security vulnerability detection or scoring
+- ❌ No enterprise pattern detection (Saga, CQRS, etc.)
+- ❌ No multiple output formats (JSON, HTML, Grafana)
+- ❌ No complexity scoring or risk assessment
+
+> **Note**: The doctor focuses on **flexible configuration validation** that you can customize for any validation needs. Advanced analysis features are planned for future versions.
 ```
 
 ### 🎯 What This Configuration Gives You
@@ -434,7 +540,7 @@ await syntropyLog.init({
 - **🚀 Environment-Aware Transports**: Different logging strategies for dev vs production
 - **⚡ Performance Optimization**: Configurable timeouts and retry strategies
 - **🔧 Framework Agnostic**: Works with any HTTP client, database, or message broker
-- **🩺 Built-in Diagnostics**: Doctor CLI for configuration validation
+- **🩺 Built-in Diagnostics**: Doctor CLI for SyntropyLog configuration validation with 5 core rules and extensible custom rules
 - **🏗️ Scalable Architecture**: Support for clusters, sentinels, and distributed systems
 
 ### 🎭 Logger API Showcase
@@ -870,23 +976,51 @@ Each example is a self-contained project that demonstrates a specific feature, f
 **[🚀 Try the Framework Agnosticism Demo](https://github.com/Syntropysoft/syntropylog-examples-/tree/main/13-http-redis-fastify)**
 
 ### Example Categories:
+
+#### **Foundation (00-09) ✅ COMPLETE**
 - **00-setup-initialization**: ✅ **Complete** - Application setup and initialization
 - **01-hello-world**: ✅ **Complete** - Basic logging concepts
 - **02-basic-context**: ✅ **Complete** - Context propagation and correlation
-- **03-typescript-context**: ✅ **Complete** - TypeScript interfaces and type safety
+- **03-context-ts**: ✅ **Complete** - TypeScript interfaces and type safety
+
+#### **HTTP Clients & Redis (10-19) ✅ COMPLETE**
 - **10-basic-http-correlation**: ✅ **Complete** - HTTP request correlation with automatic context propagation
 - **11-custom-adapter**: ✅ **Complete** - Custom HTTP adapters for framework-agnostic design
 - **12-http-redis-axios**: ✅ **Complete** - HTTP + Redis + Express with caching
 - **13-http-redis-fastify**: ✅ **Complete** - Framework agnosticism demo (Express vs Fastify)
-- **20-basic-kafka-correlation**: 🚧 **In Progress** - Message broker correlation
+
+#### **Message Brokers (20-29) ✅ MOSTLY COMPLETE**
+- **20-basic-kafka-correlation**: ✅ **Tested with Docker** - Kafka message broker integration
+- **21-basic-rabbitmq-broker**: ✅ **Tested with Docker** - RabbitMQ integration
+- **22-basic-nats-broker**: ✅ **Tested with Docker** - NATS integration
+- **23-kafka-full-stack**: 🚧 **Needs Testing** - Kafka distributed tracing
+- **24-full-stack-nats**: 🚧 **In Progress** - Advanced NATS microservices architecture
+- **25-multi-redis-kafks-nats-axios**: 🚧 **In Progress** - Multi-service architecture
+- **29-advanced-rabbitmq-broker**: 🚧 **In Progress** - Advanced RabbitMQ patterns
+
+#### **Backend Frameworks (30-39) 🚧 IN DEVELOPMENT**
 - **30-data-masking**: 🚧 **In Progress** - Security and data protection
-- **40-advanced-rabbitmq-broker**: 🚧 **In Progress** - Advanced RabbitMQ integration
-- **50-full-stack-correlation**: 🚧 **In Progress** - Complete distributed tracing
-- **60-full-stack-correlation-http-redis**: 🚧 **In Progress** - HTTP + Redis correlation
-- **70-full-stack-nats**: 🚧 **In Progress** - NATS microservices architecture
-- **80-compliance-retention**: 🚧 **In Progress** - Log retention and compliance
-- **90-custom-serializers**: 🚧 **In Progress** - Custom data serialization
-- **100-diagnostics-doctor**: 🚧 **In Progress** - Configuration validation
+- **31-http-redis-nestjs**: 🚧 **In Progress** - NestJS framework integration
+- **32-redis-GraphQL**: 🚧 **In Progress** - GraphQL integration
+- **33-kafka-enterprise-patterns**: 🚧 **In Progress** - Kafka Streams, Exactly Once, Schema Registry
+- **34-nats-enterprise-patterns**: 🚧 **In Progress** - NATS JetStream, clustering, consumer groups
+- **35-microservices-saga**: 🚧 **In Progress** - Cross-service saga orchestration
+- **36-event-sourcing-cqrs**: 🚧 **In Progress** - Event sourcing with CQRS
+- **37-circuit-breaker-patterns**: 🚧 **In Progress** - Resilience patterns
+- **38-distributed-tracing**: 🚧 **In Progress** - Jaeger/Zipkin integration
+- **39-observability-dashboard**: 🚧 **In Progress** - Grafana/Prometheus monitoring
+
+#### **Advanced Patterns (40+) 🚧 IN DEVELOPMENT**
+- **41-custom-serializers**: 🚧 **In Progress** - Custom data handling
+- **42-compliance-retention**: 🚧 **In Progress** - Compliance and log retention
+- **44-private-package-registry**: 🚧 **In Progress** - Package management
+- **45-github-packages-consumer**: 🚧 **In Progress** - GitHub packages integration
+
+#### **Diagnostics & Analysis (50+) 🚧 IN DEVELOPMENT**
+- **50-diagnostics-doctor**: ✅ **OPERATIONAL** - Configuration validator for SyntropyLog with built-in rules and extensible custom rules. Supports audit jobs and CI/CD integration.
+- **51-diagnostics-comparison**: 🚧 **In Progress** - Compare different configuration approaches
+- **52-diagnostics-performance**: 🚧 **In Progress** - Performance analysis and optimization
+- **53-diagnostics-security**: 🚧 **In Progress** - Security analysis and compliance validation
 
 ---
 

@@ -110,8 +110,8 @@ export class MockContextManager implements IContextManager {
    * @returns {string | undefined} The correlation ID, or undefined if not set.
    */
   getCorrelationId(): string | undefined {
-    // The key in the context is always 'correlationId'.
-    return this.get('correlationId');
+    // Return the value from the configured header name to avoid duplication in logs.
+    return this.get(this.correlationIdHeader);
   }
 
   /**
