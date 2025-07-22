@@ -26,37 +26,32 @@ Ship resilient, secure, and cost-effective Node.js applications with confidence.
 > 
 > **SyntropyLog is currently in ALPHA phase (0.6.7).**
 > 
-> - **Not ready for production use**
-> - **API may change between versions**
-> - **Use for learning and experimentation only**
-> - **Examples use alpha version: `syntropylog@0.6.7`**
+> - **Core features stable**: Logger, context, HTTP, Redis, brokers (tested)
+> - **Experimental features**: Doctor CLI (in development)
+> - **API may change**: Advanced features still in development
+> - **Use for learning**: Perfect for experimentation and early adoption
 
 > ## 🚀 Project Status: Alpha Version 0.6.7 🚀
 >
-> **SyntropyLog is currently in alpha phase with a solid foundation and comprehensive test coverage.**
+> **SyntropyLog has a solid foundation with comprehensive test coverage and working examples.**
 >
-> The core API is taking shape with **94.04% test coverage** across **604+ tests**. While the framework shows great promise, it's still in active development and not yet ready for production use.
+> The core API is stable with **94.04% test coverage** across **604+ tests**. Core features are tested and working, while advanced features continue development.
 >
 > ### 🎯 Latest Achievements (0.6.7)
-> - **🚀 Build System Fixed**: Resolved Rollup configuration issues with proper bundle generation (144KB bundle size)
-> - **🔧 Rollup v3.29.5**: Downgraded to stable version for reliable builds and tree shaking
-> - **📦 Bundle Optimization**: Single-file bundles with proper exports (no more minified export names)
-> - **✅ Examples Compatibility**: All examples now work with published npm versions
+> - **🚀 Build System**: Rollup configuration working with proper bundle generation (~145KB bundle size)
+> - **📦 Bundle Optimization**: Single-file bundles with proper exports (CJS, ESM, TypeScript)
+> - **✅ Examples Compatibility**: Core examples (00-03, 10-13, 20-22) work with published npm versions
 > - **🛠️ Development Workflow**: Automated version update script for examples
-> - **Redis Architecture Improvements**: Refactored RedisManager to use BeaconRedis for better separation of concerns
-> - **Enhanced Error Handling**: Graceful handling of empty Redis configurations without throwing errors
-> - **Robust Test Suite**: Fixed RedisManager tests with proper mocking and achieved 94.04% coverage (604 tests)
-> - **Framework Agnosticism Demo**: Examples 12 & 13 demonstrate Express vs Fastify with identical functionality
-> - **Redis Integration**: Automatic caching with 1-2ms operations and intelligent TTL management
-> - **Performance Optimization**: Fastify implementation shows 2x performance improvement over Express
-> - **Code Quality**: Eliminated 408 lines of dead code across examples
-> - **Enhanced Documentation**: Real logs, working commands, and comprehensive troubleshooting guides
-> - **Framework Agnostic Design**: Removed deprecated `request` library, now supports any HTTP client via adapters
+> - **Redis Architecture**: RedisManager with BeaconRedis for better separation of concerns
+> - **Enhanced Error Handling**: Graceful handling of empty Redis configurations
+> - **Robust Test Suite**: 94.04% test coverage across 604 tests
+> - **Framework Agnosticism Demo**: Examples 12 & 13 demonstrate Express vs Fastify
+> - **Redis Integration**: Automatic caching with intelligent TTL management
+> - **Framework Agnostic Design**: Supports any HTTP client via adapters
 > - **Custom Adapter System**: Full support for custom HTTP client adapters
 > - **Improved Type Safety**: Better TypeScript support and type exports
-> - **Robust Serialization Pipeline**: Intelligent serialization with precise complexity tracking
 >
-> We're actively working on completing examples, refining the API, and adding missing features. Your feedback and contributions are highly welcome!
+> Core features are ready for experimentation and early adoption. Advanced features and additional examples are in active development.
 
 ---
 
@@ -111,18 +106,17 @@ graph TD
       fatal: ['*']
     }
     ```
--   **Automated Governance with Doctor CLI**: The `syntropylog doctor` is your automated gatekeeper for CI/CD. It validates SyntropyLog configurations *before* deployment, preventing costly mistakes like overly verbose logging in production (saving on ingestion costs) or missing Redis configurations.ecure setups.
--   **Tame Your ORMs with Custom Serializers**: Stop leaking data or polluting logs with massive objects. Define a serializer once for your `Prisma` or `TypeORM` models to ensure that only clean, safe data is ever logged.
+-   **🩺 Experimental Doctor CLI**: The `syntropylog doctor` validates SyntropyLog configurations (experimental, in development).
 -   **Security by Default**: A powerful, zero-dependency masking engine automatically finds and redacts sensitive data like `"password"` or `"creditCardNumber"` at any level of your log objects, ensuring you stay compliant.
 -   **Production-Ready Transports**: Multiple transport options including JSON for production tools and human-readable formats for development environments.
--   **Configuration Validation**: The Doctor CLI validates your SyntropyLog configuration before deployment, catching common issues like verbose logging in production or missing Redis configurations.
+-   **Configuration Validation**: Built-in validation ensures your configuration is correct and follows best practices.
 </details>
 
 ---
 
 ## ⚡ Quick Start
 
-> **⚠️ ALPHA VERSION**: This example uses `syntropylog@0.6.4-alpha.0`. For production use, wait for stable release.
+> **⚠️ ALPHA VERSION**: This example uses `syntropylog@0.6.7`. For production use, wait for stable release.
 
 ### 🚀 Basic Configuration (Get Started in 30 Seconds)
 
@@ -210,7 +204,7 @@ Ready to see the full power of SyntropyLog? Here's every configuration option av
 import { syntropyLog, PrettyConsoleTransport, ClassicConsoleTransport } from 'syntropylog';
 import { AxiosAdapter, FetchAdapter } from '@syntropylog/adapters';
 import { KafkaAdapter, NatsAdapter, RabbitMQAdapter } from '@syntropylog/adapters';
-import { PrismaSerializer, TypeORMSerializer } from '@syntropylog/adapters';
+// Note: Serializers are available in the separate @syntropylog/adapters package
 import axios from 'axios';
 
 await syntropyLog.init({
@@ -237,11 +231,9 @@ await syntropyLog.init({
           //   serviceVersion: '1.0.0',
           // }),
         ],
-    serializers: {
-      // Custom serializers for complex objects
-      user: (user) => `${user.id}:${user.email}`,
-      request: (req) => `${req.method} ${req.url}`,
-    },
+    // Note: Custom serializers for complex objects
+    // user: (user) => `${user.id}:${user.email}`,
+    // request: (req) => `${req.method} ${req.url}`,
     serializerTimeoutMs: 50, // Prevent slow serializers from blocking
     prettyPrint: {
       enabled: process.env.NODE_ENV !== 'production',
@@ -520,14 +512,14 @@ export default [
 ];
 ```
 
-#### **Current Limitations:**
-- ❌ No performance analysis or optimization recommendations
-- ❌ No security vulnerability detection or scoring
-- ❌ No enterprise pattern detection (Saga, CQRS, etc.)
-- ❌ No multiple output formats (JSON, HTML, Grafana)
-- ❌ No complexity scoring or risk assessment
+#### **🎯 Current Focus:**
+- ✅ **Configuration Validation**: Comprehensive validation of your SyntropyLog setup
+- ✅ **Flexible Rules**: Custom validation rules for your specific needs
+- ✅ **Immediate Feedback**: Instant identification of configuration issues
+- ✅ **Best Practices**: Built-in rules for common configuration patterns
+- ✅ **Extensible System**: Add your own validation rules as needed
 
-> **Note**: The doctor focuses on **flexible configuration validation** that you can customize for any validation needs. Advanced analysis features are planned for future versions.
+> **Note**: The doctor focuses on **ensuring your SyntropyLog configuration is correct and follows best practices**. Advanced analysis features (performance, security, patterns) are planned for future versions.
 ```
 
 ### 🎯 What This Configuration Gives You
@@ -540,7 +532,7 @@ export default [
 - **🚀 Environment-Aware Transports**: Different logging strategies for dev vs production
 - **⚡ Performance Optimization**: Configurable timeouts and retry strategies
 - **🔧 Framework Agnostic**: Works with any HTTP client, database, or message broker
-- **🩺 Built-in Diagnostics**: Doctor CLI for SyntropyLog configuration validation with 5 core rules and extensible custom rules
+- **🩺 Experimental Diagnostics**: Doctor CLI for configuration validation (experimental, in development)
 - **🏗️ Scalable Architecture**: Support for clusters, sentinels, and distributed systems
 
 ### 🎭 Logger API Showcase
@@ -604,11 +596,11 @@ logger
   });
 ```
 
-### 🛡️ Compliance & Security Features
+### 🛡️ Security Features
 
-#### 📋 **Retention Rules (Reglas de Retención)**
+#### 📋 **Retention Rules (Experimental)**
 
-SyntropyLog provides flexible retention policies with JSON-based configuration:
+SyntropyLog provides flexible retention policies with JSON-based configuration (experimental feature):
 
 ```typescript
 // Retention Configuration Enums - Type-safe compliance rules
@@ -914,7 +906,7 @@ logger.error('Operation failed', {
 })
 ```
 
-### 🚧 Coming Soon Features
+### 🚧 Future Features
 
 - **📊 OpenTelemetry Integration**: Seamless logs-to-traces correlation
 - **📈 Custom Metrics**: Built-in metrics collection and reporting
@@ -934,17 +926,16 @@ npm install @syntropylog/adapters
 
 ### Available Adapters
 - **HTTP Clients**: Axios, Fetch (with custom adapter support)
-- **Message Brokers**: Kafka, NATS, RabbitMQ (planned)
-- **Database Serializers**: Prisma, TypeORM, MySQL, PostgreSQL (planned)
+- **Message Brokers**: Kafka, NATS, RabbitMQ (in development)
+- **Database Serializers**: Prisma, TypeORM, MySQL, PostgreSQL (in development)
 
 ### Usage Example
 ```typescript
 import { syntropyLog } from 'syntropylog';
-import { PrismaSerializer, KafkaAdapter } from '@syntropylog/adapters';
+import { AxiosAdapter } from '@syntropylog/adapters';
 
 // Use adapters independently
-const prismaSerializer = new PrismaSerializer();
-const kafkaAdapter = new KafkaAdapter({ brokers: ['localhost:9092'] });
+const axiosAdapter = new AxiosAdapter(axios.create());
 ```
 
 **[📖 Full Adapters Documentation](https://github.com/Syntropysoft/syntropylog-adapters)**
@@ -977,26 +968,41 @@ Each example is a self-contained project that demonstrates a specific feature, f
 
 ### Example Categories:
 
-#### **Foundation (00-09) ✅ COMPLETE**
+#### **Foundation (00-09)**
 - **00-setup-initialization**: ✅ **Complete** - Application setup and initialization
 - **01-hello-world**: ✅ **Complete** - Basic logging concepts
 - **02-basic-context**: ✅ **Complete** - Context propagation and correlation
 - **03-context-ts**: ✅ **Complete** - TypeScript interfaces and type safety
+- **04-logging-levels-transports**: 🚧 **In Development** - Logging levels and transport configuration
+- **05-universal-context-patterns**: 🚧 **In Development** - Universal context patterns for all Node.js applications
+- **06-error-handling**: 🚧 **In Development** - Error handling and logging strategies
+- **07-logger-configuration**: 🚧 **In Development** - Advanced logger configuration patterns
+- **08-logging-matrix**: 🚧 **In Development** - Smart context logging matrix
+- **09-http-configuration**: 🚧 **In Development** - HTTP client configuration patterns
 
-#### **HTTP Clients & Redis (10-19) ✅ COMPLETE**
+#### **HTTP Clients & Redis (10-19)**
 - **10-basic-http-correlation**: ✅ **Complete** - HTTP request correlation with automatic context propagation
 - **11-custom-adapter**: ✅ **Complete** - Custom HTTP adapters for framework-agnostic design
 - **12-http-redis-axios**: ✅ **Complete** - HTTP + Redis + Express with caching
 - **13-http-redis-fastify**: ✅ **Complete** - Framework agnosticism demo (Express vs Fastify)
+- **14-http-redis-nestjs**: 🚧 **In Development** - NestJS framework integration
+- **15-http-redis-koa**: 🚧 **In Development** - Koa framework integration
+- **16-http-redis-hapi**: 🚧 **In Development** - Hapi framework integration
+- **17-custom-serializers**: 🚧 **In Development** - Custom data serialization patterns
+- **18-custom-transports**: 🚧 **In Development** - Custom logging transport patterns
+- **19-doctor-cli**: 🚧 **In Development** - Configuration validation with Doctor CLI
 
 #### **Message Brokers (20-24) ✅ COMPLETE**
 - **20-basic-kafka-correlation**: ✅ **Tested with Docker** - Kafka message broker integration
 - **21-basic-rabbitmq-broker**: ✅ **Tested with Docker** - RabbitMQ integration
 - **22-basic-nats-broker**: ✅ **Tested with Docker** - NATS integration
-- **23-kafka-full-stack**: 🚧 **Needs Testing** - Kafka distributed tracing
-- **24-full-stack-nats**: 🚧 **In Progress** - Advanced NATS microservices architecture
-- **25-multi-redis-kafks-nats-axios**: 🚧 **In Progress** - Multi-service architecture
-- **29-advanced-rabbitmq-broker**: 🚧 **In Progress** - Advanced RabbitMQ patterns
+- **23-kafka-full-stack**: ✅ **Complete** - Kafka distributed tracing
+- **24-full-stack-nats**: ✅ **Complete** - Advanced NATS microservices architecture
+
+#### **Advanced Patterns (25-29) 🚧 IN DEVELOPMENT**
+- **25-production-configuration**: 🚧 **In Development** - Production-ready configuration patterns
+- **26-advanced-context**: 🚧 **In Development** - Advanced context management patterns
+- **27-complete-enterprise-app**: 🚧 **In Development** - Complete enterprise application example
 
 #### **Backend Frameworks (30-39) 🚧 IN DEVELOPMENT**
 - **30-data-masking**: 🚧 **In Progress** - Security and data protection
@@ -1016,11 +1022,10 @@ Each example is a self-contained project that demonstrates a specific feature, f
 - **44-private-package-registry**: 🚧 **In Progress** - Package management
 - **45-github-packages-consumer**: 🚧 **In Progress** - GitHub packages integration
 
-#### **Diagnostics & Analysis (50+) 🚧 IN DEVELOPMENT**
-- **50-diagnostics-doctor**: ✅ **OPERATIONAL** - Configuration validator for SyntropyLog with built-in rules and extensible custom rules. Supports audit jobs and CI/CD integration.
-- **51-diagnostics-comparison**: 🚧 **In Progress** - Compare different configuration approaches
-- **52-diagnostics-performance**: 🚧 **In Progress** - Performance analysis and optimization
-- **53-diagnostics-security**: 🚧 **In Progress** - Security analysis and compliance validation
+#### **Specialized Features (14-16) 🚧 IN DEVELOPMENT**
+- **14-redis-configuration**: 🚧 **In Development** - Advanced Redis configuration patterns
+- **15-message-brokers-configuration**: 🚧 **In Development** - Message broker configuration patterns
+- **16-data-masking**: 🚧 **In Development** - Data masking and security patterns
 
 ---
 
@@ -1083,15 +1088,15 @@ npm run format             # Format code
 
 > **⚠️ ALPHA VERSION WARNING** ⚠️
 > 
-> **SyntropyLog is currently in ALPHA phase (0.6.2-alpha.0).**
+> **SyntropyLog is currently in ALPHA phase (0.6.7).**
 > 
 > - **Not ready for production use**
 > - **API may change between versions**
 > - **Use for learning and experimentation only**
-> - **Examples require alpha version: `syntropylog@0.6.2-alpha.0`**
+> - **Examples require alpha version: `syntropylog@0.6.7`**
 
 ```bash
-npm install syntropylog@0.6.2-alpha.0
+npm install syntropylog@0.6.7
 ```
 
 ## 🔌 Supported Dependencies
@@ -1101,19 +1106,19 @@ SyntropyLog includes built-in adapters for popular libraries. Here are the suppo
 ### HTTP Clients
 - **Axios**: `^1.10.0` ✅ **Built-in adapter**
 - **Fetch**: Native browser API ✅ **Custom adapter support**
-- **Got**: `^12.0.0` (planned)
-- **Request**: `^2.88.2` (deprecated, removed in v0.6.0)
+- **Got**: `^12.0.0` (in development)
+- **Request**: `^2.88.2` (removed in v0.6.0, use adapters instead)
 
 ### Message Brokers
-- **Kafka**: `kafkajs ^2.2.4` (planned)
-- **RabbitMQ**: `amqplib ^0.10.8` (planned)
-- **NATS**: `nats ^2.17.0` (planned)
+- **Kafka**: `kafkajs ^2.2.4` (in development)
+- **RabbitMQ**: `amqplib ^0.10.8` (in development)
+- **NATS**: `nats ^2.17.0` (in development)
 
 ### Database Serializers
-- **Prisma**: (planned)
-- **TypeORM**: (planned)
-- **MySQL**: (planned)
-- **PostgreSQL**: (planned)
+- **Prisma**: (in development)
+- **TypeORM**: (in development)
+- **MySQL**: (in development)
+- **PostgreSQL**: (in development)
 
 ### Usage Example
 ```typescript
