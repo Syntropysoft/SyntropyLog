@@ -24,20 +24,20 @@ Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
 > **⚠️ ALPHA VERSION WARNING** ⚠️
 > 
-> **SyntropyLog is currently in ALPHA phase (0.6.7).**
+> **SyntropyLog is currently in ALPHA phase (0.6.8).**
 > 
 > - **Core features stable**: Logger, context, HTTP, Redis, brokers (tested)
 > - **Experimental features**: Doctor CLI (in development)
 > - **API may change**: Advanced features still in development
 > - **Use for learning**: Perfect for experimentation and early adoption
 
-> ## 🚀 Project Status: Alpha Version 0.6.7 🚀
+> ## 🚀 Project Status: Alpha Version 0.6.8 🚀
 >
 > **SyntropyLog has a solid foundation with comprehensive test coverage and working examples.**
 >
 > The core API is stable with **94.04% test coverage** across **604+ tests**. Core features are tested and working, while advanced features continue development.
 >
-> ### 🎯 Latest Achievements (0.6.7)
+> ### 🎯 Latest Achievements (0.6.8)
 > - **🚀 Build System**: Rollup configuration working with proper bundle generation (~145KB bundle size)
 > - **📦 Bundle Optimization**: Single-file bundles with proper exports (CJS, ESM, TypeScript)
 > - **✅ Examples Compatibility**: Core examples (00-03, 10-13, 20-22) work with published npm versions
@@ -116,7 +116,7 @@ graph TD
 
 ## ⚡ Quick Start
 
-> **⚠️ ALPHA VERSION**: This example uses `syntropylog@0.6.7`. For production use, wait for stable release.
+> **⚠️ ALPHA VERSION**: This example uses `syntropylog@0.6.8`. For production use, wait for stable release.
 
 ### 🚀 Basic Configuration (Get Started in 30 Seconds)
 
@@ -973,7 +973,7 @@ Each example is a self-contained project that demonstrates a specific feature, f
 - **01-hello-world**: ✅ **Complete** - Basic logging concepts
 - **02-basic-context**: ✅ **Complete** - Context propagation and correlation
 - **03-context-ts**: ✅ **Complete** - TypeScript interfaces and type safety
-- **04-logging-levels-transports**: 🚧 **In Development** - Logging levels and transport configuration
+- **04-logging-levels-transports**: ✅ **Complete** - Logging levels and transport configuration
 - **05-universal-context-patterns**: 🚧 **In Development** - Universal context patterns for all Node.js applications
 - **06-error-handling**: 🚧 **In Development** - Error handling and logging strategies
 - **07-logger-configuration**: 🚧 **In Development** - Advanced logger configuration patterns
@@ -1088,15 +1088,15 @@ npm run format             # Format code
 
 > **⚠️ ALPHA VERSION WARNING** ⚠️
 > 
-> **SyntropyLog is currently in ALPHA phase (0.6.7).**
+> **SyntropyLog is currently in ALPHA phase (0.6.8).**
 > 
 > - **Not ready for production use**
 > - **API may change between versions**
 > - **Use for learning and experimentation only**
-> - **Examples require alpha version: `syntropylog@0.6.7`**
+> - **Examples require alpha version: `syntropylog@0.6.8`**
 
 ```bash
-npm install syntropylog@0.6.7
+npm install syntropylog@0.6.8
 ```
 
 ## 🔌 Supported Dependencies
