@@ -24,20 +24,20 @@ Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
 > **🚀 BETA VERSION - READY FOR PRODUCTION** 🚀
 > 
-> **SyntropyLog is now in BETA phase (0.6.10).**
+> **SyntropyLog is now in BETA phase (0.6.11).**
 > 
 > - **Core features stable**: Logger, context, HTTP, Redis, brokers (tested & proven)
 > - **Production ready**: 94.1% test coverage, comprehensive examples
 > - **API stable**: Core functionality locked, backward compatible
 > - **Ready for adoption**: Perfect for production applications
 
-> ## 🚀 Project Status: Beta Version 0.6.10 🚀
+> ## 🚀 Project Status: Beta Version 0.6.11 🚀
 >
 > **SyntropyLog is production-ready with comprehensive test coverage and working examples.**
 >
 > The core API is stable with **94.1% test coverage** across **616+ tests**. All core features are tested, working, and ready for production use.
 >
-> ### 🎯 Latest Achievements (0.6.10)
+> ### 🎯 Latest Achievements (0.6.11)
 > - **🔥 Hot Configuration**: New `reconfigureLoggingMatrix()` method for dynamic log verbosity control
 > - **🔒 Security & Compliance**: Clear documentation of what can/cannot be changed dynamically
 > - **📚 Enhanced Examples**: Examples 04-08 now demonstrate core framework concepts clearly
@@ -114,7 +114,7 @@ graph TD
 
 ## ⚡ Quick Start
 
-> **⚠️ ALPHA VERSION**: This example uses `syntropylog@0.6.9`. For production use, wait for stable release.
+> **🎯 BETA VERSION**: This example uses `syntropylog@0.6.11`. For production use, wait for stable release.
 
 ### 🚀 Basic Configuration (Get Started in 30 Seconds)
 
@@ -1040,7 +1040,7 @@ npm run test:coverage       # Coverage report
 
 SyntropyLog is organized into multiple repositories:
 
-- **`syntropyLog/`**: Main library source code and tests
+- **[`syntropylog`](https://github.com/Syntropysoft/SyntropyLog)**: Main library source code and tests
 - **[`syntropylog-examples-`](https://github.com/Syntropysoft/syntropylog-examples-)**: Complete examples demonstrating framework features
 - **[`syntropylog-adapters-`](https://github.com/Syntropysoft/syntropylog-adapters)**: External adapters for HTTP clients and message brokers
 
@@ -1074,15 +1074,15 @@ npm run format             # Format code
 
 > **🚀 BETA VERSION - READY FOR PRODUCTION** 🚀
 > 
-> **SyntropyLog is now in BETA phase (0.6.10).**
+> **SyntropyLog is now in BETA phase (0.6.11).**
 > 
 > - **Production ready** for core features
 > - **API stable** and backward compatible
 > - **Ready for adoption** in production applications
-> - **Examples require beta version: `syntropylog@0.6.10`**
+> - **Examples require beta version: `syntropylog@0.6.11`**
 
 ```bash
-npm install syntropylog@0.6.10
+npm install syntropylog@0.6.11
 ```
 
 ## 🔌 Supported Dependencies
