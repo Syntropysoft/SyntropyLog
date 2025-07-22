@@ -1062,17 +1062,17 @@ npm run format             # Format code
 
 ## 📦 Installation
 
-> **⚠️ ALPHA VERSION WARNING** ⚠️
+> **🚀 BETA VERSION - READY FOR PRODUCTION** 🚀
 > 
-> **SyntropyLog is currently in ALPHA phase (0.6.9).**
+> **SyntropyLog is now in BETA phase (0.6.10).**
 > 
-> - **Not ready for production use**
-> - **API may change between versions**
-> - **Use for learning and experimentation only**
-> - **Examples require alpha version: `syntropylog@0.6.9`**
+> - **Production ready** for core features
+> - **API stable** and backward compatible
+> - **Ready for adoption** in production applications
+> - **Examples require beta version: `syntropylog@0.6.10`**
 
 ```bash
-npm install syntropylog@0.6.9
+npm install syntropylog@0.6.10
 ```
 
 ## 🔌 Supported Dependencies
