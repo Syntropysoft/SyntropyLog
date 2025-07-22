@@ -15,6 +15,7 @@ import {
   ContextCallback,
   ContextHeaders,
   FilteredContext,
+  LoggingMatrix,
 } from '../types';
 
 /**
@@ -102,4 +103,12 @@ export interface IContextManager {
    * @returns A record containing only the context data relevant for the specified level.
    */
   getFilteredContext(level: LogLevel): FilteredContext;
+
+  /**
+   * Reconfigures the logging matrix dynamically.
+   * This method allows changing which context fields are included in logs
+   * without affecting security configurations like masking or log levels.
+   * @param newMatrix The new logging matrix configuration
+   */
+  reconfigureLoggingMatrix(newMatrix: LoggingMatrix): void;
 }

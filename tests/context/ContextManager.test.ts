@@ -288,4 +288,109 @@ describe('ContextManager', () => {
       });
     });
   });
+
+  describe('reconfigureLoggingMatrix', () => {
+    it('should reconfigure logging matrix dynamically', async () => {
+      const initialMatrix = {
+        default: ['correlationId'],
+        error: ['*']
+      };
+      
+      const contextManagerWithMatrix = new ContextManager(initialMatrix);
+      
+      await contextManagerWithMatrix.run(async () => {
+        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set('userId', 'user-456');
+        contextManagerWithMatrix.set('operation', 'test-operation');
+        
+        // Test initial configuration
+        let filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        expect(filteredContext).toHaveProperty('correlationId');
+        expect(filteredContext).not.toHaveProperty('userId');
+        
+        // Reconfigure logging matrix
+        const newMatrix = {
+          default: ['correlationId', 'userId'],
+          error: ['correlationId', 'userId', 'operation']
+        };
+        
+        contextManagerWithMatrix.reconfigureLoggingMatrix(newMatrix);
+        
+        // Test new configuration
+        filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        expect(filteredContext).toHaveProperty('correlationId');
+        expect(filteredContext).toHaveProperty('userId');
+        expect(filteredContext).not.toHaveProperty('operation');
+        
+        filteredContext = contextManagerWithMatrix.getFilteredContext('error');
+        expect(filteredContext).toHaveProperty('correlationId');
+        expect(filteredContext).toHaveProperty('userId');
+        expect(filteredContext).toHaveProperty('operation');
+      });
+    });
+
+    it('should handle empty logging matrix reconfiguration', async () => {
+      const initialMatrix = {
+        default: ['correlationId'],
+        error: ['*']
+      };
+      
+      const contextManagerWithMatrix = new ContextManager(initialMatrix);
+      
+      await contextManagerWithMatrix.run(async () => {
+        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set('userId', 'user-456');
+        
+        // Test initial configuration
+        let filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        expect(filteredContext).toHaveProperty('correlationId');
+        
+        // Reconfigure with undefined to remove matrix (return all context)
+        contextManagerWithMatrix.reconfigureLoggingMatrix(undefined as any);
+        
+        // Test new configuration (should return all context when no matrix)
+        filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        expect(filteredContext).toHaveProperty('x-correlation-id');
+        expect(filteredContext).toHaveProperty('userId');
+      });
+    });
+
+    it('should preserve context data during reconfiguration', async () => {
+      const initialMatrix = {
+        default: ['correlationId']
+      };
+      
+      const contextManagerWithMatrix = new ContextManager(initialMatrix);
+      
+      await contextManagerWithMatrix.run(async () => {
+        // Set context data
+        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set('userId', 'user-456');
+        contextManagerWithMatrix.set('operation', 'test-operation');
+        
+        // Verify initial data is set
+        expect(contextManagerWithMatrix.get('x-correlation-id')).toBe('test-correlation-123');
+        expect(contextManagerWithMatrix.get('userId')).toBe('user-456');
+        expect(contextManagerWithMatrix.get('operation')).toBe('test-operation');
+        
+        // Reconfigure matrix
+        const newMatrix = {
+          default: ['correlationId', 'userId', 'operation']
+        };
+        
+        contextManagerWithMatrix.reconfigureLoggingMatrix(newMatrix);
+        
+        // Verify context data is still available
+        expect(contextManagerWithMatrix.get('x-correlation-id')).toBe('test-correlation-123');
+        expect(contextManagerWithMatrix.get('userId')).toBe('user-456');
+        expect(contextManagerWithMatrix.get('operation')).toBe('test-operation');
+        
+        // Verify new matrix is applied
+        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        expect(filteredContext).toHaveProperty('correlationId');
+        expect(filteredContext).toHaveProperty('userId');
+        expect(filteredContext).toHaveProperty('operation');
+      });
+    });
+  });
 });

@@ -13,6 +13,7 @@ import { InstrumentedHttpClient } from './http/InstrumentedHttpClient';
 import { InstrumentedBrokerClient } from './brokers/InstrumentedBrokerClient';
 import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
 import { LogLevel } from './logger/levels';
+import { LoggingMatrix } from './types';
 // Dynamic import for Redis to avoid requiring it when not used
 // import { RedisConnectionManager } from './redis/RedisConnectionManager';
 import { IBeaconRedis } from './redis/IBeaconRedis';
@@ -97,6 +98,17 @@ export class SyntropyLog extends EventEmitter {
   public getFilteredContext(level: LogLevel): Record<string, unknown> {
     this.lifecycleManager.ensureReady();
     return this.lifecycleManager.contextManager.getFilteredContext(level);
+  }
+
+  /**
+   * Reconfigures the logging matrix dynamically.
+   * This method allows changing which context fields are included in logs
+   * without affecting security configurations like masking or log levels.
+   * @param matrix The new logging matrix configuration
+   */
+  public reconfigureLoggingMatrix(matrix: LoggingMatrix): void {
+    this.lifecycleManager.ensureReady();
+    this.lifecycleManager.contextManager.reconfigureLoggingMatrix(matrix);
   }
 
   public getMasker() {

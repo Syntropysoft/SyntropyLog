@@ -31,7 +31,7 @@ export class ContextManager implements IContextManager {
   private storage = new AsyncLocalStorage<Context>();
   private correlationIdHeader = 'x-correlation-id';
   private transactionIdHeader = 'x-trace-id';
-  private readonly loggingMatrix: LoggingMatrix | undefined;
+  private loggingMatrix: LoggingMatrix | undefined;
 
   constructor(loggingMatrix?: LoggingMatrix) {
     this.storage = new AsyncLocalStorage();
@@ -45,6 +45,16 @@ export class ContextManager implements IContextManager {
     if (options.transactionIdHeader) {
       this.transactionIdHeader = options.transactionIdHeader;
     }
+  }
+
+  /**
+   * Reconfigures the logging matrix dynamically.
+   * This method allows changing which context fields are included in logs
+   * without affecting security configurations like masking or log levels.
+   * @param newMatrix The new logging matrix configuration
+   */
+  public reconfigureLoggingMatrix(newMatrix: LoggingMatrix): void {
+    this.loggingMatrix = newMatrix;
   }
 
   /**

@@ -72,13 +72,14 @@ describe('SyntropyLog', () => {
     });
   });
 
+  const validConfig = {
+    logger: { serializerTimeoutMs: 50, level: 'info' as const },
+    redis: { instances: [] },
+    http: { instances: [] },
+    brokers: { instances: [] },
+  };
+
   describe('Initialization (init)', () => {
-    const validConfig = {
-      logger: { serializerTimeoutMs: 50, level: 'info' as const },
-      redis: { instances: [] },
-      http: { instances: [] },
-      brokers: { instances: [] },
-    };
 
     it('should delegate initialization to LifecycleManager and transition to READY state', async () => {
       const syntropy = SyntropyLog.getInstance();
@@ -170,4 +171,49 @@ describe('SyntropyLog', () => {
 
   // TODO: Refactor the rest of the tests (Accessors, Shutdown, etc.)
   // using the same principles: minimal mocking, testing real interactions.
+
+  describe('reconfigureLoggingMatrix', () => {
+    it('should reconfigure logging matrix when ready', async () => {
+      const syntropy = SyntropyLog.getInstance();
+      await syntropy.init(validConfig);
+
+      const newMatrix = {
+        default: ['correlationId', 'userId'],
+        error: ['*']
+      };
+
+      // Should not throw when ready
+      expect(() => syntropy.reconfigureLoggingMatrix(newMatrix)).not.toThrow();
+    });
+
+    it('should throw error when not ready', () => {
+      const syntropy = SyntropyLog.getInstance();
+      
+      const newMatrix = {
+        default: ['correlationId']
+      };
+
+      // Should throw when not initialized
+      expect(() => syntropy.reconfigureLoggingMatrix(newMatrix)).toThrow(
+        'SyntropyLog is not ready. Current state: \'NOT_INITIALIZED\'. Ensure init() has completed successfully by listening for the \'ready\' event.'
+      );
+    });
+
+    it('should delegate to context manager', async () => {
+      const syntropy = SyntropyLog.getInstance();
+      await syntropy.init(validConfig);
+
+      // Get the real context manager and spy on its method
+      const contextManager = syntropy.getContextManager();
+      const reconfigureSpy = vi.spyOn(contextManager, 'reconfigureLoggingMatrix');
+
+      const newMatrix = {
+        default: ['correlationId']
+      };
+
+      syntropy.reconfigureLoggingMatrix(newMatrix);
+
+      expect(reconfigureSpy).toHaveBeenCalledWith(newMatrix);
+    });
+  });
 });

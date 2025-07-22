@@ -12,6 +12,7 @@ import {
   ContextCallback,
   ContextHeaders,
   FilteredContext,
+  LoggingMatrix,
 } from '../types';
 import { randomUUID } from 'crypto';
 
@@ -178,5 +179,16 @@ export class MockContextManager implements IContextManager {
 
   public getFilteredContext(): FilteredContext {
     return this.getAll();
+  }
+
+  /**
+   * Reconfigures the logging matrix dynamically.
+   * This method allows changing which context fields are included in logs
+   * without affecting security configurations like masking or log levels.
+   * @param newMatrix The new logging matrix configuration
+   */
+  public reconfigureLoggingMatrix(newMatrix: LoggingMatrix): void {
+    // Mock implementation - no actual logging matrix in mock
+    // This is just to satisfy the interface
   }
 }
