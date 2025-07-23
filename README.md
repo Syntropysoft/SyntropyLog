@@ -43,7 +43,9 @@ const logger = syntropyLog.getLogger();
 logger.info('Hello, SyntropyLog!');
 ```
 
-> ⚠️ **PRODUCTION REQUIREMENT**: For production applications, you **MUST** include the [graceful shutdown boilerplate](https://syntropysoft.github.io/syntropylog-doc/docs/production/graceful-shutdown). This ensures logs are flushed and resources are cleaned up when Kubernetes terminates your pod.
+> ⚠️ **CRITICAL REQUIREMENT**: You **MUST** include the [graceful shutdown boilerplate](https://syntropysoft.github.io/syntropylog-doc/docs/production/graceful-shutdown) in ALL applications. This ensures logs are flushed and resources are cleaned up when:
+> - **Development**: You press Ctrl+C to stop the application
+> - **Production**: Kubernetes sends SIGTERM to terminate your pod
 
 ## ✨ Key Features
 
