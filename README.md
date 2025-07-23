@@ -24,7 +24,7 @@
 Get started with SyntropyLog usage in **30 seconds** (after initialization):
 
 ```bash
-npm install syntropylog@0.6.13
+npm install syntropylog@0.6.14
 ```
 
 ```typescript
@@ -62,14 +62,24 @@ logger.info('Hello, SyntropyLog!');
 
 - **[Getting Started](https://syntropysoft.github.io/syntropylog-doc/docs/getting-started)** - Complete setup guide *(in progress)*
 - **[API Reference](https://syntropysoft.github.io/syntropylog-doc/docs/api-reference)** - Full API documentation *(in progress)*
-- **[Examples](https://syntropysoft.github.io/syntropylog-doc/examples)** - 29 production-ready examples *(in progress)*
+- **[Examples](https://syntropysoft.github.io/syntropylog-doc/examples)** - 30 production-ready examples *(in progress)*
 - **[Configuration Guide](https://syntropysoft.github.io/syntropylog-doc/docs/configuration)** - Advanced configuration *(in progress)*
 
 ## 🎯 Production Ready
 
-SyntropyLog is **BETA (0.6.13)** and ready for production use:
+SyntropyLog is **BETA (0.6.14)** and ready for production use:
 
 ### 📝 Version Notes
+**v0.6.14** - *Testing Revolution Release*
+- 🧪 **NEW: SyntropyLogMock** - Eliminates all connection boilerplate in tests
+- 🧪 **NEW: BeaconRedisMock** - In-memory Redis simulation for testing
+- 🧪 **NEW: Test Helpers** - Simplified setup and teardown for all test frameworks
+- 📚 **NEW: 3 Comprehensive Testing Examples** - Vitest, Jest, and Redis context patterns
+- 📚 **NEW: Docusaurus Documentation** - Complete testing guides with AI-friendly instructions
+- 🎯 **Focus on Declarative Testing** - Test behavior, not implementation details
+- ⚡ **Zero External Dependencies** - No Redis, brokers, or HTTP servers needed for testing
+- 🔄 **Framework Agnostic Testing** - Works with Vitest, Jest, and any test runner
+
 **v0.6.13** - *Documentation Release*
 - 📚 Enhanced README with detailed Singleton pattern explanation
 - 🌐 New GitHub Pages documentation site
@@ -197,21 +207,71 @@ This pattern provides critical advantages in production environments:
 - **🏗️ Resource Management**: Automatic cleanup and connection pooling
 - **🚀 Kubernetes Ready**: Essential for containerized environments where memory is limited
 
+## 🧪 Testing Revolution
+
+### **🎯 Zero Boilerplate Testing with SyntropyLogMock**
+
+Testing SyntropyLog applications is now **dramatically simplified** with our new testing framework:
+
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { UserService } from './UserService';
+const { createTestHelper } = require('syntropylog/testing');
+
+// No initialization, no shutdown, no external dependencies
+const testHelper = createTestHelper();
+
+describe('UserService', () => {
+  let userService: UserService;
+
+  beforeEach(() => {
+    testHelper.beforeEach(); // Reset mocks
+    userService = new UserService(testHelper.mockSyntropyLog); // Inject mock
+  });
+
+  it('should create user successfully', async () => {
+    const result = await userService.createUser({ name: 'John', email: 'john@example.com' });
+    expect(result).toHaveProperty('userId');
+    expect(result.name).toBe('John');
+  });
+});
+```
+
+### **🚀 What's New in v0.6.14**
+
+- **🧪 SyntropyLogMock** - Complete framework simulation in memory
+- **🧪 BeaconRedisMock** - Full Redis simulation without external dependencies
+- **🧪 Test Helpers** - One-line setup for any test framework
+- **📚 3 Testing Examples** - Example 28 (Vitest), Example 29 (Jest), Example 30 (Redis context)
+- **🎯 Declarative Testing** - Focus on behavior, not implementation
+- **⚡ Zero External Dependencies** - No Redis, brokers, or HTTP servers needed
+
+### **✅ Benefits**
+
+- **🚫 No Connection Boilerplate** - No init/shutdown in tests
+- **⚡ Lightning Fast** - Everything runs in memory
+- **🔒 Reliable** - No network issues or state conflicts
+- **🎯 Focused** - Test business logic, not framework internals
+- **🔄 Framework Agnostic** - Works with Vitest, Jest, and any test runner
+
+[View Testing Examples →](https://syntropysoft.github.io/syntropylog-doc/docs/examples/28-testing-patterns-vitest)
+
 ## 📦 Ecosystem
 
 - **[syntropylog](https://www.npmjs.com/package/syntropylog)** - Core framework
 - **[@syntropylog/adapters](https://www.npmjs.com/package/@syntropylog/adapters)** - HTTP and broker adapters
 - **[@syntropylog/types](https://www.npmjs.com/package/@syntropylog/types)** - TypeScript types
-- **[syntropylog-examples](https://github.com/Syntropysoft/syntropylog-examples-)** - 29 complete examples
+- **[syntropylog-examples](https://github.com/Syntropysoft/syntropylog-examples-)** - 30 complete examples
 
 ## 🚀 Examples
 
 Complete examples demonstrating SyntropyLog features:
 
-### ✅ **Complete & Tested (00-13, 20-24)**
+### ✅ **Complete & Tested (00-13, 20-24, 28-30)**
 - **00-09**: Core Framework Features - Basic setup, context, configuration
 - **10-13**: HTTP & Redis Integration - Framework agnosticism (Express, Fastify)
 - **20-24**: Message Brokers - Kafka, RabbitMQ, NATS with correlation
+- **28-30**: Testing Patterns - Vitest, Jest, and Redis context testing with SyntropyLogMock
 
 ### 🚧 **In Development (14-19, 25-27)**
 - **14-19**: Advanced Framework Features - NestJS, Koa, Hapi, custom serializers
