@@ -63,6 +63,14 @@ logger.info('Hello, SyntropyLog!');
 
 SyntropyLog is **BETA (0.6.13)** and ready for production use:
 
+### 📝 Version Notes
+**v0.6.13** - *Documentation Release*
+- 📚 Enhanced README with detailed Singleton pattern explanation
+- 🌐 New GitHub Pages documentation site
+- 🔗 Updated documentation links
+- 📖 Improved technical documentation for developers
+- *No framework changes - documentation improvements only*
+
 - ✅ **94.1% test coverage** across 616+ tests
 - ✅ **Core features stable** - Logger, context, HTTP, Redis, brokers
 - ✅ **API stable** - Backward compatible
