@@ -54,6 +54,16 @@
         "types": "./dist/testing/index.d.ts",
         "default": "./dist/testing/index.cjs"
       }
+    },
+    "./testing/mock": {
+      "import": {
+        "types": "./dist/testing/SyntropyLogMock.d.ts",
+        "default": "./dist/testing/SyntropyLogMock.mjs"
+      },
+      "require": {
+        "types": "./dist/testing/SyntropyLogMock.d.ts",
+        "default": "./dist/testing/SyntropyLogMock.cjs"
+      }
     }
   },
   "files": [

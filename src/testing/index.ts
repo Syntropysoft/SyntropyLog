@@ -10,3 +10,28 @@
 export type { SyntropyLogTestHarness } from './types';
 export { MockContextManager } from '../context/MockContextManager';
 export { SpyTransport } from '../logger/transports/SpyTransport';
+
+// SyntropyLog Mock for testing
+export {
+  createSyntropyLogMock,
+  createMockLogger,
+  createMockContextManager,
+  createMockHttpManager,
+  createMockBrokerManager,
+  createMockSerializationManager,
+  getMockLogger,
+  getMockContextManager,
+  getMockHttpManager,
+  getMockBrokerManager,
+  getMockSerializationManager,
+  resetSyntropyLogMocks,
+  type MockLogger,
+  type MockSyntropyLog,
+} from './SyntropyLogMock';
+
+// Test helper for easy setup
+export {
+  createTestHelper,
+  createServiceWithMock,
+  type TestHelper,
+} from './test-helper';

@@ -21,7 +21,7 @@
 
 ## 🚀 Quick Start
 
-Get started with SyntropyLog in **30 seconds**:
+Get started with SyntropyLog usage in **30 seconds** (after initialization):
 
 ```bash
 npm install syntropylog@0.6.13
@@ -42,6 +42,8 @@ await syntropyLog.init({
 const logger = syntropyLog.getLogger();
 logger.info('Hello, SyntropyLog!');
 ```
+// Note: This shows the "zero boilerplate" usage pattern.
+// Initialization and shutdown require the boilerplate shown in the documentation.
 
 > ⚠️ **CRITICAL REQUIREMENT**: You **MUST** include the [graceful shutdown boilerplate](https://syntropysoft.github.io/syntropylog-doc/docs/production/graceful-shutdown) in ALL applications. This ensures logs are flushed and resources are cleaned up when:
 > - **Development**: You press Ctrl+C to stop the application
@@ -49,7 +51,7 @@ logger.info('Hello, SyntropyLog!');
 
 ## ✨ Key Features
 
-- **🔄 Zero Boilerplate** - Get started in 30 seconds with automatic context propagation
+- **🔄 Zero Boilerplate** - Get started in 30 seconds with automatic context propagation (usage only - initialization/shutdown boilerplate required)
 - **🔗 Automatic Correlation** - Distributed tracing across services, HTTP calls, and message brokers
 - **🎯 Framework Agnostic** - Works with Express, Fastify, Koa, NestJS, and any Node.js app
 - **🛡️ Security First** - Built-in data masking and compliance-ready logging
