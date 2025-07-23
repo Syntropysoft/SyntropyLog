@@ -116,38 +116,58 @@ const notificationsBroker = syntropyLog.getBroker('notifications');
 // All instances are singletons - efficient resource usage
 ```
 
-## 🏗️ Singleton Pattern - Resource Management
+## 🏗️ Singleton Pattern - Intelligent Resource Management
 
-SyntropyLog uses a **Singleton pattern** to prevent pod crashes and ensure efficient resource management:
+SyntropyLog implements a **Singleton pattern** across all resource types, providing automatic instance management and preventing common production issues:
 
-### **🎯 Why Singleton?**
-- **Prevents pod crashes** - Avoids memory leaks from multiple instances
-- **Resource efficiency** - Reuses existing connections instead of creating new ones
-- **Consistent state** - All parts of your app use the same logger/Redis/broker instances
-- **Production stability** - Critical for Kubernetes pods and containerized environments
+### **🎯 Named Instance Management**
+Every resource in SyntropyLog is created with a **unique name** and managed as a singleton:
 
-### **🔄 How It Works**
 ```typescript
-// First call - creates and returns new instance
-const logger1 = syntropyLog.getLogger('user-service');
-const redis1 = syntropyLog.getRedis('cache');
-const broker1 = syntropyLog.getBroker('events');
+// Loggers - Named instances with automatic singleton management
+const userLogger = syntropyLog.getLogger('user-service');     // Creates new instance
+const paymentLogger = syntropyLog.getLogger('payment-service'); // Creates new instance
+const userLogger2 = syntropyLog.getLogger('user-service');    // Returns existing instance
 
-// Second call - returns the SAME instance (singleton)
-const logger2 = syntropyLog.getLogger('user-service'); // Same as logger1
-const redis2 = syntropyLog.getRedis('cache');          // Same as redis1
-const broker2 = syntropyLog.getBroker('events');       // Same as broker1
+// Redis instances - Same pattern for database connections
+const cacheRedis = syntropyLog.getRedis('cache');             // Creates new connection
+const sessionRedis = syntropyLog.getRedis('session');         // Creates new connection
+const cacheRedis2 = syntropyLog.getRedis('cache');            // Returns existing connection
 
-// logger1 === logger2 ✅
-// redis1 === redis2 ✅
-// broker1 === broker2 ✅
+// Message brokers - Consistent pattern across all broker types
+const eventsBroker = syntropyLog.getBroker('events');         // Creates new broker instance
+const notificationsBroker = syntropyLog.getBroker('notifications'); // Creates new instance
+const eventsBroker2 = syntropyLog.getBroker('events');        // Returns existing instance
+
+// HTTP clients - Instrumented clients follow the same pattern
+const apiClient = syntropyLog.getHttp('myApi');               // Creates new client
+const apiClient2 = syntropyLog.getHttp('myApi');              // Returns existing client
+
+// All subsequent calls return the SAME instance
+console.log(userLogger === userLogger2);      // true ✅
+console.log(cacheRedis === cacheRedis2);      // true ✅
+console.log(eventsBroker === eventsBroker2);  // true ✅
+console.log(apiClient === apiClient2);        // true ✅
 ```
 
-### **⚡ Benefits in Production**
-- **Memory efficient** - No duplicate connections or instances
-- **Connection pooling** - Redis and broker connections are reused
-- **Pod stability** - Prevents OOM (Out of Memory) crashes
-- **Consistent logging** - Same logger instance across your entire application
+### **🔄 Automatic Resource Lifecycle**
+The framework automatically manages the lifecycle of all instances:
+
+- **First call**: Creates new instance and stores it internally
+- **Subsequent calls**: Returns the existing instance (singleton)
+- **Memory efficient**: No duplicate connections or instances
+- **Connection reuse**: Redis and broker connections are pooled
+- **Consistent state**: Same instance across your entire application
+
+### **⚡ Production Benefits**
+This pattern provides critical advantages in production environments:
+
+- **🛡️ Pod Stability**: Prevents OOM (Out of Memory) crashes from multiple instances
+- **🔗 Connection Efficiency**: Reuses existing connections instead of creating new ones
+- **📊 Consistent Observability**: Same logger instance ensures consistent correlation IDs
+- **⚡ Performance**: Eliminates overhead of creating duplicate resources
+- **🏗️ Resource Management**: Automatic cleanup and connection pooling
+- **🚀 Kubernetes Ready**: Essential for containerized environments where memory is limited
 
 ## 📦 Ecosystem
 
