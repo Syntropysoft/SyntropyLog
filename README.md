@@ -121,43 +121,57 @@ const notificationsBroker = syntropyLog.getBroker('notifications');
 SyntropyLog implements a **Singleton pattern** across all resource types, providing automatic instance management and preventing common production issues:
 
 ### **🎯 Named Instance Management**
-Every resource in SyntropyLog is created with a **unique name** and managed as a singleton:
+SyntropyLog uses different patterns for different resource types:
+
+#### **📝 Loggers - On-Demand Creation with Singleton Management**
+Loggers are the **only resources created on-demand** and managed as singletons:
 
 ```typescript
-// Loggers - Named instances with automatic singleton management
+// Loggers - Created on-demand with automatic singleton management
 const userLogger = syntropyLog.getLogger('user-service');     // Creates new instance
 const paymentLogger = syntropyLog.getLogger('payment-service'); // Creates new instance
 const userLogger2 = syntropyLog.getLogger('user-service');    // Returns existing instance
 
-// Redis instances - Same pattern for database connections
-const cacheRedis = syntropyLog.getRedis('cache');             // Creates new connection
-const sessionRedis = syntropyLog.getRedis('session');         // Creates new connection
-const cacheRedis2 = syntropyLog.getRedis('cache');            // Returns existing connection
+// Logger derivatives - Create specialized loggers from templates
+const userErrorLogger = syntropyLog.getLogger('user-service:errors'); // New instance
+const userDebugLogger = syntropyLog.getLogger('user-service:debug');  // New instance
 
-// Message brokers - Consistent pattern across all broker types
-const eventsBroker = syntropyLog.getBroker('events');         // Creates new broker instance
-const notificationsBroker = syntropyLog.getBroker('notifications'); // Creates new instance
-const eventsBroker2 = syntropyLog.getBroker('events');        // Returns existing instance
+// Memory efficient - Only creates what you request
+// If you create 200 loggers, you get exactly 200 logger instances
+// No more, no less - controlled resource allocation
+```
 
-// HTTP clients - Instrumented clients follow the same pattern
-const apiClient = syntropyLog.getHttp('myApi');               // Creates new client
-const apiClient2 = syntropyLog.getHttp('myApi');              // Returns existing client
+#### **🔗 Infrastructure Resources - Pre-configured Singletons**
+Redis, brokers, and HTTP clients are **pre-configured in init()** and reused:
 
-// All subsequent calls return the SAME instance
-console.log(userLogger === userLogger2);      // true ✅
-console.log(cacheRedis === cacheRedis2);      // true ✅
-console.log(eventsBroker === eventsBroker2);  // true ✅
-console.log(apiClient === apiClient2);        // true ✅
+```typescript
+// These instances are created during init() and reused
+const cacheRedis = syntropyLog.getRedis('cache');             // Returns pre-configured instance
+const sessionRedis = syntropyLog.getRedis('session');         // Returns pre-configured instance
+const eventsBroker = syntropyLog.getBroker('events');         // Returns pre-configured instance
+const apiClient = syntropyLog.getHttp('myApi');               // Returns pre-configured instance
+
+// All calls return the SAME pre-configured instances
+console.log(userLogger === userLogger2);      // true ✅ (on-demand singleton)
+console.log(cacheRedis === cacheRedis);       // true ✅ (pre-configured singleton)
+console.log(eventsBroker === eventsBroker);   // true ✅ (pre-configured singleton)
+console.log(apiClient === apiClient);         // true ✅ (pre-configured singleton)
 ```
 
 ### **🔄 Automatic Resource Lifecycle**
-The framework automatically manages the lifecycle of all instances:
+The framework manages resources differently based on their type:
 
-- **First call**: Creates new instance and stores it internally
-- **Subsequent calls**: Returns the existing instance (singleton)
-- **Memory efficient**: No duplicate connections or instances
-- **Connection reuse**: Redis and broker connections are pooled
-- **Consistent state**: Same instance across your entire application
+#### **📝 Logger Lifecycle (On-Demand)**
+- **First call**: Creates new logger instance and stores it internally
+- **Subsequent calls**: Returns the existing logger instance (singleton)
+- **Controlled allocation**: Only creates loggers you explicitly request
+- **Memory efficient**: If you create 200 loggers, you get exactly 200 instances
+
+#### **🔗 Infrastructure Lifecycle (Pre-configured)**
+- **During init()**: Creates Redis, broker, and HTTP instances based on configuration
+- **Runtime calls**: Returns pre-configured instances (no new creation)
+- **Connection pooling**: Reuses existing connections efficiently
+- **Consistent state**: Same instances across your entire application
 
 ### **⚡ Production Benefits**
 This pattern provides critical advantages in production environments:
