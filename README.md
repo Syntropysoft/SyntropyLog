@@ -24,7 +24,7 @@
 Get started with SyntropyLog in **30 seconds**:
 
 ```bash
-npm install syntropylog@0.6.12
+npm install syntropylog@0.6.13
 ```
 
 ```typescript
@@ -61,7 +61,7 @@ logger.info('Hello, SyntropyLog!');
 
 ## 🎯 Production Ready
 
-SyntropyLog is **BETA (0.6.12)** and ready for production use:
+SyntropyLog is **BETA (0.6.13)** and ready for production use:
 
 - ✅ **94.1% test coverage** across 616+ tests
 - ✅ **Core features stable** - Logger, context, HTTP, Redis, brokers
