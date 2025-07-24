@@ -16,7 +16,7 @@ export default defineConfig({
       ],
     },
     deps: {
-      inline: ['nock'], // Note: this is for more specific cases
+      // Removed inline config to prevent TypeScript server issues
     },
   },
 });

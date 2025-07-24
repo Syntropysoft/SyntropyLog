@@ -16,8 +16,20 @@ export interface TestHelper {
 /**
  * Create a test helper for SyntropyLog testing
  * 
+ * @param spyFn - Optional spy function for framework compatibility (vi.fn, jest.fn, etc.)
+ * 
  * @example
  * ```typescript
+ * // For Vitest
+ * const testHelper = createTestHelper(vi.fn);
+ * 
+ * // For Jest
+ * const testHelper = createTestHelper(jest.fn);
+ * 
+ * // For Jasmine
+ * const testHelper = createTestHelper(jasmine.createSpy);
+ * 
+ * // Without spy (basic functionality only)
  * const testHelper = createTestHelper();
  * 
  * describe('MyService', () => {
@@ -31,8 +43,8 @@ export interface TestHelper {
  * });
  * ```
  */
-export function createTestHelper(): TestHelper {
-  const mockSyntropyLog = createSyntropyLogMock();
+export function createTestHelper(spyFn?: (implementation?: any) => any): TestHelper {
+  const mockSyntropyLog = createSyntropyLogMock(spyFn);
   
   return {
     mockSyntropyLog,

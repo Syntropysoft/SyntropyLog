@@ -196,16 +196,26 @@ export function getMockSerializationManager() {
 
 /**
  * Create a complete mock of SyntropyLog
+ * 
+ * @param spyFn - Optional spy function for framework compatibility (vi.fn, jest.fn, etc.)
  */
-export function createSyntropyLogMock(): MockSyntropyLog {
+export function createSyntropyLogMock(spyFn?: (implementation?: any) => any): MockSyntropyLog {
+  const createMock = (implementation?: any) => {
+    if (spyFn) {
+      return spyFn(implementation);
+    }
+    // Fallback to simple function if no spy provided
+    return implementation || (() => undefined);
+  };
+
   return {
-    init: async () => undefined,
-    shutdown: async () => undefined,
-    getLogger: () => getMockLogger(),
-    getContextManager: () => getMockContextManager(),
-    getHttpManager: () => getMockHttpManager(),
-    getBrokerManager: () => getMockBrokerManager(),
-    getSerializationManager: () => getMockSerializationManager(),
+    init: createMock(async () => undefined),
+    shutdown: createMock(async () => undefined),
+    getLogger: createMock(() => getMockLogger()),
+    getContextManager: createMock(() => getMockContextManager()),
+    getHttpManager: createMock(() => getMockHttpManager()),
+    getBrokerManager: createMock(() => getMockBrokerManager()),
+    getSerializationManager: createMock(() => getMockSerializationManager()),
   };
 }
 

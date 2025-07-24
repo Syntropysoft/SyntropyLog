@@ -16,6 +16,8 @@ const external = [
   ...Object.keys(pkg.peerDependencies || {}),
   ...builtinModules,
   ...builtinModules.map((m) => `node:${m}`),
+  // Force external for problematic transitive dependencies
+  'type-detect',
 ];
 
 // Common plugins for all JavaScript bundles.
