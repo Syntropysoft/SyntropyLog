@@ -13,7 +13,7 @@ describe('UserService', () => {
 
   beforeEach(() => {
     // Create a new mock for each test to ensure isolation
-    mockRedis = new BeaconRedisMock();
+    mockRedis = new BeaconRedisMock(vi.fn);
     userService = new UserService(mockRedis);
   });
 

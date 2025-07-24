@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.6.13",
+  "version": "0.6.16",
   "description": "A modern, composable observability framework for Node.js",
   "author": "Gabriel Alejandro Gomez",
   "license": "Apache-2.0",
@@ -53,6 +53,16 @@
       "require": {
         "types": "./dist/testing/index.d.ts",
         "default": "./dist/testing/index.cjs"
+      }
+    },
+    "./testing/mock": {
+      "import": {
+        "types": "./dist/testing/SyntropyLogMock.d.ts",
+        "default": "./dist/testing/SyntropyLogMock.mjs"
+      },
+      "require": {
+        "types": "./dist/testing/SyntropyLogMock.d.ts",
+        "default": "./dist/testing/SyntropyLogMock.cjs"
       }
     }
   },

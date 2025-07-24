@@ -25,3 +25,16 @@ export { SpyTransport } from './logger/transports/SpyTransport';
 // Export adapters (HTTP adapters are now in @syntropylog/adapters)
 export * from './adapters/brokers';
 export * from './adapters/serializers';
+
+// Mock adapters for testing
+export {
+  MockBrokerAdapter
+} from './testing/MockBrokerAdapter';
+
+export {
+  MockHttpClient
+} from './testing/MockHttpClient';
+
+export {
+  MockSerializerRegistry
+} from './testing/MockSerializerRegistry';
