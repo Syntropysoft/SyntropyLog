@@ -15,7 +15,59 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-94.1%25-brightgreen" alt="Test Coverage"></a>
   <a href="#"><img src="https://img.shields.io/badge/status-beta-blue.svg" alt="Beta"></a>
+  <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/codeql.yml"><img src="https://github.com/Syntropysoft/SyntropyLog/workflows/CodeQL/badge.svg" alt="CodeQL"></a>
+  <a href="https://github.com/Syntropysoft/SyntropyLog/security/advisories"><img src="https://img.shields.io/badge/dependabot-enabled-brightgreen.svg" alt="Dependabot"></a>
 </p>
+
+---
+
+### 🔒 Security & Transparency
+
+**We invite any member of the community to audit the code. If you find anything suspicious, please open an issue or a pull request.  
+We take security and transparency very seriously.**
+
+- 100% open source and public.
+- No hidden telemetry, tracking, or obfuscated code.
+- Automated dependency and vulnerability scans via GitHub Dependabot and CodeQL.
+- High code coverage and comprehensive testing.
+- External and community audits are welcome.
+
+If you have any questions or feedback, feel free to reach out or contribute!
+
+---
+
+## 📋 Table of Contents
+
+- [📋 Table of Contents](#-table-of-contents)
+- [🚀 Quick Start](#-quick-start)
+- [✨ Key Features](#-key-features)
+- [🎭 Core Philosophy: Silent Observer](#-core-philosophy-silent-observer)
+  - [🚫 Never Interrupts Your Application](#-never-interrupts-your-application)
+  - [🔍 What Happens When Logging Fails](#-what-happens-when-logging-fails)
+  - [📡 Error Reporting Strategy](#-error-reporting-strategy)
+- [📚 Documentation](#-documentation)
+- [🎯 Production Ready](#-production-ready)
+  - [📝 Version Notes](#-version-notes)
+- [🔧 Standard Configuration](#-standard-configuration)
+- [🏗️ Singleton Pattern - Intelligent Resource Management](#️-singleton-pattern---intelligent-resource-management)
+  - [**🎯 Named Instance Management**](#-named-instance-management)
+    - [**📝 Loggers - On-Demand Creation with Singleton Management**](#-loggers---on-demand-creation-with-singleton-management)
+    - [**🔗 Infrastructure Resources - Pre-configured Singletons**](#-infrastructure-resources---pre-configured-singletons)
+  - [**🔄 Automatic Resource Lifecycle**](#-automatic-resource-lifecycle)
+    - [**📝 Logger Lifecycle (On-Demand)**](#-logger-lifecycle-on-demand)
+    - [**🔗 Infrastructure Lifecycle (Pre-configured)**](#-infrastructure-lifecycle-pre-configured)
+  - [**⚡ Production Benefits**](#-production-benefits)
+- [🧪 Testing Revolution](#-testing-revolution)
+  - [**🎯 Zero Boilerplate Testing with SyntropyLogMock**](#-zero-boilerplate-testing-with-syntropylogmock)
+  - [**🚀 What's New in v0.6.16**](#-whats-new-in-v0616)
+  - [**✅ Benefits**](#-benefits)
+- [📦 Ecosystem](#-ecosystem)
+- [🚀 Examples](#-examples)
+  - [✅ **Complete \& Tested (00-13, 20-24, 28-32)**](#-complete--tested-00-13-20-24-28-32)
+  - [🚧 **In Development (14-19, 25-27)**](#-in-development-14-19-25-27)
+- [🤝 Contributing](#-contributing)
+- [📄 License](#-license)
+- [📞 Support](#-support)
 
 ---
 

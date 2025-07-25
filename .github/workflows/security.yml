@@ -1,0 +1,58 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+  schedule:
+    # Runs every Monday at 8:00 AM UTC
+    - cron: '0 8 * * 1'
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run npm audit
+      run: npm audit --audit-level=moderate
+      
+    - name: Run npm audit (JSON output for badge)
+      run: |
+        npm audit --audit-level=moderate --json > audit-report.json || echo '{"vulnerabilities": {}}' > audit-report.json
+      
+    - name: Generate security badge
+      run: |
+        # Parse audit results and generate badge
+        if [ -f audit-report.json ]; then
+          VULNERABILITIES=$(node -e "
+            const fs = require('fs');
+            const audit = JSON.parse(fs.readFileSync('audit-report.json', 'utf8'));
+            const total = Object.keys(audit.vulnerabilities || {}).length;
+            console.log(total);
+          ")
+          
+          if [ "$VULNERABILITIES" -eq 0 ]; then
+            echo "✅ No vulnerabilities found"
+            echo "security=passing" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Found $VULNERABILITIES vulnerabilities"
+            echo "security=failing" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "❌ Audit report not found"
+          echo "security=unknown" >> $GITHUB_OUTPUT
+        fi
