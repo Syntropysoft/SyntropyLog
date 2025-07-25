@@ -138,7 +138,7 @@
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
     "prettier": "^3.1.1",
-    "redis": "^4.6.12",
+    "redis": "^5.6.1",
     "rollup": "^3.29.5",
     "rollup-plugin-dts": "^6.1.0",
     "tslib": "^2.6.2",
@@ -146,7 +146,7 @@
     "vitest": "^3.2.4"
   },
   "peerDependencies": {
-    "redis": "^4.6.12"
+    "redis": "^5.6.1"
   },
   "peerDependenciesMeta": {
     "redis": {
