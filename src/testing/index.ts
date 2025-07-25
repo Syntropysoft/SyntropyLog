@@ -41,5 +41,3 @@ export { MockBrokerAdapter } from './MockBrokerAdapter';
 export { MockHttpClient } from './MockHttpClient';
 export { MockSerializerRegistry } from './MockSerializerRegistry';
 export { BeaconRedisMock } from './BeaconRedisMock';
-
-

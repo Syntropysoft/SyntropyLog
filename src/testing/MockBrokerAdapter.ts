@@ -1,6 +1,6 @@
 /**
  * MockBrokerAdapter - Framework Agnostic Mock
- * 
+ *
  * This mock provides a testing-agnostic version of IBrokerAdapter
  * that can be used with both Vitest and Jest without conflicts.
  */
@@ -31,7 +31,7 @@ function createAgnosticMockFn<T = any>(implementation?: (...args: any[]) => T) {
     }
     return undefined;
   };
-  
+
   // Basic mock properties
   (mockFn as any).mockClear = () => {};
   (mockFn as any).mockReset = () => {};
@@ -47,7 +47,7 @@ function createAgnosticMockFn<T = any>(implementation?: (...args: any[]) => T) {
   (mockFn as any).mockRejectedValue = (value: any) => {
     return createAgnosticMockFn(() => Promise.reject(value));
   };
-  
+
   return mockFn as any;
 }
 
@@ -67,43 +67,53 @@ export class MockBrokerAdapter implements IBrokerAdapter {
 
   constructor(spyFn?: (implementation?: any) => any) {
     this.spyFn = spyFn || null;
-    
+
     // Initialize mocks after spyFn is set
-    this.connect = this.createMock()
-      .mockImplementation(async () => {
-        // Check for timeout first
-        if (this.timeouts.has('connect')) {
-          await new Promise(resolve => setTimeout(resolve, this.timeouts.get('connect')! + 10));
-          throw new Error(`Mock broker timed out after ${this.timeouts.get('connect')}ms`);
-        }
+    this.connect = this.createMock().mockImplementation(async () => {
+      // Check for timeout first
+      if (this.timeouts.has('connect')) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, this.timeouts.get('connect')! + 10)
+        );
+        throw new Error(
+          `Mock broker timed out after ${this.timeouts.get('connect')}ms`
+        );
+      }
 
-        // Check for error simulation
-        if (this.errors.has('connect')) {
-          throw this.errors.get('connect')!;
-        }
+      // Check for error simulation
+      if (this.errors.has('connect')) {
+        throw this.errors.get('connect')!;
+      }
 
-        return undefined;
-      });
-    
-    this.disconnect = this.createMock()
-      .mockImplementation(async () => {
-        if (this.timeouts.has('disconnect')) {
-          await new Promise(resolve => setTimeout(resolve, this.timeouts.get('disconnect')! + 10));
-          throw new Error(`Mock broker timed out after ${this.timeouts.get('disconnect')}ms`);
-        }
+      return undefined;
+    });
 
-        if (this.errors.has('disconnect')) {
-          throw this.errors.get('disconnect')!;
-        }
+    this.disconnect = this.createMock().mockImplementation(async () => {
+      if (this.timeouts.has('disconnect')) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, this.timeouts.get('disconnect')! + 10)
+        );
+        throw new Error(
+          `Mock broker timed out after ${this.timeouts.get('disconnect')}ms`
+        );
+      }
 
-        return undefined;
-      });
+      if (this.errors.has('disconnect')) {
+        throw this.errors.get('disconnect')!;
+      }
 
-    this.publish = this.createMock()
-      .mockImplementation(async (topic: string, message: BrokerMessage) => {
+      return undefined;
+    });
+
+    this.publish = this.createMock().mockImplementation(
+      async (topic: string, message: BrokerMessage) => {
         if (this.timeouts.has('publish')) {
-          await new Promise(resolve => setTimeout(resolve, this.timeouts.get('publish')! + 10));
-          throw new Error(`Mock broker timed out after ${this.timeouts.get('publish')}ms`);
+          await new Promise((resolve) =>
+            setTimeout(resolve, this.timeouts.get('publish')! + 10)
+          );
+          throw new Error(
+            `Mock broker timed out after ${this.timeouts.get('publish')}ms`
+          );
         }
 
         if (this.errors.has('publish')) {
@@ -111,13 +121,18 @@ export class MockBrokerAdapter implements IBrokerAdapter {
         }
 
         return undefined;
-      });
+      }
+    );
 
-    this.subscribe = this.createMock()
-      .mockImplementation(async (topic: string, handler: MessageHandler) => {
+    this.subscribe = this.createMock().mockImplementation(
+      async (topic: string, handler: MessageHandler) => {
         if (this.timeouts.has('subscribe')) {
-          await new Promise(resolve => setTimeout(resolve, this.timeouts.get('subscribe')! + 10));
-          throw new Error(`Mock broker timed out after ${this.timeouts.get('subscribe')}ms`);
+          await new Promise((resolve) =>
+            setTimeout(resolve, this.timeouts.get('subscribe')! + 10)
+          );
+          throw new Error(
+            `Mock broker timed out after ${this.timeouts.get('subscribe')}ms`
+          );
         }
 
         if (this.errors.has('subscribe')) {
@@ -125,33 +140,35 @@ export class MockBrokerAdapter implements IBrokerAdapter {
         }
 
         return undefined;
-      });
+      }
+    );
 
-    this.setError = this.createMock()
-      .mockImplementation((method: string, error: Error) => {
+    this.setError = this.createMock().mockImplementation(
+      (method: string, error: Error) => {
         this.errors.set(method, error);
-      });
+      }
+    );
 
-    this.setTimeout = this.createMock()
-      .mockImplementation((method: string, timeoutMs: number) => {
+    this.setTimeout = this.createMock().mockImplementation(
+      (method: string, timeoutMs: number) => {
         this.timeouts.set(method, timeoutMs);
-      });
+      }
+    );
 
-    this.reset = this.createMock()
-      .mockImplementation(() => {
-        this.errors.clear();
-        this.timeouts.clear();
-        this.connect.mockReset();
-        this.disconnect.mockReset();
-        this.publish.mockReset();
-        this.subscribe.mockReset();
-        
-        // Restore default implementations
-        this.connect.mockImplementation(async () => undefined);
-        this.disconnect.mockImplementation(async () => undefined);
-        this.publish.mockImplementation(async () => undefined);
-        this.subscribe.mockImplementation(async () => undefined);
-      });
+    this.reset = this.createMock().mockImplementation(() => {
+      this.errors.clear();
+      this.timeouts.clear();
+      this.connect.mockReset();
+      this.disconnect.mockReset();
+      this.publish.mockReset();
+      this.subscribe.mockReset();
+
+      // Restore default implementations
+      this.connect.mockImplementation(async () => undefined);
+      this.disconnect.mockImplementation(async () => undefined);
+      this.publish.mockImplementation(async () => undefined);
+      this.subscribe.mockImplementation(async () => undefined);
+    });
   }
 
   private createMock(implementation?: any) {
@@ -179,4 +196,4 @@ DON'T FORGET AGAIN! 😤
     }
     return this.spyFn(implementation);
   }
-} 
+}

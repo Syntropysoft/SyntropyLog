@@ -1,6 +1,6 @@
 /**
  * MockSerializerRegistry - Framework Agnostic Mock
- * 
+ *
  * This mock provides a testing-agnostic version of SerializerRegistry
  * that can be used with both Vitest and Jest without conflicts.
  */
@@ -26,7 +26,7 @@ function createAgnosticMockFn<T = any>(implementation?: (...args: any[]) => T) {
     }
     return undefined;
   };
-  
+
   // Basic mock properties
   (mockFn as any).mockClear = () => {};
   (mockFn as any).mockReset = () => {};
@@ -42,7 +42,7 @@ function createAgnosticMockFn<T = any>(implementation?: (...args: any[]) => T) {
   (mockFn as any).mockRejectedValue = (value: any) => {
     return createAgnosticMockFn(() => Promise.reject(value));
   };
-  
+
   return mockFn as any;
 }
 
@@ -62,65 +62,76 @@ export class MockSerializerRegistry {
 
   constructor(spyFn?: (implementation?: any) => any) {
     this.spyFn = spyFn || null;
-    
+
     // Initialize mocks after spyFn is set
-    this.process = this.createMock()
-      .mockImplementation(async (meta: Record<string, unknown>, logger: ILogger) => {
+    this.process = this.createMock().mockImplementation(
+      async (meta: Record<string, unknown>, logger: ILogger) => {
         // Check for timeout first
         if (this.timeoutMs !== null) {
-          await new Promise(resolve => setTimeout(resolve, this.timeoutMs! + 10));
-          throw new Error(`Mock serializer timed out after ${this.timeoutMs}ms.`);
+          await new Promise((resolve) =>
+            setTimeout(resolve, this.timeoutMs! + 10)
+          );
+          throw new Error(
+            `Mock serializer timed out after ${this.timeoutMs}ms.`
+          );
         }
 
         const processedMeta = { ...meta };
-        
+
         // Process each field with its configured serializer
         for (const [key, value] of Object.entries(processedMeta)) {
           // Check for error simulation
           if (this.errorKeys.has(key)) {
             throw new Error(`Mock error for key '${key}'`);
           }
-          
+
           // Check for serializer
           const serializer = this.serializers.get(key);
           if (serializer) {
             try {
               processedMeta[key] = serializer(value);
             } catch (error) {
-              logger.warn(`Mock serializer for key "${key}" failed.`, { 
-                error: error instanceof Error ? error.message : String(error) 
+              logger.warn(`Mock serializer for key "${key}" failed.`, {
+                error: error instanceof Error ? error.message : String(error),
               });
-              processedMeta[key] = `[MOCK_SERIALIZER_ERROR: Failed to process key '${key}']`;
+              processedMeta[key] =
+                `[MOCK_SERIALIZER_ERROR: Failed to process key '${key}']`;
             }
           }
         }
-        
+
         return processedMeta;
-      });
+      }
+    );
 
-    this.setSerializer = this.createMock()
-      .mockImplementation((key: string, serializer: (value: unknown) => string) => {
+    this.setSerializer = this.createMock().mockImplementation(
+      (key: string, serializer: (value: unknown) => string) => {
         this.serializers.set(key, serializer);
-      });
+      }
+    );
 
-    this.setError = this.createMock()
-      .mockImplementation((key: string, error: Error) => {
+    this.setError = this.createMock().mockImplementation(
+      (key: string, error: Error) => {
         this.errorKeys.add(key);
-      });
+      }
+    );
 
-    this.setTimeout = this.createMock()
-      .mockImplementation((timeoutMs: number) => {
+    this.setTimeout = this.createMock().mockImplementation(
+      (timeoutMs: number) => {
         this.timeoutMs = timeoutMs;
-      });
+      }
+    );
 
     this.reset = this.createMock().mockImplementation(() => {
       this.serializers.clear();
       this.errorKeys.clear();
       this.timeoutMs = null;
       this.process.mockReset();
-      this.process.mockImplementation(async (meta: Record<string, unknown>, logger: ILogger) => {
-        return { ...meta };
-      });
+      this.process.mockImplementation(
+        async (meta: Record<string, unknown>, logger: ILogger) => {
+          return { ...meta };
+        }
+      );
     });
   }
 
@@ -149,4 +160,4 @@ DON'T FORGET AGAIN! 😤
     }
     return this.spyFn(implementation);
   }
-} 
+}

@@ -1,6 +1,6 @@
 /**
  * MockSyntropyLog - Framework Agnostic Mock
- * 
+ *
  * This mock provides a testing-agnostic version of SyntropyLog
  * that can be used with both Vitest and Jest without conflicts.
  */
@@ -42,7 +42,7 @@ function createMockFn<T = any>(implementation?: (...args: any[]) => T) {
     }
     return undefined;
   };
-  
+
   // Add mock properties for compatibility
   (mockFn as any).mockClear = () => {};
   (mockFn as any).mockReset = () => {};
@@ -52,7 +52,7 @@ function createMockFn<T = any>(implementation?: (...args: any[]) => T) {
   (mockFn as any).mockReturnValue = (value: T) => {
     return createMockFn(() => value);
   };
-  
+
   return mockFn;
 }
 
@@ -66,7 +66,7 @@ export class MockSyntropyLog implements IMockSyntropyLog {
       error: createMockFn(),
       warn: createMockFn(),
       debug: createMockFn(),
-      trace: createMockFn()
+      trace: createMockFn(),
     };
 
     this.contextManager = {
@@ -79,7 +79,7 @@ export class MockSyntropyLog implements IMockSyntropyLog {
       clear: createMockFn(),
       run: createMockFn(async (fn: () => Promise<any> | any) => {
         return await fn();
-      }) as any
+      }) as any,
     };
   }
 
@@ -101,13 +101,13 @@ export class MockSyntropyLog implements IMockSyntropyLog {
 
   reset(): void {
     // Clear all mock functions
-    Object.values(this.logger).forEach(fn => {
+    Object.values(this.logger).forEach((fn) => {
       if (typeof fn === 'function' && (fn as any).mockClear) {
         (fn as any).mockClear();
       }
     });
 
-    Object.values(this.contextManager).forEach(fn => {
+    Object.values(this.contextManager).forEach((fn) => {
       if (typeof fn === 'function' && (fn as any).mockClear) {
         (fn as any).mockClear();
       }
@@ -125,6 +125,6 @@ export function createTestHelper() {
     mockSyntropyLog,
     beforeEach: () => {
       mockSyntropyLog.reset();
-    }
+    },
   };
-} 
+}

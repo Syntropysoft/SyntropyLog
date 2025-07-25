@@ -27,14 +27,8 @@ export * from './adapters/brokers';
 export * from './adapters/serializers';
 
 // Mock adapters for testing
-export {
-  MockBrokerAdapter
-} from './testing/MockBrokerAdapter';
+export { MockBrokerAdapter } from './testing/MockBrokerAdapter';
 
-export {
-  MockHttpClient
-} from './testing/MockHttpClient';
+export { MockHttpClient } from './testing/MockHttpClient';
 
-export {
-  MockSerializerRegistry
-} from './testing/MockSerializerRegistry';
+export { MockSerializerRegistry } from './testing/MockSerializerRegistry';

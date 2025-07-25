@@ -2,11 +2,11 @@ import { randomUUID } from 'crypto';
 
 /**
  * Mock implementation of SyntropyLog for testing
- * 
+ *
  * This mock provides a complete simulation of SyntropyLog functionality
  * without depending on the actual framework state, making tests more reliable
  * and avoiding initialization/shutdown issues.
- * 
+ *
  * Similar to BeaconRedisMock, this is designed to be flexible and configurable
  * for different testing scenarios.
  */
@@ -44,7 +44,7 @@ export interface MockSyntropyLog {
  */
 export function createMockLogger(): MockLogger {
   const logs: Array<{ level: string; message: string; metadata?: any }> = [];
-  
+
   return {
     info: (message: string, metadata?: any) => {
       logs.push({ level: 'info', message, metadata });
@@ -75,18 +75,18 @@ export function createMockLogger(): MockLogger {
  */
 export function createMockContextManager(): MockContextManager {
   const context: Record<string, any> = {};
-  
+
   return {
     run: async <T>(fn: () => Promise<T> | T): Promise<T> => {
       // Simulate context execution
       const correlationId = randomUUID();
       const transactionId = randomUUID();
-      
+
       // Set default context values
       context['x-correlation-id'] = correlationId;
       context['x-transaction-id'] = transactionId;
       context['x-correlation-id-test'] = correlationId;
-      
+
       // Execute the function with context
       return await fn();
     },
@@ -196,10 +196,12 @@ export function getMockSerializationManager() {
 
 /**
  * Create a complete mock of SyntropyLog
- * 
+ *
  * @param spyFn - Optional spy function for framework compatibility (vi.fn, jest.fn, etc.)
  */
-export function createSyntropyLogMock(spyFn?: (implementation?: any) => any): MockSyntropyLog {
+export function createSyntropyLogMock(
+  spyFn?: (implementation?: any) => any
+): MockSyntropyLog {
   const createMock = (implementation?: any) => {
     if (spyFn) {
       return spyFn(implementation);
@@ -228,4 +230,4 @@ export function resetSyntropyLogMocks() {
   mockHttpManager = undefined as any;
   mockBrokerManager = undefined as any;
   mockSerializationManager = undefined as any;
-} 
+}

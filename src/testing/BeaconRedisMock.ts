@@ -14,7 +14,7 @@ function createAgnosticMockFn<T = any>(implementation?: (...args: any[]) => T) {
     }
     return undefined;
   };
-  
+
   // Basic mock properties
   (mockFn as any).mockClear = () => {};
   (mockFn as any).mockReset = () => {};
@@ -30,7 +30,7 @@ function createAgnosticMockFn<T = any>(implementation?: (...args: any[]) => T) {
   (mockFn as any).mockRejectedValue = (value: any) => {
     return createAgnosticMockFn(() => Promise.reject(value));
   };
-  
+
   return mockFn as any;
 }
 
@@ -96,14 +96,16 @@ export class BeaconRedisMock implements IBeaconRedis {
 
   constructor(spyFn?: (implementation?: any) => any) {
     this.spyFn = spyFn || null;
-    
+
     // Initialize mocks after spyFn is set
     this.getInstanceName = this.createMock();
     this.connect = this.createMock().mockResolvedValue(undefined);
     this.disconnect = this.createMock().mockResolvedValue(undefined);
     this.quit = this.createMock().mockResolvedValue(undefined);
     this.updateConfig = this.createMock();
-    this.multi = this.createMock().mockReturnValue(this.createTransactionObject());
+    this.multi = this.createMock().mockReturnValue(
+      this.createTransactionObject()
+    );
     this.get = this.createMock();
     this.set = this.createMock();
     this.del = this.createMock();

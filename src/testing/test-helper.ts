@@ -1,8 +1,11 @@
-import { createSyntropyLogMock, resetSyntropyLogMocks } from './SyntropyLogMock';
+import {
+  createSyntropyLogMock,
+  resetSyntropyLogMocks,
+} from './SyntropyLogMock';
 
 /**
  * Test helper for SyntropyLog applications
- * 
+ *
  * This helper provides a simple way to set up tests with SyntropyLog mocks
  * without dealing with initialization/shutdown issues.
  */
@@ -15,27 +18,27 @@ export interface TestHelper {
 
 /**
  * Create a test helper for SyntropyLog testing
- * 
+ *
  * @param spyFn - Optional spy function for framework compatibility (vi.fn, jest.fn, etc.)
- * 
+ *
  * @example
  * ```typescript
  * // For Vitest
  * const testHelper = createTestHelper(vi.fn);
- * 
+ *
  * // For Jest
  * const testHelper = createTestHelper(jest.fn);
- * 
+ *
  * // For Jasmine
  * const testHelper = createTestHelper(jasmine.createSpy);
- * 
+ *
  * // Without spy (basic functionality only)
  * const testHelper = createTestHelper();
- * 
+ *
  * describe('MyService', () => {
  *   beforeEach(() => testHelper.beforeEach());
  *   afterEach(() => testHelper.afterEach());
- *   
+ *
  *   it('should work', () => {
  *     const service = new MyService(testHelper.mockSyntropyLog);
  *     // ... test logic
@@ -43,9 +46,11 @@ export interface TestHelper {
  * });
  * ```
  */
-export function createTestHelper(spyFn?: (implementation?: any) => any): TestHelper {
+export function createTestHelper(
+  spyFn?: (implementation?: any) => any
+): TestHelper {
   const mockSyntropyLog = createSyntropyLogMock(spyFn);
-  
+
   return {
     mockSyntropyLog,
     beforeEach: () => {
@@ -53,17 +58,17 @@ export function createTestHelper(spyFn?: (implementation?: any) => any): TestHel
     },
     afterEach: () => {
       // Clean up if needed
-    }
+    },
   };
 }
 
 /**
  * Create a service with SyntropyLog mock for testing
- * 
+ *
  * @param ServiceClass - The service class to instantiate
  * @param mockSyntropyLog - The mock SyntropyLog instance
  * @returns Instance of the service with mock injected
- * 
+ *
  * @example
  * ```typescript
  * const mockSyntropyLog = createSyntropyLogMock();
@@ -75,4 +80,4 @@ export function createServiceWithMock<T>(
   mockSyntropyLog: any
 ): T {
   return new ServiceClass(mockSyntropyLog);
-} 
+}
