@@ -111,7 +111,7 @@
     "access": "public"
   },
   "dependencies": {
-    "chalk": "^4.1.2",
+    "chalk": "^5.4.1",
     "inquirer": "^9.2.12",
     "js-yaml": "^4.1.0",
     "regex-test": "^0.1.1",
