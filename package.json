@@ -116,7 +116,7 @@
     "js-yaml": "^4.1.0",
     "regex-test": "^0.1.1",
     "yargs": "^17.7.2",
-    "zod": "^3.22.4"
+    "zod": "^4.0.10"
   },
   "devDependencies": {
     "@redis/client": "^1.5.14",
