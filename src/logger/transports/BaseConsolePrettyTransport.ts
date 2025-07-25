@@ -15,7 +15,7 @@ import { Transport, TransportOptions } from './Transport';
  * @extends {Transport}
  */
 export abstract class BaseConsolePrettyTransport extends Transport {
-  protected readonly chalk: chalk.Chalk;
+  protected readonly chalk: typeof chalk;
 
   constructor(options?: TransportOptions) {
     super(options);

@@ -4,7 +4,7 @@
  */
 import { LogLevel } from '../levels';
 import { TransportOptions } from './Transport';
-import { Chalk } from 'chalk';
+import chalk from 'chalk';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
 import { LogEntry } from '../../types';
 
@@ -15,7 +15,7 @@ import { LogEntry } from '../../types';
  * @extends {BaseConsolePrettyTransport}
  */
 export class CompactConsoleTransport extends BaseConsolePrettyTransport {
-  private readonly levelColorMap: Record<Exclude<LogLevel, 'silent'>, Chalk>;
+  private readonly levelColorMap: Record<Exclude<LogLevel, 'silent'>, any>;
 
   /**
    * @constructor
