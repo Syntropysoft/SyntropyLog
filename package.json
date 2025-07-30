@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "A modern, composable observability framework for Node.js",
   "author": "Gabriel Alejandro Gomez",
   "license": "Apache-2.0",
