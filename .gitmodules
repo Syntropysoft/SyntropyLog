@@ -7,3 +7,6 @@
 [submodule "modules/@syntropylog/types"]
 	path = modules/@syntropylog/types
 	url = https://github.com/Syntropysoft/syntropylog-types.git
+[submodule "modules/examples"]
+	path = modules/examples
+	url = https://github.com/Syntropysoft/syntropylog-examples.git
