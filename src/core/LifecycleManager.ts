@@ -121,7 +121,7 @@ export class LifecycleManager extends EventEmitter {
         await this.brokerManager.init();
       }
 
-      await logger.info('SyntropyLog framework initialized successfully.');
+      logger.info('SyntropyLog framework initialized successfully.');
       this.state = 'READY';
       this.emit('ready');
     } catch (error) {
