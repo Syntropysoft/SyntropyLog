@@ -73,7 +73,12 @@ export class LifecycleManager extends EventEmitter {
         serializers: this.config.logger?.serializers,
         timeoutMs: this.config.logger?.serializerTimeoutMs,
       });
-      this.maskingEngine = new MaskingEngine(this.config.masking);
+      this.maskingEngine = new MaskingEngine({
+        rules: this.config.masking?.rules,
+        maskChar: this.config.masking?.maskChar,
+        preserveLength: this.config.masking?.preserveLength,
+        enableDefaultRules: this.config.masking?.enableDefaultRules !== false,
+      });
 
       this.loggerFactory = new LoggerFactory(
         this.config,

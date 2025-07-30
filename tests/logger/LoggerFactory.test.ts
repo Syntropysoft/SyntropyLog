@@ -75,9 +75,10 @@ describe('LoggerFactory', () => {
         timeoutMs: 100, // Default value from config
       });
       expect(MockMaskingEngine).toHaveBeenCalledWith({
-        fields: undefined,
+        rules: undefined,
         maskChar: undefined,
-        maxDepth: undefined,
+        preserveLength: undefined,
+        enableDefaultRules: true,
       });
       expect(MockConsoleTransport).toHaveBeenCalledOnce();
     });
@@ -114,7 +115,10 @@ describe('LoggerFactory', () => {
           serializerTimeoutMs: 500,
         },
         masking: {
-          fields: ['password', /token/i],
+          rules: [
+            { pattern: 'password', strategy: 'password' },
+            { pattern: /token/i, strategy: 'token' }
+          ],
         },
       };
 
@@ -125,9 +129,10 @@ describe('LoggerFactory', () => {
         timeoutMs: 500,
       });
       expect(MockMaskingEngine).toHaveBeenCalledWith({
-        ...config.masking,
-        maxDepth: undefined,
+        rules: config.masking?.rules,
         maskChar: undefined,
+        preserveLength: undefined,
+        enableDefaultRules: true,
       });
     });
   });

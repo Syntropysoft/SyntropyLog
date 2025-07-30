@@ -60,7 +60,7 @@ const createMockTransport = (): Transport => ({
 
 const createMockPipelineComponents = () => ({
   mockMasker: {
-    process: vi.fn().mockImplementation((entry) => Promise.resolve(entry)),
+    process: vi.fn().mockImplementation((entry) => entry),
   },
   mockSerializer: {
     process: vi.fn().mockImplementation((entry) => Promise.resolve(entry)),

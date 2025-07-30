@@ -159,15 +159,15 @@ function checkLoggerTransports(config: SyntropyLogConfig): CheckResult[] {
  * @returns {CheckResult[]} A warning if `masking.fields` is empty or not defined.
  */
 function checkMaskingRules(config: SyntropyLogConfig): CheckResult[] {
-  if (!config.masking?.fields || config.masking.fields.length === 0) {
+  if (!config.masking?.rules || config.masking.rules.length === 0) {
     return [
       {
         level: 'WARN',
         title: 'No Data Masking Rules Defined',
         message:
-          'The "masking.fields" array is empty. No sensitive data will be automatically obfuscated.',
+          'The "masking.rules" array is empty. No sensitive data will be automatically obfuscated.',
         recommendation:
-          'Add common sensitive field rules (e.g., { path: "password", type: "full" }) to prevent data leaks.',
+          'Add common sensitive field rules or enable default rules with "enableDefaultRules: true" to prevent data leaks.',
       },
     ];
   }

@@ -88,9 +88,10 @@ export class LoggerFactory {
       timeoutMs: config.logger?.serializerTimeoutMs,
     });
     this.maskingEngine = new MaskingEngine({
-      fields: config.masking?.fields,
+      rules: config.masking?.rules,
       maskChar: config.masking?.maskChar,
-      maxDepth: config.masking?.maxDepth,
+      preserveLength: config.masking?.preserveLength,
+      enableDefaultRules: config.masking?.enableDefaultRules !== false,
     });
   }
 

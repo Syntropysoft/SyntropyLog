@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { Transport } from './logger/transports/Transport';
 import { IHttpClientAdapter } from './http/adapters/adapter.types';
 import { IBrokerAdapter } from './brokers/adapter.types';
+import { MaskingStrategy } from './masking/MaskingEngine';
 
 /**
  * @description Schema for logger-specific options, including serialization and transports.
@@ -176,18 +177,25 @@ export const httpConfigSchema = z
  */
 const maskingConfigSchema = z
   .object({
-    /** An array of sensitive field names or RegExp. */
-    fields: z.array(z.union([z.string(), z.instanceof(RegExp)])).optional(),
-    /** The character(s) to use for masking. If `style` is 'preserve-length', only the first character is used. */
+    /** Array of masking rules with patterns and strategies. */
+    rules: z.array(z.object({
+      /** Regex pattern to match field names */
+      pattern: z.union([z.string(), z.instanceof(RegExp)]),
+      /** Masking strategy to apply */
+      strategy: z.nativeEnum(MaskingStrategy),
+      /** Whether to preserve original length */
+      preserveLength: z.boolean().optional(),
+      /** Character to use for masking */
+      maskChar: z.string().optional(),
+      /** Custom masking function (for CUSTOM strategy) */
+      customMask: z.function().args(z.string()).returns(z.string()).optional(),
+    })).optional(),
+    /** Default mask character */
     maskChar: z.string().optional(),
-    /** The maximum recursion depth for masking nested objects. Defaults to 3. */
-    maxDepth: z.number().int().positive().optional(),
-    /**
-     * The masking style.
-     * - `fixed`: (Default) Replaces the value with a fixed-length string ('******'). Maximum security.
-     * - `preserve-length`: Replaces the value with a mask string of the same length. Leaks length metadata.
-     */
-    style: z.enum(['fixed', 'preserve-length']).optional(),
+    /** Whether to preserve original length by default */
+    preserveLength: z.boolean().optional(),
+    /** Enable default rules for common data types */
+    enableDefaultRules: z.boolean().optional(),
   })
   .optional();
 

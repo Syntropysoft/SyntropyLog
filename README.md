@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Syntropysoft/syntropylog-examples-/main/assets/syntropyLog-logo.png" alt="SyntropyLog Logo" width="170"/>
+  <img src="./assets/beaconLog-2.png" alt="SyntropyLog Logo" width="170"/>
 </p>
 
 <h1 align="center">SyntropyLog</h1>
@@ -55,6 +55,7 @@ If you have any questions or feedback, feel free to reach out or contribute!
 - [🎯 Production Ready](#-production-ready)
   - [📝 Version Notes](#-version-notes)
 - [🔧 Standard Configuration](#-standard-configuration)
+- [🚀 Simple Example: Automatic Context Propagation](#-simple-example-automatic-context-propagation)
 - [🏗️ Singleton Pattern - Intelligent Resource Management](#️-singleton-pattern---intelligent-resource-management)
   - [**🎯 Named Instance Management**](#-named-instance-management)
     - [**📝 Loggers - On-Demand Creation with Singleton Management**](#-loggers---on-demand-creation-with-singleton-management)
@@ -127,19 +128,30 @@ Our comprehensive benchmark suite compares SyntropyLog's core (logger + context)
 
 | Logger | Bundle Size (JS) | Perf. Time | vs No Logger (Size) | vs Pino (Size/Perf) |
 |--------|------------------|------------|---------------------|---------------------|
-| No Logger | ~5 KB | 4 ms | - | - |
-| Pino | ~5 KB | 3 ms | -193 B | - |
-| **SyntropyLog** | **~5 KB** | **3 ms** | **+10 B** | **+203 B (1.03x) / +0 ms (1.00x)** |
+| No Logger | 5 KB | 3 ms | - | - |
+| Pino | 5 KB | 2 ms | -193 B | - |
+| **SyntropyLog** | **5 KB** | **2 ms** | **+10 B** | **+203 B (1.03x) / +0 ms (1.00x)** |
 
 ### 🚀 Victory #1: Zero Overhead Core
 
-The most impressive metric is execution time. SyntropyLog, while managing context for traceability, **matches Pino's performance** and is statistically indistinguishable from having no logger at all.
+The most impressive metric is execution time. SyntropyLog, while managing context for traceability, **achieves identical performance to Pino** and is statistically indistinguishable from having no logger at all.
 
 **Conclusion**: SyntropyLog's core engine is so optimized that its performance cost is, in practice, **zero**. Teams can adopt advanced observability features without paying the "performance tax" typically associated with them.
 
 ### 🎯 Victory #2: Intelligent Tree-Shaking
 
 The second victory is observed in bundle size. Adding SyntropyLog's core only increases bundle size by **203 bytes** compared to Pino, demonstrating the effectiveness of its modular architecture and tree-shaking. Developers only "pay" for the features they actually use in their code, without carrying the weight of HTTP orchestrators, Redis, or brokers if they don't use them.
+
+### 🔒 Victory #3: Advanced Security with Zero Performance Impact
+
+**Latest Benchmark Results (v0.7.1)**: Our comprehensive benchmark suite, including the new JSON flattening MaskingEngine, demonstrates that SyntropyLog maintains its performance excellence even with advanced security features:
+
+- **Bundle Size**: Only 203 bytes larger than Pino (1.03x)
+- **Performance**: Identical to Pino (1.00x performance ratio)
+- **Security**: Advanced data masking with JSON flattening strategy
+- **Stability**: Consistent results across multiple benchmark runs
+
+The MaskingEngine's JSON flattening strategy provides ultra-fast data masking at any object depth while maintaining the original structure, all with zero measurable performance impact.
 
 ### 🏗️ Beyond a Logger: An Orchestration Framework
 
@@ -210,9 +222,16 @@ logger.error('This will work even if transport fails');
 
 ## 🎯 Production Ready
 
-SyntropyLog is **BETA (v0.7.0)** and ready for production use:
+SyntropyLog is **BETA (v0.7.1)** and ready for production use:
 
 ### 📝 Version Notes
+**v0.7.1** - *Performance & Security Release*
+- ⚡ **Performance Excellence** - Identical performance to Pino (1.00x ratio) with advanced features
+- 🔒 **JSON Flattening MaskingEngine** - Ultra-fast data masking at any object depth with zero performance impact
+- 🛡️ **Enhanced Security** - Hybrid masking strategy (field name + content pattern) with preserveLength option
+- 📊 **Stable Benchmarks** - Consistent results across multiple benchmark runs
+- 🧪 **Comprehensive Testing** - 769 tests passing with 100% MaskingEngine test coverage
+
 **v0.7.0** - *Enterprise Security Release*
 - 🔒 **Enterprise Security** - GitHub Dependabot, CodeQL static analysis, and automated vulnerability scanning
 - 🛡️ **Branch Protection** - Complete CI/CD pipeline with status checks and quality gates
@@ -222,7 +241,7 @@ SyntropyLog is **BETA (v0.7.0)** and ready for production use:
 - 🎯 **Production Ready** - Kubernetes-ready with singleton pattern and resource management
 - ⚡ **Zero External Dependencies** - No Redis, brokers, or HTTP servers needed for testing
 
-- ✅ **88.93% test coverage** across 600+ tests
+- ✅ **88.93% test coverage** across 769 tests
 - ✅ **Core features stable** - Logger, context, HTTP, Redis, brokers
 - ✅ **API stable** - Backward compatible
 - ✅ **32 examples complete** - Core features, message brokers, and testing patterns tested
@@ -274,6 +293,146 @@ const notificationsBroker = syntropyLog.getBroker('notifications');
 
 // All instances are singletons - efficient resource usage
 ```
+
+## 🚀 Simple Example: Automatic Context Propagation
+
+**The magic of SyntropyLog: Configure once, get automatic context everywhere.**
+
+### **🎯 What You'll Learn**
+- How to set up SyntropyLog in 30 seconds
+- How context (correlation IDs) automatically propagates to all operations
+- How to use it with Express.js and Fastify
+- How Redis operations automatically include the same correlation ID
+
+### **📦 1. Simple Configuration**
+
+```typescript
+// Just configure what you need
+await syntropyLog.init({
+  logger: { serviceName: 'my-app', level: 'info' },
+  context: { correlationIdHeader: 'X-Correlation-ID' },
+  redis: { 
+    instances: [{ 
+      instanceName: 'cache', 
+      url: 'redis://localhost:6379' 
+    }] 
+  }
+});
+```
+
+### **🔗 2. Framework Integration (Choose One)**
+
+#### **Express.js (Traditional)**
+```typescript
+// contextMiddleware.ts - Reusable for any Express app
+import { syntropyLog } from 'syntropylog';
+
+export function syntropyContextMiddleware() {
+  return (req, res, next) => {
+    const contextManager = syntropyLog.getContextManager();
+    
+    contextManager.run(async () => {
+      // Get correlation ID from header OR generate one automatically
+      const correlationId = req.headers['x-correlation-id'] || contextManager.getCorrelationId();
+      contextManager.set('X-Correlation-ID', correlationId);
+      next();
+    });
+  };
+}
+
+// Use it in your Express app
+app.use(syntropyContextMiddleware());
+```
+
+#### **Fastify (High Performance)**
+```typescript
+// ProductServer.ts - Fastify with automatic context
+import Fastify from 'fastify';
+import { syntropyLog } from 'syntropylog';
+
+export class ProductServer {
+  constructor() {
+    this.app = Fastify();
+    this.setupMiddleware();
+  }
+
+  private setupMiddleware() {
+    // Simple middleware - sets context for each request
+    this.app.addHook('preHandler', async (request, reply) => {
+      const contextManager = syntropyLog.getContextManager();
+      
+      // Extract correlation ID from headers or generate one
+      const correlationId = request.headers['x-correlation-id'] || `fastify-${uuidv4()}`;
+      
+      // Set context - this will be available to all operations
+      contextManager.set('X-Correlation-ID', correlationId);
+      contextManager.set('requestId', request.id);
+      contextManager.set('method', request.method);
+      contextManager.set('url', request.url);
+    });
+  }
+}
+```
+
+### **🏪 3. Your Business Logic (Clean & Simple)**
+
+```typescript
+// ProductService.ts - Your normal business code
+export class ProductService {
+  constructor() {
+    this.redis = syntropyLog.getRedis('cache');
+    this.logger = syntropyLog.getLogger();
+  }
+
+  async getProduct(id: string) {
+    // Try cache first
+    const cached = await this.redis.get(`product:${id}`);
+    if (cached) {
+      this.logger.info('Product found in cache', { id });
+      return JSON.parse(cached);
+    }
+
+    // Get from database
+    const product = await this.getFromDatabase(id);
+    await this.redis.set(`product:${id}`, JSON.stringify(product), 30);
+    this.logger.info('Product retrieved from database', { id });
+    
+    return product;
+  }
+}
+```
+
+### **🎯 4. Magic: Automatic Context Everywhere**
+
+**Every log automatically includes the same correlation ID:**
+
+```
+2025-07-30 16:50:35 INFO  [X-Correlation-ID="abc123"] Redis GET product:1 (2ms)
+2025-07-30 16:50:35 INFO  [X-Correlation-ID="abc123"] Product retrieved from database { id: '1' }
+2025-07-30 16:50:35 INFO  [X-Correlation-ID="abc123"] Redis SET product:1 (1ms)
+```
+
+### **✨ What You Get Automatically:**
+
+- ✅ **Same correlation ID** in all logs (Redis + your code)
+- ✅ **Performance tracking** for all operations
+- ✅ **Request context** (method, URL, request ID)
+- ✅ **Zero manual work** - just use the framework normally
+- ✅ **Framework agnostic** - works with Express, Fastify, Koa, etc.
+
+### **🚀 Ready for More?**
+
+Once you understand this basic pattern, you can add:
+- HTTP clients with automatic logging
+- Message brokers (Kafka, RabbitMQ)
+- Data masking for security
+- Custom logging matrices
+- And much more...
+
+**Next steps:**
+1. **Example 00** - Basic setup and logging
+2. **Example 12** - Complete Express + Redis integration
+3. **Example 13** - High-performance Fastify with automatic context
 
 ## 🏗️ Singleton Pattern - Intelligent Resource Management
 
@@ -404,14 +563,59 @@ describe('UserService', () => {
 Complete examples demonstrating SyntropyLog features:
 
 ### ✅ **Complete & Tested (00-13, 20-24, 28-32)**
-- **00-09**: Core Framework Features - Basic setup, context, configuration
-- **10-13**: HTTP & Redis Integration - Framework agnosticism (Express, Fastify)
-- **20-24**: Message Brokers - Kafka, RabbitMQ, NATS with correlation
-- **28-32**: Testing Patterns - Vitest, Jest, Redis context, Serializers, and Transport spies with SyntropyLogMock
+
+#### **🎯 Beginner Friendly (00-09)**
+- **00**: Basic Setup - Simple initialization and logging
+- **01**: Configuration - Environment-based configuration
+- **02**: Context Management - Correlation IDs and request tracking
+- **03**: Log Levels - Debug, info, warn, error with filtering
+- **04**: Custom Transports - Console, file, and custom outputs
+- **05**: HTTP Integration - Framework agnostic HTTP client
+- **06**: Redis Integration - Caching with automatic correlation
+- **07**: Message Brokers - Kafka, RabbitMQ, NATS integration
+- **08**: Serialization - Custom data formatting and masking
+- **09**: Testing - Unit tests with SyntropyLogMock
+
+#### **🌐 HTTP Framework Integration (10-13)**
+- **10**: Express.js - Traditional Express server with context
+- **11**: Koa.js - Modern Koa server with middleware
+- **12**: Express + Redis + Axios - Complete microservice with caching
+- **13**: Fastify + Redis - High-performance Fastify with automatic context propagation
+
+#### **📡 Message Brokers (20-24)**
+- **20**: Kafka Integration - Event streaming with correlation
+- **21**: RabbitMQ Integration - Message queuing with context
+- **22**: NATS Integration - Lightweight messaging
+- **23**: Multiple Brokers - Using different brokers in same app
+- **24**: Producer/Consumer Patterns - Complete messaging workflows
+
+#### **🧪 Testing Patterns (28-32)**
+- **28**: Vitest Integration - Modern testing with SyntropyLogMock
+- **29**: Jest Integration - Traditional testing framework
+- **30**: Redis Context Testing - Testing with Redis mocks
+- **31**: Serializer Testing - Custom serializer validation
+- **32**: Transport Spies - Testing log outputs and formats
 
 ### 🚧 **In Development (14-19, 25-27)**
-- **14-19**: Advanced Framework Features - NestJS, Koa, Hapi, custom serializers
+- **14-19**: Advanced Framework Features - NestJS, Hapi, custom serializers
 - **25-27**: Enterprise Patterns - Production configuration, advanced context
+
+### **🎯 Quick Start Examples**
+
+**For beginners, start with:**
+1. **Example 00** - Basic setup and logging
+2. **Example 02** - Understanding context and correlation IDs
+3. **Example 12** - Real-world Express + Redis integration
+4. **Example 13** - High-performance Fastify with automatic context
+
+**For HTTP frameworks:**
+- **Express.js**: Examples 10, 12
+- **Fastify**: Example 13 (recommended for performance)
+- **Koa.js**: Example 11
+
+**For testing:**
+- **Vitest**: Example 28 (recommended)
+- **Jest**: Example 29
 
 [View all examples →](https://github.com/Syntropysoft/syntropylog-examples-)
 
