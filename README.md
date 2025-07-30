@@ -556,7 +556,7 @@ describe('UserService', () => {
 - **[syntropylog](https://www.npmjs.com/package/syntropylog)** - Core framework
 - **[@syntropylog/adapters](https://www.npmjs.com/package/@syntropylog/adapters)** - HTTP and broker adapters
 - **[@syntropylog/types](https://www.npmjs.com/package/@syntropylog/types)** - TypeScript types
-- **[syntropylog-examples](https://github.com/Syntropysoft/syntropylog-examples-)** - 32 complete examples
+- **[syntropylog-examples](https://github.com/Syntropysoft/syntropylog-examples)** - 32 complete examples
 
 ## 🚀 Examples
 
@@ -617,7 +617,7 @@ Complete examples demonstrating SyntropyLog features:
 - **Vitest**: Example 28 (recommended)
 - **Jest**: Example 29
 
-[View all examples →](https://github.com/Syntropysoft/syntropylog-examples-)
+[View all examples →](https://github.com/Syntropysoft/syntropylog-examples)
 
 ## 🤝 Contributing
 
