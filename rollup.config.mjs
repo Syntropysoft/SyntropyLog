@@ -88,6 +88,7 @@ export default [
     external,
   },
   createEntryConfig('src/doctor.ts', './dist/doctor'),
+  createEntryConfig('src/cli/cli.ts', './dist/cli'),
   createEntryConfig('src/http/index.ts', './dist/http/index', {
     treeshake: false,
   }),
