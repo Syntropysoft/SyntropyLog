@@ -578,7 +578,7 @@ Complete examples demonstrating SyntropyLog features:
 
 #### **🌐 HTTP Framework Integration (10-15)**
 - **10**: Express.js - Traditional Express server with context
-- **11**: Koa.js - Modern Koa server with middleware
+- **11**: Custom HTTP Adapter - Creating custom adapters for native fetch API
 - **12**: Express + Redis + Axios - Complete microservice with caching *(Reviewed and Fixed)*
 - **13**: Fastify + Redis - High-performance Fastify with automatic context propagation *(Reviewed and Fixed)*
 - **14**: NestJS Integration - Enterprise-grade framework with decorators
@@ -613,7 +613,7 @@ Complete examples demonstrating SyntropyLog features:
 **For HTTP frameworks:**
 - **Express.js**: Examples 10, 12
 - **Fastify**: Example 13 (recommended for performance)
-- **Koa.js**: Example 11
+- **Custom Adapters**: Example 11 (shows how to create custom HTTP adapters)
 
 **For testing:**
 - **Vitest**: Example 28 (recommended)
