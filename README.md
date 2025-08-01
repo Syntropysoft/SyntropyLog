@@ -581,8 +581,8 @@ Complete examples demonstrating SyntropyLog features:
 - **11**: Koa.js - Modern Koa server with middleware
 - **12**: Express + Redis + Axios - Complete microservice with caching *(Reviewed and Fixed)*
 - **13**: Fastify + Redis - High-performance Fastify with automatic context propagation *(Reviewed and Fixed)*
-- **14**: NestJS Integration - Enterprise-grade framework with decorators *(Reviewed and Fixed)*
-- **15**: Hapi.js Integration - Enterprise server with plugin architecture *(Reviewed and Fixed)*
+- **14**: NestJS Integration - Enterprise-grade framework with decorators
+- **15**: Hapi.js Integration - Enterprise server with plugin architecture
 
 #### **📡 Message Brokers (20-24)**
 - **20**: Kafka Integration - Event streaming with correlation
