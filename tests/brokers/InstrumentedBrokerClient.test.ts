@@ -39,7 +39,10 @@ describe('InstrumentedBrokerClient', () => {
       getCorrelationIdHeaderName: vi.fn().mockReturnValue(CORRELATION_ID_HEADER),
       getTransactionIdHeaderName: vi.fn().mockReturnValue(TRANSACTION_ID_HEADER),
       set: vi.fn(),
-      run: vi.fn().mockImplementation(async (callback) => callback()),
+      run: vi.fn().mockImplementation(async (callback) => {
+        // Simulate running the callback in a new context
+        return await callback();
+      }),
       // Métodos faltantes:
       configure: vi.fn(),
       get: vi.fn(),
@@ -92,7 +95,11 @@ describe('InstrumentedBrokerClient', () => {
 
     it('should inject correlation and transaction IDs when propagateFullContext is false', async () => {
       const message: BrokerMessage = { payload: Buffer.from('test') };
-      (mockContextManager.getCorrelationId as Mock).mockReturnValue(MOCK_CORRELATION_ID);
+      (mockContextManager.get as Mock).mockImplementation((key: string) => {
+        if (key === CORRELATION_ID_HEADER) return MOCK_CORRELATION_ID;
+        if (key === TRANSACTION_ID_HEADER) return MOCK_TRANSACTION_ID;
+        return undefined;
+      });
       (mockContextManager.getTransactionId as Mock).mockReturnValue(MOCK_TRANSACTION_ID);
       
       await client.publish(topic, message);
@@ -121,7 +128,10 @@ describe('InstrumentedBrokerClient', () => {
     });
 
     it('should create headers object if it does not exist', async () => {
-      (mockContextManager.getCorrelationId as Mock).mockReturnValue(MOCK_CORRELATION_ID);
+      (mockContextManager.get as Mock).mockImplementation((key: string) => {
+        if (key === CORRELATION_ID_HEADER) return MOCK_CORRELATION_ID;
+        return undefined;
+      });
       const messageWithoutHeaders: BrokerMessage = { payload: Buffer.from('test') };
       
       await client.publish(topic, messageWithoutHeaders);
@@ -170,7 +180,10 @@ describe('InstrumentedBrokerClient', () => {
     });
 
     it('should wrap the user handler and run it in a new context', async () => {
-      const message: BrokerMessage = { payload: Buffer.from('test') };
+      const message: BrokerMessage = { 
+        payload: Buffer.from('test'),
+        headers: { [CORRELATION_ID_HEADER]: MOCK_CORRELATION_ID }
+      };
       const controls: MessageLifecycleControls = { ack: vi.fn(), nack: vi.fn() };
 
       await instrumentedHandler(message, controls);
