@@ -73,6 +73,10 @@ export class InstrumentedBrokerClient {
       message.headers = {};
     }
 
+    // Get current correlation ID from the active context (only if it exists, don't generate new)
+    const currentCorrelationId = (this.contextManager.get(
+      this.contextManager.getCorrelationIdHeaderName()
+    ) || this.contextManager.get('correlationId')) as string | undefined;
     // 1. Inject context into headers based on the configuration.
     if (this.config.propagate?.includes('*')) {
       // Wildcard behavior: Propagate the entire context map.
@@ -107,11 +111,10 @@ export class InstrumentedBrokerClient {
       }
     }
 
-    // Always propagate correlation and transaction IDs, as they are fundamental.
-    const correlationId = this.contextManager.getCorrelationId();
-    if (correlationId) {
+    // Only propagate correlation ID if it exists in the context (don't generate new)
+    if (currentCorrelationId) {
       message.headers[this.contextManager.getCorrelationIdHeaderName()] =
-        correlationId;
+        currentCorrelationId;
     }
 
     const transactionId = this.contextManager.getTransactionId();
@@ -127,6 +130,7 @@ export class InstrumentedBrokerClient {
           message.headers?.['id'] instanceof Buffer
             ? message.headers?.['id'].toString()
             : message.headers?.['id'],
+        correlationId: currentCorrelationId, // Log the correlation ID being used
       } as any,
       'Publishing message...'
     );
@@ -138,6 +142,7 @@ export class InstrumentedBrokerClient {
           message.headers?.['id'] instanceof Buffer
             ? message.headers?.['id'].toString()
             : message.headers?.['id'],
+        correlationId: currentCorrelationId, // Log the correlation ID being used
       } as any,
       'Message published successfully.'
     );
@@ -159,16 +164,69 @@ export class InstrumentedBrokerClient {
 
     // Wrap the user's handler to implement automatic context propagation.
     const instrumentedHandler: MessageHandler = async (message, controls) => {
-      // Restore context from all headers found in the message.
-      // This is more robust as it doesn't assume which headers are present.
-      await this.contextManager.run(async () => {
+      // Get correlation ID from message headers first
+      const messageCorrelationId =
+        message.headers?.[this.contextManager.getCorrelationIdHeaderName()];
+
+      // Get current correlation ID from context (but don't generate new one if not exists)
+      const currentCorrelationId = this.contextManager.get(
+        this.contextManager.getCorrelationIdHeaderName()
+      ) as string;
+
+      // If message has different correlation ID, restore context from message
+      if (
+        messageCorrelationId &&
+        messageCorrelationId !== currentCorrelationId
+      ) {
+        await this.contextManager.run(async () => {
+          if (message.headers) {
+            for (const key in message.headers) {
+              this.contextManager.set(key, message.headers[key]);
+            }
+          }
+
+          // Use the message correlation ID for logging instead of generating a new one
+          const correlationId = messageCorrelationId;
+          this.logger.info(
+            { topic, correlationId } as any,
+            'Received message.'
+          );
+
+          // Also wrap the lifecycle controls to add logging for ack/nack actions.
+          const instrumentedControls: MessageLifecycleControls = {
+            ack: async () => {
+              await controls.ack();
+              this.logger.debug(
+                { topic, correlationId } as any,
+                'Message acknowledged (ack).'
+              );
+            },
+            nack: async (requeue) => {
+              await controls.nack(requeue);
+              this.logger.warn(
+                { topic, correlationId, requeue } as any,
+                'Message negatively acknowledged (nack).'
+              );
+            },
+          };
+
+          // Execute the original user-provided handler.
+          await handler(message, instrumentedControls);
+        });
+      } else {
+        // Use current context, just set message headers if needed
         if (message.headers) {
           for (const key in message.headers) {
             this.contextManager.set(key, message.headers[key]);
           }
         }
 
-        const correlationId = this.contextManager.getCorrelationId();
+        // Use the message correlation ID if available, otherwise use current context (but don't generate new one)
+        const correlationId =
+          messageCorrelationId ||
+          (this.contextManager.get(
+            this.contextManager.getCorrelationIdHeaderName()
+          ) as string);
         this.logger.info({ topic, correlationId } as any, 'Received message.');
 
         // Also wrap the lifecycle controls to add logging for ack/nack actions.
@@ -191,7 +249,7 @@ export class InstrumentedBrokerClient {
 
         // Execute the original user-provided handler.
         await handler(message, instrumentedControls);
-      });
+      }
     };
 
     await this.adapter.subscribe(topic, instrumentedHandler);

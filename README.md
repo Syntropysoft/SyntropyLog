@@ -562,7 +562,7 @@ describe('UserService', () => {
 
 Complete examples demonstrating SyntropyLog features:
 
-### ✅ **Complete & Tested (00-13, 20-24, 28-32)**
+### ✅ **Complete & Tested (00-15, 20-24, 28-32)**
 
 #### **🎯 Beginner Friendly (00-09)**
 - **00**: Basic Setup - Simple initialization and logging
@@ -576,11 +576,13 @@ Complete examples demonstrating SyntropyLog features:
 - **08**: Serialization - Custom data formatting and masking
 - **09**: Testing - Unit tests with SyntropyLogMock
 
-#### **🌐 HTTP Framework Integration (10-13)**
+#### **🌐 HTTP Framework Integration (10-15)**
 - **10**: Express.js - Traditional Express server with context
 - **11**: Koa.js - Modern Koa server with middleware
 - **12**: Express + Redis + Axios - Complete microservice with caching
 - **13**: Fastify + Redis - High-performance Fastify with automatic context propagation
+- **14**: NestJS Integration - Enterprise-grade framework with decorators
+- **15**: Hapi.js Integration - Enterprise server with plugin architecture
 
 #### **📡 Message Brokers (20-24)**
 - **20**: Kafka Integration - Event streaming with correlation
@@ -596,8 +598,8 @@ Complete examples demonstrating SyntropyLog features:
 - **31**: Serializer Testing - Custom serializer validation
 - **32**: Transport Spies - Testing log outputs and formats
 
-### 🚧 **In Development (14-19, 25-27)**
-- **14-19**: Advanced Framework Features - NestJS, Hapi, custom serializers
+### 🚧 **In Development (16-19, 25-27)**
+- **16-19**: Advanced Framework Features - Custom serializers, advanced patterns
 - **25-27**: Enterprise Patterns - Production configuration, advanced context
 
 ### **🎯 Quick Start Examples**

@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2025-01-01
+
+### 🚀 Enhanced
+- **InstrumentedBrokerClient**: Improved correlation ID propagation logic to only propagate existing IDs instead of auto-generating new ones
+- **Context Management**: Enhanced context handling in message broker scenarios with better correlation ID comparison
+- **Logging**: Added correlation ID tracking in broker publish/receive logs for better observability
+- **TypeScript**: Improved type exports for better autocompletion and developer experience
+
+### 🔧 Fixed
+- **Rollup Build**: Fixed deprecated `inlineDynamicImports` warning by moving option to output configuration
+- **Context Propagation**: Resolved issues with correlation ID generation in broker message handling
+- **Build Process**: Eliminated build warnings for cleaner compilation output
+
+### 📦 Dependencies
+- No new dependencies added
+
+### 🧪 Testing
+- **Broker Integration**: Enhanced testing for context propagation in message broker scenarios
+- **Context Management**: Improved test coverage for correlation ID handling
+
+### 🎯 Key Features
+- **Smart Context Propagation**: Only propagates existing correlation IDs, preventing unwanted ID generation
+- **Enhanced Observability**: Better logging of correlation IDs throughout message processing pipeline
+- **Developer Experience**: Improved TypeScript support with better type exports
+
+## [0.7.1] - 2024-12-19
+
 ## [0.7.1] - 2024-12-19
 
 ### 🚀 Enhanced

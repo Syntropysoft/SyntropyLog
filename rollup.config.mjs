@@ -70,17 +70,18 @@ export default [
   // --- JavaScript Bundles ---
   {
     input: 'src/index.ts',
-    inlineDynamicImports: true,
     output: [
       {
         file: './dist/index.cjs',
         format: 'cjs',
         sourcemap: true,
+        inlineDynamicImports: true,
       },
       {
         file: './dist/index.mjs',
         format: 'esm',
         sourcemap: true,
+        inlineDynamicImports: true,
       },
     ],
     plugins: jsPlugins,

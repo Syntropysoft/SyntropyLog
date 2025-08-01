@@ -1,8 +1,8 @@
 /**
  * @file src/config.ts
  * @description Defines and exports the configuration types for the library.
- * These types are inferred directly from the Zod schemas defined in `config.schema.ts`,
- * ensuring that static types and runtime validation are always in sync.
+ * These types are now explicitly defined for better TypeScript intellisense and autocompletion,
+ * while still using Zod schemas for runtime validation.
  */
 
 import { z } from 'zod';
