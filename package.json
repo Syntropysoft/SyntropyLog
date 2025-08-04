@@ -120,7 +120,7 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
-    "@redis/client": "^1.5.14",
+    "@redis/client": "^5.7.0",
     "@rollup/plugin-commonjs": "^25.0.7",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^15.2.3",
