@@ -113,7 +113,7 @@
   "dependencies": {
     "chalk": "^4.1.2",
     "flatted": "^3.3.3",
-    "inquirer": "^8.2.6",
+    "inquirer": "^12.9.0",
     "js-yaml": "^4.1.0",
     "regex-test": "^0.1.1",
     "yargs": "^17.7.2",
