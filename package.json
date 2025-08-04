@@ -116,7 +116,7 @@
     "inquirer": "^8.2.6",
     "js-yaml": "^4.1.0",
     "regex-test": "^0.1.1",
-    "yargs": "^17.7.2",
+    "yargs": "^18.0.0",
     "zod": "^3.22.4"
   },
   "devDependencies": {
