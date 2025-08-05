@@ -8,16 +8,13 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 10
-    reviewers:
-      - "Syntropysoft"
-    assignees:
-      - "Syntropysoft"
     commit-message:
       prefix: "chore"
       include: "scope"
-    labels:
-      - "dependencies"
-      - "security"
+    # Limit @types/node to maximum version 22.x.x to avoid Node 24
+    ignore:
+      - dependency-name: "@types/node"
+        versions: ["^23.0.0", "^24.0.0"]
     # Group minor and patch updates together
     groups:
       minor-and-patch:
@@ -35,13 +32,6 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 5
-    reviewers:
-      - "Syntropysoft"
-    assignees:
-      - "Syntropysoft"
     commit-message:
       prefix: "ci"
       include: "scope"
-    labels:
-      - "dependencies"
-      - "github-actions"
