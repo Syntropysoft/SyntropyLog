@@ -309,11 +309,5 @@ export const syntropyLogConfigSchema = z.object({
     .positive()
     .optional(),
 
-  /** Configuration for the `syntropylog doctor` CLI tool. */
-  doctor: z
-    .object({
-      /** An array of rule IDs to disable during a diagnostic run. */
-      disableRules: z.array(z.string()).optional(),
-    })
-    .optional(),
+
 });
