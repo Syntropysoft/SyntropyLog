@@ -7,9 +7,7 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-  "bin": {
-    "syntropylog": "dist/cli.cjs"
-  },
+
   "exports": {
     ".": {
       "import": {
@@ -21,10 +19,7 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./doctor": {
-      "import": "./dist/doctor.mjs",
-      "require": "./dist/doctor.cjs"
-    },
+
     "./http": {
       "import": {
         "types": "./dist/http/index.d.ts",
