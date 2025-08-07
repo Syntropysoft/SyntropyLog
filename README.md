@@ -9,7 +9,7 @@
 <p align="center">
   <strong>From Chaos to Clarity</strong>
   <br />
-  The Observability Framework for High-Performance Teams
+  The Instance Manager with Observability for High-Performance Teams
 </p>
 
 <p align="center">
@@ -43,7 +43,7 @@
 
 ## 🎯 What is SyntropyLog?
 
-**SyntropyLog is an observability orchestration framework for Node.js applications.** It's not just a logger - it's a complete system that manages distributed tracing, resource connections, and enterprise-level logging with zero performance overhead.
+**SyntropyLog is an instance manager with observability for Node.js applications.** It's not just a logger - it's a complete system that manages your application instances, their connections, and provides complete observability across your entire system with zero performance overhead.
 
 ### **🎯 Key Benefits:**
 - **Zero Performance Impact** - Identical performance to Pino (industry standard)
@@ -51,6 +51,11 @@
 - **Singleton Resource Management** - Prevents memory leaks and connection issues
 - **Enterprise Security** - Built-in data masking and compliance features
 - **Framework Agnostic** - Works with Express, Fastify, Koa, NestJS, and any Node.js app
+
+### **🔗 Enterprise Integration & APM:**
+- **Currently, SyntropyLog does not include native APM**, but the architecture allows adding custom transports to integrate with enterprise tools
+- **Ideal for teams** already using Jaeger, Zipkin, Elastic, or Prometheus who want to enrich their observability without vendor lock-in
+- **Custom transport support** enables seamless integration with your existing monitoring stack
 
 ---
 
@@ -831,6 +836,38 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 **From Chaos to Clarity** - Ship resilient, secure, and cost-effective Node.js applications with confidence.
 
+---
+
+## 👨‍💻 Author & Contact
+
 <p align="center">
   <strong>Built with ❤️ by the SyntropySoft Team</strong>
+</p>
+
+### **🤝 Get in Touch**
+- **👨‍💼 Gabriel Alejandro Gomez** - Lead Developer & Architect
+- **💼 [LinkedIn](https://www.linkedin.com/in/gabriel-alejandro-gomez-652a5111/)** - Connect for enterprise partnerships
+- **📧 [Email](mailto:gabriel70@gmail.com)** - Technical questions & support
+- **🏢 [SyntropySoft](https://syntropysoft.com)** - Enterprise solutions & consulting
+
+### **💼 Enterprise Partnerships**
+We specialize in enterprise observability solutions and custom integrations. Whether you need:
+- **Custom transport development** for your existing APM stack
+- **Enterprise deployment** and configuration
+- **Performance optimization** and scaling strategies
+- **Compliance implementation** (GDPR, SOC2, HIPAA)
+
+**Let's discuss how SyntropyLog can enhance your observability strategy.**
+
+---
+
+<p align="center">
+  <em>Empowering high-performance teams with enterprise-grade observability</em>
+</p>
+
+---
+
+<p align="center">
+  <strong>Thank you for considering SyntropyLog for your mission-critical systems.</strong><br>
+  <em>– Gabriel</em>
 </p>
