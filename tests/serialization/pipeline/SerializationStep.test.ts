@@ -117,12 +117,12 @@ describe('SerializationStep', () => {
         priority: 50,
         canSerialize: vi.fn().mockReturnValue(true),
         serialize: vi.fn().mockImplementation(async () => {
-          await new Promise(resolve => setTimeout(resolve, 15)); // Más de 10ms
+          await new Promise(resolve => setTimeout(resolve, 60)); // Más de 50ms
           return {
             success: true,
             data: { type: 'SlowData' },
             serializer: 'slow',
-            duration: 15,
+            duration: 60,
             complexity: 'simple',
             sanitized: false,
             metadata: { complexity: 'simple', serializer: 'slow' }
@@ -179,17 +179,17 @@ describe('SerializationStep', () => {
   });
 
   describe('Performance Validation', () => {
-    it('should reject serializations taking more than 10ms', async () => {
+    it('should reject serializations taking more than 50ms', async () => {
       const slowSerializer = {
         name: 'slow-serializer',
         priority: 50,
         canSerialize: vi.fn().mockReturnValue(true),
         serialize: vi.fn().mockImplementation(async () => {
-          await new Promise(resolve => setTimeout(resolve, 15));
+          await new Promise(resolve => setTimeout(resolve, 60));
           return {
             success: true,
             data: { type: 'SlowData' },
-            metadata: { complexity: 'low', duration: 15 }
+            metadata: { complexity: 'low', duration: 60 }
           };
         })
       };
@@ -200,7 +200,7 @@ describe('SerializationStep', () => {
       await expect(step.execute({ id: 1 }, context)).rejects.toThrow('Serialización lenta');
     });
 
-    it('should accept serializations under 10ms', async () => {
+    it('should accept serializations under 50ms', async () => {
       const fastSerializer = {
         name: 'fast-serializer',
         priority: 50,
@@ -220,7 +220,7 @@ describe('SerializationStep', () => {
       const result = await step.execute({ id: 1 }, context);
 
       expect(result.type).toBe('FastData');
-      expect(result.serializationDuration).toBeLessThanOrEqual(10);
+      expect(result.serializationDuration).toBeLessThanOrEqual(50);
     });
   });
 
@@ -321,11 +321,11 @@ describe('SerializationStep', () => {
         priority: 50,
         canSerialize: vi.fn().mockReturnValue(true),
         serialize: vi.fn().mockImplementation(async () => {
-          await new Promise(resolve => setTimeout(resolve, 20));
+          await new Promise(resolve => setTimeout(resolve, 60));
           return {
             success: true,
             data: { type: 'TimeoutData' },
-            metadata: { complexity: 'low', duration: 20 }
+            metadata: { complexity: 'low', duration: 60 }
           };
         })
       };

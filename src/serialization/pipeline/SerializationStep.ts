@@ -41,17 +41,17 @@ export class SerializationStep implements PipelineStep<SerializableData> {
       throw error;
     }
 
-    // 2. Ejecutar serialización con timeout ultra-bajo
+    // 2. Ejecutar serialización con timeout
     const serializationPromise = serializer.serialize(
       data,
       context.serializationContext
     );
     const timeoutPromise = new Promise<SerializableData>((_, reject) => {
       setTimeout(() => {
-        const error = new Error(`Serialización lenta: >10ms`);
+        const error = new Error(`Serialización lenta: >50ms`);
         (error as any).serializer = serializer.name;
         reject(error);
-      }, 10);
+      }, 50);
     });
 
     try {
@@ -59,9 +59,9 @@ export class SerializationStep implements PipelineStep<SerializableData> {
 
       // 3. Verificar que la serialización fue rápida
       const duration = Date.now() - startTime;
-      if (duration > 10) {
+      if (duration > 50) {
         const error = new Error(
-          `Serialización demasiado lenta: ${duration}ms (máximo 10ms)`
+          `Serialización demasiado lenta: ${duration}ms (máximo 50ms)`
         );
         (error as any).serializer = serializer.name;
         throw error;
