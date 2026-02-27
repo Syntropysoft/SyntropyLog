@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.7.5",
+  "version": "0.8.0",
   "description": "An instance manager with observability for Node.js applications",
   "keywords": [
     "instance-manager",
@@ -65,7 +65,6 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-
   "exports": {
     ".": {
       "import": {
@@ -77,7 +76,6 @@
         "default": "./dist/index.cjs"
       }
     },
-
     "./http": {
       "import": {
         "types": "./dist/http/index.d.ts",

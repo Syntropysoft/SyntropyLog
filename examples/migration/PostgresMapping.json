@@ -1,0 +1,48 @@
+{
+    "comment": "ECLB-167: Mapeo universal para la tabla echeq_logs.system_logs (Refined)",
+    "mapping": {
+        "level": [
+            "originalLevel",
+            "level"
+        ],
+        "message": "message",
+        "user_id": [
+            "userId",
+            "bindings.userId"
+        ],
+        "tenant_id": [
+            "tenantId",
+            "bindings.tenantId"
+        ],
+        "ip_address": [
+            "ip",
+            "ipAddress",
+            "metadata.ipAddress"
+        ],
+        "user_agent": [
+            "userAgent",
+            "metadata.userAgent"
+        ],
+        "created_at": "timestamp",
+        "source": [
+            "source",
+            "category"
+        ],
+        "error_detail": [
+            "error.stack",
+            "err.stack",
+            "message"
+        ],
+        "endpoint": [
+            "endpoint",
+            "url"
+        ],
+        "batch_id": "batchId",
+        "user_email": "userEmail",
+        "company_name": "companyName",
+        "diagnostic_summary": "summary"
+    },
+    "options": {
+        "includeAllIn": "context"
+    }
+}

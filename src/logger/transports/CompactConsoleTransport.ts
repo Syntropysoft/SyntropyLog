@@ -28,6 +28,7 @@ export class CompactConsoleTransport extends BaseConsolePrettyTransport {
       error: this.chalk.red.bold,
       warn: this.chalk.yellow.bold,
       info: this.chalk.cyan.bold, // Using cyan for better contrast in compact view.
+      audit: this.chalk.white.bold,
       debug: this.chalk.green,
       trace: this.chalk.gray,
     };

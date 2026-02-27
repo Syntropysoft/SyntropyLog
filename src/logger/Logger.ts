@@ -72,14 +72,20 @@ export class Logger {
     if (level === 'silent') {
       return;
     }
-    // Type-guarded access to weights
-    const weightedLevel = level as LogLevelWithWeight;
-    const weightedThisLevel = this.level as LogLevelWithWeight;
 
-    if (
-      LOG_LEVEL_WEIGHTS[weightedLevel] < LOG_LEVEL_WEIGHTS[weightedThisLevel]
-    ) {
-      return;
+    // Guard clause: audit logs bypass standard level filtering
+    const isAudit = level === 'audit';
+
+    // Type-guarded access to weights
+    if (!isAudit) {
+      const weightedLevel = level as LogLevelWithWeight;
+      const weightedThisLevel = this.level as LogLevelWithWeight;
+
+      if (
+        LOG_LEVEL_WEIGHTS[weightedLevel] < LOG_LEVEL_WEIGHTS[weightedThisLevel]
+      ) {
+        return;
+      }
     }
 
     // Build the base log entry with context and bindings
@@ -188,6 +194,14 @@ export class Logger {
    */
   trace(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
     return this._log('trace', ...args);
+  }
+
+  /**
+   * Logs a message at the 'audit' level.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
+   */
+  audit(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
+    return this._log('audit', ...args);
   }
 
   /**

@@ -1,0 +1,20 @@
+{
+    "comment": "ECLB-204: Política de sanitización alineada con MaskingEngine schema",
+    "masking": {
+        "preserveLength": true,
+        "rules": [
+            {
+                "pattern": "password|token|secret|cvv|pincode",
+                "strategy": "password"
+            },
+            {
+                "pattern": "\\b\\d{4}[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}\\b",
+                "strategy": "credit_card"
+            },
+            {
+                "pattern": "\\b\\d{2}-\\d{8}-\\d{1}\\b",
+                "strategy": "custom"
+            }
+        ]
+    }
+}

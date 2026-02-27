@@ -23,6 +23,17 @@
 
 ---
 
+## 🌟 What's New in v0.8.0
+
+The **Universal Persistence Update** simplifies how developers connect SyntropyLog to any database without external adapters.
+
+- **🚀 Universal Persistence**: Use `UniversalAdapter` + `UniversalLogFormatter` to map logs to any schema (SQL/NoSQL) using pure JSON mapping.
+- **🛡️ First-Class Audit Level**: A new `audit()` method designed for compliance and long-term storage, bypassing standard severity filters.
+- **🎨 Enhanced Console UI**: Beautifully colorized output for the `audit` level across all console transports.
+
+---
+
+
 ## 📋 Table of Contents
 
 - [🎯 What is SyntropyLog?](#-what-is-syntropylog)
@@ -512,6 +523,94 @@ logger.info('API call completed', {
 });
 ```
 
+#### **Tutorial 6: Auditing & Custom Adapters (30 minutes)**
+```typescript
+// 1. Define a persistent adapter (e.g. for Postgres/Internal API)
+import { ILogTransportAdapter, AdapterTransport, syntropyLog } from 'syntropylog';
+
+class MyDatabaseAdapter implements ILogTransportAdapter {
+  async log(entry: any) {
+    // In a real app: await db.insert('audit_logs', entry);
+    console.log('Auditing to DB:', entry.message);
+  }
+}
+
+// 2. Configure with category routing and audit level
+await syntropyLog.init({
+  logger: {
+    serviceName: 'secure-app',
+    level: 'info',
+    transports: {
+      default: [new ConsoleTransport()],
+      audit: [new AdapterTransport({ adapter: new MyDatabaseAdapter() })]
+    }
+  }
+});
+
+// 3. Usage: Audit logs bypass standard level filtering
+const logger = syntropyLog.getLogger('audit');
+await logger.audit('Sensitive User Action', { userId: '456' }); // Always persisted
+```
+
+### **🚀 Universal Persistence (Storage Agnostic)**
+Starting from v0.8.x, SyntropyLog includes a powerful way to persist logs to any destination without external dependencies. By using `UniversalAdapter` and `UniversalLogFormatter`, you can map your logs to any schema using JSON and provide an execution function.
+
+#### **The Quickest Example: In-memory/Console Capture**
+```typescript
+const adapter = new UniversalAdapter({
+  executor: (data) => console.log('Captured by Adapter:', data)
+});
+
+const formatter = new UniversalLogFormatter({
+  mapping: { msg: 'message', severity: 'level' }
+});
+
+// Result: { msg: "Hello", severity: "info" }
+```
+
+#### **Example: Persisting to MongoDB (Object-based)**
+```typescript
+import { UniversalAdapter, UniversalLogFormatter, syntropyLog } from 'syntropylog';
+
+const mongoAdapter = new UniversalAdapter({
+  executor: (doc) => db.collection('logs').insertOne(doc)
+});
+
+const mongoFormatter = new UniversalLogFormatter({
+  mapping: {
+    user: 'metadata.userId',
+    event: 'message',
+    level: 'level',
+    payload: 'bindings' // Full object path
+  }
+});
+
+await syntropyLog.init({
+  logger: {
+    transports: {
+      audit: [new AdapterTransport({
+        adapter: mongoAdapter,
+        formatter: mongoFormatter
+      })]
+    }
+  }
+});
+```
+
+#### **Example: Generic SQL (Postgres/MySQL)**
+```typescript
+const sqlAdapter = new UniversalAdapter({
+  executor: ({ sql, values }) => pool.query(sql, values)
+});
+
+const sqlFormatter = new UniversalLogFormatter({
+  mapping: {
+    column_user: 'bindings.userId',
+    column_msg: 'message'
+  }
+});
+```
+
 ---
 
 ## ✨ Key Features
@@ -605,7 +704,7 @@ try {
 await syntropyLog.init({
   logger: {
     serviceName: 'my-app',
-    level: 'info', // debug, info, warn, error
+    level: 'info', // debug, info, warn, error, audit
   },
   context: {
     correlationIdHeader: 'X-Correlation-ID',
@@ -619,10 +718,10 @@ await syntropyLog.init({
   logger: {
     serviceName: 'my-app',
     level: 'info',
-    transports: [
-      new PrettyConsoleTransport(),
-      new JsonConsoleTransport(),
-    ]
+    transports: {
+      default: [new PrettyConsoleTransport()],
+      audit: [new MySecureTransport()]
+    }
   },
   context: {
     correlationIdHeader: 'X-Correlation-ID',

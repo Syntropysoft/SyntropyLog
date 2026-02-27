@@ -28,6 +28,7 @@ export class PrettyConsoleTransport extends BaseConsolePrettyTransport {
       error: this.chalk.red.bold,
       warn: this.chalk.yellow.bold,
       info: this.chalk.blue.bold,
+      audit: this.chalk.white.bold,
       debug: this.chalk.green,
       trace: this.chalk.gray,
     };

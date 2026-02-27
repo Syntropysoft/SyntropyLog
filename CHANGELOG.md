@@ -5,7 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.4] - 2025-01-01
+## [0.8.0] - 2026-02-27
+
+### 🚀 New Features
+- **Universal Persistence**: Integrated `UniversalAdapter` and `UniversalLogFormatter` directly into the Core.
+- **Audit Level**: Added a first-class `audit` log level for unified compliance logging.
+- **Storage Agnostic**: Support for mapping logs to any schema (SQL, NoSQL, etc.) via JSON templates.
+
+### 🔧 Fixed
+- **Console Transports**: Added missing `audit` level coloring to `Classic`, `Compact`, and `Pretty` transports.
+- **Mocks**: Updated `BeaconRedisMock` to support the expanded `ILogger` interface.
+
+### 📦 Dependencies
+- No new external dependencies.
+
+### 🧪 Testing
+- **UniversalFormatter**: Added comprehensive unit tests for JSON mapping, path resolution, and template fallbacks.
+
+---
+
 
 ### 🚀 Enhanced
 - **InstrumentedBrokerClient**: Improved correlation ID propagation logic to only propagate existing IDs instead of auto-generating new ones

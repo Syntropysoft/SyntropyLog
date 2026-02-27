@@ -17,6 +17,13 @@ export interface ILogger {
   // --- Standard Logging Methods ---
 
   /**
+   * Logs a message at the 'audit' level. Used for critical security and compliance records.
+   * This level typically bypasses standard filtering to ensure persistence.
+   * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
+   */
+  audit(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
+
+  /**
    * Logs a message at the 'fatal' level. The application will likely exit.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */

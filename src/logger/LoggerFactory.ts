@@ -22,8 +22,8 @@ export class LoggerFactory {
   private readonly contextManager: IContextManager;
   /** @private The main framework instance, used as a mediator. */
   private readonly syntropyLogInstance: SyntropyLog;
-  /** @private The array of transports to which logs will be dispatched. */
-  private readonly transports: Transport[];
+  /** @private A mapping of category names to their respective transports. */
+  private readonly transports: Record<string, Transport[]>;
   /** @private The global minimum log level for all created loggers. */
   private readonly globalLogLevel: LogLevel;
   /** @private The global service name, used as a default for loggers. */
@@ -69,16 +69,24 @@ export class LoggerFactory {
       // with the provided instances.
     }
 
-    // If the user provides a specific list of transports, we use them directly.
-    // We trust the user to have configured them correctly (e.g., providing a
-    // SanitizationEngine to their production transports).
+    // If the user provides a specific list of transports, we use them.
+    // They can be a single array (default) or a record of categories.
     if (config.logger?.transports) {
-      this.transports = config.logger.transports;
+      if (Array.isArray(config.logger.transports)) {
+        this.transports = { default: config.logger.transports };
+      } else {
+        this.transports = config.logger.transports as Record<
+          string,
+          Transport[]
+        >;
+      }
     } else {
       // If no transports are provided, we create a safe, default production transport.
       // This transport includes a default sanitization engine.
       const sanitizationEngine = new SanitizationEngine();
-      this.transports = [new ConsoleTransport({ sanitizationEngine })];
+      this.transports = {
+        default: [new ConsoleTransport({ sanitizationEngine })],
+      };
     }
     this.globalLogLevel = config.logger?.level ?? 'info';
     this.serviceName = config.logger?.serviceName ?? 'unknown-service';
@@ -122,7 +130,10 @@ export class LoggerFactory {
       syntropyLogInstance: this.syntropyLogInstance,
     };
 
-    const logger = new Logger(loggerName, this.transports, dependencies, {
+    // Retrieve transports for this specific logger name, or fall back to 'default'
+    const transports = this.transports[name] ?? this.transports.default;
+
+    const logger = new Logger(loggerName, transports, dependencies, {
       bindings,
     });
     logger.level = this.globalLogLevel;
@@ -167,7 +178,10 @@ export class LoggerFactory {
    * logs are written before the application exits.
    */
   public async flushAllTransports(): Promise<void> {
-    const flushPromises = this.transports.map((transport) =>
+    const allTransports = Object.values(this.transports).flat();
+    const uniqueTransports = Array.from(new Set(allTransports));
+
+    const flushPromises = uniqueTransports.map((transport) =>
       transport.flush().catch((err) => {
         console.error(
           `Error flushing transport ${transport.constructor.name}:`,
@@ -191,7 +205,10 @@ export class LoggerFactory {
       this.loggerPool.clear();
 
       // Shutdown all transports if they have a shutdown method
-      const shutdownPromises = this.transports.map((transport) => {
+      const allTransports = Object.values(this.transports).flat();
+      const uniqueTransports = Array.from(new Set(allTransports));
+
+      const shutdownPromises = uniqueTransports.map((transport) => {
         if (
           typeof (transport as { shutdown?: () => Promise<void> }).shutdown ===
           'function'

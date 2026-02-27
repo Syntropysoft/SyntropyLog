@@ -22,9 +22,15 @@ const loggerOptionsSchema = z
       .optional(),
     serviceName: z.string().optional(),
     /**
-     * An array of transport instances to be used by the logger.
+     * An array of transport instances to be used by the logger, 
+     * or a mapping of logger names (categories) to their respective transports.
      */
-    transports: z.array(z.instanceof(Transport)).optional(),
+    transports: z
+      .union([
+        z.array(z.instanceof(Transport)),
+        z.record(z.string(), z.array(z.instanceof(Transport))),
+      ])
+      .optional(),
 
     /**
      * A dictionary of custom serializer functions. The key is the field

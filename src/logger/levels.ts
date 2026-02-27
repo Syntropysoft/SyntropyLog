@@ -8,6 +8,7 @@
  * Higher numbers indicate higher severity.
  */
 export const LOG_LEVEL_WEIGHTS = {
+  audit: 70,
   fatal: 60,
   error: 50,
   warn: 40,
