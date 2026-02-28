@@ -484,4 +484,30 @@ export class RedisCommandExecutor {
   public publish(channel: string, message: string): Promise<number> {
     return this.client.publish(channel, message);
   }
+
+  // --- Key Enumeration Commands ---
+
+  /**
+   * Executes the native SCAN command.
+   * @param {number} cursor The cursor position (start with 0).
+   * @param {{ MATCH?: string; COUNT?: number }} [options] Optional MATCH pattern and COUNT hint.
+   * @returns {Promise<{ cursor: number; keys: string[] }>} The next cursor and matched keys.
+   */
+  public async scan(
+    cursor: number,
+    options?: { MATCH?: string; COUNT?: number }
+  ): Promise<{ cursor: number; keys: string[] }> {
+    const result = await (this.client as any).scan(cursor, options);
+    return { cursor: result.cursor, keys: result.keys };
+  }
+
+  /**
+   * Executes the native KEYS command.
+   * ⚠️ WARNING: This is O(N) and will block the server. Use `scan()` in production.
+   * @param {string} pattern Glob-style pattern (e.g., 'user:*').
+   * @returns {Promise<string[]>} An array of matching key names.
+   */
+  public keys(pattern: string): Promise<string[]> {
+    return (this.client as any).keys(pattern);
+  }
 }

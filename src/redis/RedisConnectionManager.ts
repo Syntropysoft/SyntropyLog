@@ -125,10 +125,10 @@ export class RedisConnectionManager {
    */
   private setupListeners(): void {
     this.client.on('connect', () =>
-      this.logger.info(`Connection established.`)
+      this.logger.info(`[${this.instanceName}] Connecting to Redis...`)
     );
     this.client.on('ready', () => {
-      this.logger.info(`Client is ready.`);
+      this.logger.info(`[${this.instanceName}] ✅ Redis is operational and ready to accept commands.`);
       this.isConnectedAndReadyState = true;
       if (this.connectionResolve) {
         this.connectionResolve();
@@ -137,11 +137,11 @@ export class RedisConnectionManager {
       }
     });
     this.client.on('end', () => {
-      this.logger.warn(`Connection closed.`);
+      this.logger.warn(`[${this.instanceName}] Connection closed.`);
       this.isConnectedAndReadyState = false;
     });
     this.client.on('error', (err: Error) => {
-      this.logger.error(`Client Error.`, { error: err } as any);
+      this.logger.error(`[${this.instanceName}] Client error.`, { error: err } as any);
       if (this.connectionReject) {
         this.connectionReject(err);
         this.connectionPromise = null;
@@ -150,7 +150,7 @@ export class RedisConnectionManager {
       }
     });
     this.client.on('reconnecting', () => {
-      this.logger.info(`Client is reconnecting...`);
+      this.logger.info(`[${this.instanceName}] Reconnecting...`);
     });
   }
 

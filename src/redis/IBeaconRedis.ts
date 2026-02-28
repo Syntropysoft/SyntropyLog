@@ -517,4 +517,56 @@ export interface IBeaconRedis {
     keys: string[],
     args: string[]
   ): Promise<any>;
+
+  // --- Pub/Sub Commands ---
+
+  /**
+   * Subscribes the client to a channel to listen for messages.
+   * Note: A client in subscribe mode can only use subscribe/unsubscribe commands.
+   * Use a dedicated instance for this purpose.
+   * @param {string} channel The channel to subscribe to.
+   * @param {(message: string, channel: string) => void} listener The callback for received messages.
+   * @returns {Promise<void>}
+   */
+  subscribe(
+    channel: string,
+    listener: (message: string, channel: string) => void
+  ): Promise<void>;
+
+  /**
+   * Unsubscribes the client from a channel, or all channels if none is specified.
+   * @param {string} [channel] The channel to unsubscribe from.
+   * @returns {Promise<void>}
+   */
+  unsubscribe(channel?: string): Promise<void>;
+
+  /**
+   * Publishes a message to a channel. Corresponds to the Redis PUBLISH command.
+   * @param {string} channel The channel to publish to.
+   * @param {string} message The message to publish.
+   * @returns {Promise<number>} The number of clients that received the message.
+   */
+  publish(channel: string, message: string): Promise<number>;
+
+  // --- Key Enumeration Commands ---
+
+  /**
+   * Iterates the keyspace using a cursor. Preferred over KEYS for production use.
+   * Corresponds to the Redis SCAN command.
+   * @param {number} cursor The cursor position (start with 0).
+   * @param {{ MATCH?: string; COUNT?: number }} [options] Optional pattern and count.
+   * @returns {Promise<{ cursor: number; keys: string[] }>} The next cursor and the matched keys.
+   */
+  scan(
+    cursor: number,
+    options?: { MATCH?: string; COUNT?: number }
+  ): Promise<{ cursor: number; keys: string[] }>;
+
+  /**
+   * Returns all keys matching a pattern. Corresponds to the Redis KEYS command.
+   * ⚠️ WARNING: This is an O(N) blocking operation. Use `scan()` in production.
+   * @param {string} pattern The glob-style pattern to match (e.g., 'user:*').
+   * @returns {Promise<string[]>} An array of matching key names.
+   */
+  keys(pattern: string): Promise<string[]>;
 }

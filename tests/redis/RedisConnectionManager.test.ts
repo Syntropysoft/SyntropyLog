@@ -266,28 +266,28 @@ describe('RedisConnectionManager', () => {
   describe('Event Listeners and Logging', () => {
     it('should log on "connect" event', () => {
       eventListeners.connect();
-      expect(mockLogger.info).toHaveBeenCalledWith('Connection established.');
+      expect(mockLogger.info).toHaveBeenCalledWith('[test-instance] Connecting to Redis...');
     });
 
     it('should log on "ready" event', () => {
       eventListeners.ready();
-      expect(mockLogger.info).toHaveBeenCalledWith('Client is ready.');
+      expect(mockLogger.info).toHaveBeenCalledWith('[test-instance] ✅ Redis is operational and ready to accept commands.');
     });
 
     it('should log on "end" event', () => {
       eventListeners.end();
-      expect(mockLogger.warn).toHaveBeenCalledWith('Connection closed.');
+      expect(mockLogger.warn).toHaveBeenCalledWith('[test-instance] Connection closed.');
     });
 
     it('should log on "error" event', () => {
       const testError = new Error('Something went wrong');
       eventListeners.error(testError);
-      expect(mockLogger.error).toHaveBeenCalledWith('Client Error.', { error: testError });
+      expect(mockLogger.error).toHaveBeenCalledWith('[test-instance] Client error.', { error: testError });
     });
 
     it('should log on "reconnecting" event', () => {
       eventListeners.reconnecting();
-      expect(mockLogger.info).toHaveBeenCalledWith('Client is reconnecting...');
+      expect(mockLogger.info).toHaveBeenCalledWith('[test-instance] Reconnecting...');
     });
   });
 

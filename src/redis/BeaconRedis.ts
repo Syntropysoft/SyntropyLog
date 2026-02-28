@@ -655,39 +655,6 @@ export class BeaconRedis implements IBeaconRedis {
   }
 
   /**
-   * Subscribes the client to a channel to listen for messages.
-   * Note: This is a long-lived command. The initial subscription action is logged,
-   * but individual messages received by the listener are not logged by this wrapper.
-   * The listener itself should handle any required logging for received messages.
-   * @param {string} channel - The channel to subscribe to.
-   * @param {(message: string, channel: string) => void} listener - The function to call when a message is received.
-   * @returns {Promise<void>} A promise that resolves when the subscription is successful.
-   */
-  public async subscribe(
-    channel: string,
-    listener: (message: string, channel: string) => void
-  ): Promise<void> {
-    return this._executeCommand(
-      'SUBSCRIBE',
-      () => this.commandExecutor.subscribe(channel, listener),
-      channel
-    );
-  }
-
-  /**
-   * Unsubscribes the client from a channel, or all channels if none is specified.
-   * @param {string} [channel] - The optional channel to unsubscribe from.
-   * @returns {Promise<void>} A promise that resolves when the unsubscription is successful.
-   */
-  public async unsubscribe(channel?: string): Promise<void> {
-    return this._executeCommand(
-      'UNSUBSCRIBE',
-      () => this.commandExecutor.unsubscribe(channel),
-      channel
-    );
-  }
-
-  /**
    * @inheritdoc
    */
   public async ping(message?: string): Promise<string> {
@@ -727,6 +694,71 @@ export class BeaconRedis implements IBeaconRedis {
       script,
       keys,
       args
+    );
+  }
+
+  // --- Pub/Sub Commands ---
+
+  /**
+   * @inheritdoc
+   */
+  public async subscribe(
+    channel: string,
+    listener: (message: string, channel: string) => void
+  ): Promise<void> {
+    return this._executeCommand(
+      'SUBSCRIBE',
+      () => this.commandExecutor.subscribe(channel, listener),
+      channel
+    );
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public async unsubscribe(channel?: string): Promise<void> {
+    return this._executeCommand(
+      'UNSUBSCRIBE',
+      () => this.commandExecutor.unsubscribe(channel),
+      channel
+    );
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public async publish(channel: string, message: string): Promise<number> {
+    return this._executeCommand(
+      'PUBLISH',
+      () => this.commandExecutor.publish(channel, message),
+      channel
+    );
+  }
+
+  // --- Key Enumeration Commands ---
+
+  /**
+   * @inheritdoc
+   */
+  public async scan(
+    cursor: number,
+    options?: { MATCH?: string; COUNT?: number }
+  ): Promise<{ cursor: number; keys: string[] }> {
+    return this._executeCommand(
+      'SCAN',
+      () => this.commandExecutor.scan(cursor, options),
+      cursor
+    );
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public async keys(pattern: string): Promise<string[]> {
+    return this._executeCommand(
+      'KEYS',
+      () => this.commandExecutor.keys(pattern),
+      pattern
     );
   }
 }
