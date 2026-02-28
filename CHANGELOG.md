@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.9] - 2026-02-28
+
+### 📝 Documentation
+- **Technical Restoration**: Expanded `docs/` with deep-dive guides for `Serialization`, `Persistence`, and `Middleware`.
+- **Master Configuration**: Updated `docs/configuration.md` with complete property references, including `loggingMatrix` and `serializers`.
+- **Framework Patterns**: Added clear integration patterns for Express and NestJS.
+
 ## [0.8.8] - 2026-02-28
 
 ### 📝 Documentation
