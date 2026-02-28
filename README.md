@@ -17,7 +17,7 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-85.67%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.8.14-brightgreen.svg" alt="Version 0.8.14"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.8.15-brightgreen.svg" alt="Version 0.8.15"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
@@ -59,25 +59,31 @@ npm install syntropylog
 
 ### **Available Console Transports**
 
-SyntropyLog ships four console transports out of the box:
+By default, SyntropyLog outputs **lightweight plain JSON to the console — automatically, with no configuration needed**. No imports, no setup, no extra dependencies.
 
-| Transport | Output style | Requires chalk |
-| :--- | :--- | :---: |
-| `ConsoleTransport` | Plain JSON (default, no color) | ❌ |
-| `ClassicConsoleTransport` | Colored structured output | ✅ |
-| `PrettyConsoleTransport` | Human-readable pretty print | ✅ |
-| `CompactConsoleTransport` | Compact one-liner with color | ✅ |
+If you want **colored, human-readable output** for development, explicitly use one of the chalk-powered transports. `chalk` is bundled as a direct dependency of SyntropyLog — no separate install needed.
 
-> **`chalk` is bundled as a direct dependency** — it is installed automatically with `npm install syntropylog`. No extra steps needed to use the colored transports.
+| Transport | Style | Color (chalk) | Recommended for |
+| :--- | :--- | :---: | :--- |
+| *(default)* | Plain JSON | ❌ | Production / log aggregators |
+| `ClassicConsoleTransport` | Structured + colored | ✅ | Development |
+| `PrettyConsoleTransport` | Human-readable pretty print | ✅ | Development / debugging |
+| `CompactConsoleTransport` | Compact one-liner | ✅ | Development |
 
 ```typescript
-// Plain JSON — no chalk, ideal for production log aggregators
-import { ConsoleTransport } from 'syntropylog';
+// Default — no import needed, works out of the box
+syntropyLog.init({ logger: { level: 'info', serviceName: 'my-app' } });
 
-// Colored human-readable — great for development
-import { ClassicConsoleTransport } from 'syntropylog';
-import { PrettyConsoleTransport } from 'syntropylog';
-import { CompactConsoleTransport } from 'syntropylog';
+// Want colors? Import the transport and pass it explicitly:
+import { ClassicConsoleTransport } from 'syntropylog'; // chalk is already included
+
+syntropyLog.init({
+  logger: {
+    level: 'info',
+    serviceName: 'my-app',
+    transports: [new ClassicConsoleTransport()],
+  },
+});
 ```
 
 
