@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-02-28
+
+### 🚀 New Features
+- **Project Modernization**: Formalized Node.js 20 as the base environment.
+- **CI/CD Infrastructure**: Migrated GitHub Actions to `pnpm` and upgraded to Node.js 20.
+
+### 🔧 Fixed
+- **Documentation**: Refreshed `README.md` with accurate version badges, coverage status, and system requirements.
+- **Environment**: Added `.nvmrc` and enforced Node.js versions in `package.json`.
+
+## [0.8.1] - 2026-02-28
+
+### 🚀 New Features
+- **Stable Dependency Update**: Updated `zod` and `redis` to their latest stable versions (Zod 3, Redis 4) for improved reliability.
+- **ESLint v9 Migration**: Successfully migrated to the flat configuration system (`eslint.config.js`).
+
+### 🔧 Fixed
+- **Redis Cluster Initialization**: Fixed issue where `createClient` was used instead of `createCluster` for cluster mode.
+- **Type Safety**: Resolved several type mismatches and compilation errors in Redis command executors and config schemas.
+- **Test Integrity**: Refactored vitest mocks for better compatibility with Vitest 4 and fixed test regressions.
+
+### 📦 Dependencies
+- Downgraded `zod` to `^3.23.8` (stable).
+- Downgraded `redis` to `^4.6.12` (stable).
+- Upgraded `rollup` and `vitest` to latest versions.
+
 ## [0.8.0] - 2026-02-27
 
 ### 🚀 New Features

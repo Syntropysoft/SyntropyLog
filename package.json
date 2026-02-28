@@ -63,7 +63,16 @@
     "kubernetes",
     "production-logging"
   ],
-  "author": "Gabriel Alejandro Gomez",
+  "author": {
+    "name": "Gabriel Alejandro Gomez",
+    "email": "gabriel.alejandro.gomez@gmail.com",
+    "url": "https://github.com/gabriel-alejandro-gomez"
+  },
+  "homepage": "https://github.com/Syntropysoft/SyntropyLog#readme",
+  "bugs": {
+    "url": "https://github.com/Syntropysoft/SyntropyLog/issues"
+  },
+  "sideEffects": false,
   "license": "Apache-2.0",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
