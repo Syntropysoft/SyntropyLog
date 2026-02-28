@@ -80,7 +80,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build TypeScript
-        run: npm run build
+        run: pnpm run build
 
       - name: Run tests
         run: npm run test # No necesitamos cobertura aquí, solo confirmar que pasan
