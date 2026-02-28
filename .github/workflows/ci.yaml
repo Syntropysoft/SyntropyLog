@@ -8,16 +8,16 @@ on:
 
 jobs:
   primary-build:
-    name: "Build & Test (Node 18.x)"
+    name: "Build & Test (Node 20.x)"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Use Node.js 18.x
+      - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
-          node-version: 18.x
+          node-version: 20.x
           cache: 'npm'
 
       - name: Install dependencies
