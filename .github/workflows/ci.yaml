@@ -83,4 +83,4 @@ jobs:
         run: pnpm run build
 
       - name: Run tests
-        run: npm run test # No necesitamos cobertura aquí, solo confirmar que pasan
+        run: pnpm run test # No necesitamos cobertura aquí, solo confirmar que pasan
