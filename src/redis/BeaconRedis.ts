@@ -710,20 +710,20 @@ export class BeaconRedis implements IBeaconRedis {
   }
 
   /**
-   * Executes a Lua script on the server.
+   * Executes a Lua script on the server with instrumentation.
    * @param {string} script - The Lua script to execute.
-   * @param {string[]} keys - An array of key names used by the script, accessible via the `KEYS` table in Lua.
-   * @param {string[]} args - An array of argument values for the script, accessible via the `ARGV` table in Lua.
+   * @param {string[]} keys - An array of key names used by the script.
+   * @param {string[]} args - An array of argument values for the script.
    * @returns {Promise<any>} A promise that resolves with the result of the script execution.
    */
-  public async eval(
+  public async executeScript(
     script: string,
     keys: string[],
     args: string[]
   ): Promise<RedisValue> {
     return this._executeCommand(
-      'EVAL',
-      () => this.commandExecutor.eval(script, keys, args),
+      'SCRIPT_EXEC',
+      () => this.commandExecutor.executeScript(script, keys, args),
       script,
       keys,
       args

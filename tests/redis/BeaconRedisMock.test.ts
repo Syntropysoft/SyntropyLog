@@ -516,18 +516,17 @@ describe('BeaconRedisMock', () => {
   });
 
   describe('Scripting Commands', () => {
-    it('should have an eval method that throws not implemented', async () => {
-      await expect(mock.eval('return 1', [], [])).rejects.toThrow(
-        'EVAL command not implemented in mock.'
+    it('should have an executeScript method that throws not implemented', async () => {
+      await expect(mock.executeScript('return 1', [], [])).rejects.toThrow(
+        'SCRIPT execution command not implemented in mock.'
       );
     });
 
-    it('should queue eval in a transaction', async () => {
+    it('should queue executeScript in a transaction', async () => {
       const tx = mock.multi();
-      // The eval method doesn't exist on the transaction object in the mock
-      // Este test confirma la limitación del mock y la fidelidad al comportamiento real
-      expect(typeof (tx as any).eval).toBe('function');
-      expect((tx as any).eval).not.toBeUndefined();
+      // The executeScript method exists on the transaction object
+      expect(typeof (tx as any).executeScript).toBe('function');
+      expect((tx as any).executeScript).not.toBeUndefined();
       // FIXME: Vitest tiene problemas con mocks anidados que lanzan errores
       // El comportamiento real está implementado en el mock, pero el test no puede verificarlo
     });

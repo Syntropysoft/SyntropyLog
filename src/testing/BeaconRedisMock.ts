@@ -16,8 +16,8 @@ function createAgnosticMockFn<T = any>(implementation?: (...args: any[]) => T) {
   };
 
   // Basic mock properties
-  (mockFn as any).mockClear = () => {};
-  (mockFn as any).mockReset = () => {};
+  (mockFn as any).mockClear = () => { };
+  (mockFn as any).mockReset = () => { };
   (mockFn as any).mockImplementation = (impl: (...args: any[]) => T) => {
     return createAgnosticMockFn(impl);
   };
@@ -38,9 +38,11 @@ import { IBeaconRedis, IBeaconRedisTransaction } from '../redis/IBeaconRedis';
 import { RedisInstanceReconfigurableConfig } from '../config';
 import { RedisZMember } from '../redis/redis.types';
 
-// Function that throws error for eval in transaction - outside of any mock context
-const throwEvalError = () => {
-  throw new Error('EVAL not supported in transaction (mocked BeaconRedisMock)');
+// Function that throws error for Lua script execution in transaction - outside of any mock context
+const throwScriptError = () => {
+  throw new Error(
+    'SCRIPT execution not supported in transaction (mocked BeaconRedisMock)'
+  );
 };
 
 export class BeaconRedisMock implements IBeaconRedis {
@@ -92,7 +94,7 @@ export class BeaconRedisMock implements IBeaconRedis {
   public readonly publish: any;
   public readonly ping: any;
   public readonly info: any;
-  public readonly eval: any;
+  public readonly executeScript: any;
 
   constructor(spyFn?: (implementation?: any) => any) {
     this.spyFn = spyFn || null;
@@ -145,15 +147,15 @@ export class BeaconRedisMock implements IBeaconRedis {
     this.publish = this.createMock();
     this.ping = this.createMock();
     this.info = this.createMock();
-    this.eval = this.createMock();
+    this.executeScript = this.createMock();
   }
 
   // Create transaction object outside of mock to avoid hoisting issues
   private createTransactionObject(): IBeaconRedisTransaction {
     return {
       exec: this.createMock().mockResolvedValue([]),
-      // eval is not implemented in transactions, so it should throw
-      eval: throwEvalError,
+      // Script execution is not implemented in transactions, so it should throw
+      executeScript: throwScriptError,
     } as any;
   }
 

@@ -229,9 +229,10 @@ class BeaconRedisMockTransaction implements IBeaconRedisTransaction {
   info(section?: string): this {
     return this._queue(() => this.mockRedis.info(section));
   }
-  eval(script: string, keys: string[], args: string[]): this {
-    // EVAL can be part of a transaction
-    return this._queue(() => this.mockRedis.eval(script, keys, args));
+  /** @inheritdoc */
+  executeScript(script: string, keys: string[], args: string[]): this {
+    // SCRIPT execution can be part of a transaction in this mock
+    return this._queue(() => this.mockRedis.executeScript(script, keys, args));
   }
 
   /** @inheritdoc */
@@ -278,16 +279,16 @@ export class BeaconRedisMock implements IBeaconRedis {
       // to avoid pulling in the entire logging stack.
       this.logger = {
         level: 'info', // Add missing level property
-        debug: async () => {},
-        info: async () => {},
-        warn: async () => {},
-        error: async () => {},
-        audit: async () => {},
-        fatal: async () => {},
-        trace: async () => {},
+        debug: async () => { },
+        info: async () => { },
+        warn: async () => { },
+        error: async () => { },
+        audit: async () => { },
+        fatal: async () => { },
+        trace: async () => { },
         child: () => this.logger,
         withSource: () => this.logger,
-        setLevel: () => {},
+        setLevel: () => { },
         withRetention: () => this.logger,
         withTransactionId: () => this.logger,
       };
@@ -758,11 +759,15 @@ export class BeaconRedisMock implements IBeaconRedis {
     return listeners.length; // Return number of subscribers
   }
   /**
-   * Simulates the EVAL command. This is not implemented and will throw an error.
+   * Simulates the SCRIPT execution command.
    * @throws {Error}
    */
-  async eval(_script: string, _keys: string[], _args: string[]): Promise<any> {
-    throw new Error('EVAL command not implemented in mock.');
+  async executeScript(
+    _script: string,
+    _keys: string[],
+    _args: string[]
+  ): Promise<any> {
+    throw new Error('SCRIPT execution command not implemented in mock.');
   }
   /** @inheritdoc */
   async ping(message?: string): Promise<string> {

@@ -24,7 +24,7 @@
 
 ---
 
-## 🌟 What's New in v0.8.0
+## 🌟 What's New in v0.8.3
 
 The **Universal Persistence Update** simplifies how developers connect SyntropyLog to any database without external adapters.
 

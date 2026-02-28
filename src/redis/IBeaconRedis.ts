@@ -118,6 +118,12 @@ export interface IBeaconRedisTransaction {
   info(section?: string): this;
 
   /**
+   * Queues a Lua script execution.
+   * Note: Some implementations may not support this inside transactions.
+   */
+  executeScript(script: string, keys: string[], args: string[]): this;
+
+  /**
    * Executes all queued commands in the transaction.
    * @returns A promise that resolves with an array of results from each command.
    */
@@ -498,4 +504,17 @@ export interface IBeaconRedis {
    * @returns {Promise<string>} A promise that resolves with a string containing the server information.
    */
   info(section?: string): Promise<string>;
+
+  /**
+   * Executes a Lua script on the server.
+   * @param {string} script The Lua script to execute.
+   * @param {string[]} keys An array of key names used by the script.
+   * @param {string[]} args An array of argument values for the script.
+   * @returns {Promise<any>} A promise that resolves with the result of the script execution.
+   */
+  executeScript(
+    script: string,
+    keys: string[],
+    args: string[]
+  ): Promise<any>;
 }
