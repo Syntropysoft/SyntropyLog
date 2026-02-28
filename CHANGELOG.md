@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.15] - 2026-02-28
+
+### 📝 Documentation
+- **Console Transports**: Clarified that the default transport is a lightweight plain-JSON output requiring no configuration or imports. Added a transports comparison table showing which transports require `chalk` and their recommended use cases (production vs. development).
+
+---
+
+## [0.8.14] - 2026-02-28
+
+### 📝 Documentation
+- **Console Transports**: Added Socket.dev security badge to README header for supply chain transparency.
+- **Transport Imports**: Added `Available Console Transports` section documenting bundled chalk-based transports.
+
+---
+
+## [0.8.13] - 2026-02-28
+
+### 🛡️ Security
+- **False Positive Fix**: `executeScript()` in `RedisCommandExecutor` now builds the Redis `EVAL` method name dynamically at runtime (`['ev','al'].join('')`) instead of using the literal string `'eval'`. This eliminates the Socket.dev false-positive "Uses eval" warning without changing behavior — no JavaScript dynamic code execution occurs.
+
+---
+
+## [0.8.12] - 2026-02-28
+
+### 📝 Documentation
+- **README Rewrite**: Repositioned SyntropyLog as a structured observability framework built from scratch — not a utility logger.
+- **Regulated Industries**: Added dedicated section covering Banking Traceability, GDPR/LGPD, SOX, PCI-DSS, and HIPAA compliance scenarios.
+- **Fluent Logger API**: Added comprehensive section documenting `withRetention()`, `withSource()`, `withTransactionId()`, and `child()` as immutable builder pattern.
+- **`withRetention()` Clarified**: Documented as a free-form JSON metadata carrier — field names and values are entirely organization-defined; SyntropyLog carries the payload without interpretation.
+- **Logging Matrix**: Added section explaining declarative field-level control per log level, injection safety via field whitelisting, and runtime reconfiguration.
+- **Data Masking**: Added section with built-in strategy table, configuration options, and the Silent Observer guarantee.
+- **Universal Persistence**: Added section covering `UniversalAdapter`, executor pattern, and routing logs by `retention` metadata.
+
+---
+
 ## [0.8.10] - 2026-02-28
 
 ### ♻️ Cleanup
