@@ -70,6 +70,12 @@ The **Universal Persistence Update** simplifies how developers connect SyntropyL
 
 ---
 
+## ⚙️ Requirements
+
+- **Node.js**: >= 20.0.0 (Recommended: Latest LTS)
+
+---
+
 ## 🚀 Quick Start (30 seconds)
 
 ### **Step 1: Install**
