@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.10] - 2026-02-28
+
+### ♻️ Cleanup
+- **Removed CLI Dependencies**: `inquirer` and `yargs` were production dependencies left over from the old built-in CLI. Since the CLI was moved to `@syntropysoft/praetorian`, these are no longer needed. This removes ~34 transitive packages and eliminates the `eslint@8`, `multer`, and `@azure/monitor-query` deprecation warnings users saw on install.
+
+### ✅ Stability
+- All 727 tests pass after the dependency cleanup.
+
 ## [0.8.9] - 2026-02-28
 
 ### 📝 Documentation

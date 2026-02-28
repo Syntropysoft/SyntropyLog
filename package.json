@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.8.9",
+  "version": "0.8.10",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -181,10 +181,8 @@
   "dependencies": {
     "chalk": "^5.4.1",
     "flatted": "^3.3.3",
-    "inquirer": "^13.3.0",
     "js-yaml": "^4.1.1",
     "regex-test": "^0.1.1",
-    "yargs": "^18.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -194,10 +192,8 @@
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-typescript": "^12.1.2",
-    "@types/inquirer": "^9.0.9",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.13.5",
-    "@types/yargs": "^17.0.35",
     "@typescript-eslint/eslint-plugin": "8.24.1",
     "@typescript-eslint/parser": "8.24.1",
     "@vitest/coverage-v8": "^4.0.18",
