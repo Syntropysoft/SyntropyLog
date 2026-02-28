@@ -43,7 +43,7 @@ We welcome code contributions! To contribute code, please follow these steps:
 5. **Write tests:** Ensure your changes are covered by appropriate tests.
 6. **Run tests:** Make sure all existing tests pass.
    ```bash
-   npm run test:coverage
+   pnpm run test:coverage
    ```
 7. **Format your code:** Ensure your code adheres to the project's formatting standards.
 8. **Commit your changes:** Write clear and concise commit messages.
