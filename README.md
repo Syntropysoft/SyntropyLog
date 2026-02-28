@@ -57,11 +57,34 @@ SyntropyLog was designed with the constraints of **banking, healthcare, and fina
 npm install syntropylog
 ```
 
-### **2. Configure & Initialize**
+### **Available Console Transports**
+
+SyntropyLog ships four console transports out of the box:
+
+| Transport | Output style | Requires chalk |
+| :--- | :--- | :---: |
+| `ConsoleTransport` | Plain JSON (default, no color) | ❌ |
+| `ClassicConsoleTransport` | Colored structured output | ✅ |
+| `PrettyConsoleTransport` | Human-readable pretty print | ✅ |
+| `CompactConsoleTransport` | Compact one-liner with color | ✅ |
+
+> **`chalk` is bundled as a direct dependency** — it is installed automatically with `npm install syntropylog`. No extra steps needed to use the colored transports.
+
+```typescript
+// Plain JSON — no chalk, ideal for production log aggregators
+import { ConsoleTransport } from 'syntropylog';
+
+// Colored human-readable — great for development
+import { ClassicConsoleTransport } from 'syntropylog';
+import { PrettyConsoleTransport } from 'syntropylog';
+import { CompactConsoleTransport } from 'syntropylog';
+```
+
+
 
 ```typescript
 import { syntropyLog } from 'syntropylog';
-import { ClassicConsoleTransport } from 'syntropylog/transports';
+import { ClassicConsoleTransport } from 'syntropylog';
 
 const config = {
   logger: {
