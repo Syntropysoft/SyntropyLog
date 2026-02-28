@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.8.15",
+  "version": "0.8.16",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -179,7 +179,6 @@
     "access": "public"
   },
   "dependencies": {
-    "chalk": "^5.4.1",
     "flatted": "^3.3.3",
     "js-yaml": "^4.1.1",
     "regex-test": "^0.1.1",
@@ -213,10 +212,14 @@
     "vitest": "^4.0.18"
   },
   "peerDependencies": {
-    "redis": "^4.6.12 || ^5.10.0"
+    "redis": "^4.6.12 || ^5.10.0",
+    "chalk": "^5.4.1"
   },
   "peerDependenciesMeta": {
     "redis": {
+      "optional": true
+    },
+    "chalk": {
       "optional": true
     }
   },

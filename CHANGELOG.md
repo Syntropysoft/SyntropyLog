@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.16] - 2026-02-28
+
+### 🚀 Optimization
+- **`chalk` Dependency Strategy**: Moved `chalk` from `dependencies` to `peerDependencies` (optional). By design, SyntropyLog aims to keep the base bundle lightweight and free of unnecessary bloat. Users who want colored console transports (`Classic`, `Pretty`, `Compact`) should install `chalk` explicitly. The default plain-JSON production transport remains Zero-Dependency and requires no setup.
+
+### 📝 Documentation
+- **Transports Section**: Updated README with `npm install chalk` instructions for dev environments.
+
+---
+
 ## [0.8.15] - 2026-02-28
 
 ### 📝 Documentation

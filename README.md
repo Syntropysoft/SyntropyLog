@@ -17,7 +17,7 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-85.67%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.8.15-brightgreen.svg" alt="Version 0.8.15"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.8.16-brightgreen.svg" alt="Version 0.8.16"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
@@ -61,9 +61,13 @@ npm install syntropylog
 
 By default, SyntropyLog outputs **lightweight plain JSON to the console — automatically, with no configuration needed**. No imports, no setup, no extra dependencies.
 
-If you want **colored, human-readable output** for development, explicitly use one of the chalk-powered transports. `chalk` is bundled as a direct dependency of SyntropyLog — no separate install needed.
+If you want **colored, human-readable output** for development, use one of the chalk-powered transports. These require `chalk` to be installed explicitly in your project to keep the base bundle small:
 
-| Transport | Style | Color (chalk) | Recommended for |
+```bash
+npm install chalk
+```
+
+| Transport | Style | Color | Recommended for |
 | :--- | :--- | :---: | :--- |
 | *(default)* | Plain JSON | ❌ | Production / log aggregators |
 | `ClassicConsoleTransport` | Structured + colored | ✅ | Development |
@@ -74,8 +78,8 @@ If you want **colored, human-readable output** for development, explicitly use o
 // Default — no import needed, works out of the box
 syntropyLog.init({ logger: { level: 'info', serviceName: 'my-app' } });
 
-// Want colors? Import the transport and pass it explicitly:
-import { ClassicConsoleTransport } from 'syntropylog'; // chalk is already included
+// Want colors? Install chalk first, then import the transport:
+import { ClassicConsoleTransport } from 'syntropylog';
 
 syntropyLog.init({
   logger: {
