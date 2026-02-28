@@ -95,6 +95,8 @@ export class BeaconRedisMock implements IBeaconRedis {
   public readonly ping: any;
   public readonly info: any;
   public readonly executeScript: any;
+  public readonly scan: any;
+  public readonly keys: any;
 
   constructor(spyFn?: (implementation?: any) => any) {
     this.spyFn = spyFn || null;
@@ -148,6 +150,8 @@ export class BeaconRedisMock implements IBeaconRedis {
     this.ping = this.createMock();
     this.info = this.createMock();
     this.executeScript = this.createMock();
+    this.scan = this.createMock().mockResolvedValue({ cursor: 0, keys: [] });
+    this.keys = this.createMock().mockResolvedValue([]);
   }
 
   // Create transaction object outside of mock to avoid hoisting issues

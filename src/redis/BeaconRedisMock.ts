@@ -826,4 +826,32 @@ export class BeaconRedisMock implements IBeaconRedis {
       newConfig: JSON.stringify(newConfig),
     });
   }
+
+  // --- Key Enumeration Commands ---
+
+  /** @inheritdoc */
+  async scan(
+    cursor: number,
+    options?: { MATCH?: string; COUNT?: number }
+  ): Promise<{ cursor: number; keys: string[] }> {
+    const allKeys = [...this.store.keys()].filter((k) => {
+      const entry = this.store.get(k);
+      if (!entry) return false;
+      if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) return false;
+      if (!options?.MATCH) return true;
+      // Simple glob: replace '*' with '.*' for regex matching
+      const pattern = new RegExp(
+        '^' + options.MATCH.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$'
+      );
+      return pattern.test(k);
+    });
+    // Mock always returns cursor=0 (all results in one pass)
+    return { cursor: 0, keys: allKeys };
+  }
+
+  /** @inheritdoc */
+  async keys(pattern: string): Promise<string[]> {
+    const result = await this.scan(0, { MATCH: pattern });
+    return result.keys;
+  }
 }
