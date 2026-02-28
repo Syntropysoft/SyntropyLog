@@ -24,13 +24,15 @@ const mockLogger = {
 } as any;
 
 // Mock de InstrumentedBrokerClient con todas las propiedades requeridas
-vi.mocked(InstrumentedBrokerClient).mockImplementation((_adapter, _logger, _context, config) => ({
-  instanceName: config.instanceName,
-  disconnect: mockDisconnect,
-  connect: vi.fn().mockResolvedValue(undefined),
-  publish: vi.fn().mockResolvedValue(undefined),
-  subscribe: vi.fn().mockResolvedValue(undefined),
-} as any));
+vi.mocked(InstrumentedBrokerClient).mockImplementation(function (_adapter, _logger, _context, config) {
+  return {
+    instanceName: config?.instanceName,
+    disconnect: mockDisconnect,
+    connect: vi.fn().mockResolvedValue(undefined),
+    publish: vi.fn().mockResolvedValue(undefined),
+    subscribe: vi.fn().mockResolvedValue(undefined),
+  } as any;
+});
 
 // Mock de IContextManager con todos los métodos requeridos
 const mockContextManager = {
@@ -52,11 +54,13 @@ const mockContextManager = {
 const mockDisconnect = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../src/brokers/InstrumentedBrokerClient', () => {
   return {
-    InstrumentedBrokerClient: vi.fn().mockImplementation((_adapter, _logger, _context, config) => ({
-      instanceName: config.instanceName, // <-- Store the name from config
-      disconnect: mockDisconnect,
-      connect: vi.fn().mockResolvedValue(undefined),
-    })),
+    InstrumentedBrokerClient: vi.fn().mockImplementation(function (_adapter, _logger, _context, config) {
+      return {
+        instanceName: config?.instanceName, // <-- Store the name from config
+        disconnect: mockDisconnect,
+        connect: vi.fn().mockResolvedValue(undefined),
+      };
+    }),
   };
 });
 
@@ -68,6 +72,7 @@ const createMockLogger = (): ILogger => ({
   error: vi.fn(),
   trace: vi.fn(),
   fatal: vi.fn(),
+  audit: vi.fn(),
   child: vi.fn().mockReturnThis(),
   withSource: vi.fn().mockReturnThis(),
   level: 'info',
@@ -88,13 +93,15 @@ describe('BrokerManager', () => {
     brokerConfig = { instances: [] };
 
     // Reset the mock implementation to its default happy-path behavior
-    vi.mocked(InstrumentedBrokerClient).mockImplementation((_adapter, _logger, _context, config) => ({
-      instanceName: config.instanceName,
-      disconnect: mockDisconnect,
-      connect: vi.fn().mockResolvedValue(undefined),
-      publish: vi.fn().mockResolvedValue(undefined),
-      subscribe: vi.fn().mockResolvedValue(undefined),
-    } as any));
+    vi.mocked(InstrumentedBrokerClient).mockImplementation(function (_adapter, _logger, _context, config) {
+      return {
+        instanceName: config?.instanceName,
+        disconnect: mockDisconnect,
+        connect: vi.fn().mockResolvedValue(undefined),
+        publish: vi.fn().mockResolvedValue(undefined),
+        subscribe: vi.fn().mockResolvedValue(undefined),
+      } as any;
+    });
   });
 
   describe('Constructor', () => {
@@ -148,7 +155,7 @@ describe('BrokerManager', () => {
 
     it('should log an error if a client instance fails to be created', async () => {
       const creationError = new Error('Invalid adapter');
-      vi.mocked(InstrumentedBrokerClient).mockImplementation(() => {
+      vi.mocked(InstrumentedBrokerClient).mockImplementation(function () {
         throw creationError;
       });
 
@@ -179,7 +186,7 @@ describe('BrokerManager', () => {
       expect(client).toBeDefined();
       expect(client.disconnect).toBe(mockDisconnect);
     });
-    
+
     it('should return the default client instance if no name is provided', async () => {
       const mockAdapter1: IBrokerAdapter = { connect: vi.fn(), publish: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() };
       const mockAdapter2: IBrokerAdapter = { connect: vi.fn(), publish: vi.fn(), subscribe: vi.fn(), disconnect: vi.fn() };
@@ -190,12 +197,12 @@ describe('BrokerManager', () => {
         ],
         default: 'rabbitmq-events',
       };
-       const manager = new BrokerManager(config, mockLogger, mockContextManager);
-       await manager.init();
-       const defaultClient = manager.getInstance();
-       
-       expect(defaultClient).toBeDefined();
-       expect(defaultClient.instanceName).toBe('rabbitmq-events');
+      const manager = new BrokerManager(config, mockLogger, mockContextManager);
+      await manager.init();
+      const defaultClient = manager.getInstance();
+
+      expect(defaultClient).toBeDefined();
+      expect(defaultClient.instanceName).toBe('rabbitmq-events');
     });
 
     it('should throw an error if the instance name is not found', async () => {

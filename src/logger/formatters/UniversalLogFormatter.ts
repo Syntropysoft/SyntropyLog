@@ -89,7 +89,10 @@ export class UniversalLogFormatter {
       }
 
       // Handle shorthand 'bindings' and 'metadata'
-      if (current === entry && !Object.prototype.hasOwnProperty.call(entry, part)) {
+      if (
+        current === entry &&
+        !Object.prototype.hasOwnProperty.call(entry, part)
+      ) {
         // Search in bindings or metadata if not found at top level
         const inBindings = entry.bindings?.[part];
         if (inBindings !== undefined) {

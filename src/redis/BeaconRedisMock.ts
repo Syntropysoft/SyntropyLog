@@ -278,16 +278,16 @@ export class BeaconRedisMock implements IBeaconRedis {
       // to avoid pulling in the entire logging stack.
       this.logger = {
         level: 'info', // Add missing level property
-        debug: async () => { },
-        info: async () => { },
-        warn: async () => { },
-        error: async () => { },
-        audit: async () => { },
-        fatal: async () => { },
-        trace: async () => { },
+        debug: async () => {},
+        info: async () => {},
+        warn: async () => {},
+        error: async () => {},
+        audit: async () => {},
+        fatal: async () => {},
+        trace: async () => {},
         child: () => this.logger,
         withSource: () => this.logger,
-        setLevel: () => { },
+        setLevel: () => {},
         withRetention: () => this.logger,
         withTransactionId: () => this.logger,
       };

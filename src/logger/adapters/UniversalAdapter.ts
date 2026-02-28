@@ -34,7 +34,9 @@ export class UniversalAdapter implements ILogTransportAdapter {
       await this.executor(data);
     } catch (error) {
       // In a "Silent Observer" way, we log but don't break the app
-      console.error(`UniversalAdapter execution failed: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(
+        `UniversalAdapter execution failed: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
 }

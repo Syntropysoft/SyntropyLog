@@ -1,7 +1,7 @@
 /**
  * FILE: src/masking/MaskingEngine.ts
  * DESCRIPTION: Ultra-fast data masking engine using JSON flattening strategy.
- * 
+ *
  * This engine flattens complex nested objects into linear key-value pairs,
  * applies masking rules, and then reconstructs the original structure.
  * This approach provides extreme processing speed for any object depth.
@@ -22,7 +22,7 @@ export enum MaskingStrategy {
   PHONE = 'phone',
   PASSWORD = 'password',
   TOKEN = 'token',
-  CUSTOM = 'custom'
+  CUSTOM = 'custom',
 }
 
 /**
@@ -62,7 +62,7 @@ export interface MaskingEngineOptions {
 /**
  * @class MaskingEngine
  * Ultra-fast data masking engine using JSON flattening strategy.
- * 
+ *
  * Instead of processing nested objects recursively, we flatten them to a linear
  * structure for extreme processing speed. This approach provides O(n) performance
  * regardless of object depth or complexity.
@@ -107,38 +107,38 @@ export class MaskingEngine {
         pattern: /credit_card|card_number|payment_number/i,
         strategy: MaskingStrategy.CREDIT_CARD,
         preserveLength: true,
-        maskChar: this.maskChar
+        maskChar: this.maskChar,
       },
       {
         pattern: /ssn|social_security|security_number/i,
         strategy: MaskingStrategy.SSN,
         preserveLength: true,
-        maskChar: this.maskChar
+        maskChar: this.maskChar,
       },
       {
         pattern: /email/i,
         strategy: MaskingStrategy.EMAIL,
         preserveLength: true,
-        maskChar: this.maskChar
+        maskChar: this.maskChar,
       },
       {
         pattern: /phone|phone_number|mobile_number/i,
         strategy: MaskingStrategy.PHONE,
         preserveLength: true,
-        maskChar: this.maskChar
+        maskChar: this.maskChar,
       },
       {
         pattern: /password|pass|pwd|secret/i,
         strategy: MaskingStrategy.PASSWORD,
         preserveLength: true,
-        maskChar: this.maskChar
+        maskChar: this.maskChar,
       },
       {
         pattern: /token|api_key|auth_token|jwt|bearer/i,
         strategy: MaskingStrategy.TOKEN,
         preserveLength: true,
-        maskChar: this.maskChar
-      }
+        maskChar: this.maskChar,
+      },
     ];
 
     for (const rule of defaultRules) {
@@ -180,7 +180,7 @@ export class MaskingEngine {
     try {
       // Apply masking rules directly to the data structure
       const masked = this.applyMaskingRules(meta);
-      
+
       // Return the masked data
       return masked;
     } catch (error) {
@@ -188,8 +188,6 @@ export class MaskingEngine {
       return meta;
     }
   }
-
-
 
   /**
    * Applies masking rules to data recursively.
@@ -203,7 +201,7 @@ export class MaskingEngine {
     }
 
     if (Array.isArray(data)) {
-      return data.map(item => this.applyMaskingRules(item));
+      return data.map((item) => this.applyMaskingRules(item));
     }
 
     const masked = { ...data };
@@ -211,7 +209,7 @@ export class MaskingEngine {
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
         const value = data[key];
-        
+
         if (typeof value === 'string') {
           // Check each rule
           for (const rule of this.rules) {
@@ -314,12 +312,13 @@ export class MaskingEngine {
     if (atIndex > 0) {
       const username = value.substring(0, atIndex);
       const domain = value.substring(atIndex);
-      
+
       if (rule.preserveLength) {
         // Preserve original length: first char + asterisks + @domain
-        const maskedUsername = username.length > 1 
-          ? username.charAt(0) + rule.maskChar!.repeat(username.length - 1)
-          : rule.maskChar!.repeat(username.length);
+        const maskedUsername =
+          username.length > 1
+            ? username.charAt(0) + rule.maskChar!.repeat(username.length - 1)
+            : rule.maskChar!.repeat(username.length);
         return maskedUsername + domain;
       } else {
         return `${username.charAt(0)}***${domain}`;
@@ -369,10 +368,16 @@ export class MaskingEngine {
    */
   private maskToken(value: string, rule: MaskingRule): string {
     if (rule.preserveLength) {
-      return value.substring(0, 4) + rule.maskChar!.repeat(value.length - 9) + value.substring(value.length - 5);
+      return (
+        value.substring(0, 4) +
+        rule.maskChar!.repeat(value.length - 9) +
+        value.substring(value.length - 5)
+      );
     } else {
       if (value.length > 8) {
-        return value.substring(0, 4) + '...' + value.substring(value.length - 5);
+        return (
+          value.substring(0, 4) + '...' + value.substring(value.length - 5)
+        );
       }
       return rule.maskChar!.repeat(value.length);
     }
@@ -401,12 +406,20 @@ export class MaskingEngine {
     return {
       initialized: this.initialized,
       totalRules: this.rules.length,
-      defaultRules: this.rules.filter(r => 
-        [MaskingStrategy.CREDIT_CARD, MaskingStrategy.SSN, MaskingStrategy.EMAIL, 
-         MaskingStrategy.PHONE, MaskingStrategy.PASSWORD, MaskingStrategy.TOKEN].includes(r.strategy)
+      defaultRules: this.rules.filter((r) =>
+        [
+          MaskingStrategy.CREDIT_CARD,
+          MaskingStrategy.SSN,
+          MaskingStrategy.EMAIL,
+          MaskingStrategy.PHONE,
+          MaskingStrategy.PASSWORD,
+          MaskingStrategy.TOKEN,
+        ].includes(r.strategy)
       ).length,
-      customRules: this.rules.filter(r => r.strategy === MaskingStrategy.CUSTOM).length,
-      strategies: this.rules.map(r => r.strategy)
+      customRules: this.rules.filter(
+        (r) => r.strategy === MaskingStrategy.CUSTOM
+      ).length,
+      strategies: this.rules.map((r) => r.strategy),
     };
   }
 

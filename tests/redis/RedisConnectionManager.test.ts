@@ -29,6 +29,7 @@ const setupMockClient = () => {
     isOpen: false, // Start as closed
   };
   vi.mocked(redis.createClient).mockReturnValue(mockNativeClient);
+  vi.mocked(redis.createCluster).mockReturnValue(mockNativeClient);
 };
 
 // Mock logger defined inline
@@ -119,7 +120,7 @@ describe('RedisConnectionManager', () => {
       };
       new RedisConnectionManager(clusterConfig, mockLogger);
 
-      expect(redis.createClient).toHaveBeenCalledWith({
+      expect(redis.createCluster).toHaveBeenCalledWith({
         rootNodes: [
           { socket: { host: 'c1', port: 7001 } },
           { socket: { host: 'c2', port: 7002 } },
@@ -310,7 +311,7 @@ describe('RedisConnectionManager', () => {
 
   describe('exists', () => {
     beforeEach(() => {
-    // Simulate a ready connection for most tests
+      // Simulate a ready connection for most tests
       vi.spyOn(manager, 'ensureReady').mockResolvedValue(undefined);
     });
 

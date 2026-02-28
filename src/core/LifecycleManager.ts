@@ -131,7 +131,7 @@ export class LifecycleManager extends EventEmitter {
       if (error instanceof ZodError) {
         console.error(
           '[SyntropyLog] Configuration validation failed:',
-          error.errors
+          error.issues
         );
       } else {
         console.error('[SyntropyLog] Failed to initialize framework:', error);

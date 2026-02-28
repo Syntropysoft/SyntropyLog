@@ -83,13 +83,13 @@ export class ClassicConsoleTransport extends BaseConsolePrettyTransport {
     if (metaKeys.length > 0) {
       metaStr = this.chalk.dim(
         ' [' +
-        metaKeys
-          .map(
-            (key) =>
-              `${key}=${JSON.stringify((allMeta as Record<string, unknown>)[key])}`
-          )
-          .join(' ') +
-        ']'
+          metaKeys
+            .map(
+              (key) =>
+                `${key}=${JSON.stringify((allMeta as Record<string, unknown>)[key])}`
+            )
+            .join(' ') +
+          ']'
       );
     }
 

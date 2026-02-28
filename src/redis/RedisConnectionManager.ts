@@ -2,7 +2,7 @@
  * FILE: src/redis/RedisConnectionManager.ts
  * DESCRIPTION: Manages the lifecycle of the Redis client connection.
  */
-import { createClient, RedisClusterOptions } from 'redis';
+import { createClient, createCluster, RedisClusterOptions } from 'redis';
 import {
   RedisClientType,
   RedisFunctions,
@@ -84,7 +84,7 @@ export class RedisConnectionManager {
             socket: {
               reconnectStrategy,
             },
-          });
+          }) as NodeRedisClient;
         } else {
           // An intermediate variable is created so that TypeScript correctly infers the overload.
           const sentinelOptions = {
@@ -95,7 +95,7 @@ export class RedisConnectionManager {
               reconnectStrategy,
             },
           };
-          return createClient(sentinelOptions);
+          return createClient(sentinelOptions) as NodeRedisClient;
         }
       }
       case 'cluster': {
@@ -107,7 +107,7 @@ export class RedisConnectionManager {
             socket: { host: node.host, port: node.port },
           })),
         };
-        return createClient(clusterOptions);
+        return createCluster(clusterOptions) as unknown as NodeRedisClient;
       }
       default: {
         const _exhaustiveCheck: never = config;

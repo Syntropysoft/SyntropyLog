@@ -19,9 +19,11 @@ import { SyntropyHttpConfig } from '../../src/config';
 // --- Mocks ---
 vi.mock('../../src/http/InstrumentedHttpClient', () => {
   return {
-    InstrumentedHttpClient: vi.fn().mockImplementation((_adapter, _logger, _context, config) => ({
-      instanceName: config.instanceName,
-    }) as Partial<InstrumentedHttpClient> as InstrumentedHttpClient),
+    InstrumentedHttpClient: vi.fn().mockImplementation(function (_adapter, _logger, _context, config) {
+      return {
+        instanceName: config?.instanceName,
+      };
+    }),
   };
 });
 
@@ -44,6 +46,7 @@ const createMockLogger = (): ILogger => ({
   error: vi.fn() as any,
   trace: vi.fn((...args: any[]) => undefined) as any,
   fatal: vi.fn((...args: any[]) => undefined) as any,
+  audit: vi.fn() as any,
   child: vi.fn().mockReturnThis(),
   withSource: vi.fn().mockReturnThis(),
   level: 'info',
@@ -65,9 +68,11 @@ describe('HttpManager', () => {
     mockContextManager = new MockContextManager();
     httpConfig = { instances: [] };
 
-    vi.mocked(InstrumentedHttpClient).mockImplementation((_adapter, _logger, _context, config) => ({
-      instanceName: config.instanceName,
-    }) as Partial<InstrumentedHttpClient> as InstrumentedHttpClient);
+    vi.mocked(InstrumentedHttpClient).mockImplementation(function (_adapter, _logger, _context, config) {
+      return {
+        instanceName: config?.instanceName,
+      } as any;
+    });
   });
 
   describe('Constructor and Init', () => {
@@ -135,20 +140,20 @@ describe('HttpManager', () => {
       const instance = manager.getInstance('api');
       expect(instance).toBeDefined();
     });
-    
+
     it('should return the default instance if no name is provided', () => {
-        const mockAdapter1 = new MockHttpClientAdapter();
-        const mockAdapter2 = new MockHttpClientAdapter();
-        httpConfig.instances = [
-            { instanceName: 'api1', adapter: mockAdapter1 },
-            { instanceName: 'api2', adapter: mockAdapter2, isDefault: true },
-        ];
-        const manager = new HttpManager(httpConfig, mockLogger, mockContextManager);
-        manager.init();
-        const instance = manager.getInstance();
-        expect(instance).toBeDefined();
-        // The second instance was default, so we check the second mock call result.
-        expect(instance.instanceName).toBe('api2');
+      const mockAdapter1 = new MockHttpClientAdapter();
+      const mockAdapter2 = new MockHttpClientAdapter();
+      httpConfig.instances = [
+        { instanceName: 'api1', adapter: mockAdapter1 },
+        { instanceName: 'api2', adapter: mockAdapter2, isDefault: true },
+      ];
+      const manager = new HttpManager(httpConfig, mockLogger, mockContextManager);
+      manager.init();
+      const instance = manager.getInstance();
+      expect(instance).toBeDefined();
+      // The second instance was default, so we check the second mock call result.
+      expect(instance.instanceName).toBe('api2');
     });
 
     it('should throw an error if the instance is not found', () => {

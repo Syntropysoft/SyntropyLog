@@ -17,27 +17,33 @@ import { BeaconRedis } from '../../src/redis/BeaconRedis';
 
 // --- Mocks ---
 vi.mock('../../src/redis/RedisConnectionManager', () => ({
-  RedisConnectionManager: vi.fn().mockImplementation((config, logger) => ({
-    instanceName: config.instanceName,
-    getNativeClient: vi.fn().mockReturnValue({}),
-    connect: vi.fn().mockResolvedValue(undefined),
-    disconnect: vi.fn().mockResolvedValue(undefined),
-    quit: vi.fn().mockResolvedValue(undefined),
-  })),
+  RedisConnectionManager: vi.fn().mockImplementation(function (config, logger) {
+    return {
+      instanceName: config?.instanceName,
+      getNativeClient: vi.fn().mockReturnValue({}),
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+      quit: vi.fn().mockResolvedValue(undefined),
+    };
+  }),
 }));
 
 vi.mock('../../src/redis/RedisCommandExecutor', () => ({
-  RedisCommandExecutor: vi.fn().mockImplementation(() => ({
-    // Add any methods that RedisCommandExecutor might have
-  })),
+  RedisCommandExecutor: vi.fn().mockImplementation(function () {
+    return {
+      // Add any methods that RedisCommandExecutor might have
+    };
+  }),
 }));
 
 vi.mock('../../src/redis/BeaconRedis', () => ({
-  BeaconRedis: vi.fn().mockImplementation((config, connectionManager, commandExecutor, logger) => ({
-    instanceName: config.instanceName,
-    getInstanceName: vi.fn().mockReturnValue(config.instanceName),
-    quit: vi.fn().mockResolvedValue(undefined),
-  })),
+  BeaconRedis: vi.fn().mockImplementation(function (config, connectionManager, commandExecutor, logger) {
+    return {
+      instanceName: config?.instanceName,
+      getInstanceName: vi.fn().mockReturnValue(config?.instanceName),
+      quit: vi.fn().mockResolvedValue(undefined),
+    };
+  }),
 }));
 
 const createMockLogger = (): ILogger => ({
@@ -117,16 +123,16 @@ describe('RedisManager', () => {
     });
 
     it('should set the default instance based on the "default" config property', () => {
-        redisConfig.instances = [
-            { instanceName: 'redis-1', mode: 'single', url: 'redis://a' },
-            { instanceName: 'redis-2', mode: 'single', url: 'redis://b' },
-        ];
-        redisConfig.default = 'redis-2';
+      redisConfig.instances = [
+        { instanceName: 'redis-1', mode: 'single', url: 'redis://a' },
+        { instanceName: 'redis-2', mode: 'single', url: 'redis://b' },
+      ];
+      redisConfig.default = 'redis-2';
 
-        const manager = new RedisManager(redisConfig, mockLogger, mockContextManager);
-        manager.init();
-        const instance = manager.getInstance();
-        expect(instance.instanceName).toBe('redis-2');
+      const manager = new RedisManager(redisConfig, mockLogger, mockContextManager);
+      manager.init();
+      const instance = manager.getInstance();
+      expect(instance.instanceName).toBe('redis-2');
     });
   });
 
@@ -135,7 +141,7 @@ describe('RedisManager', () => {
       redisConfig.instances = [
         { instanceName: 'my-redis', mode: 'single', url: 'redis://a' },
       ];
-      
+
       const manager = new RedisManager(redisConfig, mockLogger, mockContextManager);
       manager.init();
       const instance = manager.getInstance('my-redis');

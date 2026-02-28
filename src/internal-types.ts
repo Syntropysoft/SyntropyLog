@@ -15,8 +15,8 @@ export type JsonValue =
   | boolean
   | null
   | {
-      [key: string]: JsonValue;
-    }
+    [key: string]: JsonValue;
+  }
   | JsonValue[];
 
 /**
@@ -158,14 +158,15 @@ export type SanitizationContext = {
 export type RedisValue =
   | string
   | number
+  | bigint
   | boolean
   | Buffer
   | null
   | undefined
   | RedisValue[]
   | {
-      [key: string]: RedisValue;
-    };
+    [key: string]: RedisValue;
+  };
 
 /**
  * Type for Redis list elements

@@ -25,7 +25,7 @@ export class RedisCommandExecutor {
    * Constructs a new RedisCommandExecutor.
    * @param {NodeRedisClient} client The native `node-redis` client (single-node or cluster) to execute commands on.
    */
-  constructor(private client: NodeRedisClient) {}
+  constructor(private client: NodeRedisClient) { }
 
   // --- String Commands ---
 
@@ -77,7 +77,7 @@ export class RedisCommandExecutor {
    * @param {number} seconds The time-to-live in seconds.
    * @returns {Promise<boolean>} True if the timeout was set, false otherwise.
    */
-  public expire(key: string, seconds: number): Promise<boolean> {
+  public async expire(key: string, seconds: number): Promise<boolean> {
     return this.client.expire(key, seconds);
   }
 
@@ -136,8 +136,9 @@ export class RedisCommandExecutor {
    * @param {string} field The field to retrieve.
    * @returns {Promise<string | undefined>} The value of the field, or undefined if it does not exist.
    */
-  public hGet(key: string, field: string): Promise<string | undefined> {
-    return this.client.hGet(key, field);
+  public async hGet(key: string, field: string): Promise<string | undefined> {
+    const result = await this.client.hGet(key, field);
+    return result ?? undefined;
   }
 
   /**
@@ -184,7 +185,7 @@ export class RedisCommandExecutor {
    * @param {string} field The field to check.
    * @returns {Promise<boolean>} True if the field exists, false otherwise.
    */
-  public hExists(key: string, field: string): Promise<boolean> {
+  public async hExists(key: string, field: string): Promise<boolean> {
     return this.client.hExists(key, field);
   }
 
@@ -310,7 +311,7 @@ export class RedisCommandExecutor {
    * @param {RedisSetMember} member The member to check for.
    * @returns {Promise<boolean>} True if the member is in the set, false otherwise.
    */
-  public sIsMember(key: string, member: RedisSetMember): Promise<boolean> {
+  public async sIsMember(key: string, member: RedisSetMember): Promise<boolean> {
     return this.client.sIsMember(key, member as any);
   }
 
@@ -435,12 +436,13 @@ export class RedisCommandExecutor {
    * @param {string[]} args An array of argument values.
    * @returns {Promise<any>} The result of the script execution.
    */
-  public eval(
+  public async eval(
     script: string,
     keys: string[],
     args: string[]
   ): Promise<RedisValue> {
-    return this.client.eval(script, { keys, arguments: args });
+    const result = await this.client.eval(script, { keys, arguments: args });
+    return result as RedisValue;
   }
 
   /**

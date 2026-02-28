@@ -22,7 +22,7 @@ const loggerOptionsSchema = z
       .optional(),
     serviceName: z.string().optional(),
     /**
-     * An array of transport instances to be used by the logger, 
+     * An array of transport instances to be used by the logger,
      * or a mapping of logger names (categories) to their respective transports.
      */
     transports: z
@@ -37,7 +37,7 @@ const loggerOptionsSchema = z
      * to look for in the log object, and the value is the function that transforms it.
      */
     serializers: z
-      .record(z.string(), z.function().args(z.any()).returns(z.string()))
+      .record(z.string(), z.function(z.tuple([z.unknown()]), z.string()))
       .optional(),
     /**
      * The maximum time in milliseconds a custom serializer can run before being timed out.
@@ -184,18 +184,24 @@ export const httpConfigSchema = z
 const maskingConfigSchema = z
   .object({
     /** Array of masking rules with patterns and strategies. */
-    rules: z.array(z.object({
-      /** Regex pattern to match field names */
-      pattern: z.union([z.string(), z.instanceof(RegExp)]),
-      /** Masking strategy to apply */
-      strategy: z.nativeEnum(MaskingStrategy),
-      /** Whether to preserve original length */
-      preserveLength: z.boolean().optional(),
-      /** Character to use for masking */
-      maskChar: z.string().optional(),
-      /** Custom masking function (for CUSTOM strategy) */
-      customMask: z.function().args(z.string()).returns(z.string()).optional(),
-    })).optional(),
+    rules: z
+      .array(
+        z.object({
+          /** Regex pattern to match field names */
+          pattern: z.union([z.string(), z.instanceof(RegExp)]),
+          /** Masking strategy to apply */
+          strategy: z.nativeEnum(MaskingStrategy),
+          /** Whether to preserve original length */
+          preserveLength: z.boolean().optional(),
+          /** Character to use for masking */
+          maskChar: z.string().optional(),
+          /** Custom masking function (for CUSTOM strategy) */
+          customMask: z
+            .function(z.tuple([z.string()]), z.string())
+            .optional(),
+        })
+      )
+      .optional(),
     /** Default mask character */
     maskChar: z.string().optional(),
     /** Whether to preserve original length by default */
@@ -308,12 +314,9 @@ export const syntropyLogConfigSchema = z.object({
    * @default 5000
    */
   shutdownTimeout: z
-    .number({
-      description: 'The maximum time in ms to wait for a graceful shutdown.',
-    })
+    .number()
+    .describe('The maximum time in ms to wait for a graceful shutdown.')
     .int()
     .positive()
     .optional(),
-
-
 });

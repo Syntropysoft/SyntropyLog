@@ -141,8 +141,7 @@ export class Logger {
     );
 
     // 2. Apply masking to the entire, serialized entry.
-    const maskedEntry =
-      this.dependencies.maskingEngine.process(finalEntry);
+    const maskedEntry = this.dependencies.maskingEngine.process(finalEntry);
 
     // Dispatch to transports
     await Promise.all(
