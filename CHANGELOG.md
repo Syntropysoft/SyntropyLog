@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.8] - 2026-02-28
+
+### 📝 Documentation
+- **Reorganization**: Restored detailed content from the previous README into specialized files under the `docs/` directory.
+- **Cleaner README**: Main README now acts as a concise landing page, linking to `docs/enterprise.md`, `docs/configuration.md`, and others for deep dives.
+
 ## [0.8.7] - 2026-02-28
 
 ### 📝 Documentation
