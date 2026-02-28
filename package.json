@@ -1,6 +1,9 @@
 {
   "name": "syntropylog",
   "version": "0.8.1",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "description": "An instance manager with observability for Node.js applications",
   "keywords": [
     "instance-manager",
