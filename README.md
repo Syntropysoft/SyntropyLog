@@ -95,7 +95,7 @@ SyntropyLog goes deep. Explore our specialized guides:
 | 🏢 | [Enterprise Patterns](./docs/enterprise.md) | Scalable architectures, ELK, Kubernetes, and compliance. |
 | 🧪 | [Testing Strategy](./docs/testing.md) | Zero-boilerplate mocking with `SyntropyLogMock`. |
 | 🎭 | [Core Philosophy](./docs/philosophy.md) | The "Silent Observer" principle and error handling strategy. |
-| 📦 | [Examples](./examples) | Real integrations with Express, Redis, Kafka, and more. |
+| 📦 | [Examples](https://github.com/Syntropysoft/syntropylog-examples) | Real integrations with Express, Redis, Kafka, and more. |
 
 ---
 
