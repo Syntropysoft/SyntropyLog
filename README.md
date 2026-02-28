@@ -17,7 +17,7 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-85.67%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.8.1-brightgreen.svg" alt="Version 0.8.1"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.8.2-brightgreen.svg" alt="Version 0.8.2"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/codeql.yml"><img src="https://github.com/Syntropysoft/SyntropyLog/workflows/CodeQL/badge.svg" alt="CodeQL"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/security/advisories"><img src="https://img.shields.io/badge/dependabot-enabled-brightgreen.svg" alt="Dependabot"></a>
 </p>
