@@ -84,12 +84,18 @@ process.on('SIGTERM', async () => {
 
 ## 📚 Learn More
 
-Don't let the length fool you—SyntropyLog is deep. Explore our specialized guides:
+SyntropyLog goes deep. Explore our specialized guides:
 
-- [🏢 Enterprise Patterns](./docs/enterprise.md) - Scalable architectures.
-- [🔧 Full Config Reference](./docs/configuration.md) - Every knob and switch.
-- [🧪 Testing Strategy](./docs/testing.md) - Mocking with zero boilerplate.
-- [📦 Real-world Examples](./examples) - Integration with Express, NestJS and more.
+| | Guide | Description |
+| :--- | :--- | :--- |
+| 🔧 | [Master Configuration](./docs/configuration.md) | Every option explained: `loggingMatrix`, `serializers`, masking, context. |
+| 💾 | [Universal Persistence](./docs/persistence.md) | Map logs to any DB (SQL/NoSQL) with pure JSON, zero dependencies. |
+| 🧬 | [Serialization & Formatting](./docs/serialization.md) | Custom serializers, timeouts, and the Silent Observer guard. |
+| ⚙️ | [Middleware & Frameworks](./docs/middleware.md) | Integration patterns for Express, NestJS, Fastify, and Koa. |
+| 🏢 | [Enterprise Patterns](./docs/enterprise.md) | Scalable architectures, ELK, Kubernetes, and compliance. |
+| 🧪 | [Testing Strategy](./docs/testing.md) | Zero-boilerplate mocking with `SyntropyLogMock`. |
+| 🎭 | [Core Philosophy](./docs/philosophy.md) | The "Silent Observer" principle and error handling strategy. |
+| 📦 | [Examples](./examples) | Real integrations with Express, Redis, Kafka, and more. |
 
 ---
 
