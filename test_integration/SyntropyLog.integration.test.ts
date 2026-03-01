@@ -62,8 +62,9 @@ describe('SyntropyLog Integration Tests', () => {
     });
 
     // Assert
-    expect(spyTransport.getEntries().length).toBe(1);
-    const logObject = spyTransport.getFirstEntry();
+    const businessEntries = spyTransport.getEntries().filter(e => e.service === 'integration-test');
+    expect(businessEntries.length).toBe(1);
+    const logObject = businessEntries[0];
 
     expect(logObject).toBeDefined();
 

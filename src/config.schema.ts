@@ -18,7 +18,7 @@ const loggerOptionsSchema = z
   .object({
     name: z.string().optional(),
     level: z
-      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .enum(['audit', 'fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .optional(),
     serviceName: z.string().optional(),
     /**
@@ -32,13 +32,6 @@ const loggerOptionsSchema = z
       ])
       .optional(),
 
-    /**
-     * A dictionary of custom serializer functions. The key is the field
-     * to look for in the log object, and the value is the function that transforms it.
-     */
-    serializers: z
-      .record(z.string(), z.function(z.tuple([z.unknown()]), z.string()))
-      .optional(),
     /**
      * The maximum time in milliseconds a custom serializer can run before being timed out.
      * @default 50

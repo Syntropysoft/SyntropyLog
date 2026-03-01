@@ -33,39 +33,18 @@ export class SerializationStep implements PipelineStep<SerializableData> {
     const serializer = this.findSerializer(data);
 
     if (!serializer) {
-      // Si no hay serializador, terminar inmediatamente
-      const error = new Error(
-        `No se encontró serializador para los datos proporcionados`
-      );
-      (error as any).serializer = 'none';
-      throw error;
+      // Si no hay serializador, devolvemos el dato original (Safe by default)
+      return data;
     }
 
-    // 2. Ejecutar serialización con timeout
-    const serializationPromise = serializer.serialize(
-      data,
-      context.serializationContext
-    );
-    const timeoutPromise = new Promise<SerializableData>((_, reject) => {
-      setTimeout(() => {
-        const error = new Error(`Serialización lenta: >50ms`);
-        (error as any).serializer = serializer.name;
-        reject(error);
-      }, 50);
-    });
-
     try {
-      const result = await Promise.race([serializationPromise, timeoutPromise]);
+      // 2. Ejecutar serialización (resilience is handled by pipeline)
+      const result = await serializer.serialize(
+        data,
+        context.serializationContext
+      );
 
-      // 3. Verificar que la serialización fue rápida
       const duration = Date.now() - startTime;
-      if (duration > 50) {
-        const error = new Error(
-          `Serialización demasiado lenta: ${duration}ms (máximo 50ms)`
-        );
-        (error as any).serializer = serializer.name;
-        throw error;
-      }
 
       // 4. Devolver datos serializados con metadata
       return {

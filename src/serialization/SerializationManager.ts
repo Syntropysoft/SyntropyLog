@@ -12,6 +12,7 @@ import {
 import { SerializationPipeline } from './SerializationPipeline';
 import { SerializationPipelineContext } from '../types';
 import { SerializationStep } from './pipeline/SerializationStep';
+import { HygieneStep } from './pipeline/HygieneStep';
 import { SanitizationStep } from './pipeline/SanitizationStep';
 import { TimeoutStep } from './pipeline/TimeoutStep';
 import {
@@ -34,6 +35,7 @@ export interface SerializationManagerConfig {
 export class SerializationManager {
   private pipeline: SerializationPipeline;
   private serializationStep: SerializationStep;
+  private hygieneStep: HygieneStep;
   private sanitizationStep: SanitizationStep;
   private timeoutStep: TimeoutStep;
   private config: Required<SerializationManagerConfig>;
@@ -98,11 +100,13 @@ export class SerializationManager {
 
     // Crear pasos del pipeline
     this.serializationStep = new SerializationStep();
+    this.hygieneStep = new HygieneStep();
     this.sanitizationStep = new SanitizationStep();
     this.timeoutStep = new TimeoutStep(this.pipeline['timeoutStrategies']);
 
-    // Configurar pipeline
+    // Configurar pipeline: Primero serialización custom, luego HIGIENE (seguridad), luego masking
     this.pipeline.addStep(this.serializationStep);
+    this.pipeline.addStep(this.hygieneStep);
     this.pipeline.addStep(this.sanitizationStep);
     this.pipeline.addStep(this.timeoutStep);
   }
@@ -150,9 +154,10 @@ export class SerializationManager {
     if (result.success) {
       this.metrics.successfulSerializations++;
 
-      // Métricas de serialización (deberían ser muy bajas)
+      // Métricas de serialización e higiene (deberían ser muy bajas)
       const serializationDuration =
-        result.metadata.stepDurations?.serialization || 0;
+        (result.metadata.stepDurations?.serialization || 0) +
+        (result.metadata.stepDurations?.hygiene || 0);
       this.metrics.totalSerializationDuration += serializationDuration;
       this.metrics.maxSerializationDuration = Math.max(
         this.metrics.maxSerializationDuration,
@@ -162,9 +167,9 @@ export class SerializationManager {
         this.metrics.minSerializationDuration === 0
           ? serializationDuration
           : Math.min(
-              this.metrics.minSerializationDuration,
-              serializationDuration
-            );
+            this.metrics.minSerializationDuration,
+            serializationDuration
+          );
 
       // Métricas de timeout de operación
       const operationTimeout = result.metadata.operationTimeout || 0;
@@ -201,12 +206,12 @@ export class SerializationManager {
       averageSerializationDuration:
         this.metrics.totalSerializations > 0
           ? this.metrics.totalSerializationDuration /
-            this.metrics.totalSerializations
+          this.metrics.totalSerializations
           : 0,
       averageOperationTimeout:
         this.metrics.successfulSerializations > 0
           ? this.metrics.totalOperationTimeout /
-            this.metrics.successfulSerializations
+          this.metrics.successfulSerializations
           : 0,
       maxSerializationDuration: this.metrics.maxSerializationDuration,
       minSerializationDuration: this.metrics.minSerializationDuration,

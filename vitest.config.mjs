@@ -6,7 +6,7 @@ export default defineConfig({
     environment: 'node', // Or 'jsdom' if you need to simulate a browser
     include: ['tests/**/*.ts', 'test_integration/**/*.ts'], // Search for tests in both folders
     coverage: {
-      provider: 'v8', // or 'istanbul'
+      provider: 'istanbul', // or 'v8'
       reporter: ['text', 'json', 'html', 'lcov'], // lcov is useful for Codecov and similar tools
       include: ['src/**/*.ts'], // Measures coverage on all .ts files in the src folder
       exclude: [

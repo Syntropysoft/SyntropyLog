@@ -16,14 +16,14 @@ import type {
 } from '../types';
 import type { LogLevel } from './levels';
 import { IContextManager } from '../context';
-import { SerializerRegistry } from '../serialization/SerializerRegistry';
+import { SerializationManager } from '../serialization/SerializationManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
 import { ILogger } from './ILogger';
 
 export interface LoggerDependencies {
   contextManager: IContextManager;
-  serializerRegistry: SerializerRegistry;
+  serializationManager: SerializationManager;
   maskingEngine: MaskingEngine;
   syntropyLogInstance: SyntropyLog;
 }
@@ -134,11 +134,18 @@ export class Logger {
     // Merge metadata into log entry
     Object.assign(logEntry, metadata);
 
-    // 1. Apply custom serializers (e.g., for Error objects)
-    const finalEntry = await this.dependencies.serializerRegistry.process(
+    // 1. Serialization Pipeline (Hygiene + Custom + Resilience)
+    const serializationResult = await this.dependencies.serializationManager.serialize(
       logEntry,
-      this as ILogger
+      {
+        depth: 0,
+        maxDepth: 10,
+        sensitiveFields: [],
+        sanitize: true,
+      }
     );
+
+    const finalEntry = serializationResult.data;
 
     // 2. Apply masking to the entire, serialized entry.
     const maskedEntry = this.dependencies.maskingEngine.process(finalEntry);

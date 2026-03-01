@@ -4,7 +4,8 @@ import { Logger, LoggerDependencies } from './Logger';
 import { ILogger } from './ILogger';
 import { IContextManager } from '../context/IContextManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
-import { SerializerRegistry } from '../serialization/SerializerRegistry';
+import { SerializationManager } from '../serialization/SerializationManager';
+import { SerializationComplexity } from '../serialization/types';
 import { Transport } from './transports/Transport';
 import { ConsoleTransport } from './transports/ConsoleTransport';
 import { LogLevel } from './levels';
@@ -29,7 +30,7 @@ export class LoggerFactory {
   /** @private The global service name, used as a default for loggers. */
   private readonly serviceName: string;
   /** @private The engine responsible for serializing complex objects. */
-  private readonly serializerRegistry: SerializerRegistry;
+  private readonly serializationManager: SerializationManager;
   /** @private The engine responsible for masking sensitive data. */
   private readonly maskingEngine: MaskingEngine;
 
@@ -91,9 +92,9 @@ export class LoggerFactory {
     this.globalLogLevel = config.logger?.level ?? 'info';
     this.serviceName = config.logger?.serviceName ?? 'unknown-service';
 
-    this.serializerRegistry = new SerializerRegistry({
-      serializers: config.logger?.serializers,
+    this.serializationManager = new SerializationManager({
       timeoutMs: config.logger?.serializerTimeoutMs,
+      sanitizeSensitiveData: config.masking?.enableDefaultRules !== false,
     });
     this.maskingEngine = new MaskingEngine({
       rules: config.masking?.rules,
@@ -125,7 +126,7 @@ export class LoggerFactory {
 
     const dependencies: LoggerDependencies = {
       contextManager: this.contextManager,
-      serializerRegistry: this.serializerRegistry,
+      serializationManager: this.serializationManager,
       maskingEngine: this.maskingEngine,
       syntropyLogInstance: this.syntropyLogInstance,
     };

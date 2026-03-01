@@ -119,10 +119,10 @@ export class SyntropyLog extends EventEmitter {
   }
 
   public getSerializer() {
-    if (!this.lifecycleManager.serializerRegistry) {
-      throw new Error('SerializerRegistry not available.');
+    if (!this.lifecycleManager.serializationManager) {
+      throw new Error('SerializationManager not available.');
     }
-    return this.lifecycleManager.serializerRegistry;
+    return this.lifecycleManager.serializationManager;
   }
 
   public _resetForTesting(): void {

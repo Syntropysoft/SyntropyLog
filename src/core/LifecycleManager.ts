@@ -9,7 +9,8 @@ import { RedisManager } from '../redis/RedisManager';
 import { sanitizeConfig } from '../utils/sanitizeConfig';
 import { HttpManager } from '../http/HttpManager';
 import { BrokerManager } from '../brokers/BrokerManager';
-import { SerializerRegistry } from '../serialization/SerializerRegistry';
+import { SerializationManager } from '../serialization/SerializationManager';
+import { SerializationComplexity } from '../serialization/types';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
 import { errorToJsonValue } from '../types';
@@ -31,7 +32,7 @@ export class LifecycleManager extends EventEmitter {
   public redisManager: any | undefined; // ✅ Internal, no exposed
   public httpManager: HttpManager | undefined;
   public brokerManager: BrokerManager | undefined;
-  public serializerRegistry: SerializerRegistry;
+  public serializationManager: SerializationManager;
   public maskingEngine: MaskingEngine;
   private logger: ILogger | null = null;
   private syntropyFacade: SyntropyLog;
@@ -41,7 +42,7 @@ export class LifecycleManager extends EventEmitter {
     this.syntropyFacade = syntropyFacade;
     // Initialize properties here to satisfy TypeScript's strict checks
     this.config = {};
-    this.serializerRegistry = new SerializerRegistry({});
+    this.serializationManager = new SerializationManager({});
     this.maskingEngine = new MaskingEngine({});
   }
 
@@ -69,10 +70,11 @@ export class LifecycleManager extends EventEmitter {
         this.contextManager.configure(this.config.context);
       }
 
-      this.serializerRegistry = new SerializerRegistry({
-        serializers: this.config.logger?.serializers,
+      this.serializationManager = new SerializationManager({
         timeoutMs: this.config.logger?.serializerTimeoutMs,
+        sanitizeSensitiveData: this.config.masking?.enableDefaultRules !== false,
       });
+
       this.maskingEngine = new MaskingEngine({
         rules: this.config.masking?.rules,
         maskChar: this.config.masking?.maskChar,

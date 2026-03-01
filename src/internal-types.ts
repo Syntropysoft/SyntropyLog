@@ -230,7 +230,7 @@ export type SerializationContextConfig = {
   maxDepth: number;
   sensitiveFields: string[];
   sanitize: boolean;
-  customTimeout?: number;
+  timeoutMs?: number;
 };
 
 /**
@@ -258,6 +258,7 @@ export type SerializationPipelineContext = {
  */
 export type StepDurations = {
   serialization?: number;
+  hygiene?: number;
   sanitization?: number;
   timeout?: number;
 };

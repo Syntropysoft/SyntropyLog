@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-03-01
+
+### ⚠️ BREAKING CHANGES
+- **REMOVED `src/adapters`**: Legacy placeholders for brokers and HTTP adapters have been removed from the core. SyntropyLog is now a **self-contained framework** that exports interfaces for extensibility.
+- **REMOVED `serializers` config**: The `logger.serializers` dictionary in configuration has been removed. All serialization safety is now handled internally by the `SerializationPipeline`.
+- **REMOVED `@syntropylog/types` Reference**: The framework now internalizes and exports its own types, eliminating the need for an external types repository.
+- **`SerializerRegistry` Deprecated**: Replaced by `SerializationManager` and its step-based pipeline.
+
+### 🚀 New Features
+- **Intelligent Serialization Pipeline**: A new declarative pipeline that processes metadata through specialized steps:
+  - **`HygieneStep`**: Automatically detects and neutralizes circular references and limits object depth using `flatted`.
+  - **`TimeoutStep`**: Global, declarative protection against slow serialization processes, ensuring the event loop is never blocked.
+  - **`SanitizationStep`**: Integrated PII masking and control character stripping.
+- **Universal Contracts**: Publicly exported interfaces (`ISerializer`, `IHttpClientAdapter`, `IBrokerAdapter`) allowing advanced users to extend the framework without modifying the core.
+
+### 🛡️ Security
+- **Circular Reference Immunity**: The framework now handles complex, self-referencing objects by default without crashing or infinite loops.
+- **Guaranteed Timeouts**: Every serialization step is now protected by a mandatory timeout, preventing "Death by Log" in high-load scenarios.
+
+### 🔧 Maintenance
+- **Refactored `Logger.ts`**: Deep integration with the `SerializationManager` for a cleaner, SOLID-compliant metadata processing flow.
+- **Refactored `LifecycleManager`**: Simplified initialization logic by removing manual serializer registration.
+
 ## [0.8.16] - 2026-02-28
 
 ### 🚀 Optimization

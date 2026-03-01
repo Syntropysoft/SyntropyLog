@@ -30,8 +30,7 @@ Controls the core logging engine behavior.
 | `serviceName` | `string` | The identifier for your application in traces and logs. |
 | `level` | `LogLevel` | Minimum severity level (`trace`, `debug`, `info`, `warn`, `error`, `fatal`, `silent`). |
 | `transports` | `Transport[]` or `Record` | Array of transport instances (e.g., `ConsoleTransport`) or a mapping of logger names to transport arrays. |
-| `serializers` | `Record` | A dictionary of custom functions to transform specific fields before logging. |
-| `serializerTimeoutMs` | `number` | Max time (ms) a custom serializer can run. Default: `50ms`. |
+| `serializerTimeoutMs` | `number` | Max time (ms) allowed for the security pipeline to process metadata. Default: `50ms`. |
 | `prettyPrint` | `object` | `{ enabled: boolean }`. Formats logs for readability in development. |
 
 ---

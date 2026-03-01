@@ -53,6 +53,8 @@ export class SerializationPipeline {
     context: SerializationPipelineContext
   ): Promise<SerializationResult> {
     const pipelineStartTime = Date.now();
+    const globalTimeout = context?.serializationContext?.timeoutMs || 50; // Use config or default
+
     this.metrics = {
       stepDurations: {},
       totalDuration: 0,
@@ -63,33 +65,27 @@ export class SerializationPipeline {
     let currentData = data;
 
     try {
-      // Ejecutar SerializationStep primero
-      const serializationStep = this.steps.find(
-        (step) => step.name === 'serialization'
-      );
-      if (serializationStep) {
-        const stepStartTime = Date.now();
-
-        currentData = await serializationStep.execute(currentData, context);
-
-        const stepDuration = Date.now() - stepStartTime;
-        this.metrics!.stepDurations[serializationStep.name] = stepDuration;
-      }
-
-      // Si llegamos aquí, la serialización fue exitosa
-      // Continuar con los otros steps
+      // 1. Ejecutar pasos con protección de tiempo (Resilience Engine)
       for (const step of this.steps) {
-        if (step.name === 'serialization') continue; // Ya se ejecutó
-
         const stepStartTime = Date.now();
 
-        currentData = await step.execute(currentData, context);
+        // Creamos una promesa que corre el step y otra que hace de "carrera de mates"
+        const stepExecution = step.execute(currentData, context);
+
+        const timeoutPromise = new Promise<SerializableData>((_, reject) => {
+          setTimeout(() => {
+            reject(new Error(`Timeout en etapa '${step.name}' (> ${globalTimeout}ms)`));
+          }, globalTimeout);
+        });
+
+        // La carrera de los mates declarativa
+        currentData = await Promise.race([stepExecution, timeoutPromise]);
 
         const stepDuration = Date.now() - stepStartTime;
-        this.metrics!.stepDurations[step.name] = stepDuration;
+        this.metrics.stepDurations[step.name] = stepDuration;
       }
 
-      // Calcular timeout de operación basado en el resultado
+      // 2. Calcular timeout de operación final (si aplica)
       const timeoutStrategy = this.selectTimeoutStrategy(currentData);
       const operationTimeout = timeoutStrategy.calculateTimeout(currentData);
 
@@ -97,29 +93,23 @@ export class SerializationPipeline {
       this.metrics.timeoutStrategy = timeoutStrategy.getStrategyName();
       this.metrics.totalDuration = Date.now() - pipelineStartTime;
 
-      // Obtener la complejidad real del serializador
-      const actualComplexity =
-        currentData.serializationComplexity || SerializationComplexity.SIMPLE;
-
       return {
         success: true,
         data: currentData,
-        serializer: currentData.serializer || 'pipeline',
+        serializer: (currentData as any).serializer || 'pipeline',
         duration: this.metrics.totalDuration,
-        complexity: actualComplexity,
+        complexity: (currentData as any).serializationComplexity || SerializationComplexity.SIMPLE,
         sanitized: context.sanitizeSensitiveData,
         metadata: {
           stepDurations: this.metrics.stepDurations,
           operationTimeout,
           timeoutStrategy: timeoutStrategy.getStrategyName(),
-          serializer: currentData.serializer || 'pipeline',
-          complexity: actualComplexity,
+          serializer: (currentData as any).serializer || 'pipeline',
+          complexity: (currentData as any).serializationComplexity || SerializationComplexity.SIMPLE,
         },
       };
     } catch (error) {
       this.metrics.totalDuration = Date.now() - pipelineStartTime;
-
-      // Preservar el nombre del serializador del error
       const serializerName = (error as any).serializer || 'pipeline';
 
       return {

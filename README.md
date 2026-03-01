@@ -16,8 +16,8 @@
   <a href="https://www.npmjs.com/package/syntropylog"><img src="https://img.shields.io/npm/v/syntropylog.svg" alt="NPM Version"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
-  <a href="#"><img src="https://img.shields.io/badge/coverage-85.67%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.8.16-brightgreen.svg" alt="Version 0.8.16"></a>
+  <a href="#"><img src="https://img.shields.io/badge/coverage-84.64%25-brightgreen" alt="Test Coverage"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.9.0-brightgreen.svg" alt="Version 0.9.0"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
@@ -33,6 +33,7 @@ That means:
 - A **declarative Logging Matrix** that controls exactly which context fields appear at each log level — lean on `info`, full context on `error`.
 - A **fluent logger API** (`withRetention`, `withSource`, `withTransactionId`) that lets you create specialized loggers carrying arbitrary organization-defined metadata.
 - A **MaskingEngine** that redacts sensitive fields before they reach any transport — built-in strategies and fully custom rules.
+- An **Intelligent Serialization Pipeline** that automatically detects and neutralizes circular references, limits object depth, and enforces execution timeouts — making logs immune to application crashes.
 - A **UniversalAdapter** that routes logs to any backend (PostgreSQL, MongoDB, Elasticsearch, S3) via a single `executor` function — no coupling, no lock-in.
 - A **SanitizationEngine** that strips control characters from all log output, preventing log injection attacks.
 
@@ -42,11 +43,21 @@ That means:
 
 SyntropyLog was designed with the constraints of **banking, healthcare, and financial services** in mind:
 
-- **Banking Traceability**: Every financial operation — payment, transfer, authorization — carries a `correlationId` that propagates automatically across every service, database call, and message broker it touches. End-to-end traceability with zero manual plumbing. Regulators call for it; SyntropyLog makes it automatic.
-- **GDPR / LGPD**: Automatic PII masking with configurable retention metadata per logger.
-- **SOX**: Immutable audit trail via `withRetention` bindings and dedicated transports.
-- **PCI-DSS**: Card data never reaches a transport — masked at the engine level before serialization.
 - **HIPAA**: Field-level control over what appears in logs at each severity level via the Logging Matrix.
+- **SOX**: Immutable audit trail via `withRetention` bindings and dedicated transports.
+
+---
+
+## 🛡️ Why SyntropyLog? (The Resilience Factor)
+
+Traditional loggers (and even modern ones) share a common weakness: **serialization is a blocking operation**. If you log a massive, deeply nested, or circular object, the Node.js Event Loop stops. Your API stops responding. Your service might even crash with a `TypeError`.
+
+SyntropyLog v0.9.0 introduces the **Log Resilience Engine**, making your application immune to "Death by Log":
+
+1.  **Event Loop Protection**: Every serialization step is wrapped in a mandatory timeout (default: **50ms**). If serialization takes too long, it is aborted via `Promise.race`, and a safe subset of the data is logged instead. Your app keeps running.
+2.  **Circular Reference Immunity**: Built-in hygiene automatically detects and neutralizes circular references. No more `TypeError: Converting circular structure to JSON`.
+3.  **Configurable Performance**: 50ms is the safe default, but it's fully configurable via `serializerTimeoutMs`. You control the balance between log detail and application performance.
+4.  **Silent Observer**: Logging should never throw. Our pipeline catches and reports its own failures inside the log message itself, ensuring 100% reliability.
 
 ---
 
@@ -553,8 +564,8 @@ SyntropyLog goes deep. Explore our specialized guides:
 | :--- | :--- | :--- |
 | 🔧 | [Master Configuration](./docs/configuration.md) | Every option explained: `loggingMatrix`, `serializers`, masking, context. |
 | 💾 | [Universal Persistence](./docs/persistence.md) | Map logs to any DB (SQL/NoSQL) with pure JSON, zero dependencies. |
-| 🧬 | [Serialization & Formatting](./docs/serialization.md) | Custom serializers, timeouts, and the Silent Observer guard. |
-| ⚙️ | [Middleware & Frameworks](./docs/middleware.md) | Integration patterns for Express, NestJS, Fastify, and Koa. |
+| 🧬 | [Serialization & Resiliency](./docs/serialization.md) | Circular reference protection, automated timeouts, and the Safe Pipeline. |
+| ⚙️ | [Middleware & Frameworks](./docs/middleware.md) | Integration patterns for Express, NestJS, and more via Universal Contracts. |
 | 🏢 | [Enterprise Patterns](./docs/enterprise.md) | Scalable architectures, ELK, Kubernetes, and compliance. |
 | 🧪 | [Testing Strategy](./docs/testing.md) | Zero-boilerplate mocking with `SyntropyLogMock`. |
 | 🎭 | [Core Philosophy](./docs/philosophy.md) | The "Silent Observer" principle and error handling strategy. |

@@ -21,9 +21,9 @@ const syntropyMiddleware = (req, res, next) => {
   const contextManager = syntropyLog.getContextManager();
   
   contextManager.run(async () => {
-    // Generate/Extract correlation ID
-    const correlationId = req.headers['x-correlation-id'] || uuid();
-    contextManager.set('correlationId', correlationId);
+    // Automatically detect incoming header or generate new ID
+    const correlationId = contextManager.getCorrelationId();
+    contextManager.set(contextManager.getCorrelationIdHeaderName(), correlationId);
     
     // Attach logger to request for convenience
     req.logger = syntropyLog.getLogger('http');

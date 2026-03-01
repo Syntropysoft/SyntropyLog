@@ -160,7 +160,7 @@ export class BeaconRedis implements IBeaconRedis {
       const durationMs = Date.now() - startTime;
       const errorLogLevel = this.config.logging?.onError ?? 'error';
 
-      // The error object will be serialized by the central SerializerRegistry.
+      // The error object will be serialized by the central SerializationManager.
       commandLogger[errorLogLevel](
         {
           command: commandName,
