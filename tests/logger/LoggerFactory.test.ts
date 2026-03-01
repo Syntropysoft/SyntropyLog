@@ -169,4 +169,50 @@ describe('LoggerFactory', () => {
       expect(transport2.flush).toHaveBeenCalledOnce();
     });
   });
+
+  describe('shutdown', () => {
+    it('should call flush and then shutdown on all transports', async () => {
+      const transport1: any = {
+        flush: vi.fn().mockResolvedValue(undefined),
+        shutdown: vi.fn().mockResolvedValue(undefined),
+        constructor: { name: 'Transport1' }
+      };
+      const config: SyntropyLogConfig = {
+        logger: { level: 'info', transports: [transport1], serializerTimeoutMs: 100 },
+      };
+      const factory = new LoggerFactory(config, mockContextManager, mockSyntropyLog);
+      await factory.shutdown();
+
+      expect(transport1.flush).toHaveBeenCalledOnce();
+      expect(transport1.shutdown).toHaveBeenCalledOnce();
+    });
+
+    it('should handle errors during transport shutdown gracefully', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+      const transport1: any = {
+        flush: vi.fn().mockResolvedValue(undefined),
+        shutdown: vi.fn().mockRejectedValue(new Error('Shutdown failed')),
+        constructor: { name: 'Transport1' }
+      };
+      const config: SyntropyLogConfig = {
+        logger: { level: 'info', transports: [transport1], serializerTimeoutMs: 100 },
+      };
+      const factory = new LoggerFactory(config, mockContextManager, mockSyntropyLog);
+      await factory.shutdown();
+
+      expect(transport1.shutdown).toHaveBeenCalledOnce();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error shutting down transport'),
+        expect.any(Error)
+      );
+      consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe('Default Transports', () => {
+    it('should create a default ConsoleTransport if none are provided', () => {
+      new LoggerFactory({}, mockContextManager, mockSyntropyLog);
+      expect(MockConsoleTransport).toHaveBeenCalledOnce();
+    });
+  });
 });

@@ -37,8 +37,7 @@ const createMockNativeClient = () => {
     publish: vi.fn(),
     subscribe: vi.fn(),
     unsubscribe: vi.fn(),
-    eval: vi.fn(),
-    executeScript: vi.fn(),
+    sendCommand: vi.fn(),
     zRange: vi.fn(),
     zRangeWithScores: vi.fn(),
     zRem: vi.fn(),
@@ -690,28 +689,32 @@ describe('RedisCommandExecutor', () => {
         const keys = ['mykey'];
         const args = ['myarg'];
         const expectedResult = ['mykey', 'myarg'];
-        mockNativeClient.eval.mockResolvedValue(expectedResult);
+        mockNativeClient.sendCommand.mockResolvedValue(expectedResult);
 
         const result = await executor.executeScript(script, keys, args);
 
         expect(result).toEqual(expectedResult);
-        expect(mockNativeClient.eval).toHaveBeenCalledWith(script, {
-          keys,
-          arguments: args,
-        });
-        expect(mockNativeClient.eval).toHaveBeenCalledTimes(1);
+        expect(mockNativeClient.sendCommand).toHaveBeenCalledWith([
+          'EVAL',
+          script,
+          '1',
+          'mykey',
+          'myarg',
+        ]);
+        expect(mockNativeClient.sendCommand).toHaveBeenCalledTimes(1);
       });
 
       it('should delegate executeScript command with only a script and empty arrays', async () => {
         const script = "return 'hello'";
-        mockNativeClient.eval.mockResolvedValue('hello');
+        mockNativeClient.sendCommand.mockResolvedValue('hello');
 
         await executor.executeScript(script, [], []);
 
-        expect(mockNativeClient.eval).toHaveBeenCalledWith(script, {
-          keys: [],
-          arguments: [],
-        });
+        expect(mockNativeClient.sendCommand).toHaveBeenCalledWith([
+          'EVAL',
+          script,
+          '0',
+        ]);
       });
     });
   });

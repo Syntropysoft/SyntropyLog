@@ -230,4 +230,37 @@ describe('Logger', () => {
       });
     });
   });
+
+  describe('Additional Methods', () => {
+    it('should log fatal messages', async () => {
+      await logger.fatal('system crash');
+      expect(transports[0].log).toHaveBeenCalledOnce();
+      const logEntry = (transports[0].log as any).mock.calls[0][0];
+      expect(logEntry.level).toBe('fatal');
+    });
+
+    it('should allow setting log level dynamically', () => {
+      logger.setLevel('error');
+      expect(logger.level).toBe('error');
+    });
+
+    it('should support withSource fluent method', () => {
+      const loggerWithSource = logger.withSource('auth-module');
+      expect(loggerWithSource).toBeInstanceOf(Logger);
+      expect((loggerWithSource as any).bindings.source).toBe('auth-module');
+    });
+
+    it('should support withRetention fluent method', () => {
+      const rules = { days: 30 };
+      const loggerWithRetention = logger.withRetention(rules as any);
+      expect(loggerWithRetention).toBeInstanceOf(Logger);
+      expect((loggerWithRetention as any).bindings.retention).toEqual(rules);
+    });
+
+    it('should support withTransactionId fluent method', () => {
+      const loggerWithTxId = logger.withTransactionId('tx-123');
+      expect(loggerWithTxId).toBeInstanceOf(Logger);
+      expect((loggerWithTxId as any).bindings.transactionId).toBe('tx-123');
+    });
+  });
 });

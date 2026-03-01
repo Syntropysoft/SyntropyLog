@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - Unreleased
+
+### 🛡️ Security
+- Eliminated obfuscated code patterns in Redis module to comply with security scanner requirements (Socket.dev).
+
+### 🔧 Maintenance
+- Refactored `executeScript` in `RedisCommandExecutor` to use native `sendCommand`.
+
 ## [0.9.0] - 2026-03-01
 
 ### ⚠️ BREAKING CHANGES

@@ -96,7 +96,13 @@ describe('SerializationPipeline', () => {
           sanitize: true
         },
         sanitizeSensitiveData: true,
-        enableMetrics: true
+        enableMetrics: true,
+        sanitizationContext: {
+          sensitiveFields: [],
+          redactPatterns: [],
+          maxStringLength: 1000,
+          enableDeepSanitization: true
+        }
       };
 
       const result = await pipeline.process(testData, context);
@@ -145,7 +151,7 @@ describe('SerializationPipeline', () => {
       const result = await pipeline.process({ test: 'data' }, { serializationContext: {} } as SerializationPipelineContext);
 
       expect(result.success).toBe(true);
-      expect(result.metadata.stepDurations?.['slow']).toBeGreaterThan(0);
+      expect((result.metadata.stepDurations as any)['slow']).toBeGreaterThan(0);
     });
   });
 
@@ -331,6 +337,26 @@ describe('Timeout Strategies', () => {
       };
       expect(strategy.calculateTimeout(query)).toBe(18000);
     });
+
+    it('should return correct timeout for count(*)', () => {
+      const query = { type: 'PostgreSQLQuery', query: 'SELECT count(*) FROM users' };
+      expect(strategy.calculateTimeout(query)).toBe(10000);
+    });
+
+    it('should return correct timeout for group by', () => {
+      const query = { type: 'PostgreSQLQuery', query: 'SELECT * FROM users GROUP BY id' };
+      expect(strategy.calculateTimeout(query)).toBe(12000);
+    });
+
+    it('should return correct timeout for insert', () => {
+      const query = { type: 'PostgreSQLQuery', query: 'INSERT INTO users VALUES (1)' };
+      expect(strategy.calculateTimeout(query)).toBe(4080);
+    });
+
+    it('should return correct timeout for delete', () => {
+      const query = { type: 'PostgreSQLQuery', query: 'DELETE FROM users' };
+      expect(strategy.calculateTimeout(query)).toBe(6000);
+    });
   });
 
   describe('SQLServerTimeoutStrategy', () => {
@@ -343,6 +369,16 @@ describe('Timeout Strategies', () => {
     it('should return correct timeout for stored procedures', () => {
       const query = { type: 'SQLServerQuery', query: 'EXEC GetUserData @id = 1' };
       expect(strategy.calculateTimeout(query)).toBe(9000);
+    });
+
+    it('should return correct timeout for group by in SQL Server', () => {
+      const query = { type: 'SQLServerQuery', query: 'SELECT * FROM users GROUP BY id' };
+      expect(strategy.calculateTimeout(query)).toBe(15000);
+    });
+
+    it('should return correct timeout for update in SQL Server', () => {
+      const query = { type: 'SQLServerQuery', query: 'UPDATE users SET name = "test"' };
+      expect(strategy.calculateTimeout(query)).toBe(12000);
     });
   });
 
@@ -359,6 +395,16 @@ describe('Timeout Strategies', () => {
         query: 'BEGIN SELECT * FROM users; END;'
       };
       expect(strategy.calculateTimeout(query)).toBe(10000);
+    });
+
+    it('should return correct timeout for count(*) in Oracle', () => {
+      const query = { type: 'OracleQuery', query: 'SELECT count(*) FROM users' };
+      expect(strategy.calculateTimeout(query)).toBe(15000);
+    });
+
+    it('should return correct timeout for hierarchical queries in Oracle', () => {
+      const query = { type: 'OracleQuery', query: 'SELECT * FROM emp CONNECT BY PRIOR empno = mgr' };
+      expect(strategy.calculateTimeout(query)).toBe(20000);
     });
   });
 });

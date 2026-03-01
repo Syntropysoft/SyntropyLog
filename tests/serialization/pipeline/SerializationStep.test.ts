@@ -17,7 +17,13 @@ describe('SerializationStep', () => {
         sanitize: true
       },
       sanitizeSensitiveData: true,
-      enableMetrics: true
+      enableMetrics: true,
+      sanitizationContext: {
+        sensitiveFields: [],
+        redactPatterns: [],
+        maxStringLength: 1000,
+        enableDeepSanitization: true
+      }
     };
   });
 
@@ -90,7 +96,7 @@ describe('SerializationStep', () => {
       const data = { type: 'UnknownType', value: 123 };
       const result = await step.execute(data, context);
 
-      // En v0.9.0, si no hay serializador, devuelve los datos originales
+      // En v0.9.1, si no hay serializador, devuelve los datos originales
       expect(result).toBe(data);
     });
 

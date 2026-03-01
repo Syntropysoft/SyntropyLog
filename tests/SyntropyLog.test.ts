@@ -108,7 +108,7 @@ describe('SyntropyLog', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    resetSyntropySingleton();
+    SyntropyLog.resetInstance();
   });
 
   afterEach(async () => {
@@ -211,6 +211,47 @@ describe('SyntropyLog', () => {
       expect(syntropy.getState()).toBe('READY');
       expect(MockedLoggerFactory).toHaveBeenCalledOnce();
       expect(MockedRedisManager).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('Getters and State Checks', () => {
+    it('should return config when ready', async () => {
+      const syntropy = SyntropyLog.getInstance();
+      await syntropy.init(validConfig);
+      expect(syntropy.getConfig()).toMatchObject(validConfig);
+    });
+
+    it('should throw when getConfig() is called and not ready', () => {
+      const syntropy = SyntropyLog.getInstance();
+      expect(() => syntropy.getConfig()).toThrow('SyntropyLog is not ready');
+    });
+
+    it('should return filtered context when ready', async () => {
+      const syntropy = SyntropyLog.getInstance();
+      await syntropy.init(validConfig);
+      const result = syntropy.getFilteredContext('info' as any);
+      // We don't check the spy on prototype because it's a factory mock
+      // Just check if it returns a value (the mock returns undefined by default)
+      expect(result).toBeUndefined();
+    });
+
+    it('should throw when getFilteredContext() is called and not ready', () => {
+      const syntropy = SyntropyLog.getInstance();
+      expect(() => syntropy.getFilteredContext('info' as any)).toThrow('SyntropyLog is not ready');
+    });
+
+    it('should return masker when ready', async () => {
+      const syntropy = SyntropyLog.getInstance();
+      // We need to manually set the masking engine in the mock for this to work
+      // or ensure init creates it. 
+      await syntropy.init(validConfig);
+      expect(syntropy.getMasker()).toBeDefined();
+    });
+
+    it('should return serializer when ready', async () => {
+      const syntropy = SyntropyLog.getInstance();
+      await syntropy.init(validConfig);
+      expect(syntropy.getSerializer()).toBeDefined();
     });
   });
 

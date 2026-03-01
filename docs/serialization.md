@@ -1,6 +1,6 @@
 # Serialization & Resiliency
 
-SyntropyLog 0.9.0 introduces an **Intelligent Serialization Pipeline**. This system ensures that your application remains stable even when logging complex, circular, or deeply nested data structures.
+SyntropyLog 0.9.1 introduces an **Intelligent Serialization Pipeline**. This system ensures that your application remains stable even when logging complex, circular, or deeply nested data structures.
 
 ## 🛡️ The Security Pipeline
 
@@ -28,7 +28,7 @@ Every step in the pipeline is wrapped in a mandatory execution timeout (default:
 
 In most logging implementations, serialization is a synchronous, blocking task. SyntropyLog differentiates itself by treating serialization as a **resilient asynchronous pipeline**:
 
-| Feature | Traditional Loggers | SyntropyLog v0.9.0 |
+| Feature | Traditional Loggers | SyntropyLog v0.9.1 |
 | :--- | :--- | :--- |
 | **Circular Objects** | Often crash or throw `TypeError` | Auto-detected and neutralized via `HygieneStep` |
 | **Massive Objects** | Block the Event Loop until finished | Aborted after timeout (50ms) to protect latency |

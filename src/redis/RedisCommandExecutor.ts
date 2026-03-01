@@ -441,15 +441,16 @@ export class RedisCommandExecutor {
     keys: string[],
     args: string[]
   ): Promise<RedisValue> {
-    // This calls the Redis EVAL command (Lua scripting on the server side).
-    // The method name is constructed dynamically to avoid false-positive detection
-    // by static analysis tools that flag the literal string "eval" as dangerous JS eval().
-    // No JavaScript dynamic code execution occurs here.
-    const redisEvalCommand = ['ev', 'al'].join('');
-    const result = await (this.client as any)[redisEvalCommand](script, {
-      keys,
-      arguments: args,
-    });
+    // We use sendCommand to call the Redis EVAL command.
+    // This avoids any direct or obfuscated reference to the "eval" method name in JavaScript,
+    // which prevents false-positive security warnings from static analysis tools.
+    const result = await (this.client as any).sendCommand([
+      'EVAL',
+      script,
+      keys.length.toString(),
+      ...keys,
+      ...args,
+    ]);
     return result as RedisValue;
   }
 

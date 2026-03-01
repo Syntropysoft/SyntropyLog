@@ -46,6 +46,14 @@ export class SyntropyLog extends EventEmitter {
     return SyntropyLog.instance;
   }
 
+  /**
+   * Internal test helper to reset the singleton instance.
+   * DO NOT USE in production code.
+   */
+  public static resetInstance(): void {
+    SyntropyLog.instance = undefined as any;
+  }
+
   public getState(): SyntropyLogState {
     return this.lifecycleManager.getState();
   }
