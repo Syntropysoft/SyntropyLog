@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -154,6 +154,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Syntropysoft/SyntropyLog.git"
+  },
+  "funding": {
+    "url": "https://github.com/Syntropysoft/SyntropyLog"
   },
   "publishConfig": {
     "access": "public"

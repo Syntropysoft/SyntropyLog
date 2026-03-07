@@ -17,7 +17,7 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-84.64%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.9.2-brightgreen.svg" alt="Version 0.9.2"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.9.3-brightgreen.svg" alt="Version 0.9.3"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
@@ -32,6 +32,7 @@ The core idea is simple: **you declare what your logs should carry, and Syntropy
 That means:
 - A **declarative Logging Matrix** that controls exactly which context fields appear at each log level — lean on `info`, full context on `error`.
 - A **fluent logger API** (`withRetention`, `withSource`, `withTransactionId`) that lets you create specialized loggers carrying arbitrary organization-defined metadata.
+- **Add, remove, or override transports on demand** — per log call you can send only to specific transports (`.override()`), add extra destinations (`.add()`), or drop one (`.remove()`), without creating new logger instances.
 - A **MaskingEngine** that redacts sensitive fields before they reach any transport — built-in strategies and fully custom rules.
 - An **Intelligent Serialization Pipeline** that automatically detects and neutralizes circular references, limits object depth, and enforces execution timeouts — making logs immune to application crashes.
 - A **UniversalAdapter** that routes logs to any backend (PostgreSQL, MongoDB, Elasticsearch, S3) via a single `executor` function — no coupling, no lock-in.
