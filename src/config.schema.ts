@@ -50,10 +50,10 @@ const loggerOptionsSchema = z
       .optional(),
     serviceName: z.string().optional(),
     /**
-     * Name of the environment variable used to resolve conditional transports (e.g. 'NODE_ENV', 'APP_ENV').
-     * @default 'NODE_ENV'
+     * The explicit environment name used to resolve conditional transports (e.g. 'development', 'production').
+     * @default 'development'
      */
-    envKey: z.string().optional(),
+    environment: z.string().optional(),
     /**
      * Pool of transports by name. Use together with `env` to pick per-environment defaults.
      * When both transportList and env are set, this form is used instead of `transports`.

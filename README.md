@@ -16,8 +16,8 @@
   <a href="https://www.npmjs.com/package/syntropylog"><img src="https://img.shields.io/npm/v/syntropylog.svg" alt="NPM Version"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
-  <a href="#"><img src="https://img.shields.io/badge/coverage-84.64%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.9.3-brightgreen.svg" alt="Version 0.9.3"></a>
+  <a href="#"><img src="https://img.shields.io/badge/coverage-92.47%25-brightgreen" alt="Test Coverage"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.9.8-brightgreen.svg" alt="Version 0.9.8"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
@@ -310,7 +310,7 @@ The **Logging Matrix** lets you control exactly how much data appears per log le
 12:56:00 [ERROR] (ecommerce-app): User request processed { status: 'completed', duration: '150ms' }
 {
   "userId": 123, "email": "user@example.com", "password": "***MASKED***",
-  "firstName": "John", "ipAddress": "192.168.1.1",
+  "firstName": "John", "ipAddress": "127.0.0.1",
   "sessionId": "sess-789", "requestId": "req-456"
 }
 ```
@@ -621,8 +621,6 @@ SyntropyLog goes deep. Explore our specialized guides:
 | :--- | :--- | :--- |
 | ✅ **Safe to change** | Logging Matrix, Log Level, additive Masking Fields | — |
 | 🔒 **Fixed at init** | — | Transports, core masking config (`maskChar`, `maxDepth`), Redis/HTTP/broker infrastructure |
-
-**Compliance Guarantee**: Sensitive data stays masked regardless of dynamic changes. All security configurations are locked at init — zero risk of accidental PII exposure. **100% Open Source**, no hidden telemetry or tracking.
 
 ---
 

@@ -8,17 +8,15 @@ import { LoggerOptions } from '../types';
  */
 export interface LoggerConfigLoaderOptions {
   /**
-   * The name of the environment variable that can hold the full path to the config file.
-   * If this variable is set, its value is used directly, taking highest precedence.
-   * @default 'LOGGER_CONFIG'
+   * Explicit absolute path to the configuration file.
+   * If provided, this takes highest precedence.
    */
-  configPathEnvVar?: string;
+  configPath?: string;
   /**
-   * The name of the environment variable used to determine the environment-specific
-   * suffix for the config file name (e.g., 'NODE_ENV' with a value of 'production').
-   * @default 'NODE_ENV'
+   * The explicit environment name used to determine the environment-specific
+   * suffix for the config file name (e.g., 'production').
    */
-  fallbackEnvVar?: string;
+  environment?: string;
   /**
    * The directory where the configuration files are located.
    * @default './config'
@@ -35,10 +33,11 @@ export interface LoggerConfigLoaderOptions {
 /**
  * Loads logger configuration from a YAML file.
  * The function determines the file path with the following priority:
- * 1. The path from the environment variable specified by `configPathEnvVar` (e.g., `LOGGER_CONFIG`).
- * 2. The environment-specific path (e.g., `{configDir}/{defaultBase}-production.yaml`).
+ * 1. The explicit path provided in `opts.configPath`.
+ * 2. The environment-specific path (e.g., `{configDir}/{defaultBase}-{environment}.yaml`).
  * 3. The default base path (e.g., `{configDir}/{defaultBase}.yaml`).
  *
+ * It does NOT read environment variables directly; all state must be passed via `opts`.
  * If no file is found, it returns an empty object, making the config file optional.
  * @param opts - Options to customize the loading behavior.
  * @returns A partial `LoggerOptions` object, or an empty object if no file is found.
@@ -48,30 +47,26 @@ export function loadLoggerConfig(
   opts?: LoggerConfigLoaderOptions
 ): Partial<LoggerOptions> {
   const {
-    configPathEnvVar = 'LOGGER_CONFIG',
-    fallbackEnvVar = 'NODE_ENV',
+    configPath: explicitConfigPath,
+    environment,
     configDir = './config',
     defaultBase = 'logger',
   } = opts || {};
 
-  // 1. Check for the direct path from the primary environment variable.
+  // 1. Check for the direct explicit path.
   let configPath: string | undefined;
-  const envPath = process.env[configPathEnvVar];
-  if (envPath && fs.existsSync(envPath)) {
-    configPath = envPath;
+  if (explicitConfigPath && fs.existsSync(explicitConfigPath)) {
+    configPath = explicitConfigPath;
   }
 
-  // 2. If not found, construct and check for an environment-specific file.
-  if (!configPath) {
-    const env = process.env[fallbackEnvVar];
-    if (env) {
-      const envSpecificPath = path.join(
-        configDir,
-        `${defaultBase}-${env}.yaml`
-      );
-      if (fs.existsSync(envSpecificPath)) {
-        configPath = envSpecificPath;
-      }
+  // 2. If not found, check for an explicit environment-specific file.
+  if (!configPath && environment) {
+    const envSpecificPath = path.join(
+      configDir,
+      `${defaultBase}-${environment}.yaml`
+    );
+    if (fs.existsSync(envSpecificPath)) {
+      configPath = envSpecificPath;
     }
   }
 

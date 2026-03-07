@@ -15,7 +15,7 @@ export interface User {
 // A mock database function to simulate fetching data from a primary source.
 async function fetchUserFromDb(userId: string): Promise<User> {
   // In a real app, this would be a database query.
-  return { id: userId, name: 'John Doe', email: 'john.doe@example.com' };
+  return { id: userId, name: 'John Doe', email: 'john.doe@localhost' };
 }
 
 export class UserService {

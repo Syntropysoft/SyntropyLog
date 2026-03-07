@@ -64,7 +64,7 @@ describe('sanitizeConfig', () => {
     });
 
     it('should not modify a URL without credentials', () => {
-      const url = 'https://api.example.com/data';
+      const url = 'http://localhost/data';
       const result = sanitizeConfig({ url });
       expect(result.url).toBe(url);
     });

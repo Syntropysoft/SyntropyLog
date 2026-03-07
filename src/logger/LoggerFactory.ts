@@ -95,8 +95,7 @@ export class LoggerFactory {
       this.contextManager.configure(config.context);
     }
 
-    const currentEnv =
-      process.env[config.logger?.envKey ?? 'NODE_ENV'] ?? 'development';
+    const currentEnv = config.logger?.environment ?? 'development';
 
     const hasTransportList =
       config.logger?.transportList &&

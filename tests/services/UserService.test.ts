@@ -42,7 +42,7 @@ describe('UserService', () => {
     const dbUser: User = {
       id: userId,
       name: 'John Doe',
-      email: 'john.doe@example.com',
+      email: 'john.doe@localhost',
     };
     const cacheKey = `user:${userId}`;
 

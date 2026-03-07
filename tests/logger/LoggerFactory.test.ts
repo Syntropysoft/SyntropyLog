@@ -200,18 +200,16 @@ describe('LoggerFactory', () => {
           serializerTimeoutMs: 100,
           transportList: { t1: transport1, t2: transport2 },
           env: { development: ['t1'], production: ['t1', 't2'] },
-          envKey: 'NODE_ENV',
+          environment: 'development',
         },
       };
-      const origEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
+
       const factory = new LoggerFactory(
         config,
         mockContextManager,
         mockSyntropyLog
       );
       const logger = factory.getLogger();
-      process.env.NODE_ENV = origEnv;
 
       expect(MockLogger).toHaveBeenCalledOnce();
       const [, transports] = MockLogger.mock.calls[0];
@@ -242,18 +240,16 @@ describe('LoggerFactory', () => {
           serializerTimeoutMs: 100,
           transportList: { t1: transport1, t2: transport2 },
           env: { development: ['t1'], production: ['t1', 't2'] },
-          envKey: 'NODE_ENV',
+          environment: 'production',
         },
       };
-      const origEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'production';
+
       const factory = new LoggerFactory(
         config,
         mockContextManager,
         mockSyntropyLog
       );
       const logger = factory.getLogger();
-      process.env.NODE_ENV = origEnv;
 
       const [, transports] = MockLogger.mock.calls[0];
       expect(transports).toHaveLength(2);
@@ -290,18 +286,16 @@ describe('LoggerFactory', () => {
               { transport: transportB, env: ['production'] },
             ],
           },
-          envKey: 'NODE_ENV',
+          environment: 'production',
         },
       };
-      const origEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'production';
+
       const factory = new LoggerFactory(
         config,
         mockContextManager,
         mockSyntropyLog
       );
       const logger = factory.getLogger();
-      process.env.NODE_ENV = origEnv;
 
       const [, transports] = MockLogger.mock.calls[0];
       expect(transports).toHaveLength(1);
