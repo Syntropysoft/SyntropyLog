@@ -167,7 +167,8 @@
     "url": "https://github.com/Syntropysoft/SyntropyLog"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "dependencies": {
     "flatted": "^3.3.3",
