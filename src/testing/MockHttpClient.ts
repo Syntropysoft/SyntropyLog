@@ -81,11 +81,21 @@ function createAgnosticMockFn<T = any>(implementation?: (...args: any[]) => T) {
   return mockFn as any;
 }
 
+/** Default response for mock (pure constant). */
+const DEFAULT_RESPONSE: AdapterHttpResponse = {
+  statusCode: 200,
+  data: { message: 'Mock response' },
+  headers: { 'content-type': 'application/json' },
+};
+
+const SPY_REQUIRED_MESSAGE = `SPY FUNCTION NOT INJECTED. Inject vi.fn() (Vitest), jest.fn() (Jest), or jasmine.createSpy() in the constructor.`;
+
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+
 export class MockHttpClient implements IHttpClientAdapter {
   private spyFn: ((implementation?: any) => any) | null = null;
   private timeouts: Map<string, number> = new Map();
 
-  // Core methods - will be initialized in constructor
   public readonly request: any;
   public readonly get: any;
   public readonly post: any;
@@ -98,99 +108,48 @@ export class MockHttpClient implements IHttpClientAdapter {
   public readonly reset: any;
 
   constructor(spyFn?: (implementation?: any) => any) {
-    this.spyFn = spyFn || null;
+    this.spyFn = spyFn ?? null;
 
-    // Initialize mocks after spyFn is set
     this.request = this.createMock().mockImplementation(
-      async (request: AdapterHttpRequest) => {
-        // Default successful response
-        return {
-          statusCode: 200,
-          data: { message: 'Mock response' },
-          headers: { 'content-type': 'application/json' },
-        };
-      }
+      async (_req: AdapterHttpRequest) => ({ ...DEFAULT_RESPONSE })
     );
 
     this.get = this.createMock().mockImplementation(
-      async (url: string, headers?: Record<string, any>) => {
-        return this.request({
-          url,
-          method: 'GET',
-          headers: headers || {},
-        });
-      }
+      (url: string, headers?: Record<string, any>) =>
+        this.request({ url, method: 'GET', headers: headers ?? {} })
     );
-
     this.post = this.createMock().mockImplementation(
-      async (url: string, body?: any, headers?: Record<string, any>) => {
-        return this.request({
-          url,
-          method: 'POST',
-          headers: headers || {},
-          body,
-        });
-      }
+      (url: string, body?: any, headers?: Record<string, any>) =>
+        this.request({ url, method: 'POST', headers: headers ?? {}, body })
     );
-
     this.put = this.createMock().mockImplementation(
-      async (url: string, body?: any, headers?: Record<string, any>) => {
-        return this.request({
-          url,
-          method: 'PUT',
-          headers: headers || {},
-          body,
-        });
-      }
+      (url: string, body?: any, headers?: Record<string, any>) =>
+        this.request({ url, method: 'PUT', headers: headers ?? {}, body })
     );
-
     this.delete = this.createMock().mockImplementation(
-      async (url: string, headers?: Record<string, any>) => {
-        return this.request({
-          url,
-          method: 'DELETE',
-          headers: headers || {},
-        });
-      }
+      (url: string, headers?: Record<string, any>) =>
+        this.request({ url, method: 'DELETE', headers: headers ?? {} })
     );
-
     this.patch = this.createMock().mockImplementation(
-      async (url: string, body?: any, headers?: Record<string, any>) => {
-        return this.request({
-          url,
-          method: 'PATCH',
-          headers: headers || {},
-          body,
-        });
-      }
+      (url: string, body?: any, headers?: Record<string, any>) =>
+        this.request({ url, method: 'PATCH', headers: headers ?? {}, body })
     );
 
-    // Initialize method implementations
     this.updateMethodImplementations();
 
     this.setResponse = this.createMock().mockImplementation(
       (method: string, response: AdapterHttpResponse<any>) => {
-        // Configure the request method to return the specified response
-        this.request.mockImplementation(async (req: AdapterHttpRequest) => {
-          if (req.method.toUpperCase() === method.toUpperCase()) {
-            return response;
-          }
-          // Default response for other methods
-          return {
-            statusCode: 200,
-            data: { message: 'Mock response' },
-            headers: { 'content-type': 'application/json' },
-          };
-        });
-
-        // Also update individual method implementations
+        this.request.mockImplementation(async (req: AdapterHttpRequest) =>
+          req.method.toUpperCase() === method.toUpperCase()
+            ? response
+            : { ...DEFAULT_RESPONSE }
+        );
         this.updateMethodImplementations();
       }
     );
 
     this.setError = this.createMock().mockImplementation(
       (method: string, error: Error) => {
-        // Configure the request method to throw the specified error
         this.request.mockImplementation(async (req: AdapterHttpRequest) => {
           if (req.method.toUpperCase() === method.toUpperCase()) {
             const adapterError: AdapterHttpError = {
@@ -202,15 +161,8 @@ export class MockHttpClient implements IHttpClientAdapter {
             };
             throw adapterError;
           }
-          // Default response for other methods
-          return {
-            statusCode: 200,
-            data: { message: 'Mock response' },
-            headers: { 'content-type': 'application/json' },
-          };
+          return { ...DEFAULT_RESPONSE };
         });
-
-        // Also update individual method implementations
         this.updateMethodImplementations();
       }
     );
@@ -218,29 +170,17 @@ export class MockHttpClient implements IHttpClientAdapter {
     this.setTimeout = this.createMock().mockImplementation(
       (method: string, timeoutMs: number) => {
         this.timeouts.set(method, timeoutMs);
-
-        // Configure the request method to timeout
         this.request.mockImplementation(async (req: AdapterHttpRequest) => {
           if (
             req.method.toUpperCase() === method.toUpperCase() &&
             this.timeouts.has(method)
           ) {
-            await new Promise((resolve) =>
-              setTimeout(resolve, this.timeouts.get(method)! + 10)
-            );
-            throw new Error(
-              `Mock HTTP client timed out after ${this.timeouts.get(method)}ms`
-            );
+            const ms = this.timeouts.get(method)!;
+            await new Promise((r) => setTimeout(r, ms + 10));
+            throw new Error(`Mock HTTP client timed out after ${ms}ms`);
           }
-          // Default response for other methods
-          return {
-            statusCode: 200,
-            data: { message: 'Mock response' },
-            headers: { 'content-type': 'application/json' },
-          };
+          return { ...DEFAULT_RESPONSE };
         });
-
-        // Also update individual method implementations
         this.updateMethodImplementations();
       }
     );
@@ -253,98 +193,77 @@ export class MockHttpClient implements IHttpClientAdapter {
       this.put.mockReset();
       this.delete.mockReset();
       this.patch.mockReset();
-
-      // Restore default implementations
-      this.request.mockImplementation(async (request: AdapterHttpRequest) => {
-        return {
-          statusCode: 200,
-          data: { message: 'Mock response' },
-          headers: { 'content-type': 'application/json' },
-        };
-      });
-
+      this.request.mockImplementation(async () => ({ ...DEFAULT_RESPONSE }));
       this.updateMethodImplementations();
     });
   }
 
-  private updateMethodImplementations() {
-    this.get.mockImplementation(
-      async (url: string, headers?: Record<string, any>) => {
-        return this.request({
-          url,
-          method: 'GET',
-          headers: headers || {},
-        });
-      }
-    );
+  private static readonly METHOD_IMPLS: Array<{
+    method: HttpMethod;
+    key: keyof MockHttpClient;
+    buildReq: (args: any[]) => AdapterHttpRequest;
+  }> = [
+    {
+      method: 'GET',
+      key: 'get',
+      buildReq: ([url, headers]) => ({
+        url,
+        method: 'GET',
+        headers: headers ?? {},
+      }),
+    },
+    {
+      method: 'POST',
+      key: 'post',
+      buildReq: ([url, body, headers]) => ({
+        url,
+        method: 'POST',
+        headers: headers ?? {},
+        body,
+      }),
+    },
+    {
+      method: 'PUT',
+      key: 'put',
+      buildReq: ([url, body, headers]) => ({
+        url,
+        method: 'PUT',
+        headers: headers ?? {},
+        body,
+      }),
+    },
+    {
+      method: 'DELETE',
+      key: 'delete',
+      buildReq: ([url, headers]) => ({
+        url,
+        method: 'DELETE',
+        headers: headers ?? {},
+      }),
+    },
+    {
+      method: 'PATCH',
+      key: 'patch',
+      buildReq: ([url, body, headers]) => ({
+        url,
+        method: 'PATCH',
+        headers: headers ?? {},
+        body,
+      }),
+    },
+  ];
 
-    this.post.mockImplementation(
-      async (url: string, body?: any, headers?: Record<string, any>) => {
-        return this.request({
-          url,
-          method: 'POST',
-          headers: headers || {},
-          body,
-        });
-      }
-    );
-
-    this.put.mockImplementation(
-      async (url: string, body?: any, headers?: Record<string, any>) => {
-        return this.request({
-          url,
-          method: 'PUT',
-          headers: headers || {},
-          body,
-        });
-      }
-    );
-
-    this.delete.mockImplementation(
-      async (url: string, headers?: Record<string, any>) => {
-        return this.request({
-          url,
-          method: 'DELETE',
-          headers: headers || {},
-        });
-      }
-    );
-
-    this.patch.mockImplementation(
-      async (url: string, body?: any, headers?: Record<string, any>) => {
-        return this.request({
-          url,
-          method: 'PATCH',
-          headers: headers || {},
-          body,
-        });
-      }
-    );
+  private updateMethodImplementations(): void {
+    for (const { key, buildReq } of MockHttpClient.METHOD_IMPLS) {
+      const request = this.request;
+      (this[key] as any).mockImplementation(async (...args: any[]) =>
+        request(buildReq(args))
+      );
+    }
   }
 
   private createMock(implementation?: any) {
-    if (!this.spyFn) {
-      throw new Error(`
-🚨 SPY FUNCTION NOT INJECTED! 😡
-
-To use spy functions like toHaveBeenCalled(), toHaveBeenCalledWith(), etc.
-YOU MUST inject your spy function in the constructor:
-
-// For Vitest:
-const mockHttp = new MockHttpClient(vi.fn);
-
-// For Jest:
-const mockHttp = new MockHttpClient(jest.fn);
-
-// For Jasmine:
-const mockHttp = new MockHttpClient(jasmine.createSpy);
-
-// Without spy (basic functionality only):
-const mockHttp = new MockHttpClient();
-
-DON'T FORGET AGAIN! 😤
-      `);
-    }
+    if (this.spyFn == null) throw new Error(SPY_REQUIRED_MESSAGE);
     return this.spyFn(implementation);
   }
 }

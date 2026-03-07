@@ -51,12 +51,14 @@ function createAgnosticMockFn<T = any>(implementation?: (...args: any[]) => T) {
   return mockFn as any;
 }
 
+/** Message for createMock when spy is not injected (guard). */
+const SPY_REQUIRED_MESSAGE = `SPY FUNCTION NOT INJECTED. Inject vi.fn() (Vitest), jest.fn() (Jest), or jasmine.createSpy() in the constructor.`;
+
 export class MockBrokerAdapter implements IBrokerAdapter {
   private spyFn: ((implementation?: any) => any) | null = null;
   private errors: Map<string, Error> = new Map();
   private timeouts: Map<string, number> = new Map();
 
-  // Core methods - will be initialized in constructor
   public readonly connect: any;
   public readonly disconnect: any;
   public readonly publish: any;
@@ -66,80 +68,25 @@ export class MockBrokerAdapter implements IBrokerAdapter {
   public readonly reset: any;
 
   constructor(spyFn?: (implementation?: any) => any) {
-    this.spyFn = spyFn || null;
+    this.spyFn = spyFn ?? null;
 
-    // Initialize mocks after spyFn is set
-    this.connect = this.createMock().mockImplementation(async () => {
-      // Check for timeout first
-      if (this.timeouts.has('connect')) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, this.timeouts.get('connect')! + 10)
-        );
-        throw new Error(
-          `Mock broker timed out after ${this.timeouts.get('connect')}ms`
-        );
-      }
+    this.connect = this.createMock().mockImplementation(() =>
+      this.guardReject('connect')
+    );
 
-      // Check for error simulation
-      if (this.errors.has('connect')) {
-        throw this.errors.get('connect')!;
-      }
-
-      return undefined;
-    });
-
-    this.disconnect = this.createMock().mockImplementation(async () => {
-      if (this.timeouts.has('disconnect')) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, this.timeouts.get('disconnect')! + 10)
-        );
-        throw new Error(
-          `Mock broker timed out after ${this.timeouts.get('disconnect')}ms`
-        );
-      }
-
-      if (this.errors.has('disconnect')) {
-        throw this.errors.get('disconnect')!;
-      }
-
-      return undefined;
-    });
+    this.disconnect = this.createMock().mockImplementation(() =>
+      this.guardReject('disconnect')
+    );
 
     this.publish = this.createMock().mockImplementation(
-      async (topic: string, message: BrokerMessage) => {
-        if (this.timeouts.has('publish')) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, this.timeouts.get('publish')! + 10)
-          );
-          throw new Error(
-            `Mock broker timed out after ${this.timeouts.get('publish')}ms`
-          );
-        }
-
-        if (this.errors.has('publish')) {
-          throw this.errors.get('publish')!;
-        }
-
-        return undefined;
+      async (_topic: string, _message: BrokerMessage) => {
+        await this.guardReject('publish');
       }
     );
 
     this.subscribe = this.createMock().mockImplementation(
-      async (topic: string, handler: MessageHandler) => {
-        if (this.timeouts.has('subscribe')) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, this.timeouts.get('subscribe')! + 10)
-          );
-          throw new Error(
-            `Mock broker timed out after ${this.timeouts.get('subscribe')}ms`
-          );
-        }
-
-        if (this.errors.has('subscribe')) {
-          throw this.errors.get('subscribe')!;
-        }
-
-        return undefined;
+      async (_topic: string, _handler: MessageHandler) => {
+        await this.guardReject('subscribe');
       }
     );
 
@@ -171,28 +118,20 @@ export class MockBrokerAdapter implements IBrokerAdapter {
     });
   }
 
+  /** Guard: throw timeout or configured error for a method, else resolve. */
+  private async guardReject(method: string): Promise<void> {
+    const timeoutMs = this.timeouts.get(method);
+    if (timeoutMs != null) {
+      await new Promise((r) => setTimeout(r, timeoutMs + 10));
+      throw new Error(`Mock broker timed out after ${timeoutMs}ms`);
+    }
+    const err = this.errors.get(method);
+    if (err != null) throw err;
+  }
+
   private createMock(implementation?: any) {
-    if (!this.spyFn) {
-      throw new Error(`
-🚨 SPY FUNCTION NOT INJECTED! 😡
-
-To use spy functions like toHaveBeenCalled(), toHaveBeenCalledWith(), etc.
-YOU MUST inject your spy function in the constructor:
-
-// For Vitest:
-const mockBroker = new MockBrokerAdapter(vi.fn);
-
-// For Jest:
-const mockBroker = new MockBrokerAdapter(jest.fn);
-
-// For Jasmine:
-const mockBroker = new MockBrokerAdapter(jasmine.createSpy);
-
-// Without spy (basic functionality only):
-const mockBroker = new MockBrokerAdapter();
-
-DON'T FORGET AGAIN! 😤
-      `);
+    if (this.spyFn == null) {
+      throw new Error(SPY_REQUIRED_MESSAGE);
     }
     return this.spyFn(implementation);
   }

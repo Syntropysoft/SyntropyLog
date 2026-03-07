@@ -218,6 +218,95 @@ describe('LoggerFactory', () => {
       expect(transports).toHaveLength(1);
       expect(transports[0]).toBe(transport1);
     });
+
+    it('should use transportList and env for production', () => {
+      const transport1 = {
+        log: vi.fn(),
+        name: 't1',
+        level: 'info',
+        isLevelEnabled: vi.fn().mockReturnValue(true),
+        flush: vi.fn().mockResolvedValue(undefined),
+      } as unknown as Transport;
+      const transport2 = {
+        log: vi.fn(),
+        name: 't2',
+        level: 'info',
+        isLevelEnabled: vi.fn().mockReturnValue(true),
+        flush: vi.fn().mockResolvedValue(undefined),
+      } as unknown as Transport;
+      const config: SyntropyLogConfig = {
+        ...baseConfig,
+        logger: {
+          level: 'info',
+          serviceName: 'my-app',
+          serializerTimeoutMs: 100,
+          transportList: { t1: transport1, t2: transport2 },
+          env: { development: ['t1'], production: ['t1', 't2'] },
+          envKey: 'NODE_ENV',
+        },
+      };
+      const origEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      const factory = new LoggerFactory(
+        config,
+        mockContextManager,
+        mockSyntropyLog
+      );
+      const logger = factory.getLogger();
+      process.env.NODE_ENV = origEnv;
+
+      const [, transports] = MockLogger.mock.calls[0];
+      expect(transports).toHaveLength(2);
+      expect(transports).toContain(transport1);
+      expect(transports).toContain(transport2);
+    });
+  });
+
+  describe('Constructor with transports record and env filter', () => {
+    it('should use transports as Record (category -> entries) and filter by env', () => {
+      const transportA = {
+        log: vi.fn(),
+        name: 'ta',
+        level: 'info',
+        isLevelEnabled: vi.fn().mockReturnValue(true),
+        flush: vi.fn().mockResolvedValue(undefined),
+      } as unknown as Transport;
+      const transportB = {
+        log: vi.fn(),
+        name: 'tb',
+        level: 'info',
+        isLevelEnabled: vi.fn().mockReturnValue(true),
+        flush: vi.fn().mockResolvedValue(undefined),
+      } as unknown as Transport;
+      const config: SyntropyLogConfig = {
+        ...baseConfig,
+        logger: {
+          level: 'info',
+          serviceName: 'my-app',
+          serializerTimeoutMs: 100,
+          transports: {
+            default: [
+              { transport: transportA, env: ['development'] },
+              { transport: transportB, env: ['production'] },
+            ],
+          },
+          envKey: 'NODE_ENV',
+        },
+      };
+      const origEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      const factory = new LoggerFactory(
+        config,
+        mockContextManager,
+        mockSyntropyLog
+      );
+      const logger = factory.getLogger();
+      process.env.NODE_ENV = origEnv;
+
+      const [, transports] = MockLogger.mock.calls[0];
+      expect(transports).toHaveLength(1);
+      expect(transports[0]).toBe(transportB);
+    });
   });
 
   describe('flushAllTransports', () => {

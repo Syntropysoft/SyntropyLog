@@ -279,16 +279,16 @@ export class BeaconRedisMock implements IBeaconRedis {
       // to avoid pulling in the entire logging stack.
       this.logger = {
         level: 'info', // Add missing level property
-        debug: async () => { },
-        info: async () => { },
-        warn: async () => { },
-        error: async () => { },
-        audit: async () => { },
-        fatal: async () => { },
-        trace: async () => { },
+        debug: async () => {},
+        info: async () => {},
+        warn: async () => {},
+        error: async () => {},
+        audit: async () => {},
+        fatal: async () => {},
+        trace: async () => {},
         child: () => this.logger,
         withSource: () => this.logger,
-        setLevel: () => { },
+        setLevel: () => {},
         withRetention: () => this.logger,
         withTransactionId: () => this.logger,
         override: () => this.logger,
@@ -300,11 +300,8 @@ export class BeaconRedisMock implements IBeaconRedis {
   /**
    * Retrieves an entry from the store if it exists and has not expired.
    * Also validates that the entry is of the expected type.
+   * Guard clauses: missing → null, expired → delete and null, wrong type → throw.
    * @private
-   * @param {string} key - The key of the entry to retrieve.
-   * @param {StoreEntry['type']} [expectedType] - The expected data type for the key.
-   * @returns {StoreEntry | null} The store entry, or null if not found or expired.
-   * @throws {Error} WRONGTYPE error if the key holds a value of the wrong type.
    */
   private _getValidEntry(
     key: string,
@@ -312,26 +309,26 @@ export class BeaconRedisMock implements IBeaconRedis {
   ): StoreEntry | null {
     const entry = this.store.get(key);
     if (!entry) return null;
-    if (entry.expiresAt && Date.now() >= entry.expiresAt) {
+    if (entry.expiresAt !== null && Date.now() >= entry.expiresAt) {
       this.store.delete(key);
       return null;
     }
-    if (expectedType && entry.type !== expectedType) {
+    if (expectedType != null && entry.type !== expectedType) {
       throw new Error(
-        `WRONGTYPE Operation against a key holding the wrong kind of value`
+        'WRONGTYPE Operation against a key holding the wrong kind of value'
       );
     }
     return entry;
   }
 
-  /**
-   * Serializes a value to a string for storage, similar to how Redis stores data.
-   * @private
-   * @param {any} value - The value to serialize.
-   * @returns {string} A string representation of the value.
-   */
+  /** Pure: serializes a value to a string for storage. */
   private _serialize(value: any): string {
     return typeof value === 'string' ? value : JSON.stringify(value);
+  }
+
+  /** Pure: normalizes key or keys to an array. */
+  private static _toKeyArray(keys: string | string[]): string[] {
+    return Array.isArray(keys) ? keys : [keys];
   }
 
   // --- Key Commands ---
@@ -357,30 +354,20 @@ export class BeaconRedisMock implements IBeaconRedis {
   }
   /** @inheritdoc */
   async del(keys: string | string[]): Promise<number> {
-    const keysToDelete = Array.isArray(keys) ? keys : [keys];
-    let count = 0;
-    for (const key of keysToDelete) {
-      if (this.store.delete(key)) count++;
-    }
-    return count;
+    const keysToDelete = BeaconRedisMock._toKeyArray(keys);
+    return keysToDelete.filter((key) => this.store.delete(key)).length;
   }
   /** @inheritdoc */
   async exists(keys: string | string[]): Promise<number> {
-    const keysToCheck = Array.isArray(keys) ? keys : [keys];
-    let count = 0;
-    for (const key of keysToCheck) {
-      if (this._getValidEntry(key)) count++;
-    }
-    return count;
+    const keysToCheck = BeaconRedisMock._toKeyArray(keys);
+    return keysToCheck.filter((key) => this._getValidEntry(key) != null).length;
   }
   /** @inheritdoc */
   async expire(key: string, seconds: number): Promise<boolean> {
     const entry = this.store.get(key);
-    if (entry) {
-      entry.expiresAt = Date.now() + seconds * 1000;
-      return true;
-    }
-    return false;
+    if (!entry) return false;
+    entry.expiresAt = Date.now() + seconds * 1000;
+    return true;
   }
   /** @inheritdoc */
   async ttl(key: string): Promise<number> {
@@ -403,13 +390,14 @@ export class BeaconRedisMock implements IBeaconRedis {
   async incrBy(key: string, increment: number): Promise<number> {
     const entry = this._getValidEntry(key, 'string');
     const currentValue = entry ? parseInt(entry.value as string, 10) : 0;
-    if (isNaN(currentValue))
+    if (Number.isNaN(currentValue)) {
       throw new Error('ERR value is not an integer or out of range');
+    }
     const newValue = currentValue + increment;
     this.store.set(key, {
-      value: newValue.toString(),
+      value: String(newValue),
       type: 'string',
-      expiresAt: entry?.expiresAt || null,
+      expiresAt: entry?.expiresAt ?? null,
     });
     return newValue;
   }
@@ -441,16 +429,15 @@ export class BeaconRedisMock implements IBeaconRedis {
       this.store.set(key, entry);
     }
     const hash = entry.value as Record<string, string>;
-    let addedCount = 0;
     if (typeof fieldOrFields === 'string') {
-      if (!Object.prototype.hasOwnProperty.call(hash, fieldOrFields))
-        addedCount++;
+      const added = Object.hasOwn(hash, fieldOrFields) ? 0 : 1;
       hash[fieldOrFields] = this._serialize(value);
-    } else {
-      for (const field in fieldOrFields) {
-        if (!Object.prototype.hasOwnProperty.call(hash, field)) addedCount++;
-        hash[field] = this._serialize(fieldOrFields[field]);
-      }
+      return added;
+    }
+    let addedCount = 0;
+    for (const field of Object.keys(fieldOrFields)) {
+      if (!Object.hasOwn(hash, field)) addedCount++;
+      hash[field] = this._serialize(fieldOrFields[field]);
     }
     return addedCount;
   }
@@ -465,19 +452,16 @@ export class BeaconRedisMock implements IBeaconRedis {
     if (!entry) return 0;
     const hash = entry.value as Record<string, string>;
     const fieldsToDelete = Array.isArray(fields) ? fields : [fields];
-    let deletedCount = 0;
-    for (const field of fieldsToDelete) {
-      if (Object.prototype.hasOwnProperty.call(hash, field)) {
-        delete hash[field];
-        deletedCount++;
-      }
-    }
-    return deletedCount;
+    return fieldsToDelete.filter((field) => {
+      if (!Object.hasOwn(hash, field)) return false;
+      delete hash[field];
+      return true;
+    }).length;
   }
   /** @inheritdoc */
   async hExists(key: string, field: string): Promise<boolean> {
     const entry = this._getValidEntry(key, 'hash');
-    return !!entry && Object.prototype.hasOwnProperty.call(entry.value, field);
+    return entry != null && Object.hasOwn(entry.value as object, field);
   }
   /** @inheritdoc */
   async hIncrBy(
@@ -487,13 +471,15 @@ export class BeaconRedisMock implements IBeaconRedis {
   ): Promise<number> {
     const entry = this._getValidEntry(key, 'hash');
     const hash = entry ? (entry.value as Record<string, string>) : {};
-    const currentValue = parseInt(hash[field] || '0', 10);
-    if (isNaN(currentValue))
+    const currentValue = parseInt(hash[field] ?? '0', 10);
+    if (Number.isNaN(currentValue)) {
       throw new Error('ERR hash value is not an integer');
+    }
     const newValue = currentValue + increment;
-    hash[field] = newValue.toString();
-    if (!entry)
+    hash[field] = String(newValue);
+    if (!entry) {
       this.store.set(key, { value: hash, type: 'hash', expiresAt: null });
+    }
     return newValue;
   }
 
@@ -825,9 +811,10 @@ export class BeaconRedisMock implements IBeaconRedis {
    * @param {Partial<any>} newConfig - The configuration object.
    */
   public updateConfig(newConfig: Partial<any>): void {
-    this.logger.debug('[BeaconRedisMock] updateConfig called', {
-      newConfig: JSON.stringify(newConfig),
-    });
+    this.logger.debug(
+      { newConfig: JSON.stringify(newConfig) },
+      '[BeaconRedisMock] updateConfig called'
+    );
   }
 
   // --- Key Enumeration Commands ---
@@ -840,11 +827,17 @@ export class BeaconRedisMock implements IBeaconRedis {
     const allKeys = [...this.store.keys()].filter((k) => {
       const entry = this.store.get(k);
       if (!entry) return false;
-      if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) return false;
+      if (entry.expiresAt !== null && entry.expiresAt <= Date.now())
+        return false;
       if (!options?.MATCH) return true;
       // Simple glob: replace '*' with '.*' for regex matching
       const pattern = new RegExp(
-        '^' + options.MATCH.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$'
+        '^' +
+          options.MATCH.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(
+            /\*/g,
+            '.*'
+          ) +
+          '$'
       );
       return pattern.test(k);
     });
