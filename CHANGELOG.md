@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.10
+
+### Patch Changes
+
+- Release Engineering: Transitioned package publishing flow to fully automated GitHub Actions pipeline backed by Changesets. Implemented cryptographic NPM Provenance signing to achieve maximum Supply Chain Security scores on major vulnerability scanners.
+
 ## 0.9.9
 
 ### Patch Changes
