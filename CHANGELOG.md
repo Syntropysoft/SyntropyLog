@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### ⚠️ Breaking changes
 - **HTTP and Brokers removed from main config and API**: The top-level config keys `http` and `brokers` are no longer accepted in `syntropyLog.init()`. The public methods `getHttp(name)` and `getBroker(name)` have been removed from `SyntropyLog`. Redis remains the only managed resource in the core. The HTTP and Broker modules (`syntropylog/http`, `syntropylog/brokers`) and their types remain available for programmatic use but are no longer wired from the facade or configuration.
 
+### 📦 Migration (0.9.1 → 0.9.2)
+- **If you used `getHttp()` or `getBroker()`**: Obtain the HTTP or broker client from your own app (e.g. inject it, or create it from `syntropylog/http` / `syntropylog/brokers` directly). The core no longer exposes these from the facade.
+- **If you passed `http` or `brokers` in `init()`**: Remove those options from your config; the core no longer reads or manages them.
+
 ### 🚀 New features
 - **Transport pool and per-environment routing**: Logger config now supports `logger.transportList` (a named pool of transports) and `logger.env` (per-environment lists of transport names, e.g. `development: ['console']`, `production: ['console','db']`). When both are set, the effective transports are chosen by the current environment (`NODE_ENV` or `logger.envKey`).
 - **Per-call transport overrides**: Logger instances support `override(name)`, `add(name)`, and `remove(name)` to change which transports receive the next log entry only, then reset. Enables one-off routing (e.g. send this message only to a specific transport).
