@@ -512,11 +512,7 @@ export interface IBeaconRedis {
    * @param {string[]} args An array of argument values for the script.
    * @returns {Promise<any>} A promise that resolves with the result of the script execution.
    */
-  executeScript(
-    script: string,
-    keys: string[],
-    args: string[]
-  ): Promise<any>;
+  executeScript(script: string, keys: string[], args: string[]): Promise<any>;
 
   // --- Pub/Sub Commands ---
 

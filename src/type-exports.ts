@@ -11,7 +11,6 @@ export * from './internal-types';
 export type { SyntropyLogConfig } from './config';
 export type { ILogger } from './logger/ILogger';
 export type { IContextManager } from './context/IContextManager';
-export * from './brokers/adapter.types';
 export type { LogEntry, JsonValue, LoggerOptions } from './types';
 export type { LogLevel } from './logger/levels';
 
@@ -20,22 +19,6 @@ export type { LogFormatter } from './logger/transports/formatters/LogFormatter';
 
 // --- Interfaces for Instrumented Clients ---
 export type { IBeaconRedis } from './redis/IBeaconRedis';
-
-// --- Broker-related exports for creating custom adapters ---
-export type {
-  IBrokerAdapter,
-  BrokerMessage,
-  MessageHandler,
-  MessageLifecycleControls,
-} from './brokers/adapter.types';
-
-// --- HTTP-related exports ---
-export type {
-  IHttpClientAdapter,
-  AdapterHttpRequest,
-  AdapterHttpResponse,
-  InstrumentedHttpClient,
-} from './http';
 
 // --- Main Framework Exports ---
 export { SyntropyLog, syntropyLog } from './SyntropyLog';

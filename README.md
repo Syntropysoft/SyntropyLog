@@ -17,7 +17,7 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-84.64%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.9.1-brightgreen.svg" alt="Version 0.9.1"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.9.2-brightgreen.svg" alt="Version 0.9.2"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
@@ -101,7 +101,48 @@ syntropyLog.init({
 });
 ```
 
+### **Transport pool and per-environment routing**
 
+You can define a **named pool of transports** (`transportList`) and choose **per environment** which ones are active (`env`). For a single log call you can override, add, or remove destinations with `.override()`, `.add()`, and `.remove()`.
+
+```typescript
+import { syntropyLog, ColorfulConsoleTransport, AdapterTransport, UniversalAdapter } from 'syntropylog';
+
+const mockToConsole = (label: string) =>
+  new AdapterTransport({
+    name: label,
+    adapter: new UniversalAdapter({
+      executor: (data) => console.log(`[${label}]`, JSON.stringify(data)),
+    }),
+  });
+
+await syntropyLog.init({
+  logger: {
+    envKey: 'NODE_ENV',
+    transportList: {
+      consola: new ColorfulConsoleTransport({ name: 'consola' }),
+      db: mockToConsole('db'),
+      azure: mockToConsole('azure'),
+      archivo: mockToConsole('archivo'),
+    },
+    env: {
+      development: ['consola'],
+      staging: ['consola', 'archivo', 'azure'],
+      production: ['consola', 'db', 'azure'],
+    },
+  },
+  redis: { instances: [] },
+});
+
+const log = syntropyLog.getLogger('app');
+log.info('default according to env');
+log.override('consola').info('only to console');
+log.remove('db').add('archivo').info('default minus db, plus file');
+```
+
+**Full guide and runnable example:** see [examples/TRANSPORT_POOL_AND_ENV.md](examples/TRANSPORT_POOL_AND_ENV.md) and run `examples/TransportPoolExample.ts` to see it in action.
+
+---
 
 ```typescript
 import { syntropyLog } from 'syntropylog';

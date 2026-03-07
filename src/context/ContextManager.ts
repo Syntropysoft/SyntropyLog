@@ -203,12 +203,12 @@ export class ContextManager implements IContextManager {
     const fullContext = this.getAll();
 
     if (!this.loggingMatrix) {
-      // Si no hay loggingMatrix, siempre incluir el correlationId
+      // If no loggingMatrix, always include correlationId
       const context = { ...fullContext };
       const headerCorrelationId = this.get(this.correlationIdHeader);
       const internalCorrelationId = this.get('correlationId');
 
-      // Si no existe el correlationId del header, usar el interno
+      // If header correlationId is missing, use internal one
       if (!headerCorrelationId && internalCorrelationId) {
         context[this.correlationIdHeader] = internalCorrelationId;
       }
@@ -273,7 +273,7 @@ export class ContextManager implements IContextManager {
         }
       }
 
-      // Si no se encontró en el mapeo, buscar directamente
+      // If not found in mapping, look up directly
       if (
         !Object.prototype.hasOwnProperty.call(filteredContext, field) &&
         Object.prototype.hasOwnProperty.call(fullContext, field)

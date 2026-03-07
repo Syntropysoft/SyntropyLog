@@ -12,7 +12,7 @@ export class SerializationStep implements PipelineStep<SerializableData> {
   }
 
   addSerializer(serializer: ISerializer): void {
-    // Insertar en orden de prioridad (mayor prioridad primero)
+    // Insert in priority order (higher priority first)
     const insertIndex = this.serializers.findIndex(
       (s) => s.priority < serializer.priority
     );
@@ -29,16 +29,16 @@ export class SerializationStep implements PipelineStep<SerializableData> {
   ): Promise<SerializableData> {
     const startTime = Date.now();
 
-    // 1. Encontrar serializador apropiado
+    // 1. Find appropriate serializer
     const serializer = this.findSerializer(data);
 
     if (!serializer) {
-      // Si no hay serializador, devolvemos el dato original (Safe by default)
+      // If no serializer, return original data (safe by default)
       return data;
     }
 
     try {
-      // 2. Ejecutar serialización (resilience is handled by pipeline)
+      // 2. Run serialization (resilience is handled by pipeline)
       const result = await serializer.serialize(
         data,
         context.serializationContext
@@ -46,27 +46,34 @@ export class SerializationStep implements PipelineStep<SerializableData> {
 
       const duration = Date.now() - startTime;
 
-      // 4. Devolver datos serializados con metadata
+      // 4. Return serialized data with metadata
+      const dataBase =
+        typeof result.data === 'object' && result.data !== null
+          ? (result.data as Record<string, unknown>)
+          : {};
       return {
-        ...result.data,
+        ...dataBase,
         serializationDuration: duration,
         serializer: serializer.name,
         serializationComplexity:
           result.complexity || result.metadata?.complexity || null,
       };
     } catch (error) {
-      // Asegurar que el error tenga el nombre del serializador
-      if (error instanceof Error && !(error as any).serializer) {
-        (error as any).serializer = serializer.name;
+      // Ensure error carries serializer name
+      if (
+        error instanceof Error &&
+        !(error as { serializer?: string }).serializer
+      ) {
+        (error as unknown as { serializer: string }).serializer =
+          serializer.name;
       }
       throw error;
     }
   }
 
   private findSerializer(data: SerializableData): ISerializer | null {
-    // Los serializers ya están ordenados por prioridad (mayor primero)
-    // debido al método addSerializer, así que solo necesitamos encontrar el primero
-    // que pueda serializar los datos
+    // Serializers are already ordered by priority (highest first) via addSerializer,
+    // so we only need to find the first one that can serialize the data
     for (const serializer of this.serializers) {
       if (serializer.canSerialize(data)) {
         return serializer;

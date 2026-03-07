@@ -11,8 +11,6 @@ await syntropyLog.init({
   logger: { /* Logger specific settings */ },
   loggingMatrix: { /* Context visibility control */ },
   redis: { /* Managed Redis instances */ },
-  http: { /* Managed HTTP client instances */ },
-  brokers: { /* Managed Message Broker instances */ },
   masking: { /* Data privacy & security rules */ },
   context: { /* Correlation ID settings */ },
   shutdownTimeout: 5000 // ms
@@ -50,9 +48,9 @@ loggingMatrix: {
 
 ---
 
-## 💾 3. Managed Resources (`redis`, `http`, `brokers`)
+## 💾 3. Managed Resources (`redis`)
 
-Centralize your connections to gain automatic observability.
+Centralize Redis connections with automatic observability.
 
 ### **Redis (`redis`)**
 - `instances`: Array of Redis configurations.
@@ -63,12 +61,6 @@ Centralize your connections to gain automatic observability.
 - `onError`: Level for failed commands (Default: `error`).
 - `logCommandValues`: Boolean. Log the command arguments (e.g., keys/values).
 - `logReturnValue`: Boolean. Log what Redis returned.
-
-### **HTTP Clients (`http`)**
-- `instances`: Array of HTTP client configurations.
-- `adapter`: The specific library adapter (e.g., `AxiosAdapter`).
-- `propagate`: Array of headers to pass to the external API.
-- `logging`: Detailed control over request/response logging bodies and headers.
 
 ---
 

@@ -26,8 +26,6 @@ const createUniqueMock = () => {
       debug: vi.fn(),
     })),
     getRedis: vi.fn(),
-    getBroker: vi.fn(),
-    getHttp: vi.fn(),
   };
 };
 

@@ -9,7 +9,6 @@
 
 // Using type assertion for regex-test module since it lacks proper TypeScript declarations
 import RegexTest from 'regex-test';
-import { parse, stringify } from 'flatted';
 
 /**
  * @enum MaskingStrategy
@@ -77,7 +76,7 @@ export class MaskingEngine {
   /** @private Whether the engine is initialized */
   private initialized: boolean = false;
   /** @private Secure regex tester with timeout */
-  private readonly regexTest: any;
+  private readonly regexTest: InstanceType<typeof RegexTest>;
 
   constructor(options?: MaskingEngineOptions) {
     this.maskChar = options?.maskChar || '*';
@@ -179,11 +178,11 @@ export class MaskingEngine {
 
     try {
       // Apply masking rules directly to the data structure
-      const masked = this.applyMaskingRules(meta);
+      const masked = this.applyMaskingRules(meta) as Record<string, unknown>;
 
       // Return the masked data
       return masked;
-    } catch (error) {
+    } catch {
       // Silent observer - return original data if masking fails
       return meta;
     }
@@ -195,7 +194,7 @@ export class MaskingEngine {
    * @returns Masked data
    * @private
    */
-  private applyMaskingRules(data: any): any {
+  private applyMaskingRules(data: unknown): unknown {
     if (data === null || typeof data !== 'object') {
       return data;
     }
@@ -204,11 +203,12 @@ export class MaskingEngine {
       return data.map((item) => this.applyMaskingRules(item));
     }
 
-    const masked = { ...data };
+    const dataObj = data as Record<string, unknown>;
+    const masked = { ...dataObj };
 
-    for (const key in data) {
-      if (Object.prototype.hasOwnProperty.call(data, key)) {
-        const value = data[key];
+    for (const key in dataObj) {
+      if (Object.prototype.hasOwnProperty.call(dataObj, key)) {
+        const value = dataObj[key];
 
         if (typeof value === 'string') {
           // Check each rule
@@ -402,7 +402,7 @@ export class MaskingEngine {
    * Gets masking engine statistics.
    * @returns Dictionary with masking statistics
    */
-  public getStats(): Record<string, any> {
+  public getStats(): Record<string, unknown> {
     return {
       initialized: this.initialized,
       totalRules: this.rules.length,

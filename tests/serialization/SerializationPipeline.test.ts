@@ -2,12 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   SerializationPipeline,
   DefaultTimeoutStrategy,
-  PrismaTimeoutStrategy,
-  TypeORMTimeoutStrategy,
-  MySQLTimeoutStrategy,
-  PostgreSQLTimeoutStrategy,
-  SQLServerTimeoutStrategy,
-  OracleTimeoutStrategy,
   PipelineStep
 } from '../../src/serialization/SerializationPipeline';
 import { SerializationPipelineContext } from '../../src/types';
@@ -156,52 +150,15 @@ describe('SerializationPipeline', () => {
   });
 
   describe('Timeout Strategies', () => {
-    it('should select correct strategy for Prisma queries', async () => {
-      const prismaData = { type: 'PrismaQuery', action: 'findMany' };
-      const result = await pipeline.process(prismaData, { serializationContext: {} } as SerializationPipelineContext);
+    it('should use default strategy for all data types', async () => {
+      const result = await pipeline.process(
+        { type: 'AnyQuery', payload: 'data' },
+        { serializationContext: {} } as SerializationPipelineContext
+      );
 
       expect(result.success).toBe(true);
-      expect(result.metadata.timeoutStrategy).toBe('prisma');
-    });
-
-    it('should select correct strategy for TypeORM queries', async () => {
-      const typeormData = { type: 'TypeORMQuery', sql: 'SELECT * FROM users' };
-      const result = await pipeline.process(typeormData, { serializationContext: {} } as SerializationPipelineContext);
-
-      expect(result.success).toBe(true);
-      expect(result.metadata.timeoutStrategy).toBe('typeorm');
-    });
-
-    it('should select correct strategy for MySQL queries', async () => {
-      const mysqlData = { type: 'MySQLQuery', sql: 'SELECT * FROM users' };
-      const result = await pipeline.process(mysqlData, { serializationContext: {} } as SerializationPipelineContext);
-
-      expect(result.success).toBe(true);
-      expect(result.metadata.timeoutStrategy).toBe('mysql');
-    });
-
-    it('should select correct strategy for PostgreSQL queries', async () => {
-      const postgresData = { type: 'PostgreSQLQuery', text: 'SELECT * FROM users' };
-      const result = await pipeline.process(postgresData, { serializationContext: {} } as SerializationPipelineContext);
-
-      expect(result.success).toBe(true);
-      expect(result.metadata.timeoutStrategy).toBe('postgresql');
-    });
-
-    it('should select correct strategy for SQL Server queries', async () => {
-      const sqlserverData = { type: 'SQLServerQuery', query: 'SELECT * FROM users' };
-      const result = await pipeline.process(sqlserverData, { serializationContext: {} } as SerializationPipelineContext);
-
-      expect(result.success).toBe(true);
-      expect(result.metadata.timeoutStrategy).toBe('sqlserver');
-    });
-
-    it('should select correct strategy for Oracle queries', async () => {
-      const oracleData = { type: 'OracleQuery', sql: 'SELECT * FROM users' };
-      const result = await pipeline.process(oracleData, { serializationContext: {} } as SerializationPipelineContext);
-
-      expect(result.success).toBe(true);
-      expect(result.metadata.timeoutStrategy).toBe('oracle');
+      expect(result.metadata.timeoutStrategy).toBe('default');
+      expect(result.metadata.operationTimeout).toBe(5000);
     });
 
     it('should fallback to default strategy for unknown types', async () => {
@@ -262,149 +219,6 @@ describe('Timeout Strategies', () => {
       const strategy = new DefaultTimeoutStrategy();
       expect(strategy.calculateTimeout({})).toBe(5000);
       expect(strategy.getStrategyName()).toBe('default');
-    });
-  });
-
-  describe('PrismaTimeoutStrategy', () => {
-    let strategy: PrismaTimeoutStrategy;
-
-    beforeEach(() => {
-      strategy = new PrismaTimeoutStrategy();
-    });
-
-    it('should return correct timeout for findFirst', () => {
-      const query = { type: 'PrismaQuery', operation: 'findFirst' };
-      expect(strategy.calculateTimeout(query)).toBe(5000);
-    });
-
-    it('should return correct timeout for findMany with large take', () => {
-      const query = { type: 'PrismaQuery', operation: 'findMany', args: { take: 200 } };
-      expect(strategy.calculateTimeout(query)).toBe(10000);
-    });
-
-    it('should return correct timeout for aggregate', () => {
-      const query = { type: 'PrismaQuery', operation: 'aggregate' };
-      expect(strategy.calculateTimeout(query)).toBe(15000);
-    });
-
-    it('should return default timeout for non-Prisma data', () => {
-      expect(strategy.calculateTimeout({ type: 'OtherQuery' })).toBe(8000);
-    });
-  });
-
-  describe('TypeORMTimeoutStrategy', () => {
-    let strategy: TypeORMTimeoutStrategy;
-
-    beforeEach(() => {
-      strategy = new TypeORMTimeoutStrategy();
-    });
-
-    it('should return correct timeout for simple select', () => {
-      const query = { type: 'TypeORMQuery', operation: 'find' };
-      expect(strategy.calculateTimeout(query)).toBe(8000);
-    });
-
-    it('should return correct timeout for insert', () => {
-      const query = { type: 'TypeORMQuery', operation: 'save' };
-      expect(strategy.calculateTimeout(query)).toBe(10000);
-    });
-  });
-
-  describe('MySQLTimeoutStrategy', () => {
-    let strategy: MySQLTimeoutStrategy;
-
-    beforeEach(() => {
-      strategy = new MySQLTimeoutStrategy();
-    });
-
-    it('should return correct timeout for DDL operations', () => {
-      const query = { type: 'MySQLQuery', query: 'CREATE TABLE users (id INT)' };
-      expect(strategy.calculateTimeout(query)).toBe(7000);
-    });
-  });
-
-  describe('PostgreSQLTimeoutStrategy', () => {
-    let strategy: PostgreSQLTimeoutStrategy;
-
-    beforeEach(() => {
-      strategy = new PostgreSQLTimeoutStrategy();
-    });
-
-    it('should return correct timeout for CTEs', () => {
-      const query = {
-        type: 'PostgreSQLQuery',
-        query: 'WITH cte AS (SELECT * FROM users) SELECT * FROM cte'
-      };
-      expect(strategy.calculateTimeout(query)).toBe(18000);
-    });
-
-    it('should return correct timeout for count(*)', () => {
-      const query = { type: 'PostgreSQLQuery', query: 'SELECT count(*) FROM users' };
-      expect(strategy.calculateTimeout(query)).toBe(10000);
-    });
-
-    it('should return correct timeout for group by', () => {
-      const query = { type: 'PostgreSQLQuery', query: 'SELECT * FROM users GROUP BY id' };
-      expect(strategy.calculateTimeout(query)).toBe(12000);
-    });
-
-    it('should return correct timeout for insert', () => {
-      const query = { type: 'PostgreSQLQuery', query: 'INSERT INTO users VALUES (1)' };
-      expect(strategy.calculateTimeout(query)).toBe(4080);
-    });
-
-    it('should return correct timeout for delete', () => {
-      const query = { type: 'PostgreSQLQuery', query: 'DELETE FROM users' };
-      expect(strategy.calculateTimeout(query)).toBe(6000);
-    });
-  });
-
-  describe('SQLServerTimeoutStrategy', () => {
-    let strategy: SQLServerTimeoutStrategy;
-
-    beforeEach(() => {
-      strategy = new SQLServerTimeoutStrategy();
-    });
-
-    it('should return correct timeout for stored procedures', () => {
-      const query = { type: 'SQLServerQuery', query: 'EXEC GetUserData @id = 1' };
-      expect(strategy.calculateTimeout(query)).toBe(9000);
-    });
-
-    it('should return correct timeout for group by in SQL Server', () => {
-      const query = { type: 'SQLServerQuery', query: 'SELECT * FROM users GROUP BY id' };
-      expect(strategy.calculateTimeout(query)).toBe(15000);
-    });
-
-    it('should return correct timeout for update in SQL Server', () => {
-      const query = { type: 'SQLServerQuery', query: 'UPDATE users SET name = "test"' };
-      expect(strategy.calculateTimeout(query)).toBe(12000);
-    });
-  });
-
-  describe('OracleTimeoutStrategy', () => {
-    let strategy: OracleTimeoutStrategy;
-
-    beforeEach(() => {
-      strategy = new OracleTimeoutStrategy();
-    });
-
-    it('should return correct timeout for PL/SQL', () => {
-      const query = {
-        type: 'OracleQuery',
-        query: 'BEGIN SELECT * FROM users; END;'
-      };
-      expect(strategy.calculateTimeout(query)).toBe(10000);
-    });
-
-    it('should return correct timeout for count(*) in Oracle', () => {
-      const query = { type: 'OracleQuery', query: 'SELECT count(*) FROM users' };
-      expect(strategy.calculateTimeout(query)).toBe(15000);
-    });
-
-    it('should return correct timeout for hierarchical queries in Oracle', () => {
-      const query = { type: 'OracleQuery', query: 'SELECT * FROM emp CONNECT BY PRIOR empno = mgr' };
-      expect(strategy.calculateTimeout(query)).toBe(20000);
     });
   });
 });

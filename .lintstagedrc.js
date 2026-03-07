@@ -10,7 +10,7 @@ module.exports = {
     'prettier --write', // 1. Format the code.
     'eslint --fix', // 2. Lint and fix auto-correctable issues.
     // 3. Run tests related to the changed files.
-    // `--run` ensures Vitest exits after the test run.
-    'vitest related --run --bail',
+    // `--run` exits after the run; `--bail 1` stops at first failure; `--no-cache` avoids stale test code.
+    'vitest related --run --bail 1 --no-cache',
   ],
 };

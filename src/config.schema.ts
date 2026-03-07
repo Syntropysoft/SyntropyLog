@@ -6,9 +6,28 @@
 
 import { z } from 'zod';
 import { Transport } from './logger/transports/Transport';
-import { IHttpClientAdapter } from './http/adapters/adapter.types';
-import { IBrokerAdapter } from './brokers/adapter.types';
 import { MaskingStrategy } from './masking/MaskingEngine';
+
+// --- Pure predicates for custom validators (same input → same output, no side effects) ---
+
+/**
+ * @description Schema for a transport descriptor: enable the transport only when current env is in `env`.
+ * @private
+ */
+const transportDescriptorSchema = z.object({
+  transport: z.instanceof(Transport),
+  /** When set, the transport is only enabled when the environment (e.g. NODE_ENV) is in this list. */
+  env: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+/**
+ * @description A transport entry is either a Transport instance or a descriptor with optional env filter.
+ * @private
+ */
+const transportEntrySchema = z.union([
+  z.instanceof(Transport),
+  transportDescriptorSchema,
+]);
 
 /**
  * @description Schema for logger-specific options, including serialization and transports.
@@ -18,17 +37,43 @@ const loggerOptionsSchema = z
   .object({
     name: z.string().optional(),
     level: z
-      .enum(['audit', 'fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .enum([
+        'audit',
+        'fatal',
+        'error',
+        'warn',
+        'info',
+        'debug',
+        'trace',
+        'silent',
+      ])
       .optional(),
     serviceName: z.string().optional(),
     /**
-     * An array of transport instances to be used by the logger,
-     * or a mapping of logger names (categories) to their respective transports.
+     * Name of the environment variable used to resolve conditional transports (e.g. 'NODE_ENV', 'APP_ENV').
+     * @default 'NODE_ENV'
+     */
+    envKey: z.string().optional(),
+    /**
+     * Pool of transports by name. Use together with `env` to pick per-environment defaults.
+     * When both transportList and env are set, this form is used instead of `transports`.
+     */
+    transportList: z.record(z.string(), z.instanceof(Transport)).optional(),
+    /**
+     * Per-environment list of transport names (keys from transportList) to use as default.
+     * E.g. { development: ['consola'], production: ['consola', 'db'] }.
+     * Used only when transportList is also set.
+     */
+    env: z.record(z.string(), z.array(z.string())).optional(),
+    /**
+     * Legacy: array of transport instances or descriptors { transport, env? },
+     * or a mapping of logger names (categories) to such arrays.
+     * Ignored when both transportList and env are set.
      */
     transports: z
       .union([
-        z.array(z.instanceof(Transport)),
-        z.record(z.string(), z.array(z.instanceof(Transport))),
+        z.array(transportEntrySchema),
+        z.record(z.string(), z.array(transportEntrySchema)),
       ])
       .optional(),
 
@@ -130,48 +175,6 @@ export const redisConfigSchema = z
   .optional();
 
 /**
- * @description Schema for a single HTTP client instance.
- */
-export const httpInstanceConfigSchema = z.object({
-  instanceName: z.string(),
-  adapter: z.custom<IHttpClientAdapter>((val) => {
-    return (
-      typeof val === 'object' &&
-      val !== null &&
-      'request' in val &&
-      typeof (val as any).request === 'function'
-    );
-  }, "The provided adapter is invalid. It must be an object with a 'request' method."),
-  isDefault: z.boolean().optional(),
-  propagate: z.array(z.string()).optional(),
-  propagateFullContext: z.boolean().optional(),
-  logging: z
-    .object({
-      onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
-      onError: z.enum(['warn', 'error', 'fatal']).default('error'),
-      logSuccessBody: z.boolean().default(false),
-      logSuccessHeaders: z.boolean().default(false),
-      onRequest: z.enum(['trace', 'debug', 'info']).default('info'),
-      logRequestBody: z.boolean().default(false),
-      logRequestHeaders: z.boolean().default(false),
-    })
-    .partial()
-    .optional(),
-});
-
-/**
- * @description Schema for the main HTTP configuration block.
- */
-export const httpConfigSchema = z
-  .object({
-    /** An array of HTTP client instance configurations. */
-    instances: z.array(httpInstanceConfigSchema),
-    /** The name of the default HTTP client instance to use when no name is provided to `getInstance()`. */
-    default: z.string().optional(),
-  })
-  .optional();
-
-/**
  * @description Schema for the main data masking configuration block.
  */
 const maskingConfigSchema = z
@@ -189,9 +192,7 @@ const maskingConfigSchema = z
           /** Character to use for masking */
           maskChar: z.string().optional(),
           /** Custom masking function (for CUSTOM strategy) */
-          customMask: z
-            .function(z.tuple([z.string()]), z.string())
-            .optional(),
+          customMask: z.function(z.tuple([z.string()]), z.string()).optional(),
         })
       )
       .optional(),
@@ -201,49 +202,6 @@ const maskingConfigSchema = z
     preserveLength: z.boolean().optional(),
     /** Enable default rules for common data types */
     enableDefaultRules: z.boolean().optional(),
-  })
-  .optional();
-
-/**
- * @description Schema for a single message broker client instance.
- * It validates that a valid `IBrokerAdapter` is provided.
- * @private
- */
-export const brokerInstanceConfigSchema = z.object({
-  instanceName: z.string(),
-  adapter: z.custom<IBrokerAdapter>((val) => {
-    return (
-      typeof val === 'object' &&
-      val !== null &&
-      typeof (val as any).publish === 'function' &&
-      typeof (val as any).subscribe === 'function'
-    );
-  }, 'The provided broker adapter is invalid.'),
-  /**
-   * An array of context keys to propagate as message headers/properties.
-   * To propagate all keys, provide an array with a single wildcard: `['*']`.
-   * If not provided, only `correlationId` and `transactionId` are propagated by default.
-   */
-  propagate: z.array(z.string()).optional(),
-
-  /**
-   * @deprecated Use `propagate` instead.
-   * If true, propagates the entire asynchronous context map as headers.
-   * If false (default), only propagates `correlationId` and `transactionId`.
-   */
-  propagateFullContext: z.boolean().optional(),
-  isDefault: z.boolean().optional(),
-});
-
-/**
- * @description Schema for the main message broker configuration block.
- */
-export const brokerConfigSchema = z
-  .object({
-    /** An array of broker client instance configurations. */
-    instances: z.array(brokerInstanceConfigSchema),
-    /** The name of the default broker instance to use when no name is provided to `getInstance()`. */
-    default: z.string().optional(),
   })
   .optional();
 
@@ -284,10 +242,6 @@ export const syntropyLogConfigSchema = z.object({
 
   /** Redis client configuration. */
   redis: redisConfigSchema,
-  /** HTTP client configuration. */
-  http: httpConfigSchema,
-  /** Message broker client configuration. */
-  brokers: brokerConfigSchema,
 
   /** Centralized data masking configuration. */
   masking: maskingConfigSchema,

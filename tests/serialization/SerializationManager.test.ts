@@ -2,16 +2,16 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { SerializationManager } from '../../src/serialization/SerializationManager';
 import { ISerializer, SerializationComplexity } from '../../src/serialization/types';
 
-// Mock serializers for testing
-const createMockPrismaSerializer = (): ISerializer => ({
-  name: 'prisma',
+// Mock serializer for testing (generic, no adapter-specific types)
+const createMockDefaultSerializer = (): ISerializer => ({
+  name: 'default',
   priority: 100,
-  canSerialize: vi.fn().mockImplementation(data => data.type === 'PrismaQuery'),
+  canSerialize: vi.fn().mockImplementation(data => data.type === 'Query'),
   getComplexity: vi.fn().mockReturnValue('simple'),
   serialize: vi.fn().mockResolvedValue({
     success: true,
-    data: { type: 'PrismaQuery', action: 'findFirst', serialized: true },
-    serializer: 'prisma',
+    data: { type: 'Query', action: 'execute', serialized: true },
+    serializer: 'default',
     duration: 5,
     complexity: 'simple'
   })
@@ -101,15 +101,15 @@ describe('SerializationManager', () => {
 
   describe('Metrics Tracking', () => {
     it('should track metrics for successful serializations', async () => {
-      const serializer = createMockPrismaSerializer();
+      const serializer = createMockDefaultSerializer();
       manager.register(serializer);
 
-      await manager.serialize({ type: 'PrismaQuery' });
+      await manager.serialize({ type: 'Query' });
 
       const metrics = manager.getMetrics();
       expect(metrics.totalSerializations).toBe(1);
       expect(metrics.successfulSerializations).toBe(1);
-      expect(metrics.serializerDistribution['prisma']).toBe(1);
+      expect(metrics.serializerDistribution['default']).toBe(1);
     });
   });
 });

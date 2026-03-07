@@ -5,7 +5,7 @@
 
 import { ILogTransportAdapter } from '../transports/adapter.types';
 
-export type UniversalExecutor = (data: any) => Promise<void> | void;
+export type UniversalExecutor = (data: unknown) => Promise<void> | void;
 
 export interface UniversalAdapterOptions {
   /** The function that will actually persist the data (e.g. result of an ORM call) */
@@ -29,7 +29,7 @@ export class UniversalAdapter implements ILogTransportAdapter {
   /**
    * Receives formatted data and passes it to the executor.
    */
-  public async log(data: any): Promise<void> {
+  public async log(data: unknown): Promise<void> {
     try {
       await this.executor(data);
     } catch (error) {

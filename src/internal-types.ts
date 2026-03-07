@@ -15,13 +15,13 @@ export type JsonValue =
   | boolean
   | null
   | {
-    [key: string]: JsonValue;
-  }
+      [key: string]: JsonValue;
+    }
   | JsonValue[];
 
 /**
- * Helper function to convert unknown error to JsonValue
- * Moved from @syntropylog/types to internal types
+ * Pure: converts unknown error to JsonValue (same input → same output).
+ * Moved from @syntropylog/types to internal types.
  */
 export function errorToJsonValue(error: unknown): JsonValue {
   if (error instanceof Error) {
@@ -165,8 +165,8 @@ export type RedisValue =
   | undefined
   | RedisValue[]
   | {
-    [key: string]: RedisValue;
-  };
+      [key: string]: RedisValue;
+    };
 
 /**
  * Type for Redis list elements
@@ -220,7 +220,7 @@ export type RedisConnectionParams = {
 /**
  * Type for serialized data
  */
-export type SerializedData = any;
+export type SerializedData = unknown;
 
 /**
  * Type for serialization context configuration
@@ -344,7 +344,7 @@ export type LogEntry = {
   /** The ISO 8601 timestamp of when the log was created. */
   timestamp: string;
   /** Any other properties are treated as structured metadata. */
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 /**
@@ -354,133 +354,8 @@ export type LoggerOptions = {
   level?: string;
   serviceName?: string;
   transports?: unknown[];
-  bindings?: Record<string, any>;
+  bindings?: Record<string, unknown>;
 };
-
-/**
- * Represents a standard message format that the framework understands.
- * The adapter is responsible for converting the broker-specific message
- * format to this structure, and vice-versa.
- */
-export interface BrokerMessage {
-  /**
-   * The actual content of the message. Using `Buffer` is the most flexible
-   * approach as it supports any type of serialization (JSON, Avro, Protobuf, etc.).
-   */
-  payload: Buffer;
-  /**
-   * Key-value metadata attached to the message.
-   * This is where SyntropyLog will inject tracing headers like `correlation-id`.
-   */
-  headers?: Record<string, string | Buffer>;
-}
-
-/**
- * Defines the controls for handling a received message's lifecycle.
- * An instance of this is passed to the user's message handler, allowing them
- * to confirm or reject the message.
- */
-export interface MessageLifecycleControls {
-  /**
-   * Acknowledges that the message has been successfully processed.
-   * This typically removes the message from the queue.
-   */
-  ack: () => Promise<void>;
-  /**
-   * Negatively acknowledges the message, indicating a processing failure.
-   * @param requeue - If true, asks the broker to re-queue the message
-   * for another attempt. If false (or omitted), the broker might move it to a dead-letter queue
-   * or discard it, depending on its configuration.
-   */
-  nack: (requeue?: boolean) => Promise<void>;
-}
-
-/**
- * Type for message handler function
- */
-export type MessageHandler = (
-  message: BrokerMessage,
-  controls: MessageLifecycleControls
-) => Promise<void>;
-
-/**
- * Interface for broker adapters
- */
-export interface IBrokerAdapter {
-  /**
-   * Establishes a connection to the message broker.
-   */
-  connect(): Promise<void>;
-  /**
-   * Gracefully disconnects from the message broker.
-   */
-  disconnect(): Promise<void>;
-  /**
-   * Publishes a message to a specific topic or routing key.
-   * @param topic - The destination for the message (e.g., a topic name, queue name, or routing key).
-   * @param message - The message to be sent, in the framework's standard format.
-   */
-  publish(topic: string, message: BrokerMessage): Promise<void>;
-  /**
-   * Subscribes to a topic or queue to receive messages.
-   * @param topic - The source of messages to listen to (e.g., a topic name or queue name).
-   * @param handler - The user's function that will be called for each incoming message.
-   */
-  subscribe(topic: string, handler: MessageHandler): Promise<void>;
-}
-
-/**
- * Interface for HTTP request in adapters
- */
-export interface AdapterHttpRequest {
-  /** The full URL for the request. */
-  url: string;
-  /** The HTTP method. */
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
-  /** A record of request headers. */
-  headers: Record<string, string | number | string[]>;
-  /** The request body, if any. */
-  body?: unknown;
-  /** A record of URL query parameters. */
-  queryParams?: Record<string, any>;
-}
-
-/**
- * Interface for HTTP response in adapters
- */
-export interface AdapterHttpResponse<T = any> {
-  /** The HTTP status code of the response. */
-  statusCode: number;
-  /** The response body data. */
-  data: T;
-  /** A record of response headers. */
-  headers: Record<string, string | number | string[]>;
-}
-
-/**
- * Interface for HTTP error in adapters
- */
-export interface AdapterHttpError extends Error {
-  /** The original request that caused the error. */
-  request: AdapterHttpRequest;
-  /** The response received, if any. */
-  response?: AdapterHttpResponse;
-  /** A flag to identify this as a normalized adapter error. */
-  isAdapterError: true;
-}
-
-/**
- * Interface for HTTP client adapters
- */
-export interface IHttpClientAdapter {
-  /**
-   * The core method that the SyntropyLog instrumenter needs. It executes an
-   * HTTP request and returns a normalized response, or throws a normalized error.
-   * @param request The generic HTTP request to execute.
-   * @returns A promise that resolves with the normalized response.
-   */
-  request<T>(request: AdapterHttpRequest): Promise<AdapterHttpResponse<T>>;
-}
 
 /**
  * Interface for logger

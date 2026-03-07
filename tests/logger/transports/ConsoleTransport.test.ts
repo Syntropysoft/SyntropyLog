@@ -1,13 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach, SpyInstance } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ConsoleTransport } from '../../../src/logger/transports/ConsoleTransport';
 import { LogEntry } from '../../../src/types';
 import { LogLevel } from '../../../src/logger/levels';
 import { LogFormatter } from '../../../src/logger/transports/formatters/LogFormatter';
 
 describe('ConsoleTransport', () => {
-  let consoleLogSpy: SpyInstance;
-  let consoleWarnSpy: SpyInstance;
-  let consoleErrorSpy: SpyInstance;
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   const getBaseLogEntry = (
     level: LogEntry['level'],

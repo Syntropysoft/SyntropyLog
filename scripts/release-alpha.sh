@@ -104,7 +104,7 @@ if [ ! -d "dist" ]; then
 fi
 
 # Verificar archivos principales
-REQUIRED_FILES=("dist/index.mjs" "dist/index.cjs" "dist/index.d.ts" "dist/http/index.mjs" "dist/http/index.cjs" "dist/http/index.d.ts")
+REQUIRED_FILES=("dist/index.mjs" "dist/index.cjs" "dist/index.d.ts" "dist/testing/index.mjs" "dist/testing/index.cjs" "dist/testing/index.d.ts")
 for file in "${REQUIRED_FILES[@]}"; do
     if [ ! -f "$file" ]; then
         log_error "Archivo requerido no encontrado: $file"

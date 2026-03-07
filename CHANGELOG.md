@@ -5,7 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.1] - Unreleased
+## [0.9.2] - 2026-03-04
+
+### ⚠️ Breaking changes
+- **HTTP and Brokers removed from main config and API**: The top-level config keys `http` and `brokers` are no longer accepted in `syntropyLog.init()`. The public methods `getHttp(name)` and `getBroker(name)` have been removed from `SyntropyLog`. Redis remains the only managed resource in the core. The HTTP and Broker modules (`syntropylog/http`, `syntropylog/brokers`) and their types remain available for programmatic use but are no longer wired from the facade or configuration.
+
+### 📦 Migration (0.9.1 → 0.9.2)
+- **If you used `getHttp()` or `getBroker()`**: Obtain the HTTP or broker client from your own app (e.g. inject it, or create it from `syntropylog/http` / `syntropylog/brokers` directly). The core no longer exposes these from the facade.
+- **If you passed `http` or `brokers` in `init()`**: Remove those options from your config; the core no longer reads or manages them.
+
+### 🚀 New features
+- **Transport pool and per-environment routing**: Logger config now supports `logger.transportList` (a named pool of transports) and `logger.env` (per-environment lists of transport names, e.g. `development: ['console']`, `production: ['console','db']`). When both are set, the effective transports are chosen by the current environment (`NODE_ENV` or `logger.envKey`).
+- **Per-call transport overrides**: Logger instances support `override(name)`, `add(name)`, and `remove(name)` to change which transports receive the next log entry only, then reset. Enables one-off routing (e.g. send this message only to a specific transport).
+- **`BeaconRedis.multi()`**: The real Redis client supports transactions (MULTI/EXEC). `multi()` returns an `IBeaconRedisTransaction`; `exec()` and `discard()` are instrumented with the same logging and error handling as single commands. `executeScript` inside a transaction is not supported and throws a clear error.
+
+### 🎨 Console transports
+- **ColorfulConsoleTransport**: Reworked for full-line, level-based coloring (Python colorlog/rich style). Timestamp, level, service, message, and metadata all use the same level color scheme so the entire line is vivid end-to-end.
+
+### 📝 Documentation and examples
+- **Code and user-facing strings in English**: Inline comments and runtime error messages are in English (e.g. `'Timeout error'`, `'Sanitization error'`, pipeline step descriptions).
+- **Configuration guide**: `docs/configuration.md` updated; HTTP and Brokers removed from the main config reference. Managed resources section now documents only Redis.
+- **Transport pool**: README section "Transport pool and per-environment routing" with a short example and links to `examples/TRANSPORT_POOL_AND_ENV.md` and `examples/TransportPoolExample.ts`.
+- **Runnable example**: `examples/TransportPoolExample.ts` (English) demonstrates `transportList`, `env`, and `override`/`add`/`remove`. Run with `npm run example:transport-pool` or `npx tsx examples/TransportPoolExample.ts`.
+
+### 🔧 Maintenance
+- **Mocks and tests**: Removed HTTP/Broker from `SyntropyLogMock` and related tests. Config examples and tests no longer include `http` or `brokers` in `init()`.
+- **Scripts**: Added `example:transport-pool` script to `package.json`.
+
+---
+
+## [0.9.1] - 2026-03-01
 
 ### 🛡️ Security
 - Eliminated obfuscated code patterns in Redis module to comply with security scanner requirements (Socket.dev).
@@ -179,6 +208,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.2] - 2024-12-20
 
 ### 🚀 Enhanced
 - **InstrumentedBrokerClient**: Improved correlation ID propagation logic to only propagate existing IDs instead of auto-generating new ones
@@ -202,8 +232,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Smart Context Propagation**: Only propagates existing correlation IDs, preventing unwanted ID generation
 - **Enhanced Observability**: Better logging of correlation IDs throughout message processing pipeline
 - **Developer Experience**: Improved TypeScript support with better type exports
-
-## [0.7.1] - 2024-12-19
 
 ## [0.7.1] - 2024-12-19
 

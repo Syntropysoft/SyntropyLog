@@ -17,6 +17,7 @@ export { ConsoleTransport } from './logger/transports/ConsoleTransport';
 export { PrettyConsoleTransport } from './logger/transports/PrettyConsoleTransport';
 export { CompactConsoleTransport } from './logger/transports/CompactConsoleTransport';
 export { ClassicConsoleTransport } from './logger/transports/ClassicConsoleTransport';
+export { ColorfulConsoleTransport } from './logger/transports/ColorfulConsoleTransport';
 export { SpyTransport } from './logger/transports/SpyTransport';
 export { AdapterTransport } from './logger/transports/AdapterTransport';
 
@@ -36,10 +37,3 @@ export type { SyntropyLogConfig } from './config';
 // --- Universal Contracts for Advanced Users (Extensibility) ---
 export type { ISerializer } from './serialization/types';
 export { SerializationComplexity } from './serialization/types';
-export type { IHttpClientAdapter } from './http/adapters/adapter.types';
-export type { IBrokerAdapter } from './brokers/adapter.types';
-
-// Mock adapters for testing
-export { MockBrokerAdapter } from './testing/MockBrokerAdapter';
-
-export { MockHttpClient } from './testing/MockHttpClient';

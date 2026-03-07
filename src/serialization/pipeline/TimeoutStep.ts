@@ -19,6 +19,48 @@ import { SerializationPipelineContext } from '../../types';
 import { OperationTimeoutStrategy } from '../SerializationPipeline';
 import { SerializableData } from '../../types';
 
+const DEFAULT_TIMEOUT_MS = 3000;
+
+/** Pure: build success payload for timeout step. */
+function buildSuccessPayload(
+  data: SerializableData,
+  duration: number,
+  operationTimeout: number,
+  strategy: OperationTimeoutStrategy | null
+): SerializableData {
+  const base =
+    typeof data === 'object' && data !== null
+      ? (data as Record<string, unknown>)
+      : {};
+  return {
+    ...base,
+    timeoutDuration: duration,
+    operationTimeout,
+    timeoutStrategy: strategy?.getStrategyName() ?? 'default',
+    timeoutApplied: strategy != null,
+  } as SerializableData;
+}
+
+/** Pure: build error payload for timeout step (silent observer). */
+function buildErrorPayload(
+  data: SerializableData,
+  duration: number,
+  error: unknown
+): SerializableData {
+  const base =
+    typeof data === 'object' && data !== null
+      ? (data as Record<string, unknown>)
+      : {};
+  return {
+    ...base,
+    timeoutDuration: duration,
+    operationTimeout: DEFAULT_TIMEOUT_MS,
+    timeoutStrategy: 'default',
+    timeoutApplied: false,
+    timeoutError: error instanceof Error ? error.message : 'Timeout error',
+  } as SerializableData;
+}
+
 export class TimeoutStep implements PipelineStep<SerializableData> {
   name = 'timeout';
   private timeoutStrategies: Map<string, OperationTimeoutStrategy> = new Map();
@@ -34,84 +76,20 @@ export class TimeoutStep implements PipelineStep<SerializableData> {
     const startTime = Date.now();
 
     try {
-      // 1. Seleccionar estrategia de timeout
-      const timeoutStrategy = this.selectTimeoutStrategy(data);
-
-      // 2. Calcular timeout de operación
-      const operationTimeout = timeoutStrategy?.calculateTimeout(data) || 3000; // Default timeout if strategy is null
-
-      // 3. Agregar metadata de timeout
+      const strategy = this.selectTimeoutStrategy(data);
+      const operationTimeout =
+        strategy?.calculateTimeout(data) ?? DEFAULT_TIMEOUT_MS;
       const duration = Date.now() - startTime;
-
-      return {
-        ...data,
-        timeoutDuration: duration,
-        operationTimeout,
-        timeoutStrategy: timeoutStrategy?.getStrategyName() || 'default',
-        timeoutApplied: timeoutStrategy !== null,
-      };
+      return buildSuccessPayload(data, duration, operationTimeout, strategy);
     } catch (error) {
       const duration = Date.now() - startTime;
-
-      return {
-        ...data,
-        timeoutDuration: duration,
-        operationTimeout: 3000, // Default timeout
-        timeoutStrategy: 'default',
-        timeoutApplied: false,
-        timeoutError:
-          error instanceof Error ? error.message : 'Error en timeout',
-      };
+      return buildErrorPayload(data, duration, error);
     }
   }
 
   private selectTimeoutStrategy(
-    data: SerializableData
+    _data: SerializableData
   ): OperationTimeoutStrategy | null {
-    // Seleccionar estrategia basada en el tipo de datos
-    if (data?.type === 'PrismaQuery') {
-      return (
-        this.timeoutStrategies.get('prisma') ||
-        this.timeoutStrategies.get('default') ||
-        null
-      );
-    }
-    if (data?.type === 'TypeORMQuery') {
-      return (
-        this.timeoutStrategies.get('typeorm') ||
-        this.timeoutStrategies.get('default') ||
-        null
-      );
-    }
-    if (data?.type === 'MySQLQuery') {
-      return (
-        this.timeoutStrategies.get('mysql') ||
-        this.timeoutStrategies.get('default') ||
-        null
-      );
-    }
-    if (data?.type === 'PostgreSQLQuery') {
-      return (
-        this.timeoutStrategies.get('postgresql') ||
-        this.timeoutStrategies.get('default') ||
-        null
-      );
-    }
-    if (data?.type === 'SQLServerQuery') {
-      return (
-        this.timeoutStrategies.get('sqlserver') ||
-        this.timeoutStrategies.get('default') ||
-        null
-      );
-    }
-    if (data?.type === 'OracleQuery') {
-      return (
-        this.timeoutStrategies.get('oracle') ||
-        this.timeoutStrategies.get('default') ||
-        null
-      );
-    }
-
-    return this.timeoutStrategies.get('default') || null;
+    return this.timeoutStrategies.get('default') ?? null;
   }
 }

@@ -14,23 +14,11 @@ import type {
   IContextManager,
   LogEntry,
   
-  // Broker Types
-  IBrokerAdapter,
-  BrokerMessage,
-  MessageHandler,
-  MessageLifecycleControls,
-  
   // Transport Types
   LogFormatter,
   
   // Redis Types
   IBeaconRedis,
-  
-  // HTTP Types
-  IHttpClientAdapter,
-  AdapterHttpRequest,
-  AdapterHttpResponse,
-  InstrumentedHttpClient,
 } from '../src/type-exports';
 
 describe('Type Exports Smoke Test', () => {
@@ -45,26 +33,12 @@ describe('Type Exports Smoke Test', () => {
     expect(typeof LogEntry).toBeDefined();
   });
 
-  it('should export all broker-related types without errors', () => {
-    expect(typeof IBrokerAdapter).toBeDefined();
-    expect(typeof BrokerMessage).toBeDefined();
-    expect(typeof MessageHandler).toBeDefined();
-    expect(typeof MessageLifecycleControls).toBeDefined();
-  });
-
   it('should export all transport types without errors', () => {
     expect(typeof LogFormatter).toBeDefined();
   });
 
   it('should export all Redis types without errors', () => {
     expect(typeof IBeaconRedis).toBeDefined();
-  });
-
-  it('should export all HTTP types without errors', () => {
-    expect(typeof IHttpClientAdapter).toBeDefined();
-    expect(typeof AdapterHttpRequest).toBeDefined();
-    expect(typeof AdapterHttpResponse).toBeDefined();
-    expect(typeof InstrumentedHttpClient).toBeDefined();
   });
 
   it('should have all expected type exports available', () => {
@@ -74,21 +48,17 @@ describe('Type Exports Smoke Test', () => {
     // Create a simple object to verify our test structure
     const typeCategories = {
       core: ['SyntropyLogConfig', 'ILogger', 'IContextManager', 'LogEntry'],
-      broker: ['IBrokerAdapter', 'BrokerMessage', 'MessageHandler', 'MessageLifecycleControls'],
       transport: ['LogFormatter'],
       redis: ['IBeaconRedis'],
-      http: ['IHttpClientAdapter', 'AdapterHttpRequest', 'AdapterHttpResponse', 'InstrumentedHttpClient']
     };
     
     // Verify our test structure is complete
     expect(typeCategories.core).toHaveLength(4);
-    expect(typeCategories.broker).toHaveLength(4);
     expect(typeCategories.transport).toHaveLength(1);
     expect(typeCategories.redis).toHaveLength(1);
-    expect(typeCategories.http).toHaveLength(4);
     
     // Total expected exports
     const totalExports = Object.values(typeCategories).flat().length;
-    expect(totalExports).toBe(14);
+    expect(totalExports).toBe(6);
   });
 }); 

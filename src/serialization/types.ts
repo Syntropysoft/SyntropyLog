@@ -5,10 +5,8 @@
 
 import {
   SerializableData,
-  SerializedData,
   SerializationContextConfig,
   SerializationResult,
-  SerializationMetrics,
 } from '../types';
 
 /**

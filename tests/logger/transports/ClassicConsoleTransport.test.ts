@@ -1,12 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach, SpyInstance } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ClassicConsoleTransport } from '../../../src/logger/transports/ClassicConsoleTransport';
 import { LogEntry } from '../../../src/types';
 import { LogLevel } from '../../../src/logger/levels';
 
 describe('ClassicConsoleTransport', () => {
-  let consoleLogSpy: SpyInstance;
-  let consoleWarnSpy: SpyInstance;
-  let consoleErrorSpy: SpyInstance;
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     // Spy on console methods to capture output without polluting the test runner's console

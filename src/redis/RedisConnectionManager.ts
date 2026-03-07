@@ -128,7 +128,9 @@ export class RedisConnectionManager {
       this.logger.info(`[${this.instanceName}] Connecting to Redis...`)
     );
     this.client.on('ready', () => {
-      this.logger.info(`[${this.instanceName}] ✅ Redis is operational and ready to accept commands.`);
+      this.logger.info(
+        `[${this.instanceName}] ✅ Redis is operational and ready to accept commands.`
+      );
       this.isConnectedAndReadyState = true;
       if (this.connectionResolve) {
         this.connectionResolve();
@@ -141,7 +143,9 @@ export class RedisConnectionManager {
       this.isConnectedAndReadyState = false;
     });
     this.client.on('error', (err: Error) => {
-      this.logger.error(`[${this.instanceName}] Client error.`, { error: err } as any);
+      this.logger.error(`[${this.instanceName}] Client error.`, {
+        error: err,
+      } as any);
       if (this.connectionReject) {
         this.connectionReject(err);
         this.connectionPromise = null;

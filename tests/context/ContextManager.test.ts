@@ -284,7 +284,7 @@ describe('ContextManager', () => {
         expect(filteredContext).toHaveProperty('correlationId');
         expect(filteredContext.correlationId).toBe('test-correlation-123');
         expect(filteredContext).not.toHaveProperty('unknownField');
-        expect(filteredContext).not.toHaveProperty('knownField'); // No está en el mapeo
+        expect(filteredContext).not.toHaveProperty('knownField'); // Not in the mapping
       });
     });
   });

@@ -51,8 +51,8 @@ describe('BeaconRedisMock', () => {
       const newConfig = { some: 'value' };
       mock.updateConfig(newConfig);
       expect(logger.debug).toHaveBeenCalledWith(
-        '[BeaconRedisMock] updateConfig called',
-        { newConfig: expect.any(String) }
+        { newConfig: expect.any(String) },
+        '[BeaconRedisMock] updateConfig called'
       );
     });
 
@@ -418,7 +418,10 @@ describe('BeaconRedisMock', () => {
         1,
         true,
       ]);
-      expect(await mock.hGetAll('tx_hash')).toEqual({ f2: 'v2', counter: '10' });
+      expect(await mock.hGetAll('tx_hash')).toEqual({
+        f2: 'v2',
+        counter: '10',
+      });
     });
 
     it('should queue list commands (lPush, rPush, lPop, rPop, lLen, lRange, lTrim)', async () => {
@@ -528,7 +531,7 @@ describe('BeaconRedisMock', () => {
       expect(typeof (tx as any).executeScript).toBe('function');
       expect((tx as any).executeScript).not.toBeUndefined();
       // FIXME: Vitest tiene problemas con mocks anidados que lanzan errores
-      // El comportamiento real está implementado en el mock, pero el test no puede verificarlo
+      // Real behavior is implemented in the mock, but the test cannot verify it
     });
   });
 

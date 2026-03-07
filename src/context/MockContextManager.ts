@@ -187,7 +187,7 @@ export class MockContextManager implements IContextManager {
    * without affecting security configurations like masking or log levels.
    * @param newMatrix The new logging matrix configuration
    */
-  public reconfigureLoggingMatrix(newMatrix: LoggingMatrix): void {
+  public reconfigureLoggingMatrix(_newMatrix: LoggingMatrix): void {
     // Mock implementation - no actual logging matrix in mock
     // This is just to satisfy the interface
   }

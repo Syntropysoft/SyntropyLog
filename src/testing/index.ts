@@ -16,13 +16,9 @@ export {
   createSyntropyLogMock,
   createMockLogger,
   createMockContextManager,
-  createMockHttpManager,
-  createMockBrokerManager,
   createMockSerializationManager,
   getMockLogger,
   getMockContextManager,
-  getMockHttpManager,
-  getMockBrokerManager,
   getMockSerializationManager,
   resetSyntropyLogMocks,
   type MockLogger,
@@ -37,6 +33,4 @@ export {
 } from './test-helper';
 
 // All mocks for testing (framework agnostic)
-export { MockBrokerAdapter } from './MockBrokerAdapter';
-export { MockHttpClient } from './MockHttpClient';
 export { BeaconRedisMock } from './BeaconRedisMock';

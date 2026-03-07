@@ -9,7 +9,7 @@
 
 import { IBeaconRedis } from '../redis/IBeaconRedis';
 import { ILogger } from '../logger';
-import { InstrumentedHttpClient } from '../http/InstrumentedHttpClient';
+import type { JsonValue } from '../internal-types';
 
 /**
  * @private
@@ -35,7 +35,7 @@ function createFailingProxy(
         // This covers method calls like .get(), .post(), .set(), etc.
         return (...args: unknown[]) => {
           logger.warn(
-            { errorMessage, arguments: args } as any,
+            { errorMessage, arguments: args as JsonValue[] },
             `Attempted to use property '${prop}' on a failing client.`
           );
           return Promise.reject(new Error(errorMessage));
@@ -75,22 +75,4 @@ export function createFailingRedisClient(
     errorMessage,
     specialHandlers
   ) as IBeaconRedis;
-}
-
-/**
- * Creates a failing placeholder for an `InstrumentedHttpClient`.
- * @param {string} instanceName - The name of the HTTP client instance that failed.
- * @param {string} type - The type of the HTTP client (e.g., 'AxiosAdapter').
- * @param {ILogger} logger - The logger instance.
- * @returns {InstrumentedHttpClient} A client object that will fail on every method call.
- */
-export function createFailingHttpClient(
-  instanceName: string,
-  type: string,
-  logger: ILogger
-): InstrumentedHttpClient {
-  const errorMessage = `The HTTP client "${instanceName}" (type: ${type}) could not be initialized. Check the configuration and startup logs.`;
-  // We cast to InstrumentedHttpClient to satisfy the HttpManager's type requirements.
-  // The proxy will intercept any method call, including 'request'.
-  return createFailingProxy(logger, errorMessage) as InstrumentedHttpClient;
 }

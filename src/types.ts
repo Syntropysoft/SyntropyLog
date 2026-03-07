@@ -98,8 +98,8 @@ export {
   errorToJsonValue,
 };
 
-// Redefine SerializableData as 'any' for maximum flexibility in this module
-export type SerializableData = any;
+// Redefine SerializableData for flexibility in this module
+export type SerializableData = unknown;
 
 import type { LogLevel } from './logger/levels';
 
@@ -111,7 +111,7 @@ export type LoggerOptions = {
   level?: LogLevel;
   serviceName?: string;
   transports?: unknown[]; // Will be properly typed in the logger implementation
-  bindings?: Record<string, any>;
+  bindings?: Record<string, unknown>;
 };
 
 // Override LogEntry to use LogLevel instead of string
@@ -123,5 +123,5 @@ export type LogEntry = {
   /** The ISO 8601 timestamp of when the log was created. */
   timestamp: string;
   /** Any other properties are treated as structured metadata. */
-  [key: string]: any;
+  [key: string]: unknown;
 };

@@ -88,23 +88,12 @@ export default [
     external,
   },
 
-  createEntryConfig('src/http/index.ts', './dist/http/index', {
-    treeshake: false,
-  }),
-  createEntryConfig('src/brokers/index.ts', './dist/brokers/index', {
-    treeshake: false,
-  }),
   createEntryConfig('src/testing/index.ts', './dist/testing/index', {
     treeshake: false,
   }),
 
   // --- Type Declaration Bundles (.d.ts) ---
   createDtsConfig('dist/types/type-exports.d.ts', 'dist/index.d.ts'),
-  createDtsConfig('dist/types/http/index.d.ts', 'dist/http/index.d.ts'),
-  createDtsConfig(
-    'dist/types/brokers/index.d.ts',
-    'dist/brokers/index.d.ts',
-  ),
   createDtsConfig(
     'dist/types/testing/index.d.ts',
     'dist/testing/index.d.ts',

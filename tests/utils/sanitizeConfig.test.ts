@@ -6,8 +6,6 @@
 import { describe, it, expect } from 'vitest';
 import { sanitizeConfig } from '../../src/utils/sanitizeConfig';
 import { Transport } from '../../src/logger/transports/Transport';
-import { IHttpClientAdapter } from '../../src/http/adapters/adapter.types';
-import { IBrokerAdapter } from '../../src/brokers';
 
 const MASK = '[CONFIG_MASKED]';
 
@@ -18,17 +16,6 @@ class MockTransport extends Transport {
     return Promise.resolve();
   }
 }
-
-const mockHttpAdapter: IHttpClientAdapter = {
-  request: () => Promise.resolve({ statusCode: 200, data: {} as any, headers: {} }),
-};
-
-const mockBrokerAdapter: IBrokerAdapter = {
-  connect: () => Promise.resolve(),
-  publish: () => Promise.resolve(),
-  subscribe: () => Promise.resolve(),
-  disconnect: () => Promise.resolve(),
-};
 
 // --- Tests ---
 
@@ -118,20 +105,6 @@ describe('sanitizeConfig', () => {
       const config = { transports: [transport] };
       const result = sanitizeConfig(config);
       expect(result.transports[0]).toBe(transport);
-    });
-
-    it('should not sanitize or clone HTTP Adapter instances', () => {
-      const config = { adapter: mockHttpAdapter, secret: '123' };
-      const result = sanitizeConfig(config);
-      expect(result.adapter).toBe(mockHttpAdapter);
-      expect(result.secret).toBe(MASK);
-    });
-
-    it('should not sanitize or clone Broker Adapter instances', () => {
-      const config = { broker: mockBrokerAdapter, password: 'abc' };
-      const result = sanitizeConfig(config);
-      expect(result.broker).toBe(mockBrokerAdapter);
-      expect(result.password).toBe(MASK);
     });
   });
 

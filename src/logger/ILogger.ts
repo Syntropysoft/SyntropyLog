@@ -101,4 +101,28 @@ export interface ILogger {
    * @returns {ILogger} A new `ILogger` instance with the `transactionId` binding.
    */
   withTransactionId(transactionId: string): ILogger;
+
+  // --- Per-call transport routing (override / add / remove) ---
+
+  /**
+   * For the next log call only, send to exactly these transports (by name).
+   * Use transport names from the configured pool (e.g. 'console', 'db', 'azure').
+   * @param {...string[]} names - Transport names.
+   * @returns {ILogger} This logger for chaining (e.g. .override('console').info('...')).
+   */
+  override(...names: string[]): ILogger;
+
+  /**
+   * For the next log call only, add these transports (by name) to the default set.
+   * @param {...string[]} names - Transport names.
+   * @returns {ILogger} This logger for chaining.
+   */
+  add(...names: string[]): ILogger;
+
+  /**
+   * For the next log call only, remove these transports (by name) from the default set.
+   * @param {...string[]} names - Transport names.
+   * @returns {ILogger} This logger for chaining.
+   */
+  remove(...names: string[]): ILogger;
 }

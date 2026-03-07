@@ -18,10 +18,10 @@ vi.mock('../../src/redis/RedisCommandExecutor');
  * Creates a mock ILogger instance for testing.
  * @returns A mocked ILogger.
  */
-const createMockLogger = (): ILogger => { 
+const createMockLogger = (): ILogger => {
   const logger: any = {};
   const levels = ['debug', 'info', 'warn', 'error'];
-  levels.forEach(level => {
+  levels.forEach((level) => {
     logger[level] = vi.fn();
   });
   // Mock withSource to be chainable
@@ -79,13 +79,13 @@ describe('BeaconRedis', () => {
     });
 
     it('should update its internal configuration and use it for subsequent commands', async () => {
-      const newConfig = { 
-        logging: { 
+      const newConfig = {
+        logging: {
           onSuccess: 'info' as const,
           onError: 'error' as const,
           logCommandValues: false,
-          logReturnValue: false
-        } 
+          logReturnValue: false,
+        },
       };
       beaconRedis.updateConfig(newConfig);
 
@@ -105,17 +105,331 @@ describe('BeaconRedis', () => {
       expect(mockLogger.debug).not.toHaveBeenCalled();
     });
 
-    it('should throw an error when multi() is called', () => {
-      expect(() => beaconRedis.multi()).toThrow(
-        'The multi() method is not yet implemented.'
+    it('should return an instrumented transaction from multi()', () => {
+      const mockNativeTx = {
+        get: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        del: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue(['ok', 1]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
       );
+
+      const tx = beaconRedis.multi();
+
+      expect(tx).toBeDefined();
+      expect(typeof tx.exec).toBe('function');
+      expect(typeof tx.discard).toBe('function');
+      expect(tx.get('k')).toBe(tx);
+      expect(mockCommandExecutor.multi).toHaveBeenCalledOnce();
+    });
+
+    it('should instrument exec() when transaction is executed', async () => {
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(
+        undefined
+      );
+      const mockNativeTx = {
+        get: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue(['value', 1]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis.multi().get('key');
+      const result = await tx.exec();
+
+      expect(result).toEqual(['value', 1]);
+      expect(mockConnectionManager.ensureReady).toHaveBeenCalled();
+      expect(mockNativeTx.exec).toHaveBeenCalledOnce();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'MULTI/EXEC',
+          instance: 'test-instance',
+        }),
+        'Redis command [MULTI/EXEC] executed successfully.'
+      );
+    });
+
+    it('should log error and rethrow when exec() fails', async () => {
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(
+        undefined
+      );
+      const err = new Error('EXECABORT Transaction discarded');
+      const mockNativeTx = {
+        get: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockRejectedValue(err),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis.multi().get('key');
+
+      await expect(tx.exec()).rejects.toThrow(
+        'EXECABORT Transaction discarded'
+      );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'MULTI/EXEC',
+          instance: 'test-instance',
+          err: expect.anything(),
+        }),
+        'Redis command [MULTI/EXEC] failed.'
+      );
+    });
+
+    it('should instrument discard() when transaction is discarded', async () => {
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(
+        undefined
+      );
+      const mockNativeTx = {
+        get: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis.multi().get('key');
+      await tx.discard();
+
+      expect(mockConnectionManager.ensureReady).toHaveBeenCalled();
+      expect(mockNativeTx.discard).toHaveBeenCalledOnce();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'DISCARD',
+          instance: 'test-instance',
+        }),
+        'Redis command [DISCARD] executed successfully.'
+      );
+    });
+
+    it('should throw when executeScript is called inside a transaction', () => {
+      const mockNativeTx = {
+        get: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis.multi();
+
+      expect(() => tx.executeScript('return 1', [], [])).toThrow(
+        'executeScript is not supported inside a Redis transaction (MULTI/EXEC).'
+      );
+    });
+
+    it('should delegate transaction set, del, hSet (single and object) then exec', async () => {
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(
+        undefined
+      );
+      const mockNativeTx = {
+        get: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        del: vi.fn().mockReturnThis(),
+        hSet: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue(['OK', 1, 1]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis
+        .multi()
+        .set('k', 'v')
+        .set('k2', 'v2', 60)
+        .del('old')
+        .hSet('h', 'f', 'val')
+        .hSet('h2', { a: '1', b: '2' });
+
+      const result = await tx.exec();
+
+      expect(result).toEqual(['OK', 1, 1]);
+      expect(mockNativeTx.set).toHaveBeenNthCalledWith(1, 'k', 'v', undefined);
+      expect(mockNativeTx.set).toHaveBeenNthCalledWith(2, 'k2', 'v2', {
+        EX: 60,
+      });
+      expect(mockNativeTx.del).toHaveBeenCalledWith('old');
+      expect(mockNativeTx.hSet).toHaveBeenCalledWith('h', 'f', 'val');
+      expect(mockNativeTx.hSet).toHaveBeenCalledWith('h2', { a: '1', b: '2' });
+    });
+
+    it('should delegate transaction exists, expire, incr, lPush, zAdd (single and array) then exec', async () => {
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(
+        undefined
+      );
+      const mockNativeTx: Record<string, ReturnType<typeof vi.fn>> = {
+        exists: vi.fn().mockReturnThis(),
+        expire: vi.fn().mockReturnThis(),
+        incr: vi.fn().mockReturnThis(),
+        lPush: vi.fn().mockReturnThis(),
+        zAdd: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([1, true, 1, 1, 1]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis
+        .multi()
+        .exists('key')
+        .expire('key', 120)
+        .incr('counter')
+        .lPush('list', 'a')
+        .zAdd('z', 1, 'm1')
+        .zAdd('z2', [{ score: 2, value: 'm2' }]);
+
+      const result = await tx.exec();
+
+      expect(result).toEqual([1, true, 1, 1, 1]);
+      expect(mockNativeTx.exists).toHaveBeenCalledWith('key');
+      expect(mockNativeTx.expire).toHaveBeenCalledWith('key', 120);
+      expect(mockNativeTx.incr).toHaveBeenCalledWith('counter');
+      expect(mockNativeTx.lPush).toHaveBeenCalledWith('list', 'a');
+      expect(mockNativeTx.zAdd).toHaveBeenNthCalledWith(1, 'z', {
+        score: 1,
+        value: 'm1',
+      });
+      expect(mockNativeTx.zAdd).toHaveBeenNthCalledWith(2, 'z2', [
+        { score: 2, value: 'm2' },
+      ]);
+    });
+
+    it('should delegate all transaction methods (rPush, lPop, rPop, lRange, lLen, lTrim, sAdd, sMembers, sIsMember, sRem, sCard, decr, incrBy, decrBy, hGet, ttl, zRange, zRangeWithScores, zRem, zCard, zScore, ping, info) then exec', async () => {
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(
+        undefined
+      );
+      const mockNativeTx: Record<string, ReturnType<typeof vi.fn>> = {
+        get: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        del: vi.fn().mockReturnThis(),
+        exists: vi.fn().mockReturnThis(),
+        expire: vi.fn().mockReturnThis(),
+        ttl: vi.fn().mockReturnThis(),
+        incr: vi.fn().mockReturnThis(),
+        decr: vi.fn().mockReturnThis(),
+        incrBy: vi.fn().mockReturnThis(),
+        decrBy: vi.fn().mockReturnThis(),
+        hGet: vi.fn().mockReturnThis(),
+        hSet: vi.fn().mockReturnThis(),
+        hGetAll: vi.fn().mockReturnThis(),
+        hDel: vi.fn().mockReturnThis(),
+        hExists: vi.fn().mockReturnThis(),
+        hIncrBy: vi.fn().mockReturnThis(),
+        lPush: vi.fn().mockReturnThis(),
+        rPush: vi.fn().mockReturnThis(),
+        lPop: vi.fn().mockReturnThis(),
+        rPop: vi.fn().mockReturnThis(),
+        lRange: vi.fn().mockReturnThis(),
+        lLen: vi.fn().mockReturnThis(),
+        lTrim: vi.fn().mockReturnThis(),
+        sAdd: vi.fn().mockReturnThis(),
+        sMembers: vi.fn().mockReturnThis(),
+        sIsMember: vi.fn().mockReturnThis(),
+        sRem: vi.fn().mockReturnThis(),
+        sCard: vi.fn().mockReturnThis(),
+        zAdd: vi.fn().mockReturnThis(),
+        zRange: vi.fn().mockReturnThis(),
+        zRangeWithScores: vi.fn().mockReturnThis(),
+        zRem: vi.fn().mockReturnThis(),
+        zCard: vi.fn().mockReturnThis(),
+        zScore: vi.fn().mockReturnThis(),
+        ping: vi.fn().mockReturnThis(),
+        info: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([1]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis
+        .multi()
+        .get('k')
+        .ttl('k')
+        .decr('c')
+        .incrBy('c', 2)
+        .decrBy('c', 1)
+        .hGet('h', 'f')
+        .rPush('list', 'x')
+        .rPush('list', ['y', 'z'])
+        .lPop('list')
+        .rPop('list')
+        .lRange('list', 0, -1)
+        .lLen('list')
+        .lTrim('list', 0, 9)
+        .sAdd('set', 'a')
+        .sAdd('set', ['b', 'c'])
+        .sMembers('set')
+        .sIsMember('set', 'a')
+        .sRem('set', 'b')
+        .sCard('set')
+        .zRange('z', 0, -1)
+        .zRange('z', 0, 1, { REV: true })
+        .zRangeWithScores('z', 0, -1)
+        .zRangeWithScores('z', 0, 1, { REV: true })
+        .zRem('z', 'm1')
+        .zRem('z', ['m2', 'm3'])
+        .zCard('z')
+        .zScore('z', 'm')
+        .ping()
+        .ping('hello')
+        .info()
+        .info('server');
+
+      const result = await tx.exec();
+
+      expect(result).toEqual([1]);
+      expect(mockNativeTx.ttl).toHaveBeenCalledWith('k');
+      expect(mockNativeTx.decr).toHaveBeenCalledWith('c');
+      expect(mockNativeTx.incrBy).toHaveBeenCalledWith('c', 2);
+      expect(mockNativeTx.decrBy).toHaveBeenCalledWith('c', 1);
+      expect(mockNativeTx.hGet).toHaveBeenCalledWith('h', 'f');
+      expect(mockNativeTx.rPush).toHaveBeenNthCalledWith(1, 'list', 'x');
+      expect(mockNativeTx.rPush).toHaveBeenNthCalledWith(2, 'list', ['y', 'z']);
+      expect(mockNativeTx.lPop).toHaveBeenCalledWith('list');
+      expect(mockNativeTx.rPop).toHaveBeenCalledWith('list');
+      expect(mockNativeTx.lRange).toHaveBeenCalledWith('list', 0, -1);
+      expect(mockNativeTx.lLen).toHaveBeenCalledWith('list');
+      expect(mockNativeTx.lTrim).toHaveBeenCalledWith('list', 0, 9);
+      expect(mockNativeTx.sAdd).toHaveBeenNthCalledWith(1, 'set', 'a');
+      expect(mockNativeTx.sAdd).toHaveBeenNthCalledWith(2, 'set', ['b', 'c']);
+      expect(mockNativeTx.sMembers).toHaveBeenCalledWith('set');
+      expect(mockNativeTx.sIsMember).toHaveBeenCalledWith('set', 'a');
+      expect(mockNativeTx.sRem).toHaveBeenCalledWith('set', 'b');
+      expect(mockNativeTx.sCard).toHaveBeenCalledWith('set');
+      expect(mockNativeTx.zRange).toHaveBeenNthCalledWith(1, 'z', 0, -1, undefined);
+      expect(mockNativeTx.zRange).toHaveBeenNthCalledWith(2, 'z', 0, 1, { REV: true });
+      expect(mockNativeTx.zRangeWithScores).toHaveBeenNthCalledWith(1, 'z', 0, -1, undefined);
+      expect(mockNativeTx.zRangeWithScores).toHaveBeenNthCalledWith(2, 'z', 0, 1, { REV: true });
+      expect(mockNativeTx.zRem).toHaveBeenNthCalledWith(1, 'z', 'm1');
+      expect(mockNativeTx.zRem).toHaveBeenNthCalledWith(2, 'z', ['m2', 'm3']);
+      expect(mockNativeTx.zCard).toHaveBeenCalledWith('z');
+      expect(mockNativeTx.zScore).toHaveBeenCalledWith('z', 'm');
+      expect(mockNativeTx.ping).toHaveBeenNthCalledWith(1, undefined);
+      expect(mockNativeTx.ping).toHaveBeenNthCalledWith(2, 'hello');
+      expect(mockNativeTx.info).toHaveBeenNthCalledWith(1, undefined);
+      expect(mockNativeTx.info).toHaveBeenNthCalledWith(2, 'server');
     });
   });
 
   describe('Command Execution', () => {
     beforeEach(() => {
       // Default to a successful connection for these tests
-      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(undefined);
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(
+        undefined
+      );
     });
 
     it('should execute a simple command successfully and log it', async () => {
@@ -185,9 +499,8 @@ describe('BeaconRedis', () => {
           instance: 'test-instance',
           err: expect.objectContaining({
             message: 'Redis command failed',
-            name: 'Error'
+            name: 'Error',
           }),
-          params: undefined,
         }),
         'Redis command [GET] failed.'
       );
@@ -214,7 +527,9 @@ describe('BeaconRedis', () => {
       const commandError = new Error('Redis command failed');
       vi.spyOn(mockCommandExecutor, 'get').mockRejectedValue(commandError);
 
-      await expect(beaconRedis.get('failing-key')).rejects.toThrow(commandError);
+      await expect(beaconRedis.get('failing-key')).rejects.toThrow(
+        commandError
+      );
 
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -222,7 +537,7 @@ describe('BeaconRedis', () => {
           instance: 'test-instance',
           err: expect.objectContaining({
             message: 'Redis command failed',
-            name: 'Error'
+            name: 'Error',
           }),
           params: ['failing-key'],
         }),
@@ -261,7 +576,10 @@ describe('BeaconRedis', () => {
       // The wrapper should convert undefined to null.
       expect(result).toBeNull();
       expect(mockCommandExecutor.hGet).toHaveBeenCalledWith(key, field);
-      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Object), 'Redis command [HGET] executed successfully.');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.any(Object),
+        'Redis command [HGET] executed successfully.'
+      );
     });
 
     it('should execute RPOP and return a value when the list is not empty', async () => {
@@ -293,7 +611,10 @@ describe('BeaconRedis', () => {
       expect(result).toBeNull();
       expect(mockCommandExecutor.rPop).toHaveBeenCalledWith(key);
       // Check that it still logs success, even with a null result
-      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Object), 'Redis command [RPOP] executed successfully.');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.any(Object),
+        'Redis command [RPOP] executed successfully.'
+      );
     });
 
     it('should execute HGETALL and return a record when the hash exists', async () => {
@@ -415,7 +736,11 @@ describe('BeaconRedis', () => {
 
       expect(result).toBe(newValue);
       expect(mockConnectionManager.ensureReady).toHaveBeenCalledOnce();
-      expect(mockCommandExecutor.hIncrBy).toHaveBeenCalledWith(key, field, increment);
+      expect(mockCommandExecutor.hIncrBy).toHaveBeenCalledWith(
+        key,
+        field,
+        increment
+      );
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.objectContaining({
           command: 'HINCRBY',
@@ -526,7 +851,10 @@ describe('BeaconRedis', () => {
       expect(result).toBeNull();
       expect(mockCommandExecutor.lPop).toHaveBeenCalledWith(key);
       // Check that it still logs success, even with a null result
-      expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Object), 'Redis command [LPOP] executed successfully.');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.any(Object),
+        'Redis command [LPOP] executed successfully.'
+      );
     });
 
     it('should execute LRANGE and return an array of elements', async () => {
@@ -851,7 +1179,12 @@ describe('BeaconRedis', () => {
 
       expect(result).toEqual(members);
       expect(mockConnectionManager.ensureReady).toHaveBeenCalledOnce();
-      expect(mockCommandExecutor.zRange).toHaveBeenCalledWith(key, min, max, undefined);
+      expect(mockCommandExecutor.zRange).toHaveBeenCalledWith(
+        key,
+        min,
+        max,
+        undefined
+      );
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.objectContaining({
           command: 'ZRANGE',
@@ -870,7 +1203,12 @@ describe('BeaconRedis', () => {
       const result = await beaconRedis.zRange(key, min, max);
 
       expect(result).toEqual([]);
-      expect(mockCommandExecutor.zRange).toHaveBeenCalledWith(key, min, max, undefined);
+      expect(mockCommandExecutor.zRange).toHaveBeenCalledWith(
+        key,
+        min,
+        max,
+        undefined
+      );
       // Check that it still logs success, even with an empty result
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.any(Object),
@@ -881,12 +1219,20 @@ describe('BeaconRedis', () => {
     it('should execute ZRANGE with options and pass them to the executor', async () => {
       const key = 'my-zset';
       const options = { REV: true };
-      vi.spyOn(mockCommandExecutor, 'zRange').mockResolvedValue(['member2', 'member1']);
+      vi.spyOn(mockCommandExecutor, 'zRange').mockResolvedValue([
+        'member2',
+        'member1',
+      ]);
 
       const result = await beaconRedis.zRange(key, 0, 1, options);
 
       expect(result).toEqual(['member2', 'member1']);
-      expect(mockCommandExecutor.zRange).toHaveBeenCalledWith(key, 0, 1, options);
+      expect(mockCommandExecutor.zRange).toHaveBeenCalledWith(
+        key,
+        0,
+        1,
+        options
+      );
     });
 
     it('should execute ZRANGE WITHSCORES and return an array of members with scores', async () => {
@@ -938,7 +1284,12 @@ describe('BeaconRedis', () => {
       const options = { REV: true };
       vi.spyOn(mockCommandExecutor, 'zRangeWithScores').mockResolvedValue([]);
       await beaconRedis.zRangeWithScores(key, 0, 1, options);
-      expect(mockCommandExecutor.zRangeWithScores).toHaveBeenCalledWith(key, 0, 1, options);
+      expect(mockCommandExecutor.zRangeWithScores).toHaveBeenCalledWith(
+        key,
+        0,
+        1,
+        options
+      );
     });
 
     it('should execute ZREM for a single member and return the number of removed members', async () => {
@@ -1293,7 +1644,9 @@ describe('BeaconRedis', () => {
         connectionError
       );
 
-      await expect(beaconRedis.get('some-key')).rejects.toThrow(connectionError);
+      await expect(beaconRedis.get('some-key')).rejects.toThrow(
+        connectionError
+      );
 
       expect(mockCommandExecutor.get).not.toHaveBeenCalled();
       expect(mockLogger.error).toHaveBeenCalledWith(
@@ -1302,7 +1655,7 @@ describe('BeaconRedis', () => {
           instance: 'test-instance',
           err: expect.objectContaining({
             message: 'Connection failed',
-            name: 'Error'
+            name: 'Error',
           }),
         }),
         'Redis command [GET] failed.'
@@ -1336,7 +1689,9 @@ describe('BeaconRedis', () => {
 
       await beaconRedis.set(key, value, ttl);
 
-      expect(mockCommandExecutor.set).toHaveBeenCalledWith(key, value, { EX: ttl });
+      expect(mockCommandExecutor.set).toHaveBeenCalledWith(key, value, {
+        EX: ttl,
+      });
     });
 
     it('should correctly handle HSET with an object argument', async () => {
@@ -1346,7 +1701,10 @@ describe('BeaconRedis', () => {
 
       await beaconRedis.hSet(key, fieldsAndValues);
 
-      expect(mockCommandExecutor.hSet).toHaveBeenCalledWith(key, fieldsAndValues);
+      expect(mockCommandExecutor.hSet).toHaveBeenCalledWith(
+        key,
+        fieldsAndValues
+      );
     });
 
     it('should call connectionManager.ping for the ping command', async () => {
@@ -1373,6 +1731,157 @@ describe('BeaconRedis', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.any(Object),
         'Redis command [INFO] executed successfully.'
+      );
+    });
+
+    it('should execute executeScript and log as SCRIPT_EXEC', async () => {
+      const script = 'return redis.call("GET", KEYS[1])';
+      const keys = ['mykey'];
+      const args: string[] = [];
+      const result = 'value';
+      vi.spyOn(mockCommandExecutor, 'executeScript').mockResolvedValue(
+        result
+      );
+
+      const out = await beaconRedis.executeScript(script, keys, args);
+
+      expect(out).toBe(result);
+      expect(mockCommandExecutor.executeScript).toHaveBeenCalledWith(
+        script,
+        keys,
+        args
+      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'SCRIPT_EXEC',
+          instance: 'test-instance',
+        }),
+        'Redis command [SCRIPT_EXEC] executed successfully.'
+      );
+    });
+
+    it('should execute subscribe via commandExecutor', async () => {
+      const listener = vi.fn();
+      vi.spyOn(mockCommandExecutor, 'subscribe').mockResolvedValue(undefined);
+
+      await beaconRedis.subscribe('ch', listener);
+
+      expect(mockCommandExecutor.subscribe).toHaveBeenCalledWith('ch', listener);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'SUBSCRIBE' }),
+        'Redis command [SUBSCRIBE] executed successfully.'
+      );
+    });
+
+    it('should execute unsubscribe with optional channel', async () => {
+      vi.spyOn(mockCommandExecutor, 'unsubscribe').mockResolvedValue(
+        undefined
+      );
+
+      await beaconRedis.unsubscribe('ch');
+
+      expect(mockCommandExecutor.unsubscribe).toHaveBeenCalledWith('ch');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'UNSUBSCRIBE' }),
+        'Redis command [UNSUBSCRIBE] executed successfully.'
+      );
+    });
+
+    it('should execute publish and return subscriber count', async () => {
+      vi.spyOn(mockCommandExecutor, 'publish').mockResolvedValue(2);
+
+      const count = await beaconRedis.publish('ch', 'msg');
+
+      expect(count).toBe(2);
+      expect(mockCommandExecutor.publish).toHaveBeenCalledWith('ch', 'msg');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'PUBLISH' }),
+        'Redis command [PUBLISH] executed successfully.'
+      );
+    });
+
+    it('should execute scan and return cursor and keys', async () => {
+      const scanResult = { cursor: 5, keys: ['k1', 'k2'] };
+      vi.spyOn(mockCommandExecutor, 'scan').mockResolvedValue(scanResult);
+
+      const out = await beaconRedis.scan(0, { MATCH: 'user:*', COUNT: 10 });
+
+      expect(out).toEqual(scanResult);
+      expect(mockCommandExecutor.scan).toHaveBeenCalledWith(0, {
+        MATCH: 'user:*',
+        COUNT: 10,
+      });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'SCAN' }),
+        'Redis command [SCAN] executed successfully.'
+      );
+    });
+
+    it('should execute keys and return key list', async () => {
+      const keyList = ['user:1', 'user:2'];
+      vi.spyOn(mockCommandExecutor, 'keys').mockResolvedValue(keyList);
+
+      const out = await beaconRedis.keys('user:*');
+
+      expect(out).toEqual(keyList);
+      expect(mockCommandExecutor.keys).toHaveBeenCalledWith('user:*');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'KEYS' }),
+        'Redis command [KEYS] executed successfully.'
+      );
+    });
+
+    it('should use default log levels when config has no logging', async () => {
+      const configNoLogging: RedisInstanceConfig = {
+        instanceName: 'no-logging-instance',
+        mode: 'single',
+        url: 'redis://localhost:6379',
+        // no logging key
+      };
+      beaconRedis = new BeaconRedis(
+        configNoLogging,
+        mockConnectionManager,
+        mockCommandExecutor,
+        mockLogger
+      );
+      vi.spyOn(mockCommandExecutor, 'get').mockResolvedValue('ok');
+
+      await beaconRedis.get('key');
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'GET',
+          instance: 'no-logging-instance',
+        }),
+        'Redis command [GET] executed successfully.'
+      );
+    });
+
+    it('should use default error level when command fails and logging is undefined', async () => {
+      const configNoLogging: RedisInstanceConfig = {
+        instanceName: 'no-logging-instance',
+        mode: 'single',
+        url: 'redis://localhost:6379',
+      };
+      beaconRedis = new BeaconRedis(
+        configNoLogging,
+        mockConnectionManager,
+        mockCommandExecutor,
+        mockLogger
+      );
+      vi.spyOn(mockCommandExecutor, 'get').mockRejectedValue(
+        new Error('Redis down')
+      );
+
+      await expect(beaconRedis.get('key')).rejects.toThrow('Redis down');
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'GET',
+          instance: 'no-logging-instance',
+          err: expect.anything(),
+        }),
+        'Redis command [GET] failed.'
       );
     });
   });

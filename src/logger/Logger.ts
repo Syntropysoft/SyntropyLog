@@ -21,14 +21,91 @@ import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
 import { ILogger } from './ILogger';
 
+/** Per-call routing: override (only these) or add/remove from default. */
+type PendingRouting =
+  | { override: string[] }
+  | { add: string[]; remove?: string[] }
+  | { add?: string[]; remove: string[] };
+
+// --- Pure helpers (same inputs → same outputs, no side effects) ---
+
+/** Pure: should this level be logged given the minimum level? Audit always passes. */
+function shouldLogByLevel(
+  level: LogLevel,
+  minLevel: Exclude<LogLevel, 'silent'>
+): boolean {
+  if (level === 'silent') return false;
+  if (level === 'audit') return true;
+  return (
+    LOG_LEVEL_WEIGHTS[level as Exclude<LogLevel, 'silent'>] >=
+    LOG_LEVEL_WEIGHTS[minLevel]
+  );
+}
+
+/** Pure: parse Pino-like args into message and metadata. */
+function parseLogArgs(args: (LogFormatArg | LogMetadata | JsonValue)[]): {
+  message: string;
+  metadata: LogMetadata;
+} {
+  let message: string;
+  let metadata: LogMetadata = {};
+  if (args.length === 0) {
+    message = '';
+  } else if (
+    typeof args[0] === 'object' &&
+    args[0] !== null &&
+    !Array.isArray(args[0])
+  ) {
+    metadata = args[0] as LogMetadata;
+    message = (args[1] as string) || '';
+    const formatArgs = args.slice(2);
+    if (message && formatArgs.length > 0) {
+      message = util.format(message, ...formatArgs);
+    }
+  } else {
+    message = (args[0] as string) || '';
+    const formatArgs = args.slice(1);
+    if (message && formatArgs.length > 0) {
+      message = util.format(message, ...formatArgs);
+    }
+  }
+  return { message: message || '', metadata };
+}
+
+/** Pure: resolve effective transports from default list + pool and routing (no mutation). */
+function resolveEffectiveTransports(
+  defaultTransports: Transport[],
+  pool: Map<string, Transport> | undefined,
+  routing: PendingRouting | null
+): Transport[] {
+  if (!pool || !routing) return defaultTransports;
+  if ('override' in routing) {
+    return routing.override
+      .map((n) => pool.get(n))
+      .filter((t): t is Transport => t != null);
+  }
+  let list = [...defaultTransports];
+  if (routing.add?.length) {
+    for (const n of routing.add) {
+      const t = pool.get(n);
+      if (t) list.push(t);
+    }
+  }
+  if (routing.remove?.length) {
+    const removeSet = new Set(routing.remove);
+    list = list.filter((t) => !removeSet.has(t.name));
+  }
+  return list;
+}
+
 export interface LoggerDependencies {
   contextManager: IContextManager;
   serializationManager: SerializationManager;
   maskingEngine: MaskingEngine;
   syntropyLogInstance: SyntropyLog;
+  /** Pool of transports by name, for override/add/remove per call. */
+  transportPool?: Map<string, Transport>;
 }
-
-type LogLevelWithWeight = Exclude<LogLevel, 'silent'>;
 
 /**
  * @class Logger
@@ -42,6 +119,8 @@ export class Logger {
   private transports: Transport[];
   private bindings: LogBindings;
   private dependencies: LoggerDependencies;
+  /** Applied to the next log call only; then cleared. */
+  private pendingRouting: PendingRouting | null = null;
 
   constructor(
     name: string,
@@ -52,8 +131,55 @@ export class Logger {
     this.name = name;
     this.transports = transports;
     this.dependencies = dependencies;
-    this.bindings = options.bindings ?? {};
+    this.bindings = (options.bindings ?? {}) as LogBindings;
     this.level = options.level ?? 'info';
+  }
+
+  /**
+   * For the next log call only, send to exactly these transports (by name).
+   * Names must exist in the configured transport pool.
+   */
+  override(...names: string[]): this {
+    this.pendingRouting = { override: names };
+    return this;
+  }
+
+  /**
+   * For the next log call only, add these transports (by name) to the default set.
+   * Chain with remove() to add and remove in one go.
+   */
+  add(...names: string[]): this {
+    const prev = this.pendingRouting;
+    const add = [...(prev && 'add' in prev ? (prev.add ?? []) : []), ...names];
+    const remove = prev && 'remove' in prev ? (prev.remove ?? []) : undefined;
+    this.pendingRouting = remove?.length ? { add, remove } : { add };
+    return this;
+  }
+
+  /**
+   * For the next log call only, remove these transports (by name) from the default set.
+   * Chain with add() to remove and add in one go.
+   */
+  remove(...names: string[]): this {
+    const prev = this.pendingRouting;
+    const remove = [
+      ...(prev && 'remove' in prev ? (prev.remove ?? []) : []),
+      ...names,
+    ];
+    const add = prev && 'add' in prev ? (prev.add ?? []) : undefined;
+    this.pendingRouting = add?.length ? { add, remove } : { remove };
+    return this;
+  }
+
+  /** Resolve effective transports for this call from pendingRouting and pool; clears pendingRouting. */
+  private getEffectiveTransports(): Transport[] {
+    const routing = this.pendingRouting;
+    this.pendingRouting = null;
+    return resolveEffectiveTransports(
+      this.transports,
+      this.dependencies.transportPool,
+      routing
+    );
   }
 
   /**
@@ -69,26 +195,13 @@ export class Logger {
     level: LogLevel,
     ...args: (LogFormatArg | LogMetadata | JsonValue)[]
   ): Promise<void> {
-    if (level === 'silent') {
-      return;
-    }
+    if (level === 'silent') return;
 
-    // Guard clause: audit logs bypass standard level filtering
-    const isAudit = level === 'audit';
+    const minLevel = this.level as Exclude<LogLevel, 'silent'>;
+    if (!shouldLogByLevel(level, minLevel)) return;
 
-    // Type-guarded access to weights
-    if (!isAudit) {
-      const weightedLevel = level as LogLevelWithWeight;
-      const weightedThisLevel = this.level as LogLevelWithWeight;
+    const { message, metadata } = parseLogArgs(args);
 
-      if (
-        LOG_LEVEL_WEIGHTS[weightedLevel] < LOG_LEVEL_WEIGHTS[weightedThisLevel]
-      ) {
-        return;
-      }
-    }
-
-    // Build the base log entry with context and bindings
     const context = this.dependencies.contextManager.getFilteredContext(level);
     const logEntry: LogEntry = {
       ...context,
@@ -96,65 +209,31 @@ export class Logger {
       level,
       timestamp: new Date().toISOString(),
       service: this.name,
-      message: '', // Will be set below
+      message,
+      ...metadata,
     };
 
-    // Parse arguments following Pino-like signature
-    let message: string;
-    let metadata: LogMetadata = {};
-
-    if (args.length === 0) {
-      message = '';
-    } else if (
-      typeof args[0] === 'object' &&
-      args[0] !== null &&
-      !Array.isArray(args[0])
-    ) {
-      // First argument is metadata object: (metadata, message, ...formatArgs)
-      metadata = args[0] as LogMetadata;
-      message = (args[1] as string) || '';
-      const formatArgs = args.slice(2);
-
-      if (message && formatArgs.length > 0) {
-        message = util.format(message, ...formatArgs);
-      }
-    } else {
-      // First argument is message: (message, ...formatArgs)
-      message = (args[0] as string) || '';
-      const formatArgs = args.slice(1);
-
-      if (message && formatArgs.length > 0) {
-        message = util.format(message, ...formatArgs);
-      }
-    }
-
-    // Ensure message is never undefined
-    logEntry.message = message || '';
-
-    // Merge metadata into log entry
-    Object.assign(logEntry, metadata);
-
     // 1. Serialization Pipeline (Hygiene + Custom + Resilience)
-    const serializationResult = await this.dependencies.serializationManager.serialize(
-      logEntry,
-      {
+    const serializationResult =
+      await this.dependencies.serializationManager.serialize(logEntry, {
         depth: 0,
         maxDepth: 10,
         sensitiveFields: [],
         sanitize: true,
-      }
-    );
+      });
 
     const finalEntry = serializationResult.data;
 
     // 2. Apply masking to the entire, serialized entry.
-    const maskedEntry = this.dependencies.maskingEngine.process(finalEntry);
+    const maskedEntry = this.dependencies.maskingEngine.process(
+      finalEntry as Record<string, unknown>
+    );
 
-    // Dispatch to transports
+    // Dispatch to transports (use effective set for this call if override/add/remove was set)
+    const effectiveTransports = this.getEffectiveTransports();
     await Promise.all(
-      this.transports.map((transport) => {
+      effectiveTransports.map((transport) => {
         if (transport.isLevelEnabled(level)) {
-          // The type assertion is safe here because the masking engine preserves the structure.
           return transport.log(maskedEntry as LogEntry);
         }
         return Promise.resolve();
@@ -261,7 +340,7 @@ export class Logger {
    * @returns {ILogger} A new logger instance with the `retention` binding.
    */
   withRetention(rules: LogRetentionRules): ILogger {
-    return this.child({ retention: rules } as any);
+    return this.child({ retention: rules } as LogBindings);
   }
 
   /**
