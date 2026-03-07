@@ -3,12 +3,35 @@ import { SerializationPipelineContext } from '../../types';
 import { DataSanitizer } from '../utils/DataSanitizer';
 import { SerializableData } from '../../types';
 
-export class SanitizationStep implements PipelineStep<SerializableData> {
-  name = 'sanitization';
-  private sanitizer: DataSanitizer;
+/** Pure: builds the step result with consistent shape (single place for metrics). */
+function withResult(
+  data: SerializableData,
+  duration: number,
+  sanitized: boolean,
+  sanitizationError?: string
+): SerializableData {
+  const result = {
+    ...data,
+    sanitizationDuration: duration,
+    sanitized,
+  };
+  if (sanitizationError !== undefined) {
+    (result as Record<string, unknown>).sanitizationError = sanitizationError;
+  }
+  return result;
+}
 
-  constructor() {
-    this.sanitizer = new DataSanitizer();
+/** Pure: normalizes an unknown error to a string message. */
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+export class SanitizationStep implements PipelineStep<SerializableData> {
+  readonly name = 'sanitization';
+  private readonly sanitizer: DataSanitizer;
+
+  constructor(sanitizer?: DataSanitizer) {
+    this.sanitizer = sanitizer ?? new DataSanitizer();
   }
 
   async execute(
@@ -16,41 +39,20 @@ export class SanitizationStep implements PipelineStep<SerializableData> {
     context: SerializationPipelineContext
   ): Promise<SerializableData> {
     const startTime = Date.now();
+    const elapsed = (): number => Date.now() - startTime; // impure: reads time
+
+    if (!context.sanitizeSensitiveData) {
+      return withResult(data, elapsed(), false);
+    }
 
     try {
-      // If sanitization is disabled, return data unchanged
-      if (!context.sanitizeSensitiveData) {
-        return {
-          ...data,
-          sanitizationDuration: 0,
-          sanitized: false,
-        };
-      }
-
-      // Apply sanitization
       const sanitizedData = this.sanitizer.sanitize(
         data,
         context.sanitizationContext
       );
-
-      const duration = Date.now() - startTime;
-
-      return {
-        ...sanitizedData,
-        sanitizationDuration: duration,
-        sanitized: true,
-      };
+      return withResult(sanitizedData, elapsed(), true);
     } catch (error) {
-      const duration = Date.now() - startTime;
-
-      // If sanitization fails, return original data with error
-      return {
-        ...data,
-        sanitizationDuration: duration,
-        sanitized: false,
-        sanitizationError:
-          error instanceof Error ? error.message : 'Sanitization error',
-      };
+      return withResult(data, elapsed(), false, toErrorMessage(error));
     }
   }
 }

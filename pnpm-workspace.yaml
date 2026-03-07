@@ -1,2 +1,6 @@
+packages:
+  - 'examples/*'
+  - 'modules/@syntropylog/types'
+
 ignoredBuiltDependencies:
   - esbuild

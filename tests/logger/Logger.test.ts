@@ -52,14 +52,25 @@ const createMockContextManager = (): IContextManager => ({
   reconfigureLoggingMatrix: vi.fn(),
 });
 
-const createMockTransport = (options: { level: LogLevel; name: string }): Transport => {
+const createMockTransport = (options: {
+  level: LogLevel;
+  name: string;
+}): Transport => {
   const t = {
     log: vi.fn().mockResolvedValue(undefined),
     level: options.level,
     name: options.name,
     isLevelEnabled: vi.fn().mockImplementation((level: LogLevel) => {
       // Simple implementation for testing
-      const levels: LogLevel[] = ['trace', 'debug', 'info', 'audit', 'warn', 'error', 'fatal'];
+      const levels: LogLevel[] = [
+        'trace',
+        'debug',
+        'info',
+        'audit',
+        'warn',
+        'error',
+        'fatal',
+      ];
       const targetIdx = levels.indexOf(options.level);
       const currentIdx = levels.indexOf(level);
       return currentIdx >= targetIdx;
@@ -74,11 +85,13 @@ const createMockPipelineComponents = () => ({
     process: vi.fn().mockImplementation((entry) => entry),
   },
   mockSerializationManager: {
-    serialize: vi.fn().mockImplementation((data) => Promise.resolve({
-      success: true,
-      data,
-      metadata: { serializer: 'test', stepDurations: {} }
-    })),
+    serialize: vi.fn().mockImplementation((data) =>
+      Promise.resolve({
+        success: true,
+        data,
+        metadata: { serializer: 'test', stepDurations: {} },
+      })
+    ),
   },
 });
 
@@ -94,7 +107,8 @@ describe('Logger', () => {
   beforeEach(() => {
     const pipelineComponents = createMockPipelineComponents();
     mockMasker = pipelineComponents.mockMasker as any;
-    mockSerializationManager = pipelineComponents.mockSerializationManager as any;
+    mockSerializationManager =
+      pipelineComponents.mockSerializationManager as any;
     mockContextManager = createMockContextManager() as any;
     mockSyntropyLog = {
       getLogger: vi.fn().mockImplementation((name, bindings) => {
@@ -108,6 +122,7 @@ describe('Logger', () => {
       serializationManager: mockSerializationManager,
       contextManager: mockContextManager,
       syntropyLogInstance: mockSyntropyLog,
+      transportPool: undefined,
     };
 
     transports = [
@@ -127,7 +142,9 @@ describe('Logger', () => {
       await logger.info('hello world');
 
       expect(transports[0].log).toHaveBeenCalledOnce();
-      expect(mockContextManager.getFilteredContext).toHaveBeenCalledWith('info');
+      expect(mockContextManager.getFilteredContext).toHaveBeenCalledWith(
+        'info'
+      );
       const logEntry = (transports[0].log as any).mock.calls[0][0];
       expect(logEntry).toMatchObject({
         level: 'info',
@@ -158,9 +175,12 @@ describe('Logger', () => {
       expect(mockSerializationManager.serialize).toHaveBeenCalledOnce();
       expect(mockMasker.process).toHaveBeenCalledOnce();
 
-      const serializerCallOrder = (mockSerializationManager.serialize as any).mock.invocationCallOrder[0];
-      const maskerCallOrder = (mockMasker.process as any).mock.invocationCallOrder[0];
-      const transportCallOrder = (transports[0].log as any).mock.invocationCallOrder[0];
+      const serializerCallOrder = (mockSerializationManager.serialize as any)
+        .mock.invocationCallOrder[0];
+      const maskerCallOrder = (mockMasker.process as any).mock
+        .invocationCallOrder[0];
+      const transportCallOrder = (transports[0].log as any).mock
+        .invocationCallOrder[0];
 
       expect(serializerCallOrder).toBeLessThan(maskerCallOrder);
       expect(maskerCallOrder).toBeLessThan(transportCallOrder);
@@ -175,10 +195,20 @@ describe('Logger', () => {
     });
 
     it('should respect the log level of individual transports', async () => {
-      const infoTransport = createMockTransport({ level: 'info', name: 'info-only' });
-      const errorTransport = createMockTransport({ level: 'error', name: 'error-only' });
+      const infoTransport = createMockTransport({
+        level: 'info',
+        name: 'info-only',
+      });
+      const errorTransport = createMockTransport({
+        level: 'error',
+        name: 'error-only',
+      });
 
-      const localLogger = new Logger('multi-transport', [infoTransport, errorTransport], dependencies);
+      const localLogger = new Logger(
+        'multi-transport',
+        [infoTransport, errorTransport],
+        dependencies
+      );
       localLogger.level = 'info';
 
       await localLogger.info('test info message');
@@ -261,6 +291,93 @@ describe('Logger', () => {
       const loggerWithTxId = logger.withTransactionId('tx-123');
       expect(loggerWithTxId).toBeInstanceOf(Logger);
       expect((loggerWithTxId as any).bindings.transactionId).toBe('tx-123');
+    });
+  });
+
+  describe('override / add / remove (per-call routing)', () => {
+    it('should send log only to overridden transport when override() is used', async () => {
+      const t1 = createMockTransport({ level: 'info', name: 't1' });
+      const t2 = createMockTransport({ level: 'info', name: 't2' });
+      const pool = new Map<string, Transport>([
+        ['t1', t1],
+        ['t2', t2],
+      ]);
+      const depsWithPool = { ...dependencies, transportPool: pool };
+      const loggerWithPool = new Logger('test', [t1, t2], depsWithPool);
+      loggerWithPool.level = 'info';
+
+      await loggerWithPool.override('t2').info('only to t2');
+
+      expect(t2.log).toHaveBeenCalledOnce();
+      expect(t1.log).not.toHaveBeenCalled();
+    });
+
+    it('should add and remove transports for next call only', async () => {
+      const t1 = createMockTransport({ level: 'info', name: 't1' });
+      const t2 = createMockTransport({ level: 'info', name: 't2' });
+      const pool = new Map<string, Transport>([
+        ['t1', t1],
+        ['t2', t2],
+      ]);
+      const depsWithPool = { ...dependencies, transportPool: pool };
+      const loggerWithPool = new Logger('test', [t1, t2], depsWithPool);
+      loggerWithPool.level = 'info';
+
+      await loggerWithPool.add('t2').info('first');
+      expect(t1.log).toHaveBeenCalled();
+      expect(t2.log).toHaveBeenCalled();
+      vi.clearAllMocks();
+
+      await loggerWithPool.remove('t1').info('second');
+      expect(t1.log).not.toHaveBeenCalled();
+      expect(t2.log).toHaveBeenCalled();
+    });
+  });
+
+  describe('audit and level bypass', () => {
+    it('should log audit even when level is error (audit bypasses level filter)', async () => {
+      logger.level = 'error';
+      await logger.audit('audit event');
+
+      expect(transports[0].log).toHaveBeenCalledOnce();
+      const logEntry = (transports[0].log as any).mock.calls[0][0];
+      expect(logEntry.level).toBe('audit');
+    });
+  });
+
+  describe('format args (util.format)', () => {
+    it('should format message with format args (message, ...args)', async () => {
+      await logger.info('hello %s', 'world');
+
+      expect(transports[0].log).toHaveBeenCalledOnce();
+      const logEntry = (transports[0].log as any).mock.calls[0][0];
+      expect(logEntry.message).toBe('hello world');
+    });
+
+    it('should format message when first arg is metadata (metadata, message, ...args)', async () => {
+      await logger.info({ reqId: 1 }, 'status %s', 'ok');
+
+      expect(transports[0].log).toHaveBeenCalledOnce();
+      const logEntry = (transports[0].log as any).mock.calls[0][0];
+      expect(logEntry.message).toBe('status ok');
+      expect(logEntry.reqId).toBe(1);
+    });
+  });
+
+  describe('trace level', () => {
+    it('should log trace when level allows', async () => {
+      const traceTransport = createMockTransport({
+        level: 'trace',
+        name: 'trace-transport',
+      });
+      const traceLogger = new Logger('test', [traceTransport], dependencies);
+      traceLogger.level = 'trace';
+
+      await traceLogger.trace('trace message');
+
+      expect(traceTransport.log).toHaveBeenCalledOnce();
+      const logEntry = (traceTransport.log as any).mock.calls[0][0];
+      expect(logEntry.level).toBe('trace');
     });
   });
 });

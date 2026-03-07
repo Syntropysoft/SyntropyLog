@@ -10,6 +10,28 @@ import { IHttpClientAdapter } from './http/adapters/adapter.types';
 import { IBrokerAdapter } from './brokers/adapter.types';
 import { MaskingStrategy } from './masking/MaskingEngine';
 
+// --- Pure predicates for custom validators (same input → same output, no side effects) ---
+
+/** Pure: true if value looks like a valid HTTP client adapter (object with request method). */
+export function isHttpClientAdapter(val: unknown): val is IHttpClientAdapter {
+  return (
+    typeof val === 'object' &&
+    val !== null &&
+    'request' in val &&
+    typeof (val as Record<string, unknown>).request === 'function'
+  );
+}
+
+/** Pure: true if value looks like a valid broker adapter (object with publish and subscribe methods). */
+export function isBrokerAdapter(val: unknown): val is IBrokerAdapter {
+  return (
+    typeof val === 'object' &&
+    val !== null &&
+    typeof (val as Record<string, unknown>).publish === 'function' &&
+    typeof (val as Record<string, unknown>).subscribe === 'function'
+  );
+}
+
 /**
  * @description Schema for a transport descriptor: enable the transport only when current env is in `env`.
  * @private
@@ -37,7 +59,16 @@ const loggerOptionsSchema = z
   .object({
     name: z.string().optional(),
     level: z
-      .enum(['audit', 'fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .enum([
+        'audit',
+        'fatal',
+        'error',
+        'warn',
+        'info',
+        'debug',
+        'trace',
+        'silent',
+      ])
       .optional(),
     serviceName: z.string().optional(),
     /**
@@ -171,14 +202,10 @@ export const redisConfigSchema = z
  */
 export const httpInstanceConfigSchema = z.object({
   instanceName: z.string(),
-  adapter: z.custom<IHttpClientAdapter>((val) => {
-    return (
-      typeof val === 'object' &&
-      val !== null &&
-      'request' in val &&
-      typeof (val as any).request === 'function'
-    );
-  }, "The provided adapter is invalid. It must be an object with a 'request' method."),
+  adapter: z.custom<IHttpClientAdapter>(
+    (val) => isHttpClientAdapter(val),
+    "The provided adapter is invalid. It must be an object with a 'request' method."
+  ),
   isDefault: z.boolean().optional(),
   propagate: z.array(z.string()).optional(),
   propagateFullContext: z.boolean().optional(),
@@ -225,9 +252,7 @@ const maskingConfigSchema = z
           /** Character to use for masking */
           maskChar: z.string().optional(),
           /** Custom masking function (for CUSTOM strategy) */
-          customMask: z
-            .function(z.tuple([z.string()]), z.string())
-            .optional(),
+          customMask: z.function(z.tuple([z.string()]), z.string()).optional(),
         })
       )
       .optional(),
@@ -246,14 +271,10 @@ const maskingConfigSchema = z
  */
 export const brokerInstanceConfigSchema = z.object({
   instanceName: z.string(),
-  adapter: z.custom<IBrokerAdapter>((val) => {
-    return (
-      typeof val === 'object' &&
-      val !== null &&
-      typeof (val as any).publish === 'function' &&
-      typeof (val as any).subscribe === 'function'
-    );
-  }, 'The provided broker adapter is invalid.'),
+  adapter: z.custom<IBrokerAdapter>(
+    (val) => isBrokerAdapter(val),
+    'The provided broker adapter is invalid.'
+  ),
   propagate: z.array(z.string()).optional(),
   propagateFullContext: z.boolean().optional(),
   isDefault: z.boolean().optional(),

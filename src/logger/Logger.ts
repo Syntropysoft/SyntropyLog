@@ -27,6 +27,77 @@ type PendingRouting =
   | { add: string[]; remove?: string[] }
   | { add?: string[]; remove: string[] };
 
+// --- Pure helpers (same inputs → same outputs, no side effects) ---
+
+/** Pure: should this level be logged given the minimum level? Audit always passes. */
+function shouldLogByLevel(
+  level: LogLevel,
+  minLevel: Exclude<LogLevel, 'silent'>
+): boolean {
+  if (level === 'silent') return false;
+  if (level === 'audit') return true;
+  return (
+    LOG_LEVEL_WEIGHTS[level as Exclude<LogLevel, 'silent'>] >=
+    LOG_LEVEL_WEIGHTS[minLevel]
+  );
+}
+
+/** Pure: parse Pino-like args into message and metadata. */
+function parseLogArgs(args: (LogFormatArg | LogMetadata | JsonValue)[]): {
+  message: string;
+  metadata: LogMetadata;
+} {
+  let message: string;
+  let metadata: LogMetadata = {};
+  if (args.length === 0) {
+    message = '';
+  } else if (
+    typeof args[0] === 'object' &&
+    args[0] !== null &&
+    !Array.isArray(args[0])
+  ) {
+    metadata = args[0] as LogMetadata;
+    message = (args[1] as string) || '';
+    const formatArgs = args.slice(2);
+    if (message && formatArgs.length > 0) {
+      message = util.format(message, ...formatArgs);
+    }
+  } else {
+    message = (args[0] as string) || '';
+    const formatArgs = args.slice(1);
+    if (message && formatArgs.length > 0) {
+      message = util.format(message, ...formatArgs);
+    }
+  }
+  return { message: message || '', metadata };
+}
+
+/** Pure: resolve effective transports from default list + pool and routing (no mutation). */
+function resolveEffectiveTransports(
+  defaultTransports: Transport[],
+  pool: Map<string, Transport> | undefined,
+  routing: PendingRouting | null
+): Transport[] {
+  if (!pool || !routing) return defaultTransports;
+  if ('override' in routing) {
+    return routing.override
+      .map((n) => pool.get(n))
+      .filter((t): t is Transport => t != null);
+  }
+  let list = [...defaultTransports];
+  if (routing.add?.length) {
+    for (const n of routing.add) {
+      const t = pool.get(n);
+      if (t) list.push(t);
+    }
+  }
+  if (routing.remove?.length) {
+    const removeSet = new Set(routing.remove);
+    list = list.filter((t) => !removeSet.has(t.name));
+  }
+  return list;
+}
+
 export interface LoggerDependencies {
   contextManager: IContextManager;
   serializationManager: SerializationManager;
@@ -35,8 +106,6 @@ export interface LoggerDependencies {
   /** Pool of transports by name, for override/add/remove per call. */
   transportPool?: Map<string, Transport>;
 }
-
-type LogLevelWithWeight = Exclude<LogLevel, 'silent'>;
 
 /**
  * @class Logger
@@ -81,9 +150,8 @@ export class Logger {
    */
   add(...names: string[]): this {
     const prev = this.pendingRouting;
-    const add = [...(prev && 'add' in prev ? prev.add ?? [] : []), ...names];
-    const remove =
-      prev && 'remove' in prev ? prev.remove ?? [] : undefined;
+    const add = [...(prev && 'add' in prev ? (prev.add ?? []) : []), ...names];
+    const remove = prev && 'remove' in prev ? (prev.remove ?? []) : undefined;
     this.pendingRouting = remove?.length ? { add, remove } : { add };
     return this;
   }
@@ -95,40 +163,23 @@ export class Logger {
   remove(...names: string[]): this {
     const prev = this.pendingRouting;
     const remove = [
-      ...(prev && 'remove' in prev ? prev.remove ?? [] : []),
+      ...(prev && 'remove' in prev ? (prev.remove ?? []) : []),
       ...names,
     ];
-    const add = prev && 'add' in prev ? prev.add ?? [] : undefined;
+    const add = prev && 'add' in prev ? (prev.add ?? []) : undefined;
     this.pendingRouting = add?.length ? { add, remove } : { remove };
     return this;
   }
 
-  /** Resolve effective transports for this call from pendingRouting and pool. */
+  /** Resolve effective transports for this call from pendingRouting and pool; clears pendingRouting. */
   private getEffectiveTransports(): Transport[] {
-    const pool = this.dependencies.transportPool;
-    if (!pool || !this.pendingRouting) {
-      return this.transports;
-    }
     const routing = this.pendingRouting;
     this.pendingRouting = null;
-
-    if ('override' in routing) {
-      return routing.override
-        .map((n) => pool.get(n))
-        .filter((t): t is Transport => t != null);
-    }
-    let list = [...this.transports];
-    if (routing.add?.length) {
-      for (const n of routing.add) {
-        const t = pool.get(n);
-        if (t) list.push(t);
-      }
-    }
-    if (routing.remove?.length) {
-      const removeSet = new Set(routing.remove);
-      list = list.filter((t) => !removeSet.has(t.name));
-    }
-    return list;
+    return resolveEffectiveTransports(
+      this.transports,
+      this.dependencies.transportPool,
+      routing
+    );
   }
 
   /**
@@ -144,26 +195,13 @@ export class Logger {
     level: LogLevel,
     ...args: (LogFormatArg | LogMetadata | JsonValue)[]
   ): Promise<void> {
-    if (level === 'silent') {
-      return;
-    }
+    if (level === 'silent') return;
 
-    // Guard clause: audit logs bypass standard level filtering
-    const isAudit = level === 'audit';
+    const minLevel = this.level as Exclude<LogLevel, 'silent'>;
+    if (!shouldLogByLevel(level, minLevel)) return;
 
-    // Type-guarded access to weights
-    if (!isAudit) {
-      const weightedLevel = level as LogLevelWithWeight;
-      const weightedThisLevel = this.level as LogLevelWithWeight;
+    const { message, metadata } = parseLogArgs(args);
 
-      if (
-        LOG_LEVEL_WEIGHTS[weightedLevel] < LOG_LEVEL_WEIGHTS[weightedThisLevel]
-      ) {
-        return;
-      }
-    }
-
-    // Build the base log entry with context and bindings
     const context = this.dependencies.contextManager.getFilteredContext(level);
     const logEntry: LogEntry = {
       ...context,
@@ -171,54 +209,18 @@ export class Logger {
       level,
       timestamp: new Date().toISOString(),
       service: this.name,
-      message: '', // Will be set below
+      message,
+      ...metadata,
     };
 
-    // Parse arguments following Pino-like signature
-    let message: string;
-    let metadata: LogMetadata = {};
-
-    if (args.length === 0) {
-      message = '';
-    } else if (
-      typeof args[0] === 'object' &&
-      args[0] !== null &&
-      !Array.isArray(args[0])
-    ) {
-      // First argument is metadata object: (metadata, message, ...formatArgs)
-      metadata = args[0] as LogMetadata;
-      message = (args[1] as string) || '';
-      const formatArgs = args.slice(2);
-
-      if (message && formatArgs.length > 0) {
-        message = util.format(message, ...formatArgs);
-      }
-    } else {
-      // First argument is message: (message, ...formatArgs)
-      message = (args[0] as string) || '';
-      const formatArgs = args.slice(1);
-
-      if (message && formatArgs.length > 0) {
-        message = util.format(message, ...formatArgs);
-      }
-    }
-
-    // Ensure message is never undefined
-    logEntry.message = message || '';
-
-    // Merge metadata into log entry
-    Object.assign(logEntry, metadata);
-
     // 1. Serialization Pipeline (Hygiene + Custom + Resilience)
-    const serializationResult = await this.dependencies.serializationManager.serialize(
-      logEntry,
-      {
+    const serializationResult =
+      await this.dependencies.serializationManager.serialize(logEntry, {
         depth: 0,
         maxDepth: 10,
         sensitiveFields: [],
         sanitize: true,
-      }
-    );
+      });
 
     const finalEntry = serializationResult.data;
 

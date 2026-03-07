@@ -12,9 +12,17 @@ import { ILogger } from './logger';
 import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
 import { LogLevel } from './logger/levels';
 import { LoggingMatrix } from './types';
-// Dynamic import for Redis to avoid requiring it when not used
-// import { RedisConnectionManager } from './redis/RedisConnectionManager';
 import { IBeaconRedis } from './redis/IBeaconRedis';
+
+/** Pure: throws if value is null/undefined; returns value otherwise. Use for guard clauses. */
+function requireDefined<T>(
+  value: T | null | undefined,
+  message: string
+): asserts value is T {
+  if (value == null) {
+    throw new Error(message);
+  }
+}
 
 /**
  * @class SyntropyLog
@@ -65,19 +73,19 @@ export class SyntropyLog extends EventEmitter {
   }
 
   public getLogger(name = 'default', bindings?: Record<string, any>): ILogger {
-    if (!this.lifecycleManager.loggerFactory) {
-      throw new Error('Logger Factory not available.');
-    }
-    return this.lifecycleManager.loggerFactory.getLogger(name, bindings);
+    requireDefined(
+      this.lifecycleManager.loggerFactory,
+      'Logger Factory not available.'
+    );
+    return this.lifecycleManager.loggerFactory!.getLogger(name, bindings);
   }
 
   public async getRedis(name: string): Promise<IBeaconRedis> {
     this.lifecycleManager.ensureReady();
-    if (!this.lifecycleManager.redisManager) {
-      throw new Error(
-        'Redis manager not available. Make sure Redis is configured and redis package is installed.'
-      );
-    }
+    requireDefined(
+      this.lifecycleManager.redisManager,
+      'Redis manager not available. Make sure Redis is configured and redis package is installed.'
+    );
     return this.lifecycleManager.redisManager.getInstance(name);
   }
 
@@ -108,16 +116,18 @@ export class SyntropyLog extends EventEmitter {
   }
 
   public getMasker() {
-    if (!this.lifecycleManager.maskingEngine) {
-      throw new Error('MaskingEngine not available.');
-    }
+    requireDefined(
+      this.lifecycleManager.maskingEngine,
+      'MaskingEngine not available.'
+    );
     return this.lifecycleManager.maskingEngine;
   }
 
   public getSerializer() {
-    if (!this.lifecycleManager.serializationManager) {
-      throw new Error('SerializationManager not available.');
-    }
+    requireDefined(
+      this.lifecycleManager.serializationManager,
+      'SerializationManager not available.'
+    );
     return this.lifecycleManager.serializationManager;
   }
 

@@ -15,13 +15,13 @@ export type JsonValue =
   | boolean
   | null
   | {
-    [key: string]: JsonValue;
-  }
+      [key: string]: JsonValue;
+    }
   | JsonValue[];
 
 /**
- * Helper function to convert unknown error to JsonValue
- * Moved from @syntropylog/types to internal types
+ * Pure: converts unknown error to JsonValue (same input → same output).
+ * Moved from @syntropylog/types to internal types.
  */
 export function errorToJsonValue(error: unknown): JsonValue {
   if (error instanceof Error) {
@@ -165,8 +165,8 @@ export type RedisValue =
   | undefined
   | RedisValue[]
   | {
-    [key: string]: RedisValue;
-  };
+      [key: string]: RedisValue;
+    };
 
 /**
  * Type for Redis list elements

@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# Lint only staged files (lint-staged runs eslint on src/**/*.ts)
+npx lint-staged
+
+# Run unit tests before allowing commit
+pnpm test
+
+pnpm run test:integration 
+
+pnpm build

@@ -139,7 +139,6 @@ describe('SyntropyLog', () => {
   };
 
   describe('Initialization (init)', () => {
-
     it('should delegate initialization to LifecycleManager and transition to READY state', async () => {
       const syntropy = SyntropyLog.getInstance();
       const readySpy = vi.fn();
@@ -176,14 +175,18 @@ describe('SyntropyLog', () => {
     });
 
     it('should emit an error and throw if config validation fails', async () => {
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
       const syntropy = SyntropyLog.getInstance();
       const errorSpy = vi.fn();
       syntropy.on('error', errorSpy);
 
       const invalidConfig = { logger: { level: 123 } }; // Invalid level
 
-      await expect(syntropy.init(invalidConfig as any)).rejects.toThrow(ZodError);
+      await expect(syntropy.init(invalidConfig as any)).rejects.toThrow(
+        ZodError
+      );
 
       expect(syntropy.getState()).toBe('ERROR');
       expect(errorSpy).toHaveBeenCalledOnce();
@@ -211,6 +214,40 @@ describe('SyntropyLog', () => {
   });
 
   describe('Getters and State Checks', () => {
+    it('should throw when getLogger() is called before init (Logger Factory not available)', () => {
+      const syntropy = SyntropyLog.getInstance();
+      expect(() => syntropy.getLogger()).toThrow(
+        'Logger Factory not available.'
+      );
+    });
+
+    it('should throw when getRedis() is called and Redis manager is not available', async () => {
+      const syntropy = SyntropyLog.getInstance();
+      await syntropy.init(validConfig);
+      (syntropy as any).lifecycleManager.redisManager = undefined;
+      await expect(syntropy.getRedis('default')).rejects.toThrow(
+        'Redis manager not available'
+      );
+    });
+
+    it('should throw when getMasker() is called and MaskingEngine is not available', async () => {
+      const syntropy = SyntropyLog.getInstance();
+      await syntropy.init(validConfig);
+      (syntropy as any).lifecycleManager.maskingEngine = undefined;
+      expect(() => syntropy.getMasker()).toThrow(
+        'MaskingEngine not available.'
+      );
+    });
+
+    it('should throw when getSerializer() is called and SerializationManager is not available', async () => {
+      const syntropy = SyntropyLog.getInstance();
+      await syntropy.init(validConfig);
+      (syntropy as any).lifecycleManager.serializationManager = undefined;
+      expect(() => syntropy.getSerializer()).toThrow(
+        'SerializationManager not available.'
+      );
+    });
+
     it('should return config when ready', async () => {
       const syntropy = SyntropyLog.getInstance();
       await syntropy.init(validConfig);
@@ -233,13 +270,15 @@ describe('SyntropyLog', () => {
 
     it('should throw when getFilteredContext() is called and not ready', () => {
       const syntropy = SyntropyLog.getInstance();
-      expect(() => syntropy.getFilteredContext('info' as any)).toThrow('SyntropyLog is not ready');
+      expect(() => syntropy.getFilteredContext('info' as any)).toThrow(
+        'SyntropyLog is not ready'
+      );
     });
 
     it('should return masker when ready', async () => {
       const syntropy = SyntropyLog.getInstance();
       // We need to manually set the masking engine in the mock for this to work
-      // or ensure init creates it. 
+      // or ensure init creates it.
       await syntropy.init(validConfig);
       expect(syntropy.getMasker()).toBeDefined();
     });
@@ -258,7 +297,7 @@ describe('SyntropyLog', () => {
 
       const newMatrix = {
         default: ['correlationId', 'userId'],
-        error: ['*']
+        error: ['*'],
       };
 
       expect(() => syntropy.reconfigureLoggingMatrix(newMatrix)).not.toThrow();
@@ -268,11 +307,11 @@ describe('SyntropyLog', () => {
       const syntropy = SyntropyLog.getInstance();
 
       const newMatrix = {
-        default: ['correlationId']
+        default: ['correlationId'],
       };
 
       expect(() => syntropy.reconfigureLoggingMatrix(newMatrix)).toThrow(
-        'SyntropyLog is not ready. Current state: \'NOT_INITIALIZED\'. Ensure init() has completed successfully by listening for the \'ready\' event.'
+        "SyntropyLog is not ready. Current state: 'NOT_INITIALIZED'. Ensure init() has completed successfully by listening for the 'ready' event."
       );
     });
 
@@ -281,10 +320,13 @@ describe('SyntropyLog', () => {
       await syntropy.init(validConfig);
 
       const contextManager = syntropy.getContextManager();
-      const reconfigureSpy = vi.spyOn(contextManager, 'reconfigureLoggingMatrix');
+      const reconfigureSpy = vi.spyOn(
+        contextManager,
+        'reconfigureLoggingMatrix'
+      );
 
       const newMatrix = {
-        default: ['correlationId']
+        default: ['correlationId'],
       };
 
       syntropy.reconfigureLoggingMatrix(newMatrix);

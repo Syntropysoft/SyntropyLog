@@ -12,8 +12,11 @@ import { SanitizationEngine } from '../sanitization/SanitizationEngine';
 import { JsonValue } from '../types';
 
 /** Transport or descriptor with optional env filter for conditional enabling. */
-type TransportEntry = Transport | { transport: Transport; env?: string | string[] };
+type TransportEntry =
+  | Transport
+  | { transport: Transport; env?: string | string[] };
 
+/** Pure: same entries + currentEnv → same result; no I/O or mutation. */
 function resolveTransportsForEnv(
   entries: TransportEntry[],
   currentEnv: string
@@ -101,7 +104,12 @@ export class LoggerFactory {
     const hasEnv =
       config.logger?.env && Object.keys(config.logger.env).length > 0;
 
-    if (hasTransportList && hasEnv && config.logger?.transportList && config.logger?.env) {
+    if (
+      hasTransportList &&
+      hasEnv &&
+      config.logger?.transportList &&
+      config.logger?.env
+    ) {
       const pool = new Map<string, Transport>(
         Object.entries(config.logger.transportList)
       );
@@ -209,7 +217,7 @@ export class LoggerFactory {
   }
 
   /**
-   * Creates a stable cache key for logger instances.
+   * Pure: stable cache key for logger instances (same name + bindings → same key).
    * @private
    */
   private createCacheKey(
