@@ -672,3 +672,5 @@ modules/
 !modules/@syntropylog/
 
 dist/
+
+docs/
