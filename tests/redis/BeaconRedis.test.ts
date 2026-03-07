@@ -305,6 +305,123 @@ describe('BeaconRedis', () => {
         { score: 2, value: 'm2' },
       ]);
     });
+
+    it('should delegate all transaction methods (rPush, lPop, rPop, lRange, lLen, lTrim, sAdd, sMembers, sIsMember, sRem, sCard, decr, incrBy, decrBy, hGet, ttl, zRange, zRangeWithScores, zRem, zCard, zScore, ping, info) then exec', async () => {
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(
+        undefined
+      );
+      const mockNativeTx: Record<string, ReturnType<typeof vi.fn>> = {
+        get: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        del: vi.fn().mockReturnThis(),
+        exists: vi.fn().mockReturnThis(),
+        expire: vi.fn().mockReturnThis(),
+        ttl: vi.fn().mockReturnThis(),
+        incr: vi.fn().mockReturnThis(),
+        decr: vi.fn().mockReturnThis(),
+        incrBy: vi.fn().mockReturnThis(),
+        decrBy: vi.fn().mockReturnThis(),
+        hGet: vi.fn().mockReturnThis(),
+        hSet: vi.fn().mockReturnThis(),
+        hGetAll: vi.fn().mockReturnThis(),
+        hDel: vi.fn().mockReturnThis(),
+        hExists: vi.fn().mockReturnThis(),
+        hIncrBy: vi.fn().mockReturnThis(),
+        lPush: vi.fn().mockReturnThis(),
+        rPush: vi.fn().mockReturnThis(),
+        lPop: vi.fn().mockReturnThis(),
+        rPop: vi.fn().mockReturnThis(),
+        lRange: vi.fn().mockReturnThis(),
+        lLen: vi.fn().mockReturnThis(),
+        lTrim: vi.fn().mockReturnThis(),
+        sAdd: vi.fn().mockReturnThis(),
+        sMembers: vi.fn().mockReturnThis(),
+        sIsMember: vi.fn().mockReturnThis(),
+        sRem: vi.fn().mockReturnThis(),
+        sCard: vi.fn().mockReturnThis(),
+        zAdd: vi.fn().mockReturnThis(),
+        zRange: vi.fn().mockReturnThis(),
+        zRangeWithScores: vi.fn().mockReturnThis(),
+        zRem: vi.fn().mockReturnThis(),
+        zCard: vi.fn().mockReturnThis(),
+        zScore: vi.fn().mockReturnThis(),
+        ping: vi.fn().mockReturnThis(),
+        info: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([1]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis
+        .multi()
+        .get('k')
+        .ttl('k')
+        .decr('c')
+        .incrBy('c', 2)
+        .decrBy('c', 1)
+        .hGet('h', 'f')
+        .rPush('list', 'x')
+        .rPush('list', ['y', 'z'])
+        .lPop('list')
+        .rPop('list')
+        .lRange('list', 0, -1)
+        .lLen('list')
+        .lTrim('list', 0, 9)
+        .sAdd('set', 'a')
+        .sAdd('set', ['b', 'c'])
+        .sMembers('set')
+        .sIsMember('set', 'a')
+        .sRem('set', 'b')
+        .sCard('set')
+        .zRange('z', 0, -1)
+        .zRange('z', 0, 1, { REV: true })
+        .zRangeWithScores('z', 0, -1)
+        .zRangeWithScores('z', 0, 1, { REV: true })
+        .zRem('z', 'm1')
+        .zRem('z', ['m2', 'm3'])
+        .zCard('z')
+        .zScore('z', 'm')
+        .ping()
+        .ping('hello')
+        .info()
+        .info('server');
+
+      const result = await tx.exec();
+
+      expect(result).toEqual([1]);
+      expect(mockNativeTx.ttl).toHaveBeenCalledWith('k');
+      expect(mockNativeTx.decr).toHaveBeenCalledWith('c');
+      expect(mockNativeTx.incrBy).toHaveBeenCalledWith('c', 2);
+      expect(mockNativeTx.decrBy).toHaveBeenCalledWith('c', 1);
+      expect(mockNativeTx.hGet).toHaveBeenCalledWith('h', 'f');
+      expect(mockNativeTx.rPush).toHaveBeenNthCalledWith(1, 'list', 'x');
+      expect(mockNativeTx.rPush).toHaveBeenNthCalledWith(2, 'list', ['y', 'z']);
+      expect(mockNativeTx.lPop).toHaveBeenCalledWith('list');
+      expect(mockNativeTx.rPop).toHaveBeenCalledWith('list');
+      expect(mockNativeTx.lRange).toHaveBeenCalledWith('list', 0, -1);
+      expect(mockNativeTx.lLen).toHaveBeenCalledWith('list');
+      expect(mockNativeTx.lTrim).toHaveBeenCalledWith('list', 0, 9);
+      expect(mockNativeTx.sAdd).toHaveBeenNthCalledWith(1, 'set', 'a');
+      expect(mockNativeTx.sAdd).toHaveBeenNthCalledWith(2, 'set', ['b', 'c']);
+      expect(mockNativeTx.sMembers).toHaveBeenCalledWith('set');
+      expect(mockNativeTx.sIsMember).toHaveBeenCalledWith('set', 'a');
+      expect(mockNativeTx.sRem).toHaveBeenCalledWith('set', 'b');
+      expect(mockNativeTx.sCard).toHaveBeenCalledWith('set');
+      expect(mockNativeTx.zRange).toHaveBeenNthCalledWith(1, 'z', 0, -1, undefined);
+      expect(mockNativeTx.zRange).toHaveBeenNthCalledWith(2, 'z', 0, 1, { REV: true });
+      expect(mockNativeTx.zRangeWithScores).toHaveBeenNthCalledWith(1, 'z', 0, -1, undefined);
+      expect(mockNativeTx.zRangeWithScores).toHaveBeenNthCalledWith(2, 'z', 0, 1, { REV: true });
+      expect(mockNativeTx.zRem).toHaveBeenNthCalledWith(1, 'z', 'm1');
+      expect(mockNativeTx.zRem).toHaveBeenNthCalledWith(2, 'z', ['m2', 'm3']);
+      expect(mockNativeTx.zCard).toHaveBeenCalledWith('z');
+      expect(mockNativeTx.zScore).toHaveBeenCalledWith('z', 'm');
+      expect(mockNativeTx.ping).toHaveBeenNthCalledWith(1, undefined);
+      expect(mockNativeTx.ping).toHaveBeenNthCalledWith(2, 'hello');
+      expect(mockNativeTx.info).toHaveBeenNthCalledWith(1, undefined);
+      expect(mockNativeTx.info).toHaveBeenNthCalledWith(2, 'server');
+    });
   });
 
   describe('Command Execution', () => {
@@ -384,7 +501,6 @@ describe('BeaconRedis', () => {
             message: 'Redis command failed',
             name: 'Error',
           }),
-          params: undefined,
         }),
         'Redis command [GET] failed.'
       );
@@ -1615,6 +1731,157 @@ describe('BeaconRedis', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith(
         expect.any(Object),
         'Redis command [INFO] executed successfully.'
+      );
+    });
+
+    it('should execute executeScript and log as SCRIPT_EXEC', async () => {
+      const script = 'return redis.call("GET", KEYS[1])';
+      const keys = ['mykey'];
+      const args: string[] = [];
+      const result = 'value';
+      vi.spyOn(mockCommandExecutor, 'executeScript').mockResolvedValue(
+        result
+      );
+
+      const out = await beaconRedis.executeScript(script, keys, args);
+
+      expect(out).toBe(result);
+      expect(mockCommandExecutor.executeScript).toHaveBeenCalledWith(
+        script,
+        keys,
+        args
+      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'SCRIPT_EXEC',
+          instance: 'test-instance',
+        }),
+        'Redis command [SCRIPT_EXEC] executed successfully.'
+      );
+    });
+
+    it('should execute subscribe via commandExecutor', async () => {
+      const listener = vi.fn();
+      vi.spyOn(mockCommandExecutor, 'subscribe').mockResolvedValue(undefined);
+
+      await beaconRedis.subscribe('ch', listener);
+
+      expect(mockCommandExecutor.subscribe).toHaveBeenCalledWith('ch', listener);
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'SUBSCRIBE' }),
+        'Redis command [SUBSCRIBE] executed successfully.'
+      );
+    });
+
+    it('should execute unsubscribe with optional channel', async () => {
+      vi.spyOn(mockCommandExecutor, 'unsubscribe').mockResolvedValue(
+        undefined
+      );
+
+      await beaconRedis.unsubscribe('ch');
+
+      expect(mockCommandExecutor.unsubscribe).toHaveBeenCalledWith('ch');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'UNSUBSCRIBE' }),
+        'Redis command [UNSUBSCRIBE] executed successfully.'
+      );
+    });
+
+    it('should execute publish and return subscriber count', async () => {
+      vi.spyOn(mockCommandExecutor, 'publish').mockResolvedValue(2);
+
+      const count = await beaconRedis.publish('ch', 'msg');
+
+      expect(count).toBe(2);
+      expect(mockCommandExecutor.publish).toHaveBeenCalledWith('ch', 'msg');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'PUBLISH' }),
+        'Redis command [PUBLISH] executed successfully.'
+      );
+    });
+
+    it('should execute scan and return cursor and keys', async () => {
+      const scanResult = { cursor: 5, keys: ['k1', 'k2'] };
+      vi.spyOn(mockCommandExecutor, 'scan').mockResolvedValue(scanResult);
+
+      const out = await beaconRedis.scan(0, { MATCH: 'user:*', COUNT: 10 });
+
+      expect(out).toEqual(scanResult);
+      expect(mockCommandExecutor.scan).toHaveBeenCalledWith(0, {
+        MATCH: 'user:*',
+        COUNT: 10,
+      });
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'SCAN' }),
+        'Redis command [SCAN] executed successfully.'
+      );
+    });
+
+    it('should execute keys and return key list', async () => {
+      const keyList = ['user:1', 'user:2'];
+      vi.spyOn(mockCommandExecutor, 'keys').mockResolvedValue(keyList);
+
+      const out = await beaconRedis.keys('user:*');
+
+      expect(out).toEqual(keyList);
+      expect(mockCommandExecutor.keys).toHaveBeenCalledWith('user:*');
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'KEYS' }),
+        'Redis command [KEYS] executed successfully.'
+      );
+    });
+
+    it('should use default log levels when config has no logging', async () => {
+      const configNoLogging: RedisInstanceConfig = {
+        instanceName: 'no-logging-instance',
+        mode: 'single',
+        url: 'redis://localhost:6379',
+        // no logging key
+      };
+      beaconRedis = new BeaconRedis(
+        configNoLogging,
+        mockConnectionManager,
+        mockCommandExecutor,
+        mockLogger
+      );
+      vi.spyOn(mockCommandExecutor, 'get').mockResolvedValue('ok');
+
+      await beaconRedis.get('key');
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'GET',
+          instance: 'no-logging-instance',
+        }),
+        'Redis command [GET] executed successfully.'
+      );
+    });
+
+    it('should use default error level when command fails and logging is undefined', async () => {
+      const configNoLogging: RedisInstanceConfig = {
+        instanceName: 'no-logging-instance',
+        mode: 'single',
+        url: 'redis://localhost:6379',
+      };
+      beaconRedis = new BeaconRedis(
+        configNoLogging,
+        mockConnectionManager,
+        mockCommandExecutor,
+        mockLogger
+      );
+      vi.spyOn(mockCommandExecutor, 'get').mockRejectedValue(
+        new Error('Redis down')
+      );
+
+      await expect(beaconRedis.get('key')).rejects.toThrow('Redis down');
+
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'GET',
+          instance: 'no-logging-instance',
+          err: expect.anything(),
+        }),
+        'Redis command [GET] failed.'
       );
     });
   });

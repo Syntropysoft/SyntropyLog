@@ -24,9 +24,13 @@ import {
   RedisSortedSetMember,
   RedisHashValue,
   RedisCommandOptions,
-  JsonValue,
-  errorToJsonValue,
 } from '../types';
+import {
+  getSuccessLogLevel,
+  getErrorLogLevel,
+  buildSuccessLogPayload,
+  buildErrorLogPayload,
+} from './redisCommandLogging';
 
 /**
  * Instrumented Redis transaction (MULTI/EXEC). Wraps the native client's transaction
@@ -355,47 +359,37 @@ export class BeaconRedis implements IBeaconRedis {
       const result = await commandFn();
       const durationMs = Date.now() - startTime;
 
-      // 3. On success, log the execution details.
-      // Determine the log level from the instance's specific configuration.
-      const logLevel = this.config.logging?.onSuccess ?? 'debug';
-
-      const logPayload: Record<string, RedisValue> = {
-        command: commandName,
-        instance: this.getInstanceName(),
+      // 3. On success, log the execution details (pure payload built in redisCommandLogging).
+      const logLevel = getSuccessLogLevel(this.config.logging);
+      const logPayload = buildSuccessLogPayload(
+        commandName,
+        this.getInstanceName(),
         durationMs,
-      };
-
-      // Conditionally add command parameters and return value to the log payload.
-      if (this.config.logging?.logCommandValues) {
-        logPayload.params = params;
-      }
-      if (this.config.logging?.logReturnValue) {
-        logPayload.result = result as RedisValue;
-      }
-
-      // The log is sent to the central pipeline where serialization and masking occur.
+        params,
+        result,
+        this.config.logging
+      );
       commandLogger[logLevel](
-        logPayload as Record<string, JsonValue>,
+        logPayload,
         `Redis command [${commandName}] executed successfully.`
       );
 
       return result;
     } catch (error) {
       const durationMs = Date.now() - startTime;
-      const errorLogLevel = this.config.logging?.onError ?? 'error';
-
-      // The error object will be serialized by the central SerializationManager.
+      const errorLogLevel = getErrorLogLevel(this.config.logging);
+      const errorPayload = buildErrorLogPayload(
+        commandName,
+        this.getInstanceName(),
+        durationMs,
+        error,
+        params,
+        this.config.logging
+      );
       commandLogger[errorLogLevel](
-        {
-          command: commandName,
-          instance: this.getInstanceName(),
-          durationMs,
-          err: errorToJsonValue(error),
-          params: this.config.logging?.logCommandValues ? params : undefined,
-        } as any,
+        errorPayload,
         `Redis command [${commandName}] failed.`
       );
-
       throw error;
     }
   }
