@@ -27,11 +27,11 @@ export class SanitizationEngine {
 
   /**
    * Processes a log metadata object, sanitizing all its string values.
-   * @param {Record<string, any>} meta - The metadata object to sanitize.
-   * @returns {Record<string, any>} A new, sanitized metadata object.
+   * @param {Record<string, unknown>} meta - The metadata object to sanitize.
+   * @returns {Record<string, unknown>} A new, sanitized metadata object.
    */
-  public process(meta: Record<string, any>): Record<string, any> {
-    let sanitized = this.sanitizeRecursively(meta);
+  public process(meta: Record<string, unknown>): Record<string, unknown> {
+    let sanitized = this.sanitizeRecursively(meta) as Record<string, unknown>;
     if (this.maskingEngine) {
       sanitized = this.maskingEngine.process(sanitized);
     }
@@ -41,10 +41,10 @@ export class SanitizationEngine {
   /**
    * @private
    * Recursively traverses an object or array to sanitize all string values.
-   * @param {any} data - The data to process.
-   * @returns {any} The sanitized data.
+   * @param {unknown} data - The data to process.
+   * @returns {unknown} The sanitized data.
    */
-  private sanitizeRecursively(data: any): any {
+  private sanitizeRecursively(data: unknown): unknown {
     if (typeof data === 'string') {
       return data.replace(this.ansiRegex, '');
     }
@@ -59,13 +59,11 @@ export class SanitizationEngine {
       data !== null &&
       data.constructor === Object
     ) {
-      const sanitizedObject: Record<string, any> = {};
-      for (const key in data) {
-        // hasOwnProperty is still a good practice here.
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
-          sanitizedObject[key] = this.sanitizeRecursively(
-            (data as Record<string, any>)[key]
-          );
+      const sanitizedObject: Record<string, unknown> = {};
+      const dataObj = data as Record<string, unknown>;
+      for (const key in dataObj) {
+        if (Object.prototype.hasOwnProperty.call(dataObj, key)) {
+          sanitizedObject[key] = this.sanitizeRecursively(dataObj[key]);
         }
       }
       return sanitizedObject;

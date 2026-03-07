@@ -131,7 +131,7 @@ export class Logger {
     this.name = name;
     this.transports = transports;
     this.dependencies = dependencies;
-    this.bindings = options.bindings ?? {};
+    this.bindings = (options.bindings ?? {}) as LogBindings;
     this.level = options.level ?? 'info';
   }
 
@@ -225,7 +225,9 @@ export class Logger {
     const finalEntry = serializationResult.data;
 
     // 2. Apply masking to the entire, serialized entry.
-    const maskedEntry = this.dependencies.maskingEngine.process(finalEntry);
+    const maskedEntry = this.dependencies.maskingEngine.process(
+      finalEntry as Record<string, unknown>
+    );
 
     // Dispatch to transports (use effective set for this call if override/add/remove was set)
     const effectiveTransports = this.getEffectiveTransports();
@@ -338,7 +340,7 @@ export class Logger {
    * @returns {ILogger} A new logger instance with the `retention` binding.
    */
   withRetention(rules: LogRetentionRules): ILogger {
-    return this.child({ retention: rules } as any);
+    return this.child({ retention: rules } as LogBindings);
   }
 
   /**

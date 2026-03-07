@@ -10,15 +10,19 @@ function withResult(
   sanitized: boolean,
   sanitizationError?: string
 ): SerializableData {
+  const base =
+    typeof data === 'object' && data !== null
+      ? (data as Record<string, unknown>)
+      : {};
   const result = {
-    ...data,
+    ...base,
     sanitizationDuration: duration,
     sanitized,
   };
   if (sanitizationError !== undefined) {
     (result as Record<string, unknown>).sanitizationError = sanitizationError;
   }
-  return result;
+  return result as SerializableData;
 }
 
 /** Pure: normalizes an unknown error to a string message. */

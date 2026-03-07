@@ -430,13 +430,15 @@ export class BeaconRedisMock implements IBeaconRedis {
     }
     const hash = entry.value as Record<string, string>;
     if (typeof fieldOrFields === 'string') {
-      const added = Object.hasOwn(hash, fieldOrFields) ? 0 : 1;
+      const added = Object.prototype.hasOwnProperty.call(hash, fieldOrFields)
+        ? 0
+        : 1;
       hash[fieldOrFields] = this._serialize(value);
       return added;
     }
     let addedCount = 0;
     for (const field of Object.keys(fieldOrFields)) {
-      if (!Object.hasOwn(hash, field)) addedCount++;
+      if (!Object.prototype.hasOwnProperty.call(hash, field)) addedCount++;
       hash[field] = this._serialize(fieldOrFields[field]);
     }
     return addedCount;
@@ -453,7 +455,7 @@ export class BeaconRedisMock implements IBeaconRedis {
     const hash = entry.value as Record<string, string>;
     const fieldsToDelete = Array.isArray(fields) ? fields : [fields];
     return fieldsToDelete.filter((field) => {
-      if (!Object.hasOwn(hash, field)) return false;
+      if (!Object.prototype.hasOwnProperty.call(hash, field)) return false;
       delete hash[field];
       return true;
     }).length;
@@ -461,7 +463,10 @@ export class BeaconRedisMock implements IBeaconRedis {
   /** @inheritdoc */
   async hExists(key: string, field: string): Promise<boolean> {
     const entry = this._getValidEntry(key, 'hash');
-    return entry != null && Object.hasOwn(entry.value as object, field);
+    return (
+      entry != null &&
+      Object.prototype.hasOwnProperty.call(entry.value as object, field)
+    );
   }
   /** @inheritdoc */
   async hIncrBy(

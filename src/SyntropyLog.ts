@@ -11,7 +11,7 @@ import { IContextManager } from './context';
 import { ILogger } from './logger';
 import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
 import { LogLevel } from './logger/levels';
-import { LoggingMatrix } from './types';
+import { LoggingMatrix, JsonValue } from './types';
 import { IBeaconRedis } from './redis/IBeaconRedis';
 
 /** Pure: throws if value is null/undefined; returns value otherwise. Use for guard clauses. */
@@ -57,7 +57,8 @@ export class SyntropyLog extends EventEmitter {
    * DO NOT USE in production code.
    */
   public static resetInstance(): void {
-    SyntropyLog.instance = undefined as any;
+    // Intentional reset for tests; instance is private
+    (SyntropyLog as unknown as { instance?: SyntropyLog }).instance = undefined;
   }
 
   public getState(): SyntropyLogState {
@@ -72,7 +73,10 @@ export class SyntropyLog extends EventEmitter {
     return this.lifecycleManager.shutdown();
   }
 
-  public getLogger(name = 'default', bindings?: Record<string, any>): ILogger {
+  public getLogger(
+    name = 'default',
+    bindings?: Record<string, JsonValue>
+  ): ILogger {
     requireDefined(
       this.lifecycleManager.loggerFactory,
       'Logger Factory not available.'
@@ -134,7 +138,7 @@ export class SyntropyLog extends EventEmitter {
   public _resetForTesting(): void {
     // This needs to re-create the lifecycle manager to properly reset state
     this.lifecycleManager.removeAllListeners();
-    (this as any).lifecycleManager = new LifecycleManager(this);
+    Object.assign(this, { lifecycleManager: new LifecycleManager(this) });
     this.removeAllListeners();
 
     this.lifecycleManager.on('ready', () => this.emit('ready'));

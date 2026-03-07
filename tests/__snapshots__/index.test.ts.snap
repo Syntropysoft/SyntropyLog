@@ -7,8 +7,6 @@ exports[`Main entry point (src/index.ts) > should match the public API snapshot 
   "ColorfulConsoleTransport",
   "CompactConsoleTransport",
   "ConsoleTransport",
-  "MockBrokerAdapter",
-  "MockHttpClient",
   "PrettyConsoleTransport",
   "SanitizationEngine",
   "SerializationComplexity",

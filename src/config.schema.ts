@@ -6,31 +6,9 @@
 
 import { z } from 'zod';
 import { Transport } from './logger/transports/Transport';
-import { IHttpClientAdapter } from './http/adapters/adapter.types';
-import { IBrokerAdapter } from './brokers/adapter.types';
 import { MaskingStrategy } from './masking/MaskingEngine';
 
 // --- Pure predicates for custom validators (same input → same output, no side effects) ---
-
-/** Pure: true if value looks like a valid HTTP client adapter (object with request method). */
-export function isHttpClientAdapter(val: unknown): val is IHttpClientAdapter {
-  return (
-    typeof val === 'object' &&
-    val !== null &&
-    'request' in val &&
-    typeof (val as Record<string, unknown>).request === 'function'
-  );
-}
-
-/** Pure: true if value looks like a valid broker adapter (object with publish and subscribe methods). */
-export function isBrokerAdapter(val: unknown): val is IBrokerAdapter {
-  return (
-    typeof val === 'object' &&
-    val !== null &&
-    typeof (val as Record<string, unknown>).publish === 'function' &&
-    typeof (val as Record<string, unknown>).subscribe === 'function'
-  );
-}
 
 /**
  * @description Schema for a transport descriptor: enable the transport only when current env is in `env`.
@@ -197,44 +175,6 @@ export const redisConfigSchema = z
   .optional();
 
 /**
- * @description Schema for a single HTTP client instance.
- * @internal Used by HTTP module; not part of main init config.
- */
-export const httpInstanceConfigSchema = z.object({
-  instanceName: z.string(),
-  adapter: z.custom<IHttpClientAdapter>(
-    (val) => isHttpClientAdapter(val),
-    "The provided adapter is invalid. It must be an object with a 'request' method."
-  ),
-  isDefault: z.boolean().optional(),
-  propagate: z.array(z.string()).optional(),
-  propagateFullContext: z.boolean().optional(),
-  logging: z
-    .object({
-      onSuccess: z.enum(['trace', 'debug', 'info']).default('info'),
-      onError: z.enum(['warn', 'error', 'fatal']).default('error'),
-      logSuccessBody: z.boolean().default(false),
-      logSuccessHeaders: z.boolean().default(false),
-      onRequest: z.enum(['trace', 'debug', 'info']).default('info'),
-      logRequestBody: z.boolean().default(false),
-      logRequestHeaders: z.boolean().default(false),
-    })
-    .partial()
-    .optional(),
-});
-
-/**
- * @description Schema for the main HTTP configuration block.
- * @internal Used by HTTP module; not part of main init config.
- */
-export const httpConfigSchema = z
-  .object({
-    instances: z.array(httpInstanceConfigSchema),
-    default: z.string().optional(),
-  })
-  .optional();
-
-/**
  * @description Schema for the main data masking configuration block.
  */
 const maskingConfigSchema = z
@@ -262,32 +202,6 @@ const maskingConfigSchema = z
     preserveLength: z.boolean().optional(),
     /** Enable default rules for common data types */
     enableDefaultRules: z.boolean().optional(),
-  })
-  .optional();
-
-/**
- * @description Schema for a single message broker client instance.
- * @internal Used by brokers module; not part of main init config.
- */
-export const brokerInstanceConfigSchema = z.object({
-  instanceName: z.string(),
-  adapter: z.custom<IBrokerAdapter>(
-    (val) => isBrokerAdapter(val),
-    'The provided broker adapter is invalid.'
-  ),
-  propagate: z.array(z.string()).optional(),
-  propagateFullContext: z.boolean().optional(),
-  isDefault: z.boolean().optional(),
-});
-
-/**
- * @description Schema for the main message broker configuration block.
- * @internal Used by brokers module; not part of main init config.
- */
-export const brokerConfigSchema = z
-  .object({
-    instances: z.array(brokerInstanceConfigSchema),
-    default: z.string().optional(),
   })
   .optional();
 

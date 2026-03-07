@@ -4,39 +4,7 @@
  * This mock is framework agnostic and works with both Vitest and Jest.
  */
 
-/**
- * Creates a simple agnostic mock function without spy capabilities
- */
-function createAgnosticMockFn<T = any>(implementation?: (...args: any[]) => T) {
-  const mockFn = (...args: any[]) => {
-    if (implementation) {
-      return implementation(...args);
-    }
-    return undefined;
-  };
-
-  // Basic mock properties
-  (mockFn as any).mockClear = () => { };
-  (mockFn as any).mockReset = () => { };
-  (mockFn as any).mockImplementation = (impl: (...args: any[]) => T) => {
-    return createAgnosticMockFn(impl);
-  };
-  (mockFn as any).mockReturnValue = (value: T) => {
-    return createAgnosticMockFn(() => value);
-  };
-  (mockFn as any).mockResolvedValue = (value: T) => {
-    return createAgnosticMockFn(() => Promise.resolve(value));
-  };
-  (mockFn as any).mockRejectedValue = (value: any) => {
-    return createAgnosticMockFn(() => Promise.reject(value));
-  };
-
-  return mockFn as any;
-}
-
 import { IBeaconRedis, IBeaconRedisTransaction } from '../redis/IBeaconRedis';
-import { RedisInstanceReconfigurableConfig } from '../config';
-import { RedisZMember } from '../redis/redis.types';
 
 // Function that throws error for Lua script execution in transaction - outside of any mock context
 const throwScriptError = () => {

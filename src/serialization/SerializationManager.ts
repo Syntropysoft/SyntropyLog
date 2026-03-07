@@ -5,7 +5,6 @@
 
 import {
   ISerializer,
-  SerializationContext,
   SerializationResult,
   SerializationComplexity,
 } from './types';
@@ -167,9 +166,9 @@ export class SerializationManager {
         this.metrics.minSerializationDuration === 0
           ? serializationDuration
           : Math.min(
-            this.metrics.minSerializationDuration,
-            serializationDuration
-          );
+              this.metrics.minSerializationDuration,
+              serializationDuration
+            );
 
       // Operation timeout metrics
       const operationTimeout = result.metadata.operationTimeout || 0;
@@ -206,12 +205,12 @@ export class SerializationManager {
       averageSerializationDuration:
         this.metrics.totalSerializations > 0
           ? this.metrics.totalSerializationDuration /
-          this.metrics.totalSerializations
+            this.metrics.totalSerializations
           : 0,
       averageOperationTimeout:
         this.metrics.successfulSerializations > 0
           ? this.metrics.totalOperationTimeout /
-          this.metrics.successfulSerializations
+            this.metrics.successfulSerializations
           : 0,
       maxSerializationDuration: this.metrics.maxSerializationDuration,
       minSerializationDuration: this.metrics.minSerializationDuration,

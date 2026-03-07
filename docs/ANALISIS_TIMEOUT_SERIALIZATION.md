@@ -78,32 +78,17 @@ this.metrics.timeoutStrategy = timeoutStrategy.getStrategyName();
 // y se mete en result.metadata
 ```
 
-- **`selectTimeoutStrategy(data)`:** Elige una estrategia según `data.type`:
-  - `PrismaQuery` → PrismaTimeoutStrategy  
-  - `TypeORMQuery` → TypeORMTimeoutStrategy  
-  - `MySQLQuery`, `PostgreSQLQuery`, `SQLServerQuery`, `OracleQuery` → estrategias concretas  
-  - resto → DefaultTimeoutStrategy (5000 ms).
+- **`selectTimeoutStrategy(data)`:** Siempre usa **DefaultTimeoutStrategy** (5000 ms). Los adaptadores por tipo (Prisma, TypeORM, MySQL, etc.) se eliminaron; solo queda la estrategia `default`.
 - **`operationTimeout`:** Es un número que se escribe en **métricas y metadata** (p. ej. “recomendación” de timeout para esa operación). **No se usa** para hacer `Promise.race` ni para cortar ningún step.
-- **`timeoutStrategy`:** Nombre de la estrategia usada, también solo metadata (métricas, `timeoutStrategyDistribution`).
+- **`timeoutStrategy`:** Nombre de la estrategia usada, también solo metadata (métricas, `timeoutStrategyDistribution`). En el código actual siempre es `default`.
 
 Es decir: todo esto es **informativo**. El límite real de ejecución sigue siendo solo `globalTimeout` (derivado de `serializationContext.timeoutMs` o 50 ms).
 
 ---
 
-## 4. Quién produce `data.type` (PrismaQuery, TypeORMQuery, …)
+## 4. Estrategia de timeout en el pipeline
 
-Esas estrategias solo se eligen si los **datos** que llegan al pipeline tienen `type` igual a:
-
-- `PrismaQuery`
-- `TypeORMQuery`
-- `MySQLQuery`
-- `PostgreSQLQuery`
-- `SQLServerQuery`
-- `OracleQuery`
-
-Eso tendría sentido si existieran **serializadores o adaptadores** que, al serializar consultas de Prisma/TypeORM/etc., pusieran ese `type` en el objeto. En el código actual del framework (sin adaptadores específicos de DB), el Logger serializa el **log entry** (mensaje, metadata, bindings, etc.), que normalmente **no** tiene ese `type`. Por tanto, en el flujo estándar siempre se usa **DefaultTimeoutStrategy** y el resto de estrategias no se activan.
-
-Si en el pasado había adaptadores que emitían esos tipos y ya no están, entonces la lógica de selección por tipo es **código legacy**: solo aporta valor si en el futuro alguien vuelve a inyectar datos con esos `type` o se expone para serializers custom.
+El pipeline usa **una única estrategia de timeout**: **DefaultTimeoutStrategy** (nombre `default`, 5000 ms). No existe ya selección por `data.type`; los adaptadores por tipo (Prisma, TypeORM, MySQL, PostgreSQL, SQL Server, Oracle) se eliminaron. Todo el flujo (Logger, log entry, metadata, etc.) usa siempre la estrategia `default`.
 
 ---
 
@@ -122,21 +107,21 @@ Si en el pasado había adaptadores que emitían esos tipos y ya no están, enton
 |----------|------------|-------------|
 | **Timeout que limita** | `SerializationPipeline.process()` → `globalTimeout = context.serializationContext?.timeoutMs \|\| 50` | Máximo tiempo por step; cualquier serializador está acotado por este valor. |
 | **Config del usuario** | `logger.serializerTimeoutMs` (default 50) | Se guarda en `SerializationManager.config.timeoutMs` pero **no se inyecta** en el context que recibe el pipeline cuando el Logger llama a `serialize()`. |
-| **operationTimeout / timeoutStrategy** | Calculados con `selectTimeoutStrategy()` y estrategias por tipo | Solo **metadata y métricas**. No controlan ni cortan la ejecución. |
-| **Estrategias por tipo** | Prisma, TypeORM, MySQL, … | Solo se usan si `data.type` es uno de esos. En el flujo actual del Logger, no se suele setear; en la práctica suele ganar siempre **default**. |
+| **operationTimeout / timeoutStrategy** | Calculados con `selectTimeoutStrategy()` → siempre `default` | Solo **metadata y métricas**. No controlan ni cortan la ejecución. |
+| **Estrategia de timeout** | Solo **DefaultTimeoutStrategy** (`default`, 5000 ms) | Los adaptadores por tipo (Prisma, TypeORM, MySQL, etc.) se eliminaron. |
 
 Conclusiones para decidir qué hacer:
 
 1. **Que el serializador respete el timeout de configuración:** Hoy no ocurre del todo, porque `serializerTimeoutMs` no llega al pipeline. Habría que conectar `config.timeoutMs` (o equivalente) con `serializationContext.timeoutMs` en las llamadas a `serialize()` (p. ej. en SerializationManager o en el Logger).
-2. **selectTimeoutStrategy y estrategias por tipo:** Tienen sentido si hay (o habrá) datos con `type` Prisma/TypeORM/etc. Si el framework ya no usa adaptadores que emitan esos tipos, es código que en el flujo actual no se usa; se puede mantener como legacy/documentación o simplificar a “siempre default” según convenga.
-3. **No tocar (por ahora):** No se han hecho cambios en el código; este documento es solo análisis para decidir los siguientes pasos.
+2. **selectTimeoutStrategy:** Simplificado a “siempre default”. No hay estrategias por tipo; solo **DefaultTimeoutStrategy**.
+3. **Estado del código:** Eliminadas las estrategias por adaptador (Prisma, TypeORM, MySQL, PostgreSQL, SQL Server, Oracle); solo queda la estrategia `default`.
 
 ---
 
 ## 7. Referencias rápidas de código
 
 - Timeout que limita: `src/serialization/SerializationPipeline.ts` (~líneas 55–79).
-- Selector de estrategia: `src/serialization/SerializationPipeline.ts` ~`selectTimeoutStrategy`, `initializeDefaultStrategies`, clases `*TimeoutStrategy`.
+- Selector de estrategia: `src/serialization/SerializationPipeline.ts` ~`selectTimeoutStrategy`, `initializeDefaultStrategies`, `DefaultTimeoutStrategy` (única estrategia).
 - Context del pipeline: `src/serialization/SerializationManager.ts` ~`serialize()` (construcción de `pipelineContext`).
 - Llamada desde el Logger: `src/logger/Logger.ts` ~`_log()` → `serializationManager.serialize(logEntry, { depth, maxDepth, sensitiveFields, sanitize })`.
 - Config: `config.schema.ts` `serializerTimeoutMs`; `LifecycleManager` / `LoggerFactory` donde se crea `SerializationManager` con `timeoutMs`.

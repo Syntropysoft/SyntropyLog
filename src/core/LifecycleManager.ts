@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import type { ChildProcess } from 'child_process';
 import { ZodError } from 'zod';
 import { SyntropyLogConfig } from '../config';
 import { syntropyLogConfigSchema } from '../config.schema';
@@ -8,11 +9,9 @@ import { LoggerFactory } from '../logger/LoggerFactory';
 import { RedisManager } from '../redis/RedisManager';
 import { sanitizeConfig } from '../utils/sanitizeConfig';
 import { SerializationManager } from '../serialization/SerializationManager';
-import { SerializationComplexity } from '../serialization/types';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
 import { errorToJsonValue } from '../types';
-import { IBeaconRedis } from '../redis/IBeaconRedis';
 
 export type SyntropyLogState =
   | 'NOT_INITIALIZED'
@@ -27,7 +26,7 @@ export class LifecycleManager extends EventEmitter {
   public config: SyntropyLogConfig | undefined;
   public contextManager: IContextManager | undefined;
   public loggerFactory: LoggerFactory | undefined;
-  public redisManager: any | undefined; // ✅ Internal, no exposed
+  public redisManager: RedisManager | undefined;
   public serializationManager: SerializationManager;
   public maskingEngine: MaskingEngine;
   private logger: ILogger | null = null;
@@ -68,7 +67,8 @@ export class LifecycleManager extends EventEmitter {
 
       this.serializationManager = new SerializationManager({
         timeoutMs: this.config.logger?.serializerTimeoutMs,
-        sanitizeSensitiveData: this.config.masking?.enableDefaultRules !== false,
+        sanitizeSensitiveData:
+          this.config.masking?.enableDefaultRules !== false,
       });
 
       this.maskingEngine = new MaskingEngine({
@@ -178,22 +178,30 @@ export class LifecycleManager extends EventEmitter {
       this.logger?.info('🔍 Starting external process termination...');
 
       // Get all active handles
-      const activeHandles = (process as any)._getActiveHandles?.() || [];
+      const activeHandles =
+        (
+          process as NodeJS.Process & { _getActiveHandles?(): unknown[] }
+        )._getActiveHandles?.() ?? [];
       this.logger?.debug(`Total active handles: ${activeHandles.length}`);
 
       // Filter child processes that need to be terminated
-      const childProcesses = activeHandles.filter((handle: any) => {
-        const isChildProcess = handle.constructor.name === 'ChildProcess';
-        const isConnected = handle.connected;
-        const hasRegexTest = handle.spawnargs?.some((arg: string) =>
+      const childProcesses = activeHandles.filter((handle: unknown) => {
+        const h = handle as {
+          constructor: { name: string };
+          connected?: boolean;
+          spawnargs?: string[];
+        };
+        const isChildProcess = h.constructor?.name === 'ChildProcess';
+        const isConnected = h.connected;
+        const hasRegexTest = h.spawnargs?.some((arg: string) =>
           arg.includes('regex-test')
         );
 
         this.logger?.debug(
-          `Handle: ${handle.constructor.name}, connected: ${isConnected}, hasRegexTest: ${hasRegexTest}`
+          `Handle: ${h.constructor?.name}, connected: ${isConnected}, hasRegexTest: ${hasRegexTest}`
         );
 
-        return isChildProcess && isConnected && hasRegexTest;
+        return Boolean(isChildProcess && isConnected && hasRegexTest);
       });
 
       this.logger?.info(
@@ -206,7 +214,7 @@ export class LifecycleManager extends EventEmitter {
         );
 
         // Terminate each child process directly with SIGKILL for maximum effectiveness
-        for (const childProcess of childProcesses) {
+        for (const childProcess of childProcesses as ChildProcess[]) {
           try {
             this.logger?.debug(
               `Terminating process ${childProcess.pid} with SIGKILL...`
@@ -228,12 +236,23 @@ export class LifecycleManager extends EventEmitter {
         await new Promise((resolve) => setTimeout(resolve, 200));
 
         // Check if processes are still active
-        const remainingHandles = (process as any)._getActiveHandles?.() || [];
+        const remainingHandles =
+          (
+            process as NodeJS.Process & { _getActiveHandles?(): unknown[] }
+          )._getActiveHandles?.() ?? [];
         const remainingChildProcesses = remainingHandles.filter(
-          (handle: any) =>
-            handle.constructor.name === 'ChildProcess' &&
-            handle.connected &&
-            handle.spawnargs?.some((arg: string) => arg.includes('regex-test'))
+          (handle: unknown) => {
+            const h = handle as {
+              constructor: { name: string };
+              connected?: boolean;
+              spawnargs?: string[];
+            };
+            return (
+              h.constructor?.name === 'ChildProcess' &&
+              h.connected &&
+              h.spawnargs?.some((arg: string) => arg.includes('regex-test'))
+            );
+          }
         );
 
         if (remainingChildProcesses.length > 0) {
@@ -242,7 +261,7 @@ export class LifecycleManager extends EventEmitter {
           );
 
           // Try to disconnect the processes
-          for (const childProcess of remainingChildProcesses) {
+          for (const childProcess of remainingChildProcesses as ChildProcess[]) {
             try {
               childProcess.disconnect();
               this.logger?.debug(`Process ${childProcess.pid} disconnected`);
@@ -272,7 +291,7 @@ export class LifecycleManager extends EventEmitter {
     config: SyntropyLogConfig;
     contextManager: IContextManager;
     loggerFactory: LoggerFactory;
-    redisManager: any; // ✅ Internal, no exposed
+    redisManager: RedisManager;
   } {
     if (this.state !== 'READY') {
       throw new Error(

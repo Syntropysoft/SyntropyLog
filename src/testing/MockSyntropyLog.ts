@@ -83,7 +83,7 @@ export class MockSyntropyLog implements IMockSyntropyLog {
     };
   }
 
-  getLogger(name?: string): IMockLogger {
+  getLogger(_name?: string): IMockLogger {
     return this.logger;
   }
 
@@ -91,7 +91,7 @@ export class MockSyntropyLog implements IMockSyntropyLog {
     return this.contextManager;
   }
 
-  init(config?: any): Promise<void> {
+  init(_config?: unknown): Promise<void> {
     return Promise.resolve();
   }
 

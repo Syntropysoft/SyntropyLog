@@ -4,8 +4,6 @@ import { SyntropyLog } from '../src/SyntropyLog';
 import { LoggerFactory } from '../src/logger/LoggerFactory';
 import { ContextManager } from '../src/context/ContextManager';
 import { RedisManager } from '../src/redis/RedisManager';
-import { HttpManager } from '../src/http/HttpManager';
-import { BrokerManager } from '../src/brokers/BrokerManager';
 
 // Use vi.hoisted to make the mockLogger available to the hoisted vi.mock calls.
 const { mockLogger } = vi.hoisted(() => ({
@@ -68,38 +66,10 @@ vi.mock('../src/redis/RedisManager', () => {
   };
 });
 
-vi.mock('../src/http/HttpManager', () => {
-  return {
-    HttpManager: vi.fn().mockImplementation(function () {
-      return {
-        init: vi.fn(),
-        shutdown: vi.fn().mockResolvedValue(undefined),
-        getInstance: vi.fn().mockReturnValue({
-          instanceName: 'api2',
-        }),
-      };
-    }),
-  };
-});
-
-vi.mock('../src/brokers/BrokerManager', () => {
-  return {
-    BrokerManager: vi.fn().mockImplementation(function () {
-      return {
-        init: vi.fn(),
-        shutdown: vi.fn().mockResolvedValue(undefined),
-        getInstance: vi.fn(),
-      };
-    }),
-  };
-});
-
 describe('SyntropyLog', () => {
   const MockedLoggerFactory = vi.mocked(LoggerFactory);
   const MockedContextManager = vi.mocked(ContextManager);
   const MockedRedisManager = vi.mocked(RedisManager);
-  const MockedHttpManager = vi.mocked(HttpManager);
-  const MockedBrokerManager = vi.mocked(BrokerManager);
 
   // Helper to reset the singleton SyntropyLog instance for test isolation.
   const resetSyntropySingleton = () => {

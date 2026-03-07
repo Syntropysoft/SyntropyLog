@@ -47,8 +47,12 @@ export class SerializationStep implements PipelineStep<SerializableData> {
       const duration = Date.now() - startTime;
 
       // 4. Return serialized data with metadata
+      const dataBase =
+        typeof result.data === 'object' && result.data !== null
+          ? (result.data as Record<string, unknown>)
+          : {};
       return {
-        ...result.data,
+        ...dataBase,
         serializationDuration: duration,
         serializer: serializer.name,
         serializationComplexity:
@@ -56,8 +60,12 @@ export class SerializationStep implements PipelineStep<SerializableData> {
       };
     } catch (error) {
       // Ensure error carries serializer name
-      if (error instanceof Error && !(error as any).serializer) {
-        (error as any).serializer = serializer.name;
+      if (
+        error instanceof Error &&
+        !(error as { serializer?: string }).serializer
+      ) {
+        (error as unknown as { serializer: string }).serializer =
+          serializer.name;
       }
       throw error;
     }

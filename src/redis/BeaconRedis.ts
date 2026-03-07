@@ -114,17 +114,11 @@ class BeaconRedisTransaction implements IBeaconRedisTransaction {
     this.nativeTx.hIncrBy(key, field, increment);
     return this;
   }
-  lPush(
-    key: string,
-    elements: RedisListElement | RedisListElement[]
-  ): this {
+  lPush(key: string, elements: RedisListElement | RedisListElement[]): this {
     this.nativeTx.lPush(key, elements as any);
     return this;
   }
-  rPush(
-    key: string,
-    elements: RedisListElement | RedisListElement[]
-  ): this {
+  rPush(key: string, elements: RedisListElement | RedisListElement[]): this {
     this.nativeTx.rPush(key, elements as any);
     return this;
   }
@@ -328,9 +322,7 @@ export class BeaconRedis implements IBeaconRedis {
    * Runs a transaction discard with the same instrumentation as single commands.
    * @internal Used by BeaconRedisTransaction
    */
-  public runTransactionDiscard(
-    discardFn: () => Promise<void>
-  ): Promise<void> {
+  public runTransactionDiscard(discardFn: () => Promise<void>): Promise<void> {
     return this._executeCommand('DISCARD', discardFn);
   }
 

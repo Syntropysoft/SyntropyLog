@@ -62,7 +62,7 @@ export function createMockLogger(): MockLogger {
     fatal: (message: string, metadata?: any) => {
       logs.push({ level: 'fatal', message, metadata });
     },
-    withSource: (source: string) => {
+    withSource: (_source: string) => {
       return createMockLogger(); // Return new instance with source context
     },
   };

@@ -11,6 +11,7 @@ module.exports = tseslint.config(
         ignores: [
             'node_modules/',
             'dist/',
+            'modules/**',
             'rollup.config.mjs',
             'eslint.config.js',
             'coverage/',
@@ -43,6 +44,13 @@ module.exports = tseslint.config(
             '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
             '@typescript-eslint/explicit-module-boundary-types': 'off',
             '@typescript-eslint/no-explicit-any': 'warn',
+        },
+    },
+    // Relax no-explicit-any for testing mocks and redis (heavy use of any for flexibility)
+    {
+        files: ['src/testing/**/*.ts', 'src/redis/**/*.ts'],
+        rules: {
+            '@typescript-eslint/no-explicit-any': 'off',
         },
     }
 );

@@ -5,11 +5,7 @@
  * It does not contain any logic for instrumentation, connection management, or error handling.
  */
 
-import {
-  NodeRedisClient,
-  RedisZMember,
-  RedisTransaction,
-} from './redis.types';
+import { NodeRedisClient, RedisZMember, RedisTransaction } from './redis.types';
 import {
   RedisValue,
   RedisListElement,
@@ -324,7 +320,10 @@ export class RedisCommandExecutor {
    * @param {RedisSetMember} member The member to check for.
    * @returns {Promise<boolean>} True if the member is in the set, false otherwise.
    */
-  public async sIsMember(key: string, member: RedisSetMember): Promise<boolean> {
+  public async sIsMember(
+    key: string,
+    member: RedisSetMember
+  ): Promise<boolean> {
     return this.client.sIsMember(key, member as any);
   }
 

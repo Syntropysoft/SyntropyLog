@@ -5,7 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ILogger } from '../../src/logger';
-import { createFailingRedisClient, createFailingHttpClient } from '../../src/utils/createFailingClient';
+import { createFailingRedisClient } from '../../src/utils/createFailingClient';
 import { IBeaconRedis } from '../../src/redis/IBeaconRedis';
 
 // --- Mocks ---
@@ -79,30 +79,6 @@ describe('createFailingClient', () => {
       expect(mockLogger.warn).toHaveBeenCalledWith(
         { errorMessage: expectedError, arguments: ['my-key', 'my-value', 3600] },
         "Attempted to use property 'set' on a failing client."
-      );
-    });
-  });
-
-  describe('createFailingHttpClient', () => {
-    const instanceName = 'my-api';
-    const type = 'axios';
-    let failingClient: any;
-
-    beforeEach(() => {
-      failingClient = createFailingHttpClient(instanceName, type, mockLogger);
-    });
-
-    it('should reject with an error when calling a method like "request"', async () => {
-      const expectedError = `The HTTP client "${instanceName}" (type: ${type}) could not be initialized. Check the configuration and startup logs.`;
-      const requestArgs = { url: '/test', method: 'POST' };
-
-      const promise = failingClient.request(requestArgs);
-
-      await expect(promise).rejects.toThrow(expectedError);
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        { errorMessage: expectedError, arguments: [requestArgs] },
-        "Attempted to use property 'request' on a failing client."
       );
     });
   });

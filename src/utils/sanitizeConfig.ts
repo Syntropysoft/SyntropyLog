@@ -4,8 +4,6 @@
  */
 
 import { Transport } from '../logger/transports/Transport';
-import { IHttpClientAdapter } from '../http/adapters/adapter.types';
-import { IBrokerAdapter } from '../brokers';
 
 const MASK = '[CONFIG_MASKED]';
 
@@ -30,25 +28,10 @@ const SENSITIVE_KEYS = [
  * (like a Transport or an Adapter) that should not be deeply cloned or sanitized.
  * This is crucial to preserve methods and internal state of user-provided instances.
  * @param {any} value - The value to check.
- * @returns {value is Transport | IHttpClientAdapter | IBrokerAdapter} True if the value is a special instance.
+ * @returns {value is Transport} True if the value is a special instance (Transport).
  */
-function isSpecialInstance(
-  value: unknown
-): value is Transport | IHttpClientAdapter | IBrokerAdapter {
-  if (value instanceof Transport) {
-    return true;
-  }
-  // Duck-typing for adapters: if it has the core method, we treat it as an adapter.
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    (typeof (value as IHttpClientAdapter).request === 'function' ||
-      typeof (value as IBrokerAdapter).publish === 'function')
-  ) {
-    return true;
-  }
-
-  return false;
+function isSpecialInstance(value: unknown): value is Transport {
+  return value instanceof Transport;
 }
 
 /**

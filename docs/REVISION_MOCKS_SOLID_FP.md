@@ -1,6 +1,6 @@
 # Revisión: mocks — funciones puras, SOLID, guardas
 
-Revisión en bloques de **BeaconRedisMock**, **MockBrokerAdapter** y **MockHttpClient** aplicando guardas, helpers puros y menos duplicación.
+Revisión en bloques de **BeaconRedisMock** aplicando guardas, helpers puros y menos duplicación.
 
 ---
 
@@ -18,38 +18,33 @@ Revisión en bloques de **BeaconRedisMock**, **MockBrokerAdapter** y **MockHttpC
 
 ---
 
-## 2. MockBrokerAdapter.ts
-
-### Hecho
-- **Guardas centralizadas**: `guardReject(method)` async: si hay timeout → delay y throw; si hay error configurado → throw; si no, resuelve. `connect`, `disconnect`, `publish`, `subscribe` delegan en `guardReject('connect' | …)`.
-- **createMock**: guarda única `if (this.spyFn == null) throw new Error(SPY_REQUIRED_MESSAGE)`; mensaje corto en constante.
-
-### Opcional
-- Si se quiere evitar mutar `this.errors`/`this.timeouts` desde fuera, se pueden exponer solo `setError`/`setTimeout` y mantener el estado interno encapsulado (ya es así).
-
----
-
-## 3. MockHttpClient.ts
-
-### Hecho
-- **Respuesta por defecto**: constante pura `DEFAULT_RESPONSE`; se usa `{ ...DEFAULT_RESPONSE }` en todos los sitios que devolvían el mismo objeto.
-- **Guardas**: `createMock`: `if (this.spyFn == null) throw new Error(SPY_REQUIRED_MESSAGE)`.
-- **DRY**: `updateMethodImplementations()` pasa a un único loop sobre `METHOD_IMPLS` (array de `{ method, key, buildReq }`). Cada método HTTP se configura llamando a `this.request(buildReq(args))`.
-- **setResponse / setError / setTimeout**: uso de ternario o early return para “si method coincide → respuesta/error, si no → DEFAULT_RESPONSE”.
-
-### Opcional
-- Lógica de “timeout para este método” podría extraerse a un helper similar a `guardReject` en MockBrokerAdapter si se añade más comportamiento.
-
----
-
 ## Principios aplicados
 
 | Principio        | Aplicación                                                                 |
 |-----------------|----------------------------------------------------------------------------|
 | Guard clauses   | Early return / throw al inicio de método; un solo nivel de anidación.     |
-| Pure functions  | `_serialize`, `_toKeyArray`, `DEFAULT_RESPONSE`; helpers sin efectos.     |
-| SOLID (SRP)     | `guardReject` y `METHOD_IMPLS` concentran una responsabilidad cada uno.    |
-| DRY             | Un solo `guardReject` en broker; un solo loop en `updateMethodImplementations`. |
+| Pure functions  | `_serialize`, `_toKeyArray`; helpers sin efectos.                         |
+| SOLID (SRP)     | Responsabilidades concentradas por componente.                              |
+| DRY             | Helpers reutilizables y un solo loop donde aplica.                          |
 | Menos mutación  | Uso de `filter`/`length` y returns tempranos en lugar de contadores en loops. |
 
 Los mocks siguen siendo wrappers de la interfaz original: la lógica extra es mínima y predecible (guardas + delegación).
+
+---
+
+## 2. TimeoutStep.ts
+
+### Hecho
+- **Pure**: `buildSuccessPayload` y `buildErrorPayload` son funciones puras (data + duración + estrategia/error → objeto).
+- **Guardas**: `execute` intenta estrategia + cálculo; en catch solo construye payload de error. Constante `DEFAULT_TIMEOUT_MS`.
+- **Estrategia única**: Solo se usa la estrategia `default`; `selectTimeoutStrategy` devuelve `timeoutStrategies.get('default') ?? null` (sin lookup por tipo de data).
+
+---
+
+## 3. SerializationPipeline.ts
+
+### Hecho
+- **selectTimeoutStrategy**: Obtiene solo `timeoutStrategies.get('default')`; guarda que lanza si no hay estrategia default.
+- **Pure**: `buildSuccessResult` y `buildErrorResult` estáticos que construyen `SerializationResult` sin efectos.
+- **Constantes**: `DEFAULT_SERIALIZER`, `UNKNOWN_STRATEGY`; `globalTimeout` con `??` 50.
+- **Estrategia única**: Solo **DefaultTimeoutStrategy** (5000 ms). Eliminadas las estrategias por adaptador (Prisma, TypeORM, MySQL, PostgreSQL, SQL Server, Oracle).

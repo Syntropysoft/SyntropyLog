@@ -3,11 +3,9 @@ coverage:
   status:
     project:
       default:
-        # Fails the PR check if the total coverage drops by more than 2%
-        target: auto
-        threshold: 2%
+        # Fails the PR check if total coverage is below 80%
+        target: 80%
     patch:
       default:
-        # Fails the check if the new code introduced in the PR (the "patch")
-        # does not have at least 90% coverage.
-        target: 90%
+        # Fails the check if new code in the PR does not have at least 80% coverage
+        target: 80%

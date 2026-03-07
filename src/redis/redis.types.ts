@@ -5,9 +5,9 @@
 import {
   RedisClientType,
   RedisClusterType,
-  RedisFunctions,
-  RedisModules,
-  RedisScripts,
+  type RedisModules,
+  type RedisFunctions,
+  type RedisScripts,
 } from 'redis';
 
 /**
@@ -34,8 +34,8 @@ export type RedisConfig = {
  * This is the core client type used internally by `BeaconRedis` and `RedisManager`.
  */
 export type NodeRedisClient =
-  | RedisClientType<any, any, any>
-  | RedisClusterType<any, any, any>;
+  | RedisClientType<RedisModules, RedisFunctions, RedisScripts>
+  | RedisClusterType<RedisModules, RedisFunctions, RedisScripts>;
 
 /**
  * Defines the structure of a Sorted Set member when returned with its score.
