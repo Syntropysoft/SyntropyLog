@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.9.8",
+  "version": "0.9.9",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -117,7 +117,6 @@
   },
   "files": [
     "dist",
-    "assets",
     "LICENSE",
     "README.md",
     "CHANGELOG.md",

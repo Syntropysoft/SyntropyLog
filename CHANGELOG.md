@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.9
+
+### Patch Changes
+
+- Build & Packaging: Removed the `./assets` directory from the `files` array in `package.json` to dramatically reduce the package tarball size (saving over 18 MB). Re-linked the README.md logo to use the remote GitHub repository URL.
+
 ## 0.9.8
 
 ### Patch Changes
