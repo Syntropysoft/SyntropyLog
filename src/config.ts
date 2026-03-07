@@ -29,17 +29,19 @@ export type RedisInstanceConfig = z.infer<typeof redisInstanceConfigSchema>;
 
 /**
  * @description The configuration type for a single HTTP client instance.
+ * @internal Used by HTTP module; not part of main init config.
  */
 export type HttpClientInstanceConfig = z.infer<typeof httpInstanceConfigSchema>;
 
 /**
  * @description The configuration type for a single message broker client instance.
+ * @internal Used by brokers module; not part of main init config.
  */
 export type BrokerInstanceConfig = z.infer<typeof brokerInstanceConfigSchema>;
 
 /**
  * @description The configuration type for the global HTTP settings block.
- * `NonNullable` is used to ensure it's always an object, even if optional in the main config.
+ * @internal Used by HTTP module; not part of main init config.
  */
 export type SyntropyHttpConfig = NonNullable<z.infer<typeof httpConfigSchema>>;
 
@@ -53,7 +55,7 @@ export type SyntropyRedisConfig = NonNullable<
 
 /**
  * @description The configuration type for the global message broker settings block.
- * `NonNullable` is used to ensure it's always an object, even if optional in the main config.
+ * @internal Used by brokers module; not part of main init config.
  */
 export type SyntropyBrokerConfig = NonNullable<
   z.infer<typeof brokerConfigSchema>

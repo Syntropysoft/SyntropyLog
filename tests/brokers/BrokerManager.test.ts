@@ -34,7 +34,7 @@ vi.mocked(InstrumentedBrokerClient).mockImplementation(function (_adapter, _logg
   } as any;
 });
 
-// Mock de IContextManager con todos los métodos requeridos
+// Mock of IContextManager with all required methods
 const mockContextManager = {
   getAll: vi.fn(),
   getCorrelationId: vi.fn(),

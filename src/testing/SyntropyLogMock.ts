@@ -34,8 +34,6 @@ export interface MockSyntropyLog {
   shutdown: () => Promise<void>;
   getLogger: (serviceName?: string) => MockLogger;
   getContextManager: () => MockContextManager;
-  getHttpManager: () => any;
-  getBrokerManager: () => any;
   getSerializationManager: () => any;
 }
 
@@ -102,32 +100,6 @@ export function createMockContextManager(): MockContextManager {
 }
 
 /**
- * Create a mock HTTP manager instance
- */
-export function createMockHttpManager() {
-  return {
-    createClient: () => ({
-      get: async () => ({ data: {} }),
-      post: async () => ({ data: {} }),
-      put: async () => ({ data: {} }),
-      delete: async () => ({ data: {} }),
-    }),
-  };
-}
-
-/**
- * Create a mock broker manager instance
- */
-export function createMockBrokerManager() {
-  return {
-    createClient: () => ({
-      publish: async () => undefined,
-      subscribe: async () => undefined,
-    }),
-  };
-}
-
-/**
  * Create a mock serialization manager instance
  */
 export function createMockSerializationManager() {
@@ -140,8 +112,6 @@ export function createMockSerializationManager() {
 // Global mock instances
 let mockLogger: MockLogger;
 let mockContextManager: MockContextManager;
-let mockHttpManager: any;
-let mockBrokerManager: any;
 let mockSerializationManager: any;
 
 /**
@@ -162,26 +132,6 @@ export function getMockContextManager(): MockContextManager {
     mockContextManager = createMockContextManager();
   }
   return mockContextManager;
-}
-
-/**
- * Get or create mock HTTP manager instance
- */
-export function getMockHttpManager() {
-  if (!mockHttpManager) {
-    mockHttpManager = createMockHttpManager();
-  }
-  return mockHttpManager;
-}
-
-/**
- * Get or create mock broker manager instance
- */
-export function getMockBrokerManager() {
-  if (!mockBrokerManager) {
-    mockBrokerManager = createMockBrokerManager();
-  }
-  return mockBrokerManager;
 }
 
 /**
@@ -215,8 +165,6 @@ export function createSyntropyLogMock(
     shutdown: createMock(async () => undefined),
     getLogger: createMock(() => getMockLogger()),
     getContextManager: createMock(() => getMockContextManager()),
-    getHttpManager: createMock(() => getMockHttpManager()),
-    getBrokerManager: createMock(() => getMockBrokerManager()),
     getSerializationManager: createMock(() => getMockSerializationManager()),
   };
 }
@@ -227,7 +175,5 @@ export function createSyntropyLogMock(
 export function resetSyntropyLogMocks() {
   mockLogger = undefined as any;
   mockContextManager = undefined as any;
-  mockHttpManager = undefined as any;
-  mockBrokerManager = undefined as any;
   mockSerializationManager = undefined as any;
 }

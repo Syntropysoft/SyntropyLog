@@ -18,7 +18,7 @@ export class SanitizationStep implements PipelineStep<SerializableData> {
     const startTime = Date.now();
 
     try {
-      // Si la sanitización está deshabilitada, devolver datos sin modificar
+      // If sanitization is disabled, return data unchanged
       if (!context.sanitizeSensitiveData) {
         return {
           ...data,
@@ -27,7 +27,7 @@ export class SanitizationStep implements PipelineStep<SerializableData> {
         };
       }
 
-      // Aplicar sanitización
+      // Apply sanitization
       const sanitizedData = this.sanitizer.sanitize(
         data,
         context.sanitizationContext
@@ -43,13 +43,13 @@ export class SanitizationStep implements PipelineStep<SerializableData> {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      // Si la sanitización falla, devolver datos originales con error
+      // If sanitization fails, return original data with error
       return {
         ...data,
         sanitizationDuration: duration,
         sanitized: false,
         sanitizationError:
-          error instanceof Error ? error.message : 'Error en sanitización',
+          error instanceof Error ? error.message : 'Sanitization error',
       };
     }
   }

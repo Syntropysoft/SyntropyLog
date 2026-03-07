@@ -136,8 +136,6 @@ describe('SyntropyLog', () => {
   const validConfig = {
     logger: { serializerTimeoutMs: 50, level: 'info' as const },
     redis: { instances: [] },
-    http: { instances: [] },
-    brokers: { instances: [] },
   };
 
   describe('Initialization (init)', () => {
@@ -204,8 +202,6 @@ describe('SyntropyLog', () => {
       await syntropy.init({
         logger: { serializerTimeoutMs: 100 },
         redis: { instances: [] },
-        http: { instances: [] },
-        brokers: { instances: [] },
       });
 
       expect(syntropy.getState()).toBe('READY');

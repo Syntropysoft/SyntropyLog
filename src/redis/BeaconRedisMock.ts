@@ -291,6 +291,9 @@ export class BeaconRedisMock implements IBeaconRedis {
         setLevel: () => { },
         withRetention: () => this.logger,
         withTransactionId: () => this.logger,
+        override: () => this.logger,
+        add: () => this.logger,
+        remove: () => this.logger,
       };
     }
   }

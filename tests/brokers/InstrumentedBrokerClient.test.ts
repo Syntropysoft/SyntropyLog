@@ -43,7 +43,7 @@ describe('InstrumentedBrokerClient', () => {
         // Simulate running the callback in a new context
         return await callback();
       }),
-      // Métodos faltantes:
+      // Missing methods:
       configure: vi.fn(),
       get: vi.fn(),
       setTransactionId: vi.fn(),

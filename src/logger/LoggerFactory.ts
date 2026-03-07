@@ -5,12 +5,39 @@ import { ILogger } from './ILogger';
 import { IContextManager } from '../context/IContextManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SerializationManager } from '../serialization/SerializationManager';
-import { SerializationComplexity } from '../serialization/types';
 import { Transport } from './transports/Transport';
 import { ConsoleTransport } from './transports/ConsoleTransport';
 import { LogLevel } from './levels';
 import { SanitizationEngine } from '../sanitization/SanitizationEngine';
 import { JsonValue } from '../types';
+
+/** Transport or descriptor with optional env filter for conditional enabling. */
+type TransportEntry = Transport | { transport: Transport; env?: string | string[] };
+
+function resolveTransportsForEnv(
+  entries: TransportEntry[],
+  currentEnv: string
+): Transport[] {
+  const result: Transport[] = [];
+  for (const entry of entries) {
+    if (entry instanceof Transport) {
+      result.push(entry);
+    } else if (entry && typeof entry === 'object' && 'transport' in entry) {
+      const envList =
+        entry.env == null
+          ? null
+          : Array.isArray(entry.env)
+            ? entry.env
+            : [entry.env];
+      if (envList === null || envList.includes(currentEnv)) {
+        result.push(entry.transport);
+      }
+    } else if (entry && typeof entry === 'object') {
+      result.push(entry as Transport);
+    }
+  }
+  return result;
+}
 
 /**
  * @class LoggerFactory
@@ -23,8 +50,10 @@ export class LoggerFactory {
   private readonly contextManager: IContextManager;
   /** @private The main framework instance, used as a mediator. */
   private readonly syntropyLogInstance: SyntropyLog;
-  /** @private A mapping of category names to their respective transports. */
+  /** @private A mapping of category names to their respective transports (default set per env). */
   private readonly transports: Record<string, Transport[]>;
+  /** @private Pool of all configured transports by name, for override/add/remove per call. */
+  private readonly transportPool: Map<string, Transport>;
   /** @private The global minimum log level for all created loggers. */
   private readonly globalLogLevel: LogLevel;
   /** @private The global service name, used as a default for loggers. */
@@ -63,31 +92,66 @@ export class LoggerFactory {
       this.contextManager.configure(config.context);
     }
 
-    // Configure the HTTP manager if http instances are provided
-    if (config.http?.instances) {
-      // This block is not provided in the original file, so it's commented out.
-      // If it were uncommented, it would likely involve configuring the HTTP manager
-      // with the provided instances.
-    }
+    const currentEnv =
+      process.env[config.logger?.envKey ?? 'NODE_ENV'] ?? 'development';
 
-    // If the user provides a specific list of transports, we use them.
-    // They can be a single array (default) or a record of categories.
-    if (config.logger?.transports) {
-      if (Array.isArray(config.logger.transports)) {
-        this.transports = { default: config.logger.transports };
-      } else {
-        this.transports = config.logger.transports as Record<
-          string,
-          Transport[]
-        >;
-      }
-    } else {
-      // If no transports are provided, we create a safe, default production transport.
-      // This transport includes a default sanitization engine.
-      const sanitizationEngine = new SanitizationEngine();
-      this.transports = {
-        default: [new ConsoleTransport({ sanitizationEngine })],
+    const hasTransportList =
+      config.logger?.transportList &&
+      Object.keys(config.logger.transportList).length > 0;
+    const hasEnv =
+      config.logger?.env && Object.keys(config.logger.env).length > 0;
+
+    if (hasTransportList && hasEnv && config.logger?.transportList && config.logger?.env) {
+      const pool = new Map<string, Transport>(
+        Object.entries(config.logger.transportList)
+      );
+      const defaultNames = config.logger.env[currentEnv] ?? [];
+      const defaultTransports = defaultNames
+        .map((name) => pool.get(name))
+        .filter((t): t is Transport => t != null);
+      this.transports = { default: defaultTransports };
+      this.transportPool = pool;
+    } else if (config.logger?.transports) {
+      const raw = config.logger.transports;
+      const pool = new Map<string, Transport>();
+
+      const collectTransport = (entry: TransportEntry): Transport => {
+        const t: Transport =
+          entry instanceof Transport
+            ? entry
+            : entry && typeof entry === 'object' && 'transport' in entry
+              ? (entry as { transport: Transport }).transport
+              : (entry as Transport);
+        const name =
+          t.name ??
+          (t as { constructor?: { name?: string } }).constructor?.name ??
+          `transport-${pool.size}`;
+        pool.set(name, t);
+        return t;
       };
+
+      if (Array.isArray(raw)) {
+        raw.forEach(collectTransport);
+        this.transports = {
+          default: resolveTransportsForEnv(raw, currentEnv),
+        };
+      } else {
+        const record = raw as Record<string, TransportEntry[]>;
+        this.transports = {} as Record<string, Transport[]>;
+        for (const [key, arr] of Object.entries(record)) {
+          arr.forEach(collectTransport);
+          this.transports[key] = resolveTransportsForEnv(arr, currentEnv);
+        }
+      }
+      this.transportPool = pool;
+    } else {
+      const sanitizationEngine = new SanitizationEngine();
+      const defaultTransport = new ConsoleTransport({
+        sanitizationEngine,
+        name: 'console',
+      });
+      this.transports = { default: [defaultTransport] };
+      this.transportPool = new Map([['console', defaultTransport]]);
     }
     this.globalLogLevel = config.logger?.level ?? 'info';
     this.serviceName = config.logger?.serviceName ?? 'unknown-service';
@@ -129,6 +193,7 @@ export class LoggerFactory {
       serializationManager: this.serializationManager,
       maskingEngine: this.maskingEngine,
       syntropyLogInstance: this.syntropyLogInstance,
+      transportPool: this.transportPool,
     };
 
     // Retrieve transports for this specific logger name, or fall back to 'default'

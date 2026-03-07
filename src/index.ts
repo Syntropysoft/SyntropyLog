@@ -17,6 +17,7 @@ export { ConsoleTransport } from './logger/transports/ConsoleTransport';
 export { PrettyConsoleTransport } from './logger/transports/PrettyConsoleTransport';
 export { CompactConsoleTransport } from './logger/transports/CompactConsoleTransport';
 export { ClassicConsoleTransport } from './logger/transports/ClassicConsoleTransport';
+export { ColorfulConsoleTransport } from './logger/transports/ColorfulConsoleTransport';
 export { SpyTransport } from './logger/transports/SpyTransport';
 export { AdapterTransport } from './logger/transports/AdapterTransport';
 

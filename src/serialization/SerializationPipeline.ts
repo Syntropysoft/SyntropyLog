@@ -65,27 +65,26 @@ export class SerializationPipeline {
     let currentData = data;
 
     try {
-      // 1. Ejecutar pasos con protección de tiempo (Resilience Engine)
+      // 1. Run steps with time protection (Resilience Engine)
       for (const step of this.steps) {
         const stepStartTime = Date.now();
 
-        // Creamos una promesa que corre el step y otra que hace de "carrera de mates"
+        // Race step execution against a timeout promise
         const stepExecution = step.execute(currentData, context);
 
         const timeoutPromise = new Promise<SerializableData>((_, reject) => {
           setTimeout(() => {
-            reject(new Error(`Timeout en etapa '${step.name}' (> ${globalTimeout}ms)`));
+            reject(new Error(`Timeout in step '${step.name}' (> ${globalTimeout}ms)`));
           }, globalTimeout);
         });
 
-        // La carrera de los mates declarativa
         currentData = await Promise.race([stepExecution, timeoutPromise]);
 
         const stepDuration = Date.now() - stepStartTime;
         this.metrics.stepDurations[step.name] = stepDuration;
       }
 
-      // 2. Calcular timeout de operación final (si aplica)
+      // 2. Calculate final operation timeout (if applicable)
       const timeoutStrategy = this.selectTimeoutStrategy(currentData);
       const operationTimeout = timeoutStrategy.calculateTimeout(currentData);
 
@@ -138,7 +137,7 @@ export class SerializationPipeline {
   private selectTimeoutStrategy(
     data: SerializableData
   ): OperationTimeoutStrategy {
-    // Seleccionar estrategia basada en el tipo de datos
+    // Select strategy based on data type
     if (data?.type === 'PrismaQuery') {
       return (
         this.timeoutStrategies.get('prisma') ||
@@ -180,10 +179,10 @@ export class SerializationPipeline {
   }
 
   private initializeDefaultStrategies(): void {
-    // Estrategia por defecto
+    // Default strategy
     this.addTimeoutStrategy(new DefaultTimeoutStrategy());
 
-    // Estrategias específicas por base de datos
+    // Database-specific strategies
     this.addTimeoutStrategy(new PrismaTimeoutStrategy());
     this.addTimeoutStrategy(new TypeORMTimeoutStrategy());
     this.addTimeoutStrategy(new MySQLTimeoutStrategy());
@@ -195,7 +194,7 @@ export class SerializationPipeline {
 
 export class DefaultTimeoutStrategy implements OperationTimeoutStrategy {
   calculateTimeout(data: SerializableData): number {
-    return 5000; // 5 segundos por defecto
+    return 5000; // 5 seconds default
   }
 
   getStrategyName(): string {
@@ -205,39 +204,39 @@ export class DefaultTimeoutStrategy implements OperationTimeoutStrategy {
 
 export class PrismaTimeoutStrategy implements OperationTimeoutStrategy {
   calculateTimeout(data: SerializableData): number {
-    // Lógica específica para Prisma
+    // Prisma-specific logic
     if (data?.operation === 'findMany') {
-      return 10000; // 10 segundos para consultas múltiples
+      return 10000; // 10 seconds for multi-row queries
     }
     if (data?.operation === 'aggregate') {
-      return 15000; // 15 segundos para agregaciones
+      return 15000; // 15 seconds for aggregations
     }
     if (data?.operation === 'createMany') {
-      return 20000; // 20 segundos para inserciones masivas
+      return 20000; // 20 seconds for bulk inserts
     }
     if (data?.operation === 'updateMany') {
-      return 15000; // 15 segundos para actualizaciones masivas
+      return 15000; // 15 seconds for bulk updates
     }
     if (data?.operation === 'deleteMany') {
-      return 10000; // 10 segundos para eliminaciones masivas
+      return 10000; // 10 seconds for bulk deletes
     }
     if (data?.operation === 'findFirst') {
-      return 5000; // 5 segundos para consultas simples
+      return 5000; // 5 seconds for simple queries
     }
     if (data?.operation === 'findUnique') {
-      return 3000; // 3 segundos para consultas por clave única
+      return 3000; // 3 seconds for unique-key lookups
     }
     if (data?.operation === 'create') {
-      return 5000; // 5 segundos para inserciones simples
+      return 5000; // 5 seconds for single inserts
     }
     if (data?.operation === 'update') {
-      return 5000; // 5 segundos para actualizaciones simples
+      return 5000; // 5 seconds for single updates
     }
     if (data?.operation === 'delete') {
-      return 3000; // 3 segundos para eliminaciones simples
+      return 3000; // 3 seconds for single deletes
     }
 
-    return 8000; // 8 segundos por defecto para Prisma
+    return 8000; // 8 seconds default for Prisma
   }
 
   getStrategyName(): string {
@@ -247,15 +246,15 @@ export class PrismaTimeoutStrategy implements OperationTimeoutStrategy {
 
 export class TypeORMTimeoutStrategy implements OperationTimeoutStrategy {
   calculateTimeout(data: SerializableData): number {
-    // Lógica específica para TypeORM
+    // TypeORM-specific logic
     if (data?.operation === 'find') {
-      return 8000; // 8 segundos para consultas
+      return 8000; // 8 seconds for queries
     }
     if (data?.operation === 'save') {
-      return 10000; // 10 segundos para guardar
+      return 10000; // 10 seconds for save
     }
 
-    return 7000; // 7 segundos por defecto para TypeORM
+    return 7000; // 7 seconds default for TypeORM
   }
 
   getStrategyName(): string {
@@ -265,37 +264,37 @@ export class TypeORMTimeoutStrategy implements OperationTimeoutStrategy {
 
 export class MySQLTimeoutStrategy implements OperationTimeoutStrategy {
   calculateTimeout(data: SerializableData): number {
-    // Lógica específica para MySQL
+    // MySQL-specific logic
     if (data?.query?.toLowerCase().includes('select')) {
       if (data?.query?.toLowerCase().includes('count(*)')) {
-        return 12000; // 12 segundos para COUNT
+        return 12000; // 12 seconds for COUNT
       }
       if (data?.query?.toLowerCase().includes('group by')) {
-        return 15000; // 15 segundos para GROUP BY
+        return 15000; // 15 seconds for GROUP BY
       }
       if (data?.query?.toLowerCase().includes('order by')) {
-        return 10000; // 10 segundos para ORDER BY
+        return 10000; // 10 seconds for ORDER BY
       }
       if (data?.query?.toLowerCase().includes('limit')) {
-        return 8000; // 8 segundos para consultas con LIMIT
+        return 8000; // 8 seconds for queries with LIMIT
       }
-      return 6000; // 6 segundos para SELECT simples
+      return 6000; // 6 seconds for simple SELECT
     }
     if (data?.query?.toLowerCase().includes('insert')) {
       if (data?.query?.toLowerCase().includes('values')) {
         const valuesCount = (data.query.match(/values/gi) || []).length;
-        return Math.min(5000 + valuesCount * 100, 20000); // 5-20 segundos basado en cantidad de valores
+        return Math.min(5000 + valuesCount * 100, 20000); // 5-20 seconds based on value count
       }
-      return 8000; // 8 segundos para INSERT simples
+      return 8000; // 8 seconds for simple INSERT
     }
     if (data?.query?.toLowerCase().includes('update')) {
-      return 10000; // 10 segundos para UPDATE
+      return 10000; // 10 seconds for UPDATE
     }
     if (data?.query?.toLowerCase().includes('delete')) {
-      return 8000; // 8 segundos para DELETE
+      return 8000; // 8 seconds for DELETE
     }
 
-    return 7000; // 7 segundos por defecto para MySQL
+    return 7000; // 7 seconds default for MySQL
   }
 
   getStrategyName(): string {
@@ -305,43 +304,43 @@ export class MySQLTimeoutStrategy implements OperationTimeoutStrategy {
 
 export class PostgreSQLTimeoutStrategy implements OperationTimeoutStrategy {
   calculateTimeout(data: SerializableData): number {
-    // Lógica específica para PostgreSQL
+    // PostgreSQL-specific logic
     if (data?.query?.toLowerCase().includes('select')) {
       if (data?.query?.toLowerCase().includes('count(*)')) {
-        return 10000; // 10 segundos para COUNT
+        return 10000; // 10 seconds for COUNT
       }
       if (data?.query?.toLowerCase().includes('group by')) {
-        return 12000; // 12 segundos para GROUP BY
+        return 12000; // 12 seconds for GROUP BY
       }
       if (data?.query?.toLowerCase().includes('order by')) {
-        return 8000; // 8 segundos para ORDER BY
+        return 8000; // 8 seconds for ORDER BY
       }
       if (data?.query?.toLowerCase().includes('limit')) {
-        return 6000; // 6 segundos para consultas con LIMIT
+        return 6000; // 6 seconds for queries with LIMIT
       }
       if (data?.query?.toLowerCase().includes('window')) {
-        return 15000; // 15 segundos para window functions
+        return 15000; // 15 seconds for window functions
       }
       if (data?.query?.toLowerCase().includes('cte')) {
-        return 18000; // 18 segundos para CTEs
+        return 18000; // 18 seconds for CTEs
       }
-      return 5000; // 5 segundos para SELECT simples
+      return 5000; // 5 seconds for simple SELECT
     }
     if (data?.query?.toLowerCase().includes('insert')) {
       if (data?.query?.toLowerCase().includes('values')) {
         const valuesCount = (data.query.match(/values/gi) || []).length;
-        return Math.min(4000 + valuesCount * 80, 15000); // 4-15 segundos basado en cantidad de valores
+        return Math.min(4000 + valuesCount * 80, 15000); // 4-15 seconds based on value count
       }
-      return 6000; // 6 segundos para INSERT simples
+      return 6000; // 6 seconds for simple INSERT
     }
     if (data?.query?.toLowerCase().includes('update')) {
-      return 8000; // 8 segundos para UPDATE
+      return 8000; // 8 seconds for UPDATE
     }
     if (data?.query?.toLowerCase().includes('delete')) {
-      return 6000; // 6 segundos para DELETE
+      return 6000; // 6 seconds for DELETE
     }
 
-    return 6000; // 6 segundos por defecto para PostgreSQL
+    return 6000; // 6 seconds default for PostgreSQL
   }
 
   getStrategyName(): string {
@@ -351,30 +350,30 @@ export class PostgreSQLTimeoutStrategy implements OperationTimeoutStrategy {
 
 export class SQLServerTimeoutStrategy implements OperationTimeoutStrategy {
   calculateTimeout(data: SerializableData): number {
-    // Lógica específica para SQL Server
+    // SQL Server-specific logic
     if (data?.query?.toLowerCase().includes('select')) {
       if (data?.query?.toLowerCase().includes('count(*)')) {
-        return 12000; // 12 segundos para COUNT
+        return 12000; // 12 seconds for COUNT
       }
       if (data?.query?.toLowerCase().includes('group by')) {
-        return 15000; // 15 segundos para GROUP BY
+        return 15000; // 15 seconds for GROUP BY
       }
       if (data?.query?.toLowerCase().includes('order by')) {
-        return 10000; // 10 segundos para ORDER BY
+        return 10000; // 10 seconds for ORDER BY
       }
-      return 8000; // 8 segundos para SELECT simples
+      return 8000; // 8 seconds for simple SELECT
     }
     if (data?.query?.toLowerCase().includes('insert')) {
-      return 10000; // 10 segundos para INSERT
+      return 10000; // 10 seconds for INSERT
     }
     if (data?.query?.toLowerCase().includes('update')) {
-      return 12000; // 12 segundos para UPDATE
+      return 12000; // 12 seconds for UPDATE
     }
     if (data?.query?.toLowerCase().includes('delete')) {
-      return 10000; // 10 segundos para DELETE
+      return 10000; // 10 seconds for DELETE
     }
 
-    return 9000; // 9 segundos por defecto para SQL Server
+    return 9000; // 9 seconds default for SQL Server
   }
 
   getStrategyName(): string {
@@ -384,36 +383,36 @@ export class SQLServerTimeoutStrategy implements OperationTimeoutStrategy {
 
 export class OracleTimeoutStrategy implements OperationTimeoutStrategy {
   calculateTimeout(data: SerializableData): number {
-    // Lógica específica para Oracle
+    // Oracle-specific logic
     if (data?.query?.toLowerCase().includes('select')) {
       if (data?.query?.toLowerCase().includes('count(*)')) {
-        return 15000; // 15 segundos para COUNT
+        return 15000; // 15 seconds for COUNT
       }
       if (data?.query?.toLowerCase().includes('group by')) {
-        return 18000; // 18 segundos para GROUP BY
+        return 18000; // 18 seconds for GROUP BY
       }
       if (data?.query?.toLowerCase().includes('order by')) {
-        return 12000; // 12 segundos para ORDER BY
+        return 12000; // 12 seconds for ORDER BY
       }
       if (data?.query?.toLowerCase().includes('rownum')) {
-        return 10000; // 10 segundos para consultas con ROWNUM
+        return 10000; // 10 seconds for queries with ROWNUM
       }
       if (data?.query?.toLowerCase().includes('connect by')) {
-        return 20000; // 20 segundos para consultas jerárquicas
+        return 20000; // 20 seconds for hierarchical queries
       }
-      return 10000; // 10 segundos para SELECT simples
+      return 10000; // 10 seconds for simple SELECT
     }
     if (data?.query?.toLowerCase().includes('insert')) {
-      return 12000; // 12 segundos para INSERT
+      return 12000; // 12 seconds for INSERT
     }
     if (data?.query?.toLowerCase().includes('update')) {
-      return 15000; // 15 segundos para UPDATE
+      return 15000; // 15 seconds for UPDATE
     }
     if (data?.query?.toLowerCase().includes('delete')) {
-      return 12000; // 12 segundos para DELETE
+      return 12000; // 12 seconds for DELETE
     }
 
-    return 12000; // 12 segundos por defecto para Oracle
+    return 12000; // 12 seconds default for Oracle
   }
 
   getStrategyName(): string {

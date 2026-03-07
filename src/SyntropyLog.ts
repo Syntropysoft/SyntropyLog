@@ -9,8 +9,6 @@ import { EventEmitter } from 'events';
 import { SyntropyLogConfig } from './config';
 import { IContextManager } from './context';
 import { ILogger } from './logger';
-import { InstrumentedHttpClient } from './http/InstrumentedHttpClient';
-import { InstrumentedBrokerClient } from './brokers/InstrumentedBrokerClient';
 import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
 import { LogLevel } from './logger/levels';
 import { LoggingMatrix } from './types';
@@ -81,16 +79,6 @@ export class SyntropyLog extends EventEmitter {
       );
     }
     return this.lifecycleManager.redisManager.getInstance(name);
-  }
-
-  public getHttp(name: string): InstrumentedHttpClient {
-    this.lifecycleManager.ensureReady();
-    return this.lifecycleManager.httpManager.getInstance(name);
-  }
-
-  public getBroker(name: string): InstrumentedBrokerClient {
-    this.lifecycleManager.ensureReady();
-    return this.lifecycleManager.brokerManager.getInstance(name);
   }
 
   public getContextManager(): IContextManager {

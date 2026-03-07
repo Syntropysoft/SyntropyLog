@@ -21,11 +21,19 @@ import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
 import { ILogger } from './ILogger';
 
+/** Per-call routing: override (only these) or add/remove from default. */
+type PendingRouting =
+  | { override: string[] }
+  | { add: string[]; remove?: string[] }
+  | { add?: string[]; remove: string[] };
+
 export interface LoggerDependencies {
   contextManager: IContextManager;
   serializationManager: SerializationManager;
   maskingEngine: MaskingEngine;
   syntropyLogInstance: SyntropyLog;
+  /** Pool of transports by name, for override/add/remove per call. */
+  transportPool?: Map<string, Transport>;
 }
 
 type LogLevelWithWeight = Exclude<LogLevel, 'silent'>;
@@ -42,6 +50,8 @@ export class Logger {
   private transports: Transport[];
   private bindings: LogBindings;
   private dependencies: LoggerDependencies;
+  /** Applied to the next log call only; then cleared. */
+  private pendingRouting: PendingRouting | null = null;
 
   constructor(
     name: string,
@@ -54,6 +64,71 @@ export class Logger {
     this.dependencies = dependencies;
     this.bindings = options.bindings ?? {};
     this.level = options.level ?? 'info';
+  }
+
+  /**
+   * For the next log call only, send to exactly these transports (by name).
+   * Names must exist in the configured transport pool.
+   */
+  override(...names: string[]): this {
+    this.pendingRouting = { override: names };
+    return this;
+  }
+
+  /**
+   * For the next log call only, add these transports (by name) to the default set.
+   * Chain with remove() to add and remove in one go.
+   */
+  add(...names: string[]): this {
+    const prev = this.pendingRouting;
+    const add = [...(prev && 'add' in prev ? prev.add ?? [] : []), ...names];
+    const remove =
+      prev && 'remove' in prev ? prev.remove ?? [] : undefined;
+    this.pendingRouting = remove?.length ? { add, remove } : { add };
+    return this;
+  }
+
+  /**
+   * For the next log call only, remove these transports (by name) from the default set.
+   * Chain with add() to remove and add in one go.
+   */
+  remove(...names: string[]): this {
+    const prev = this.pendingRouting;
+    const remove = [
+      ...(prev && 'remove' in prev ? prev.remove ?? [] : []),
+      ...names,
+    ];
+    const add = prev && 'add' in prev ? prev.add ?? [] : undefined;
+    this.pendingRouting = add?.length ? { add, remove } : { remove };
+    return this;
+  }
+
+  /** Resolve effective transports for this call from pendingRouting and pool. */
+  private getEffectiveTransports(): Transport[] {
+    const pool = this.dependencies.transportPool;
+    if (!pool || !this.pendingRouting) {
+      return this.transports;
+    }
+    const routing = this.pendingRouting;
+    this.pendingRouting = null;
+
+    if ('override' in routing) {
+      return routing.override
+        .map((n) => pool.get(n))
+        .filter((t): t is Transport => t != null);
+    }
+    let list = [...this.transports];
+    if (routing.add?.length) {
+      for (const n of routing.add) {
+        const t = pool.get(n);
+        if (t) list.push(t);
+      }
+    }
+    if (routing.remove?.length) {
+      const removeSet = new Set(routing.remove);
+      list = list.filter((t) => !removeSet.has(t.name));
+    }
+    return list;
   }
 
   /**
@@ -150,11 +225,11 @@ export class Logger {
     // 2. Apply masking to the entire, serialized entry.
     const maskedEntry = this.dependencies.maskingEngine.process(finalEntry);
 
-    // Dispatch to transports
+    // Dispatch to transports (use effective set for this call if override/add/remove was set)
+    const effectiveTransports = this.getEffectiveTransports();
     await Promise.all(
-      this.transports.map((transport) => {
+      effectiveTransports.map((transport) => {
         if (transport.isLevelEnabled(level)) {
-          // The type assertion is safe here because the masking engine preserves the structure.
           return transport.log(maskedEntry as LogEntry);
         }
         return Promise.resolve();

@@ -11,6 +11,25 @@ import { IBrokerAdapter } from './brokers/adapter.types';
 import { MaskingStrategy } from './masking/MaskingEngine';
 
 /**
+ * @description Schema for a transport descriptor: enable the transport only when current env is in `env`.
+ * @private
+ */
+const transportDescriptorSchema = z.object({
+  transport: z.instanceof(Transport),
+  /** When set, the transport is only enabled when the environment (e.g. NODE_ENV) is in this list. */
+  env: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+/**
+ * @description A transport entry is either a Transport instance or a descriptor with optional env filter.
+ * @private
+ */
+const transportEntrySchema = z.union([
+  z.instanceof(Transport),
+  transportDescriptorSchema,
+]);
+
+/**
  * @description Schema for logger-specific options, including serialization and transports.
  * @private
  */
@@ -22,13 +41,30 @@ const loggerOptionsSchema = z
       .optional(),
     serviceName: z.string().optional(),
     /**
-     * An array of transport instances to be used by the logger,
-     * or a mapping of logger names (categories) to their respective transports.
+     * Name of the environment variable used to resolve conditional transports (e.g. 'NODE_ENV', 'APP_ENV').
+     * @default 'NODE_ENV'
+     */
+    envKey: z.string().optional(),
+    /**
+     * Pool of transports by name. Use together with `env` to pick per-environment defaults.
+     * When both transportList and env are set, this form is used instead of `transports`.
+     */
+    transportList: z.record(z.string(), z.instanceof(Transport)).optional(),
+    /**
+     * Per-environment list of transport names (keys from transportList) to use as default.
+     * E.g. { development: ['consola'], production: ['consola', 'db'] }.
+     * Used only when transportList is also set.
+     */
+    env: z.record(z.string(), z.array(z.string())).optional(),
+    /**
+     * Legacy: array of transport instances or descriptors { transport, env? },
+     * or a mapping of logger names (categories) to such arrays.
+     * Ignored when both transportList and env are set.
      */
     transports: z
       .union([
-        z.array(z.instanceof(Transport)),
-        z.record(z.string(), z.array(z.instanceof(Transport))),
+        z.array(transportEntrySchema),
+        z.record(z.string(), z.array(transportEntrySchema)),
       ])
       .optional(),
 
@@ -131,6 +167,7 @@ export const redisConfigSchema = z
 
 /**
  * @description Schema for a single HTTP client instance.
+ * @internal Used by HTTP module; not part of main init config.
  */
 export const httpInstanceConfigSchema = z.object({
   instanceName: z.string(),
@@ -161,12 +198,11 @@ export const httpInstanceConfigSchema = z.object({
 
 /**
  * @description Schema for the main HTTP configuration block.
+ * @internal Used by HTTP module; not part of main init config.
  */
 export const httpConfigSchema = z
   .object({
-    /** An array of HTTP client instance configurations. */
     instances: z.array(httpInstanceConfigSchema),
-    /** The name of the default HTTP client instance to use when no name is provided to `getInstance()`. */
     default: z.string().optional(),
   })
   .optional();
@@ -206,8 +242,7 @@ const maskingConfigSchema = z
 
 /**
  * @description Schema for a single message broker client instance.
- * It validates that a valid `IBrokerAdapter` is provided.
- * @private
+ * @internal Used by brokers module; not part of main init config.
  */
 export const brokerInstanceConfigSchema = z.object({
   instanceName: z.string(),
@@ -219,30 +254,18 @@ export const brokerInstanceConfigSchema = z.object({
       typeof (val as any).subscribe === 'function'
     );
   }, 'The provided broker adapter is invalid.'),
-  /**
-   * An array of context keys to propagate as message headers/properties.
-   * To propagate all keys, provide an array with a single wildcard: `['*']`.
-   * If not provided, only `correlationId` and `transactionId` are propagated by default.
-   */
   propagate: z.array(z.string()).optional(),
-
-  /**
-   * @deprecated Use `propagate` instead.
-   * If true, propagates the entire asynchronous context map as headers.
-   * If false (default), only propagates `correlationId` and `transactionId`.
-   */
   propagateFullContext: z.boolean().optional(),
   isDefault: z.boolean().optional(),
 });
 
 /**
  * @description Schema for the main message broker configuration block.
+ * @internal Used by brokers module; not part of main init config.
  */
 export const brokerConfigSchema = z
   .object({
-    /** An array of broker client instance configurations. */
     instances: z.array(brokerInstanceConfigSchema),
-    /** The name of the default broker instance to use when no name is provided to `getInstance()`. */
     default: z.string().optional(),
   })
   .optional();
@@ -284,10 +307,6 @@ export const syntropyLogConfigSchema = z.object({
 
   /** Redis client configuration. */
   redis: redisConfigSchema,
-  /** HTTP client configuration. */
-  http: httpConfigSchema,
-  /** Message broker client configuration. */
-  brokers: brokerConfigSchema,
 
   /** Centralized data masking configuration. */
   masking: maskingConfigSchema,

@@ -95,16 +95,16 @@ export class SerializationManager {
       timeoutStrategyDistribution: {},
     };
 
-    // Inicializar pipeline
+    // Initialize pipeline
     this.pipeline = new SerializationPipeline();
 
-    // Crear pasos del pipeline
+    // Create pipeline steps
     this.serializationStep = new SerializationStep();
     this.hygieneStep = new HygieneStep();
     this.sanitizationStep = new SanitizationStep();
     this.timeoutStep = new TimeoutStep(this.pipeline['timeoutStrategies']);
 
-    // Configurar pipeline: Primero serialización custom, luego HIGIENE (seguridad), luego masking
+    // Configure pipeline: custom serialization first, then HYGIENE (safety), then masking
     this.pipeline.addStep(this.serializationStep);
     this.pipeline.addStep(this.hygieneStep);
     this.pipeline.addStep(this.sanitizationStep);
@@ -126,7 +126,7 @@ export class SerializationManager {
   ): Promise<SerializationResult> {
     const startTime = Date.now();
 
-    // Crear contexto del pipeline
+    // Create pipeline context
     const pipelineContext: SerializationPipelineContext = {
       serializationContext: context,
       sanitizeSensitiveData: this.config.sanitizeSensitiveData,
@@ -134,10 +134,10 @@ export class SerializationManager {
       enableMetrics: this.config.enableMetrics,
     };
 
-    // Ejecutar pipeline
+    // Run pipeline
     const result = await this.pipeline.process(data, pipelineContext);
 
-    // Actualizar métricas
+    // Update metrics
     if (this.config.enableMetrics) {
       this.updateMetrics(result, Date.now() - startTime);
     }
@@ -154,7 +154,7 @@ export class SerializationManager {
     if (result.success) {
       this.metrics.successfulSerializations++;
 
-      // Métricas de serialización e higiene (deberían ser muy bajas)
+      // Serialization and hygiene metrics (should be very low)
       const serializationDuration =
         (result.metadata.stepDurations?.serialization || 0) +
         (result.metadata.stepDurations?.hygiene || 0);
@@ -171,11 +171,11 @@ export class SerializationManager {
             serializationDuration
           );
 
-      // Métricas de timeout de operación
+      // Operation timeout metrics
       const operationTimeout = result.metadata.operationTimeout || 0;
       this.metrics.totalOperationTimeout += operationTimeout;
 
-      // Distribución por complejidad
+      // Complexity distribution
       const complexity = result.complexity || SerializationComplexity.SIMPLE;
       if (complexity === SerializationComplexity.SIMPLE)
         this.metrics.complexityDistribution.low++;
@@ -184,12 +184,12 @@ export class SerializationManager {
       else if (complexity === SerializationComplexity.CRITICAL)
         this.metrics.complexityDistribution.high++;
 
-      // Distribución por serializador
+      // Serializer distribution
       const serializer = result.serializer || 'unknown';
       this.metrics.serializerDistribution[serializer] =
         (this.metrics.serializerDistribution[serializer] || 0) + 1;
 
-      // Distribución por estrategia de timeout
+      // Timeout strategy distribution
       const timeoutStrategy = result.metadata.timeoutStrategy || 'unknown';
       this.metrics.timeoutStrategyDistribution[timeoutStrategy] =
         (this.metrics.timeoutStrategyDistribution[timeoutStrategy] || 0) + 1;

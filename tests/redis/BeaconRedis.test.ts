@@ -105,9 +105,79 @@ describe('BeaconRedis', () => {
       expect(mockLogger.debug).not.toHaveBeenCalled();
     });
 
-    it('should throw an error when multi() is called', () => {
-      expect(() => beaconRedis.multi()).toThrow(
-        'The multi() method is not yet implemented.'
+    it('should return an instrumented transaction from multi()', () => {
+      const mockNativeTx = {
+        get: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
+        del: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue(['ok', 1]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis.multi();
+
+      expect(tx).toBeDefined();
+      expect(typeof tx.exec).toBe('function');
+      expect(typeof tx.discard).toBe('function');
+      expect(tx.get('k')).toBe(tx);
+      expect(mockCommandExecutor.multi).toHaveBeenCalledOnce();
+    });
+
+    it('should instrument exec() when transaction is executed', async () => {
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(
+        undefined
+      );
+      const mockNativeTx = {
+        get: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue(['value', 1]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis.multi().get('key');
+      const result = await tx.exec();
+
+      expect(result).toEqual(['value', 1]);
+      expect(mockConnectionManager.ensureReady).toHaveBeenCalled();
+      expect(mockNativeTx.exec).toHaveBeenCalledOnce();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'MULTI/EXEC',
+          instance: 'test-instance',
+        }),
+        'Redis command [MULTI/EXEC] executed successfully.'
+      );
+    });
+
+    it('should instrument discard() when transaction is discarded', async () => {
+      vi.spyOn(mockConnectionManager, 'ensureReady').mockResolvedValue(
+        undefined
+      );
+      const mockNativeTx = {
+        get: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+        discard: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockCommandExecutor, 'multi').mockReturnValue(
+        mockNativeTx as any
+      );
+
+      const tx = beaconRedis.multi().get('key');
+      await tx.discard();
+
+      expect(mockConnectionManager.ensureReady).toHaveBeenCalled();
+      expect(mockNativeTx.discard).toHaveBeenCalledOnce();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.objectContaining({
+          command: 'DISCARD',
+          instance: 'test-instance',
+        }),
+        'Redis command [DISCARD] executed successfully.'
       );
     });
   });

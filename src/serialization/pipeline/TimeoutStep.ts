@@ -34,13 +34,13 @@ export class TimeoutStep implements PipelineStep<SerializableData> {
     const startTime = Date.now();
 
     try {
-      // 1. Seleccionar estrategia de timeout
+      // 1. Select timeout strategy
       const timeoutStrategy = this.selectTimeoutStrategy(data);
 
-      // 2. Calcular timeout de operación
+      // 2. Calculate operation timeout
       const operationTimeout = timeoutStrategy?.calculateTimeout(data) || 3000; // Default timeout if strategy is null
 
-      // 3. Agregar metadata de timeout
+      // 3. Add timeout metadata
       const duration = Date.now() - startTime;
 
       return {
@@ -60,7 +60,7 @@ export class TimeoutStep implements PipelineStep<SerializableData> {
         timeoutStrategy: 'default',
         timeoutApplied: false,
         timeoutError:
-          error instanceof Error ? error.message : 'Error en timeout',
+          error instanceof Error ? error.message : 'Timeout error',
       };
     }
   }
@@ -68,7 +68,7 @@ export class TimeoutStep implements PipelineStep<SerializableData> {
   private selectTimeoutStrategy(
     data: SerializableData
   ): OperationTimeoutStrategy | null {
-    // Seleccionar estrategia basada en el tipo de datos
+    // Select strategy based on data type
     if (data?.type === 'PrismaQuery') {
       return (
         this.timeoutStrategies.get('prisma') ||

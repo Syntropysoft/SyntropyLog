@@ -528,7 +528,7 @@ describe('BeaconRedisMock', () => {
       expect(typeof (tx as any).executeScript).toBe('function');
       expect((tx as any).executeScript).not.toBeUndefined();
       // FIXME: Vitest tiene problemas con mocks anidados que lanzan errores
-      // El comportamiento real está implementado en el mock, pero el test no puede verificarlo
+      // Real behavior is implemented in the mock, but the test cannot verify it
     });
   });
 

@@ -4,13 +4,9 @@ import {
   resetSyntropyLogMocks,
   createMockLogger,
   createMockContextManager,
-  createMockHttpManager,
-  createMockBrokerManager,
   createMockSerializationManager,
   getMockLogger,
   getMockContextManager,
-  getMockHttpManager,
-  getMockBrokerManager,
   getMockSerializationManager
 } from '../../src/testing/SyntropyLogMock';
 
@@ -131,22 +127,6 @@ describe('SyntropyLogMock', () => {
     });
   });
 
-  describe('createMockHttpManager', () => {
-    it('should create HTTP manager', () => {
-      const httpManager = createMockHttpManager();
-      
-      expect(httpManager).toBeDefined();
-    });
-  });
-
-  describe('createMockBrokerManager', () => {
-    it('should create broker manager', () => {
-      const brokerManager = createMockBrokerManager();
-      
-      expect(brokerManager).toBeDefined();
-    });
-  });
-
   describe('createMockSerializationManager', () => {
     it('should create serialization manager with methods', () => {
       const serializationManager = createMockSerializationManager();
@@ -184,22 +164,6 @@ describe('SyntropyLogMock', () => {
       expect(context1).toBe(context2); // Same instance
     });
 
-    it('should get or create mock HTTP manager', () => {
-      const http1 = getMockHttpManager();
-      const http2 = getMockHttpManager();
-      
-      expect(http1).toBeDefined();
-      expect(http1).toBe(http2); // Same instance
-    });
-
-    it('should get or create mock broker manager', () => {
-      const broker1 = getMockBrokerManager();
-      const broker2 = getMockBrokerManager();
-      
-      expect(broker1).toBeDefined();
-      expect(broker1).toBe(broker2); // Same instance
-    });
-
     it('should get or create mock serialization manager', () => {
       const serialization1 = getMockSerializationManager();
       const serialization2 = getMockSerializationManager();
@@ -218,8 +182,6 @@ describe('SyntropyLogMock', () => {
       expect(mock.shutdown).toBeDefined();
       expect(mock.getLogger).toBeDefined();
       expect(mock.getContextManager).toBeDefined();
-      expect(mock.getHttpManager).toBeDefined();
-      expect(mock.getBrokerManager).toBeDefined();
       expect(mock.getSerializationManager).toBeDefined();
     });
 
@@ -231,8 +193,6 @@ describe('SyntropyLogMock', () => {
       expect(mock.shutdown).toBeDefined();
       expect(mock.getLogger).toBeDefined();
       expect(mock.getContextManager).toBeDefined();
-      expect(mock.getHttpManager).toBeDefined();
-      expect(mock.getBrokerManager).toBeDefined();
       expect(mock.getSerializationManager).toBeDefined();
     });
 
@@ -266,22 +226,6 @@ describe('SyntropyLogMock', () => {
       expect(contextManager.run).toBeDefined();
     });
 
-    it('should get HTTP manager', () => {
-      const mock = createSyntropyLogMock();
-      
-      const httpManager = mock.getHttpManager();
-      
-      expect(httpManager).toBeDefined();
-    });
-
-    it('should get broker manager', () => {
-      const mock = createSyntropyLogMock();
-      
-      const brokerManager = mock.getBrokerManager();
-      
-      expect(brokerManager).toBeDefined();
-    });
-
     it('should get serialization manager', () => {
       const mock = createSyntropyLogMock();
       
@@ -310,8 +254,6 @@ describe('SyntropyLogMock', () => {
       // Create instances
       const logger1 = getMockLogger();
       const context1 = getMockContextManager();
-      const http1 = getMockHttpManager();
-      const broker1 = getMockBrokerManager();
       const serialization1 = getMockSerializationManager();
       
       // Reset
@@ -320,15 +262,11 @@ describe('SyntropyLogMock', () => {
       // Get new instances
       const logger2 = getMockLogger();
       const context2 = getMockContextManager();
-      const http2 = getMockHttpManager();
-      const broker2 = getMockBrokerManager();
       const serialization2 = getMockSerializationManager();
       
       // Should be different instances
       expect(logger1).not.toBe(logger2);
       expect(context1).not.toBe(context2);
-      expect(http1).not.toBe(http2);
-      expect(broker1).not.toBe(broker2);
       expect(serialization1).not.toBe(serialization2);
     });
   });

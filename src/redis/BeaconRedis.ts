@@ -12,7 +12,11 @@ import {
 import { ILogger } from '../logger/ILogger';
 import { RedisCommandExecutor } from './RedisCommandExecutor';
 import { RedisConnectionManager } from './RedisConnectionManager';
-import { RedisZMember } from './redis.types';
+import {
+  RedisZMember,
+  RedisTransaction,
+  TransactionResult,
+} from './redis.types';
 import {
   RedisValue,
   RedisListElement,
@@ -23,6 +27,216 @@ import {
   JsonValue,
   errorToJsonValue,
 } from '../types';
+
+/**
+ * Instrumented Redis transaction (MULTI/EXEC). Wraps the native client's transaction
+ * and delegates exec() and discard() through BeaconRedis for logging and error handling.
+ * @internal
+ */
+class BeaconRedisTransaction implements IBeaconRedisTransaction {
+  constructor(
+    private readonly nativeTx: RedisTransaction,
+    private readonly beacon: BeaconRedis
+  ) {}
+
+  get(key: string): this {
+    this.nativeTx.get(key);
+    return this;
+  }
+  set(key: string, value: RedisValue, ttlSeconds?: number): this {
+    const options = ttlSeconds ? { EX: ttlSeconds } : undefined;
+    this.nativeTx.set(key, value as string, options as any);
+    return this;
+  }
+  del(key: string | string[]): this {
+    this.nativeTx.del(key);
+    return this;
+  }
+  exists(keys: string | string[]): this {
+    this.nativeTx.exists(keys);
+    return this;
+  }
+  expire(key: string, seconds: number): this {
+    this.nativeTx.expire(key, seconds);
+    return this;
+  }
+  ttl(key: string): this {
+    this.nativeTx.ttl(key);
+    return this;
+  }
+  incr(key: string): this {
+    this.nativeTx.incr(key);
+    return this;
+  }
+  decr(key: string): this {
+    this.nativeTx.decr(key);
+    return this;
+  }
+  incrBy(key: string, increment: number): this {
+    this.nativeTx.incrBy(key, increment);
+    return this;
+  }
+  decrBy(key: string, decrement: number): this {
+    this.nativeTx.decrBy(key, decrement);
+    return this;
+  }
+  hGet(key: string, field: string): this {
+    this.nativeTx.hGet(key, field);
+    return this;
+  }
+  hSet(key: string, field: string, value: RedisHashValue): this;
+  hSet(key: string, fieldsAndValues: Record<string, RedisHashValue>): this;
+  hSet(
+    key: string,
+    fieldOrFields: string | Record<string, RedisHashValue>,
+    value?: RedisHashValue
+  ): this {
+    if (typeof fieldOrFields === 'string') {
+      this.nativeTx.hSet(key, fieldOrFields, value as RedisHashValue);
+    } else {
+      this.nativeTx.hSet(key, fieldOrFields);
+    }
+    return this;
+  }
+  hGetAll(key: string): this {
+    this.nativeTx.hGetAll(key);
+    return this;
+  }
+  hDel(key: string, fields: string | string[]): this {
+    this.nativeTx.hDel(key, fields);
+    return this;
+  }
+  hExists(key: string, field: string): this {
+    this.nativeTx.hExists(key, field);
+    return this;
+  }
+  hIncrBy(key: string, field: string, increment: number): this {
+    this.nativeTx.hIncrBy(key, field, increment);
+    return this;
+  }
+  lPush(
+    key: string,
+    elements: RedisListElement | RedisListElement[]
+  ): this {
+    this.nativeTx.lPush(key, elements as any);
+    return this;
+  }
+  rPush(
+    key: string,
+    elements: RedisListElement | RedisListElement[]
+  ): this {
+    this.nativeTx.rPush(key, elements as any);
+    return this;
+  }
+  lPop(key: string): this {
+    this.nativeTx.lPop(key);
+    return this;
+  }
+  rPop(key: string): this {
+    this.nativeTx.rPop(key);
+    return this;
+  }
+  lRange(key: string, start: number, stop: number): this {
+    this.nativeTx.lRange(key, start, stop);
+    return this;
+  }
+  lLen(key: string): this {
+    this.nativeTx.lLen(key);
+    return this;
+  }
+  lTrim(key: string, start: number, stop: number): this {
+    this.nativeTx.lTrim(key, start, stop);
+    return this;
+  }
+  sAdd(key: string, members: RedisSetMember | RedisSetMember[]): this {
+    this.nativeTx.sAdd(key, members as any);
+    return this;
+  }
+  sMembers(key: string): this {
+    this.nativeTx.sMembers(key);
+    return this;
+  }
+  sIsMember(key: string, member: RedisSetMember): this {
+    this.nativeTx.sIsMember(key, member as any);
+    return this;
+  }
+  sRem(key: string, members: RedisSetMember | RedisSetMember[]): this {
+    this.nativeTx.sRem(key, members as any);
+    return this;
+  }
+  sCard(key: string): this {
+    this.nativeTx.sCard(key);
+    return this;
+  }
+  zAdd(key: string, score: number, member: RedisValue): this;
+  zAdd(key: string, members: RedisSortedSetMember[]): this;
+  zAdd(
+    key: string,
+    scoreOrMembers: number | RedisSortedSetMember[],
+    member?: RedisValue
+  ): this {
+    if (Array.isArray(scoreOrMembers)) {
+      this.nativeTx.zAdd(key, scoreOrMembers as any);
+    } else {
+      this.nativeTx.zAdd(key, {
+        score: scoreOrMembers,
+        value: member,
+      } as any);
+    }
+    return this;
+  }
+  zRange(
+    key: string,
+    min: string | number,
+    max: string | number,
+    options?: RedisCommandOptions
+  ): this {
+    this.nativeTx.zRange(key, min, max, options);
+    return this;
+  }
+  zRangeWithScores(
+    key: string,
+    min: string | number,
+    max: string | number,
+    options?: RedisCommandOptions
+  ): this {
+    this.nativeTx.zRangeWithScores(key, min, max, options);
+    return this;
+  }
+  zRem(key: string, members: RedisValue | RedisValue[]): this {
+    this.nativeTx.zRem(key, members as any);
+    return this;
+  }
+  zCard(key: string): this {
+    this.nativeTx.zCard(key);
+    return this;
+  }
+  zScore(key: string, member: RedisValue): this {
+    this.nativeTx.zScore(key, member as any);
+    return this;
+  }
+  ping(message?: string): this {
+    (this.nativeTx as any).ping(message);
+    return this;
+  }
+  info(section?: string): this {
+    (this.nativeTx as any).info(section);
+    return this;
+  }
+  executeScript(_script: string, _keys: string[], _args: string[]): this {
+    throw new Error(
+      'executeScript is not supported inside a Redis transaction (MULTI/EXEC).'
+    );
+  }
+  exec(): Promise<TransactionResult> {
+    return this.beacon.runTransactionExec(() => this.nativeTx.exec());
+  }
+  discard(): Promise<void> {
+    return this.beacon.runTransactionDiscard(() =>
+      (this.nativeTx as any).discard()
+    );
+  }
+}
 
 /**
  * The primary implementation of the `IBeaconRedis` interface.
@@ -94,12 +308,30 @@ export class BeaconRedis implements IBeaconRedis {
 
   /**
    * @inheritdoc
-   * @throws {Error} This method is not yet implemented.
    */
   public multi(): IBeaconRedisTransaction {
-    // TODO: Implement a fully instrumented transaction class.
-    // This would need a more complex implementation to queue commands and log them on exec().
-    throw new Error('The multi() method is not yet implemented.');
+    const nativeTx = this.commandExecutor.multi();
+    return new BeaconRedisTransaction(nativeTx, this);
+  }
+
+  /**
+   * Runs a transaction exec with the same instrumentation as single commands.
+   * @internal Used by BeaconRedisTransaction
+   */
+  public runTransactionExec(
+    execFn: () => Promise<TransactionResult>
+  ): Promise<TransactionResult> {
+    return this._executeCommand('MULTI/EXEC', execFn);
+  }
+
+  /**
+   * Runs a transaction discard with the same instrumentation as single commands.
+   * @internal Used by BeaconRedisTransaction
+   */
+  public runTransactionDiscard(
+    discardFn: () => Promise<void>
+  ): Promise<void> {
+    return this._executeCommand('DISCARD', discardFn);
   }
 
   /**

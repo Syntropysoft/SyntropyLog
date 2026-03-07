@@ -7,8 +7,6 @@ import { ILogger } from '../logger';
 import { LoggerFactory } from '../logger/LoggerFactory';
 import { RedisManager } from '../redis/RedisManager';
 import { sanitizeConfig } from '../utils/sanitizeConfig';
-import { HttpManager } from '../http/HttpManager';
-import { BrokerManager } from '../brokers/BrokerManager';
 import { SerializationManager } from '../serialization/SerializationManager';
 import { SerializationComplexity } from '../serialization/types';
 import { MaskingEngine } from '../masking/MaskingEngine';
@@ -30,8 +28,6 @@ export class LifecycleManager extends EventEmitter {
   public contextManager: IContextManager | undefined;
   public loggerFactory: LoggerFactory | undefined;
   public redisManager: any | undefined; // ✅ Internal, no exposed
-  public httpManager: HttpManager | undefined;
-  public brokerManager: BrokerManager | undefined;
   public serializationManager: SerializationManager;
   public maskingEngine: MaskingEngine;
   private logger: ILogger | null = null;
@@ -106,22 +102,6 @@ export class LifecycleManager extends EventEmitter {
           );
         }
       }
-      if (this.config.http) {
-        this.httpManager = new HttpManager(
-          this.config.http,
-          logger.withSource('http-manager'),
-          this.contextManager
-        );
-        this.httpManager.init();
-      }
-      if (this.config.brokers) {
-        this.brokerManager = new BrokerManager(
-          this.config.brokers,
-          logger.withSource('broker-manager'),
-          this.contextManager
-        );
-        await this.brokerManager.init();
-      }
 
       logger.info('SyntropyLog framework initialized successfully.');
       this.state = 'READY';
@@ -163,8 +143,6 @@ export class LifecycleManager extends EventEmitter {
 
       const shutdownPromises = [
         this.redisManager?.shutdown(),
-        this.brokerManager?.shutdown(),
-        this.httpManager?.shutdown(),
         this.loggerFactory?.shutdown?.(),
       ].filter(Boolean);
 
@@ -295,8 +273,6 @@ export class LifecycleManager extends EventEmitter {
     contextManager: IContextManager;
     loggerFactory: LoggerFactory;
     redisManager: any; // ✅ Internal, no exposed
-    httpManager: HttpManager;
-    brokerManager: BrokerManager;
   } {
     if (this.state !== 'READY') {
       throw new Error(

@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -145,6 +145,7 @@
     "modules/@syntropylog/types"
   ],
   "scripts": {
+    "example:transport-pool": "npx tsx examples/TransportPoolExample.ts",
     "setup": "node scripts/setup-env.js",
     "build": "npm run clean && npm run build:types && rollup -c",
     "build:types": "tsc -p src/tsconfig.json",

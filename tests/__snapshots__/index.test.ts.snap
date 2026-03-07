@@ -4,6 +4,7 @@ exports[`Main entry point (src/index.ts) > should match the public API snapshot 
 [
   "AdapterTransport",
   "ClassicConsoleTransport",
+  "ColorfulConsoleTransport",
   "CompactConsoleTransport",
   "ConsoleTransport",
   "MockBrokerAdapter",

@@ -5,7 +5,11 @@
  * It does not contain any logic for instrumentation, connection management, or error handling.
  */
 
-import { NodeRedisClient, RedisZMember } from './redis.types';
+import {
+  NodeRedisClient,
+  RedisZMember,
+  RedisTransaction,
+} from './redis.types';
 import {
   RedisValue,
   RedisListElement,
@@ -25,7 +29,16 @@ export class RedisCommandExecutor {
    * Constructs a new RedisCommandExecutor.
    * @param {NodeRedisClient} client The native `node-redis` client (single-node or cluster) to execute commands on.
    */
-  constructor(private client: NodeRedisClient) { }
+  constructor(private client: NodeRedisClient) {}
+
+  /**
+   * Returns a native Redis transaction (MULTI) object. Commands can be queued on it
+   * and executed with exec() or discarded with discard().
+   * @returns {RedisTransaction} The chainable transaction object from the native client.
+   */
+  public multi(): RedisTransaction {
+    return this.client.multi();
+  }
 
   // --- String Commands ---
 

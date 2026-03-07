@@ -61,7 +61,7 @@ export class SanitizationEngine {
     ) {
       const sanitizedObject: Record<string, any> = {};
       for (const key in data) {
-        // hasOwnProperty sigue siendo una buena práctica aquí.
+        // hasOwnProperty is still a good practice here.
         if (Object.prototype.hasOwnProperty.call(data, key)) {
           sanitizedObject[key] = this.sanitizeRecursively(
             (data as Record<string, any>)[key]
@@ -71,7 +71,7 @@ export class SanitizationEngine {
       return sanitizedObject;
     }
 
-    // Devuelve cualquier otro tipo de dato (números, booleans, instancias, etc.) sin modificar.
+    // Return any other type (numbers, booleans, instances, etc.) unchanged.
     return data;
   }
 }
