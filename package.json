@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -68,6 +68,12 @@
     "email": "gabriel.alejandro.gomez@gmail.com",
     "url": "https://github.com/gabriel-alejandro-gomez"
   },
+  "contributors": [
+    {
+      "name": "Andres Pacheco",
+      "url": "https://github.com/Andres-Prog"
+    }
+  ],
   "homepage": "https://github.com/Syntropysoft/SyntropyLog#readme",
   "bugs": {
     "url": "https://github.com/Syntropysoft/SyntropyLog/issues"
