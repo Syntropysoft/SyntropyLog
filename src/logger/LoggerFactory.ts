@@ -221,6 +221,7 @@ export class LoggerFactory {
       maskChar: config.masking?.maskChar,
       preserveLength: config.masking?.preserveLength,
       enableDefaultRules: config.masking?.enableDefaultRules !== false,
+      regexTimeoutMs: config.masking?.regexTimeoutMs,
     });
   }
 

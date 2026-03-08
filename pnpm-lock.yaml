@@ -14,9 +14,6 @@ importers:
       js-yaml:
         specifier: ^4.1.1
         version: 4.1.1
-      regex-test:
-        specifier: ^0.1.1
-        version: 0.1.1
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1440,9 +1437,6 @@ packages:
   json-buffer@3.0.1:
     resolution: {integrity: sha512-4bV5BfR2mqfQTJm+V5tPPdf+ZpuhiIvTuAB5g8kcrXOZpTT/QwwVRWBywX1ozr6lEuPdbHxwaJlm9G6mI2sfSQ==}
 
-  json-fn@1.1.1:
-    resolution: {integrity: sha512-diGeurhgiazd1lfByjn83uQkF6fVFdiCiQgJyhN3/aCl7EKye0aZe3r9eeQPKcsCh81Mntrvt46z65cn7ZwZHA==}
-
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
 
@@ -1694,13 +1688,6 @@ packages:
   redis@4.7.1:
     resolution: {integrity: sha512-S1bJDnqLftzHXHP8JsT5II/CtHWQrASX5K96REjWjlmWKrviSOLWmM7QnRLstAWsu1VBBV1ffV6DzCvxNP0UJQ==}
 
-  regex-test@0.1.1:
-    resolution: {integrity: sha512-97dnmlC6NwpuJaCuRyiD9yTq1Syi8XqWxCL1cHUYdh7SLbEXc2C9d0L3PbrNP+kWomYb9r14NOtEI4muXh3IWQ==}
-
-  regexp-tree@0.1.27:
-    resolution: {integrity: sha512-iETxpjK6YoRWJG5o6hXLwvjYAoW+FEZn9os0PD/b6AP6xQwsa/Y7lCVgIixBbUPMfhu+i2LtdeAqVTgGlQarfA==}
-    hasBin: true
-
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
     engines: {node: '>=0.10.0'}
@@ -1750,9 +1737,6 @@ packages:
 
   run-parallel@1.2.0:
     resolution: {integrity: sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA==}
-
-  safe-regex@2.1.1:
-    resolution: {integrity: sha512-rx+x8AMzKb5Q5lQ95Zoi6ZbJqwCLkqi3XuJXp5P3rT8OEc6sZCJG5AE5dU3lsgRr/F4Bs31jSlVN+j5KrsGu9A==}
 
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
@@ -3431,8 +3415,6 @@ snapshots:
 
   json-buffer@3.0.1: {}
 
-  json-fn@1.1.1: {}
-
   json-parse-even-better-errors@2.3.1: {}
 
   json-schema-traverse@0.4.1: {}
@@ -3675,13 +3657,6 @@ snapshots:
       '@redis/search': 1.2.0(@redis/client@1.6.1)
       '@redis/time-series': 1.1.0(@redis/client@1.6.1)
 
-  regex-test@0.1.1:
-    dependencies:
-      json-fn: 1.1.1
-      safe-regex: 2.1.1
-
-  regexp-tree@0.1.27: {}
-
   require-directory@2.1.1: {}
 
   require-package-name@2.0.1: {}
@@ -3752,10 +3727,6 @@ snapshots:
   run-parallel@1.2.0:
     dependencies:
       queue-microtask: 1.2.3
-
-  safe-regex@2.1.1:
-    dependencies:
-      regexp-tree: 0.1.27
 
   safer-buffer@2.1.2: {}
 

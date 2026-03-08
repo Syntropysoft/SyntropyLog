@@ -202,6 +202,11 @@ const maskingConfigSchema = z
     preserveLength: z.boolean().optional(),
     /** Enable default rules for common data types */
     enableDefaultRules: z.boolean().optional(),
+    /**
+     * Max ms for evaluating each custom rule regex; if exceeded, no match and a warning is logged.
+     * @default 100
+     */
+    regexTimeoutMs: z.number().int().positive().default(100),
   })
   .optional();
 

@@ -114,6 +114,7 @@ export class LifecycleManager extends EventEmitter {
         maskChar: this.config.masking?.maskChar,
         preserveLength: this.config.masking?.preserveLength,
         enableDefaultRules: this.config.masking?.enableDefaultRules !== false,
+        regexTimeoutMs: this.config.masking?.regexTimeoutMs,
       });
 
       this.loggerFactory = new LoggerFactory(
@@ -179,7 +180,6 @@ export class LifecycleManager extends EventEmitter {
     try {
       this.logger?.info('Shutting down SyntropyLog framework...');
 
-      // Shutdown MaskingEngine first so regex-test worker is cleaned (avoids process leak)
       this.maskingEngine?.shutdown?.();
 
       const shutdownPromises = [

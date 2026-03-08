@@ -173,7 +173,6 @@
   "dependencies": {
     "flatted": "^3.3.3",
     "js-yaml": "^4.1.1",
-    "regex-test": "^0.1.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {

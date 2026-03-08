@@ -7,9 +7,6 @@
  * This approach provides extreme processing speed for any object depth.
  */
 
-// Using type assertion for regex-test module since it lacks proper TypeScript declarations
-import RegexTest from 'regex-test';
-
 /**
  * @enum MaskingStrategy
  * @description Different masking strategies for various data types.
@@ -61,6 +58,8 @@ export interface MaskingEngineOptions {
   preserveLength?: boolean;
   /** Enable default rules for common data types */
   enableDefaultRules?: boolean;
+  /** Max ms per custom rule regex evaluation; on timeout a warning is logged and the rule is skipped. */
+  regexTimeoutMs?: number;
 }
 
 /**
@@ -80,13 +79,13 @@ export class MaskingEngine {
   private readonly preserveLength: boolean;
   /** @private Whether the engine is initialized */
   private initialized: boolean = false;
-  /** @private Secure regex tester with timeout */
-  private readonly regexTest: InstanceType<typeof RegexTest>;
+  /** @private Max ms per custom rule regex; on timeout we warn and skip the rule */
+  private readonly regexTimeoutMs: number;
 
   constructor(options?: MaskingEngineOptions) {
     this.maskChar = options?.maskChar || '*';
     this.preserveLength = options?.preserveLength ?? true; // Default to true for security
-    this.regexTest = new RegexTest({ timeout: 100 });
+    this.regexTimeoutMs = options?.regexTimeoutMs ?? 100;
 
     // Add default rules if enabled
     if (options?.enableDefaultRules !== false) {
@@ -271,20 +270,14 @@ export class MaskingEngine {
             let isMatch = false;
             if (rule._compiledPattern) {
               if (rule._isDefaultRule) {
-                // Default rules use safe, known patterns (no ReDoS); sync test avoids
-                // regex-test worker IPC queue which caused ~3–6s delay per log.
+                // Default rules use safe, known patterns (no ReDoS); sync test.
                 isMatch = rule._compiledPattern.test(key);
               } else {
-                try {
-                  // Custom rules: use regex-test for safe execution with timeout
-                  isMatch = await this.regexTest.test(
-                    rule._compiledPattern,
-                    key
-                  );
-                } catch {
-                  // Silent failure on timeout/error - treat as no match
-                  isMatch = false;
-                }
+                // Custom rules: run RegExp.test with configurable timeout; on timeout warn and skip
+                isMatch = await this.testRegexWithTimeout(
+                  rule._compiledPattern,
+                  key
+                );
               }
             }
 
@@ -507,14 +500,38 @@ export class MaskingEngine {
   }
 
   /**
+   * Runs RegExp.test(key) with a timeout. On timeout logs a warning and returns false.
+   * @private
+   */
+  private testRegexWithTimeout(regex: RegExp, key: string): Promise<boolean> {
+    const timeoutMs = this.regexTimeoutMs;
+    let timer: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => {
+        console.warn(
+          `[SyntropyLog] Masking rule regex timed out (${timeoutMs}ms); key skipped. Consider using a simpler pattern.`
+        );
+        resolve(false);
+      }, timeoutMs);
+    });
+    const testPromise = new Promise<boolean>((resolve) => {
+      try {
+        resolve(regex.test(key));
+      } catch {
+        resolve(false);
+      }
+    }).then((result) => {
+      clearTimeout(timer);
+      return result;
+    });
+    return Promise.race([testPromise, timeoutPromise]);
+  }
+
+  /**
    * Shutdown the masking engine.
    */
   public shutdown(): void {
     this.rules = [];
     this.initialized = false;
-    // Clean up regex-test worker to prevent process leaks
-    if (this.regexTest?.cleanWorker) {
-      this.regexTest.cleanWorker();
-    }
   }
 }
