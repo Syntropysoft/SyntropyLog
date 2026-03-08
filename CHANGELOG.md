@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.16
+
+### Patch Changes
+
+- **Fix: Maximum call stack size exceeded in optionalChalk**
+  - `createChain()` was eagerly building all chain nodes when constructing the root, causing infinite recursion (each node created 12 more). Replaced direct property assignment with lazy getters so the next chain is only created when a property is accessed (e.g. `.red.bold`). Fixes runtime error when using ClassicConsoleTransport and other pretty transports.
+  - Added `examples/AllTransportsExample.ts` to validate all console transports (JSON, Classic, Pretty, Compact, Colorful) in one run.
+
 ## 0.9.15
 
 ### Patch Changes

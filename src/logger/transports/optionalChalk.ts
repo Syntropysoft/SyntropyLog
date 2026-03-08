@@ -31,18 +31,25 @@ function wrap(s: string, codes: number[]): string {
 function createChain(codes: number[]): ChalkLike {
   const fn = ((s: string) => wrap(s, codes)) as ChalkLike;
   const add = (code: number) => createChain([...codes, code]);
-  fn.white = add(37);
-  fn.bold = add(1);
-  fn.red = add(31);
-  fn.bgRed = add(41);
-  fn.yellow = add(33);
-  fn.cyan = add(36);
-  fn.green = add(32);
-  fn.gray = add(90);
-  fn.magenta = add(35);
-  fn.blue = add(34);
-  fn.bgWhite = add(47);
-  fn.dim = add(2);
+  // Lazy getters: only create the next chain when the property is accessed (avoids stack overflow)
+  Object.defineProperty(fn, 'white', { get: () => add(37), enumerable: true });
+  Object.defineProperty(fn, 'bold', { get: () => add(1), enumerable: true });
+  Object.defineProperty(fn, 'red', { get: () => add(31), enumerable: true });
+  Object.defineProperty(fn, 'bgRed', { get: () => add(41), enumerable: true });
+  Object.defineProperty(fn, 'yellow', { get: () => add(33), enumerable: true });
+  Object.defineProperty(fn, 'cyan', { get: () => add(36), enumerable: true });
+  Object.defineProperty(fn, 'green', { get: () => add(32), enumerable: true });
+  Object.defineProperty(fn, 'gray', { get: () => add(90), enumerable: true });
+  Object.defineProperty(fn, 'magenta', {
+    get: () => add(35),
+    enumerable: true,
+  });
+  Object.defineProperty(fn, 'blue', { get: () => add(34), enumerable: true });
+  Object.defineProperty(fn, 'bgWhite', {
+    get: () => add(47),
+    enumerable: true,
+  });
+  Object.defineProperty(fn, 'dim', { get: () => add(2), enumerable: true });
   return fn;
 }
 
