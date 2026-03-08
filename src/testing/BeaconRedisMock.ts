@@ -2,42 +2,10 @@
  * FILE: src/testing/BeaconRedisMock.ts
  * DESCRIPTION: A mock implementation of IBeaconRedis for use in unit tests.
  * This mock is framework agnostic and works with both Vitest and Jest.
+ * (Unit tests for createMockFn/createTransactionObject live in tests/testing/BeaconRedisMock.test.ts.)
  */
 
-import { describe, it, expect, vi } from 'vitest';
 import { IBeaconRedis, IBeaconRedisTransaction } from '../redis';
-
-describe('BeaconRedisMock Pure Functions', () => {
-  describe('createMockFn', () => {
-    it('should throw if spyFn is not provided', () => {
-      expect(() => createMockFn(null)).toThrow('SPY FUNCTION NOT INJECTED');
-    });
-
-    it('should call spyFn if provided', () => {
-      const spyFn = vi.fn().mockReturnValue('mocked');
-      const result = createMockFn(spyFn);
-      expect(spyFn).toHaveBeenCalled();
-      expect(result).toBe('mocked');
-    });
-  });
-
-  describe('createTransactionObject', () => {
-    it('should return a transaction object with exec and executeScript', () => {
-      const spyFn = vi.fn().mockReturnValue({ mockResolvedValue: vi.fn() });
-      const tx = createTransactionObject(spyFn);
-      expect(tx).toHaveProperty('exec');
-      expect(tx).toHaveProperty('executeScript');
-    });
-
-    it('should have executeScript that throws', () => {
-      const spyFn = vi.fn().mockReturnValue({ mockResolvedValue: vi.fn() });
-      const tx = createTransactionObject(spyFn);
-      expect(() => tx.executeScript('script', [], [])).toThrow(
-        'SCRIPT execution not supported'
-      );
-    });
-  });
-});
 
 // Function that throws error for Lua script execution in transaction - outside of any mock context
 const throwScriptError = () => {

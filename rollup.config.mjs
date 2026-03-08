@@ -20,13 +20,13 @@ const external = [
   'type-detect',
 ];
 
-// Common plugins for all JavaScript bundles.
+// Common plugins for all JavaScript bundles. (sourcemap: false to keep published package small)
 const jsPlugins = [
   resolve(),
   commonjs(),
-  typescript({ 
+  typescript({
     tsconfig: './tsconfig.rollup.json',
-    sourceMap: true,
+    sourceMap: false,
   }),
   json(),
 ];
@@ -43,13 +43,13 @@ const createEntryConfig = (
       dir: path.dirname(baseOutputName),
       entryFileNames: path.basename(baseOutputName) + '.cjs',
       format: 'cjs',
-      sourcemap: true,
+      sourcemap: false,
     },
     {
       dir: path.dirname(baseOutputName),
       entryFileNames: path.basename(baseOutputName) + '.mjs',
       format: 'esm',
-      sourcemap: true,
+      sourcemap: false,
     },
   ],
   plugins: jsPlugins,
@@ -78,13 +78,13 @@ export default [
       {
         file: './dist/index.cjs',
         format: 'cjs',
-        sourcemap: true,
+        sourcemap: false,
         inlineDynamicImports: true,
       },
       {
         file: './dist/index.mjs',
         format: 'esm',
-        sourcemap: true,
+        sourcemap: false,
         inlineDynamicImports: true,
       },
     ],
@@ -94,6 +94,7 @@ export default [
 
   createEntryConfig('src/testing/index.ts', './dist/testing/index', {
     treeshake: false,
+    external: [...external, 'vitest'],
   }),
 
   // --- Type Declaration Bundles (.d.ts) ---

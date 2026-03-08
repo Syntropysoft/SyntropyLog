@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.17
+
+### Patch Changes
+
+- **Reduce published package size (~6.7 MB → ~1.4 MB unpacked)**
+  - Removed vitest and inline tests from `src/testing/BeaconRedisMock.ts`; tests moved to `tests/testing/BeaconRedisMock.test.ts`. Marked `vitest` as external in Rollup for the testing bundle so it is no longer bundled (was pulling in magic-string and large deps).
+  - Disabled source maps in production build (`sourcemap: false` in Rollup) so `.map` files are not published. Tarball ~1.3 MB → ~300 KB; unpacked ~6.7 MB → ~1.4 MB.
+
 ## 0.9.16
 
 ### Patch Changes
