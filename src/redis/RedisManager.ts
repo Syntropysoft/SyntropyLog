@@ -151,6 +151,8 @@ export class RedisManager {
       (instance) => instance.quit()
     );
     await Promise.allSettled(shutdownPromises);
+    this.instances.clear();
+    this.defaultInstance = undefined;
     this.logger.info('All Redis connections have been closed.');
   }
 }

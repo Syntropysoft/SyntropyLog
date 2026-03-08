@@ -26,6 +26,7 @@ const setupMockClient = () => {
     }),
     connect: vi.fn().mockResolvedValue(undefined),
     quit: vi.fn().mockResolvedValue(undefined),
+    removeAllListeners: vi.fn(), // Used in disconnect() for clean teardown
     ping: vi.fn().mockResolvedValue('PONG'),
     info: vi.fn().mockResolvedValue('info string'),
     exists: vi.fn(),
@@ -248,12 +249,13 @@ describe('RedisConnectionManager', () => {
       expect(mockNativeClient.connect).toHaveBeenCalledOnce();
     });
 
-    it('should call client.quit() and log on disconnect when client is open', async () => {
+    it('should call removeAllListeners() then client.quit() when client is open', async () => {
       mockNativeClient.isOpen = true;
       await manager.disconnect();
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Attempting to quit client.'
       );
+      expect(mockNativeClient.removeAllListeners).toHaveBeenCalledOnce();
       expect(mockNativeClient.quit).toHaveBeenCalledOnce();
       expect(manager.isQuit()).toBe(true);
     });
@@ -265,6 +267,14 @@ describe('RedisConnectionManager', () => {
         'Client was not open. Quit operation effectively complete.'
       );
       expect(mockNativeClient.quit).not.toHaveBeenCalled();
+      expect(manager.isQuit()).toBe(true);
+    });
+
+    it('should still call quit() when client has no removeAllListeners method', async () => {
+      mockNativeClient.isOpen = true;
+      delete mockNativeClient.removeAllListeners;
+      await manager.disconnect();
+      expect(mockNativeClient.quit).toHaveBeenCalledOnce();
       expect(manager.isQuit()).toBe(true);
     });
 
@@ -305,6 +315,14 @@ describe('RedisConnectionManager', () => {
       await expect(manager.ensureReady()).rejects.toThrow(
         'Client has been quit. Cannot execute commands.'
       );
+    });
+
+    it('should reject connect() if client has already been quit', async () => {
+      await manager.disconnect();
+      await expect(manager.connect()).rejects.toThrow(
+        'Client has been quit and cannot be reconnected.'
+      );
+      expect(mockNativeClient.connect).not.toHaveBeenCalled();
     });
   });
 

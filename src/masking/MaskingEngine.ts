@@ -164,11 +164,17 @@ export class MaskingEngine {
     this.rules.push(rule);
   }
 
+  /** Message used when masking fails (e.g. timeout) so we never emit raw payload. */
+  private static readonly MASKING_FAILED_MESSAGE =
+    '[SyntropyLog] Masking could not be applied (e.g. timeout or error); payload redacted for safety.';
+
   /**
    * Processes a metadata object and applies the configured masking rules.
    * Uses JSON flattening strategy for extreme performance.
+   * On failure (timeout, rule error, etc.) returns a safe redacted object with an explicit message
+   * instead of the original data, to avoid leaking sensitive content.
    * @param meta - The metadata object to process
-   * @returns A new object with the masked data
+   * @returns A new object with the masked data, or a safe fallback object if masking fails
    */
   public async process(
     meta: Record<string, unknown>
@@ -189,9 +195,30 @@ export class MaskingEngine {
       // Return the masked data
       return masked;
     } catch {
-      // Silent observer - return original data if masking fails
-      return meta;
+      // Do not return original data: emit a safe placeholder so sensitive payload is never logged
+      return {
+        ...MaskingEngine.buildSafeFallbackFromMeta(meta),
+        _maskingFailed: true,
+        _maskingFailedMessage: MaskingEngine.MASKING_FAILED_MESSAGE,
+      };
     }
+  }
+
+  /**
+   * Builds a minimal safe object from meta (level, timestamp, message, service) for fallback.
+   * Avoids leaking any arbitrary keys/values when masking fails.
+   */
+  private static buildSafeFallbackFromMeta(
+    meta: Record<string, unknown>
+  ): Record<string, unknown> {
+    const safe: Record<string, unknown> = {};
+    const allowedKeys = ['level', 'timestamp', 'message', 'service'] as const;
+    for (const key of allowedKeys) {
+      if (key in meta && meta[key] !== undefined) {
+        safe[key] = meta[key];
+      }
+    }
+    return safe;
   }
 
   /**

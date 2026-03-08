@@ -291,10 +291,9 @@ describe('MaskingEngine', () => {
   });
 
   describe('Error Handling', () => {
-    it('should return original data if masking fails', async () => {
+    it('should return safe fallback (no raw payload) when masking fails', async () => {
       const engine = new MaskingEngine({ enableDefaultRules: false });
 
-      // Add a rule that might cause issues
       engine.addRule({
         pattern: /test/i,
         strategy: MaskingStrategy.CUSTOM,
@@ -306,8 +305,41 @@ describe('MaskingEngine', () => {
       const originalData = { test: 'value', normal: 'data' };
       const result = await engine.process(originalData);
 
-      // Should return original data due to silent observer pattern
-      expect(result).toEqual(originalData);
+      // Should NOT return original data: safe fallback to avoid leaking sensitive payload
+      expect(result).toHaveProperty('_maskingFailed', true);
+      expect(result).toHaveProperty('_maskingFailedMessage');
+      expect(result._maskingFailedMessage).toContain(
+        'Masking could not be applied'
+      );
+      expect(result).not.toHaveProperty('test');
+      expect(result).not.toHaveProperty('normal');
+    });
+
+    it('should preserve allowed safe keys in fallback when masking fails', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /level/i,
+        strategy: MaskingStrategy.CUSTOM,
+        customMask: () => {
+          throw new Error('Masking failed');
+        },
+      });
+
+      const originalData = {
+        level: 'info',
+        timestamp: '2024-01-01T00:00:00Z',
+        message: 'test',
+        service: 'my-service',
+        secret: 'sensitive',
+      };
+      const result = await engine.process(originalData);
+
+      expect(result).toHaveProperty('_maskingFailed', true);
+      expect(result).toHaveProperty('level', 'info');
+      expect(result).toHaveProperty('timestamp', '2024-01-01T00:00:00Z');
+      expect(result).toHaveProperty('message', 'test');
+      expect(result).toHaveProperty('service', 'my-service');
+      expect(result).not.toHaveProperty('secret');
     });
 
     it('should handle circular references gracefully', async () => {

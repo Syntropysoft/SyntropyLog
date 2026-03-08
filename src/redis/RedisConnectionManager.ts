@@ -245,6 +245,10 @@ export class RedisConnectionManager {
         throw error;
       }
     } else {
+      // Client never connected or already closed: remove listeners to avoid leak
+      if (typeof this.client.removeAllListeners === 'function') {
+        this.client.removeAllListeners();
+      }
       this.logger.info(
         'Client was not open. Quit operation effectively complete.'
       );

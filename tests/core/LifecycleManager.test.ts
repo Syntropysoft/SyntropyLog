@@ -117,6 +117,39 @@ describe('LifecycleManager', () => {
       await lifecycleManager.shutdown();
       expect(lifecycleManager.getState()).toBe('NOT_INITIALIZED');
     });
+
+    it('should transition to ERROR and emit error when shutdown fails', async () => {
+      await lifecycleManager.init({});
+      expect(lifecycleManager.getState()).toBe('READY');
+
+      const shutdownError = new Error('MaskingEngine shutdown failed');
+      lifecycleManager.maskingEngine.shutdown = vi
+        .fn()
+        .mockImplementation(() => {
+          throw shutdownError;
+        });
+
+      const errorEmitted = vi.fn();
+      lifecycleManager.on('error', errorEmitted);
+
+      await lifecycleManager.shutdown();
+
+      expect(lifecycleManager.getState()).toBe('ERROR');
+      expect(errorEmitted).toHaveBeenCalledWith(shutdownError);
+    });
+  });
+
+  describe('ensureReady', () => {
+    it('should throw when not in READY state', () => {
+      expect(() => lifecycleManager.ensureReady()).toThrow(
+        /SyntropyLog is not ready. Current state: 'NOT_INITIALIZED'/
+      );
+    });
+
+    it('should not throw when in READY state', async () => {
+      await lifecycleManager.init({});
+      expect(() => lifecycleManager.ensureReady()).not.toThrow();
+    });
   });
 
   describe('child process management', () => {
