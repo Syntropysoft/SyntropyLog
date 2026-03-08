@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.15
+
+### Patch Changes
+
+- **Built-in ANSI colors: remove chalk dependency**
+  - Pretty console transports (Classic, Pretty, Compact, Colorful) now use a built-in chalk-like API implemented with ANSI escape codes. No chalk peer dependency.
+  - Colors are disabled when `NO_COLOR` is set or when stdout is not a TTY (pipes, CI). Same format is logged in plain text in those cases.
+  - README updated: no `npm install chalk`; colours described as built-in ANSI.
+
 ## 0.9.14
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.9.14",
+  "version": "0.9.15",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -206,14 +206,10 @@
     "@changesets/cli": "^2.27.1"
   },
   "peerDependencies": {
-    "chalk": "^5.4.1",
     "redis": "^4.6.12 || ^5.10.0"
   },
   "peerDependenciesMeta": {
     "redis": {
-      "optional": true
-    },
-    "chalk": {
       "optional": true
     }
   },

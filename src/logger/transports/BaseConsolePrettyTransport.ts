@@ -1,7 +1,7 @@
 /**
  * @file src/logger/transports/BaseConsolePrettyTransport.ts
  * @description An abstract base class for console transports that provide colored, human-readable output.
- * Chalk is loaded optionally so transports work in both ESM and CJS consumers; if chalk is missing, no colors are applied.
+ * Colors use built-in ANSI (no chalk dependency). Disabled when NO_COLOR is set or stdout is not a TTY.
  */
 import { LogEntry } from '../../types';
 import { LogLevel } from '../levels';

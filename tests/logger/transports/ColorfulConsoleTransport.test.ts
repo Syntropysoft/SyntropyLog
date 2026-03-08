@@ -5,8 +5,10 @@ import {
   createLevelStyleMap,
   formatColorfulLog,
 } from '../../../src/logger/transports/ColorfulConsoleTransport';
+import { getOptionalChalk } from '../../../src/logger/transports/optionalChalk';
 import { LogEntry } from '../../../src/types';
-import chalk from 'chalk';
+
+const chalk = getOptionalChalk();
 
 describe('ColorfulConsoleTransport Pure Functions', () => {
   describe('createLevelStyleMap', () => {

@@ -73,25 +73,21 @@ npm install syntropylog
 
 By default, SyntropyLog outputs **lightweight plain JSON to the console — automatically, with no configuration needed**. No imports, no setup, no extra dependencies.
 
-If you want **colored, human-readable output** for development, use one of the pretty console transports (`ClassicConsoleTransport`, `PrettyConsoleTransport`, `CompactConsoleTransport`, `ColorfulConsoleTransport`). **Chalk is optional:** if you install `chalk` in your project, those transports use it and you get colors; if you don't install it, the same format is shown in plain text (no colors). That keeps the base bundle small and avoids CJS/ESM load issues when chalk isn't present.
+If you want **colored, human-readable output** for development, use one of the pretty console transports. Colours use **built-in ANSI codes** (no chalk or extra dependency). When stdout is a TTY you get colours; when piping or in CI, or if `NO_COLOR` is set, the same format is shown in plain text.
 
-```bash
-npm install chalk   # optional — only if you want colors
-```
-
-| Transport | Style | With chalk | Without chalk | Recommended for |
-| :--- | :--- | :---: | :--- | :--- |
-| *(default)* | Plain JSON | — | — | Production / log aggregators |
-| `ClassicConsoleTransport` | Structured single-line | ✅ Colored | Plain text | Development |
-| `PrettyConsoleTransport` | Human-readable pretty | ✅ Colored | Plain text | Development / debugging |
-| `CompactConsoleTransport` | Compact one-liner | ✅ Colored | Plain text | Development |
-| `ColorfulConsoleTransport` | Full-line colored | ✅ Colored | Plain text | Development |
+| Transport | Style | Recommended for |
+| :--- | :--- | :--- |
+| *(default)* | Plain JSON | Production / log aggregators |
+| `ClassicConsoleTransport` | Structured single-line, colored | Development |
+| `PrettyConsoleTransport` | Human-readable pretty, colored | Development / debugging |
+| `CompactConsoleTransport` | Compact one-liner, colored | Development |
+| `ColorfulConsoleTransport` | Full-line colored | Development |
 
 ```typescript
 // Default — no import needed, works out of the box
 syntropyLog.init({ logger: { level: 'info', serviceName: 'my-app' } });
 
-// Pretty format: with chalk → colors; without chalk → same format, no colors
+// Pretty + colors (built-in ANSI; no extra deps)
 import { ClassicConsoleTransport } from 'syntropylog';
 
 syntropyLog.init({

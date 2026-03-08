@@ -1,13 +1,10 @@
 /**
  * @file src/logger/transports/optionalChalk.ts
- * @description Load chalk optionally so that pretty console transports work in both
- * ESM (tsx + "type": "module") and CJS (ts-node) consumers. If chalk is missing or
- * fails to load, a no-op identity is used (no colors).
+ * @description Built-in chalk-like API using ANSI escape codes. No chalk dependency.
+ * Used by ClassicConsoleTransport, PrettyConsoleTransport, CompactConsoleTransport, ColorfulConsoleTransport.
  */
 
-import { createRequire } from 'module';
-
-/** Chalk-like API used by BaseConsolePrettyTransport and subclasses. */
+/** Chalk-like API: chainable style that returns wrapped string when called. */
 export type ChalkLike = {
   (s: string): string;
   white: ChalkLike;
@@ -24,53 +21,64 @@ export type ChalkLike = {
   dim: ChalkLike;
 };
 
-function createNoColorChalk(): ChalkLike {
-  const noColor = ((s: string) => s) as ChalkLike;
-  noColor.white = noColor;
-  noColor.bold = noColor;
-  noColor.red = noColor;
-  noColor.bgRed = noColor;
-  noColor.yellow = noColor;
-  noColor.cyan = noColor;
-  noColor.green = noColor;
-  noColor.gray = noColor;
-  noColor.magenta = noColor;
-  noColor.blue = noColor;
-  noColor.bgWhite = noColor;
-  noColor.dim = noColor;
-  return noColor;
+const RESET = '\x1b[0m';
+
+function wrap(s: string, codes: number[]): string {
+  if (codes.length === 0) return s;
+  return `\x1b[${codes.join(';')}m${s}${RESET}`;
 }
 
-function getRequire(): NodeRequire {
-  if (typeof require !== 'undefined') {
-    return require as NodeRequire;
-  }
-  return createRequire(import.meta.url);
-}
-
-function loadChalkSync(): ChalkLike {
-  try {
-    const c = getRequire()('chalk');
-    const ch = (c?.default ?? c) as ChalkLike | undefined;
-    if (ch && typeof ch.white !== 'undefined') {
-      return ch;
-    }
-  } catch {
-    // chalk not installed or failed to load (e.g. CJS/ESM interop)
-  }
-  return createNoColorChalk();
+function createChain(codes: number[]): ChalkLike {
+  const fn = ((s: string) => wrap(s, codes)) as ChalkLike;
+  const add = (code: number) => createChain([...codes, code]);
+  fn.white = add(37);
+  fn.bold = add(1);
+  fn.red = add(31);
+  fn.bgRed = add(41);
+  fn.yellow = add(33);
+  fn.cyan = add(36);
+  fn.green = add(32);
+  fn.gray = add(90);
+  fn.magenta = add(35);
+  fn.blue = add(34);
+  fn.bgWhite = add(47);
+  fn.dim = add(2);
+  return fn;
 }
 
 let cached: ChalkLike | null = null;
 
 /**
- * Returns a chalk-like instance: real chalk if available and usable, otherwise
- * a no-op that returns the string unchanged. Safe to call from both ESM and CJS.
+ * Returns a chalk-like instance using built-in ANSI colors. No external chalk dependency.
+ * Respects NO_COLOR and disables colors when stdout is not a TTY (e.g. pipes, CI).
  */
 export function getOptionalChalk(): ChalkLike {
   if (cached !== null) {
     return cached;
   }
-  cached = loadChalkSync();
+  const noColor =
+    process.env.NO_COLOR !== undefined &&
+    process.env.NO_COLOR !== '' &&
+    process.env.NO_COLOR !== '0';
+  const isTTY =
+    typeof process.stdout?.isTTY === 'boolean' && process.stdout.isTTY;
+  if (noColor || !isTTY) {
+    const identity = ((s: string) => s) as ChalkLike;
+    identity.white = identity;
+    identity.bold = identity;
+    identity.red = identity;
+    identity.bgRed = identity;
+    identity.yellow = identity;
+    identity.cyan = identity;
+    identity.green = identity;
+    identity.gray = identity;
+    identity.magenta = identity;
+    identity.blue = identity;
+    identity.bgWhite = identity;
+    identity.dim = identity;
+    cached = identity;
+  } else {
+    cached = createChain([]);
+  }
   return cached;
 }

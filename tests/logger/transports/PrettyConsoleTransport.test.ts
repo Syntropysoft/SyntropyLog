@@ -4,8 +4,10 @@ import {
   createLevelColorMap,
   formatPrettyLog,
 } from '../../../src/logger/transports/PrettyConsoleTransport';
+import { getOptionalChalk } from '../../../src/logger/transports/optionalChalk';
 import { LogEntry } from '../../../src/types';
-import chalk from 'chalk';
+
+const chalk = getOptionalChalk();
 
 describe('PrettyConsoleTransport Pure Functions', () => {
   describe('createLevelColorMap', () => {
@@ -137,7 +139,7 @@ describe('PrettyConsoleTransport', () => {
       2
     );
 
-    // The output from the transport will have ANSI color codes from chalk.
+    // The output from the transport may include ANSI color codes (built-in).
     // To make the test assertion reliable, we can strip the color codes
     // before checking for containment. This verifies content and structure
     // without being brittle due to styling.
