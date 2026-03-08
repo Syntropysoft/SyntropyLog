@@ -86,6 +86,16 @@ We welcome code contributions! To contribute code, please follow these steps:
 - Keep API documentation current
 - Include usage examples
 
+## Release process (maintainers)
+
+Releases use [Changesets](https://github.com/changesets/changesets) and GitHub Actions:
+
+1. **Add a changeset** when changing the library: `pnpm changeset` (choose version type and describe the change).
+2. **Push to `main`** (or merge a PR that includes the changeset). The Release workflow runs and:
+   - Creates a **"Version Packages"** PR with the version bump (e.g. 0.9.12 → 0.9.13) and CHANGELOG updates.
+   - **Publishes to npm** from that same run (so npm may already have the new version).
+3. **Merge the "Version Packages" PR** into `main`. This step is required so that `main` has the same `package.json` version and CHANGELOG as what was published to npm. If you skip it, `main` will stay on the old version while npm has the new one.
+
 ## Getting Help
 
 If you need help with your contribution, please:

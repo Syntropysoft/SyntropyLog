@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.13
+
+### Patch Changes
+
+- a1498cb: - **MaskingEngine**: On masking failure (timeout/error), return a safe fallback payload with `_maskingFailed` and allowed keys only (`level`, `timestamp`, `message`, `service`) instead of raw metadata to avoid leaking sensitive data.
+  - **RedisConnectionManager**: Call `removeAllListeners()` when client was never open in `disconnect()` to avoid listener leaks.
+  - **RedisManager**: Clear `instances` and `defaultInstance` in `shutdown()` after closing connections.
+- eca5f56: **Fix: ~3–6s delay per log call (logger.info/warn/error)**
+  - **Cause**: `MaskingEngine` used the `regex-test` package for every key×rule check. That package runs each test in a child-process worker with a single queue, so many sequential IPC round-trips added up to several seconds per log.
+  - **Change**: Built-in default rules (password, email, token, credit_card, SSN, phone) now use synchronous `RegExp.test()` in-process; they use safe, known patterns with no ReDoS risk. Custom rules added via `masking.rules` still use `regex-test` with timeout for safety.
+  - **Result**: Log calls complete in milliseconds again. README documents the behavior under "Data Masking → Performance".
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
