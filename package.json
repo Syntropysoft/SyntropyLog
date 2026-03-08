@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.9.12",
+  "version": "0.9.13",
   "engines": {
     "node": ">=20.0.0"
   },
