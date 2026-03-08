@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.18
+
+### Patch Changes
+
+- **Masking: remove regex-test, add configurable regex timeout**
+  - Remove `regex-test` dependency; custom rules now use `RegExp.test()` with a `Promise.race` timeout.
+  - Add `masking.regexTimeoutMs` (config + schema, default 100ms). On timeout, a warning is logged and the rule is skipped.
+  - Drop regex-test from package.json and type declarations; no worker cleanup in LifecycleManager.
+
 ## 0.9.17
 
 ### Patch Changes
