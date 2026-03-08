@@ -11,10 +11,13 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    # Permisos mínimos para GITHUB_TOKEN (ver https://docs.github.com/es/actions/tutorials/authenticate-with-github_token#modifying-the-permissions-for-the-github_token).
+    # Para que el action pueda crear el PR "Version Packages", en el repo debe estar activada la opción
+    # Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
     permissions:
-      contents: write # to create release (changesets/action)
-      pull-requests: write # to create PR (changesets/action)
-      id-token: write # to enable use of OIDC for npm provenance
+      contents: write      # push a ramas y crear release (changesets/action)
+      pull-requests: write # crear y actualizar el PR "Version Packages" (changesets/action)
+      id-token: write      # OIDC para npm provenance
 
     steps:
       - name: Checkout Repo
