@@ -73,24 +73,25 @@ npm install syntropylog
 
 By default, SyntropyLog outputs **lightweight plain JSON to the console — automatically, with no configuration needed**. No imports, no setup, no extra dependencies.
 
-If you want **colored, human-readable output** for development, use one of the chalk-powered transports. These require `chalk` to be installed explicitly in your project to keep the base bundle small:
+If you want **colored, human-readable output** for development, use one of the pretty console transports (`ClassicConsoleTransport`, `PrettyConsoleTransport`, `CompactConsoleTransport`, `ColorfulConsoleTransport`). **Chalk is optional:** if you install `chalk` in your project, those transports use it and you get colors; if you don't install it, the same format is shown in plain text (no colors). That keeps the base bundle small and avoids CJS/ESM load issues when chalk isn't present.
 
 ```bash
-npm install chalk
+npm install chalk   # optional — only if you want colors
 ```
 
-| Transport | Style | Color | Recommended for |
-| :--- | :--- | :---: | :--- |
-| *(default)* | Plain JSON | ❌ | Production / log aggregators |
-| `ClassicConsoleTransport` | Structured + colored | ✅ | Development |
-| `PrettyConsoleTransport` | Human-readable pretty print | ✅ | Development / debugging |
-| `CompactConsoleTransport` | Compact one-liner | ✅ | Development |
+| Transport | Style | With chalk | Without chalk | Recommended for |
+| :--- | :--- | :---: | :--- | :--- |
+| *(default)* | Plain JSON | — | — | Production / log aggregators |
+| `ClassicConsoleTransport` | Structured single-line | ✅ Colored | Plain text | Development |
+| `PrettyConsoleTransport` | Human-readable pretty | ✅ Colored | Plain text | Development / debugging |
+| `CompactConsoleTransport` | Compact one-liner | ✅ Colored | Plain text | Development |
+| `ColorfulConsoleTransport` | Full-line colored | ✅ Colored | Plain text | Development |
 
 ```typescript
 // Default — no import needed, works out of the box
 syntropyLog.init({ logger: { level: 'info', serviceName: 'my-app' } });
 
-// Want colors? Install chalk first, then import the transport:
+// Pretty format: with chalk → colors; without chalk → same format, no colors
 import { ClassicConsoleTransport } from 'syntropylog';
 
 syntropyLog.init({

@@ -3,10 +3,10 @@
  * @description A transport that formats logs with full-line, level-based colors (Python colorlog/rich style).
  * Timestamp, level, service, message and metadata are all colored so the entire line is vivid end-to-end.
  */
-import chalk from 'chalk';
 import { LogLevel } from '../levels';
 import { TransportOptions } from './Transport';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
+import type { ChalkLike } from './optionalChalk';
 import { LogEntry } from '../../types';
 
 const LEVEL_PAD = 8;
@@ -21,7 +21,7 @@ type LevelStyle = {
 type LevelStyleMap = Record<Exclude<LogLevel, 'silent'>, LevelStyle>;
 
 // Pure function: Create style map
-export const createLevelStyleMap = (c: typeof chalk): LevelStyleMap => ({
+export const createLevelStyleMap = (c: ChalkLike): LevelStyleMap => ({
   trace: {
     level: c.gray.bold,
     message: c.gray,
@@ -69,7 +69,7 @@ export const createLevelStyleMap = (c: typeof chalk): LevelStyleMap => ({
 // Pure function: Format log entry
 export const formatColorfulLog = (
   logObject: LogEntry,
-  c: typeof chalk,
+  c: ChalkLike,
   styleMap: LevelStyleMap
 ): string => {
   const { timestamp, level, service, message, ...rest } = logObject;

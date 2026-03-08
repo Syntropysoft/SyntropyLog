@@ -65,7 +65,7 @@ export class CompactConsoleTransport extends BaseConsolePrettyTransport {
           const formattedValue =
             typeof value === 'object' && value !== null
               ? JSON.stringify(value)
-              : value;
+              : String(value);
           return `${this.chalk.dim(key)}=${this.chalk.gray(formattedValue)}`;
         })
         .join(' ');

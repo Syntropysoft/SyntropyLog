@@ -88,13 +88,21 @@ We welcome code contributions! To contribute code, please follow these steps:
 
 ## Release process (maintainers)
 
-Releases use [Changesets](https://github.com/changesets/changesets) and GitHub Actions:
+Releases use [Changesets](https://github.com/changesets/changesets) and GitHub Actions. **Para que la versión suba en npm, siempre tienes que hacer una de estas dos cosas:**
 
-1. **Add a changeset** when changing the library: `pnpm changeset` (choose version type and describe the change).
-2. **Push to `main`** (or merge a PR that includes the changeset). The Release workflow runs and:
-   - Creates a **"Version Packages"** PR with the version bump (e.g. 0.9.12 → 0.9.13) and CHANGELOG updates.
-   - **Publishes to npm** from that same run (so npm may already have the new version).
-3. **Merge the "Version Packages" PR** into `main`. This step is required so that `main` has the same `package.json` version and CHANGELOG as what was published to npm. If you skip it, `main` will stay on the old version while npm has the new one.
+### Opción A: Usar el PR que crea el action
+
+1. **Añade un changeset** al cambiar la librería: `pnpm changeset` (elige tipo de versión y describe el cambio).
+2. **Push a `main`**. El workflow crea un PR **"Version Packages"** con el bump (ej. 0.9.12 → 0.9.13) y el CHANGELOG actualizado. **Todavía no publica en npm.**
+3. **Mergea ese PR** en `main`. Ese merge vuelve a disparar el workflow y **ahí sí** se ejecuta `publish` y la nueva versión aparece en npm.
+
+### Opción B: Subir la versión a mano (sin PR)
+
+1. Con changesets ya en el repo, en local: `pnpm run version-packages`. Eso actualiza `package.json`, CHANGELOG y borra los changesets.
+2. **Commit** (package.json, CHANGELOG.md, y los .changeset/*.md borrados) y **push a `main`**.
+3. El workflow corre, no hay changesets que aplicar, y ejecuta **publish** → la versión sube a npm.
+
+En ambos casos, **main** y **npm** quedan con la misma versión.
 
 ## Getting Help
 

@@ -2,17 +2,17 @@
  * @file src/logger/transports/PrettyConsoleTransport.ts
  * @description A transport that formats logs for human readability in a development console, using colors.
  */
-import chalk from 'chalk';
 import { LogLevel } from '../levels';
 import { TransportOptions } from './Transport';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
+import type { ChalkLike } from './optionalChalk';
 import { LogEntry } from '../../types';
 
 type Colorizer = (s: string) => string;
 type LevelColorMap = Record<Exclude<LogLevel, 'silent'>, Colorizer>;
 
 // Pure function: Create color map
-export const createLevelColorMap = (c: typeof chalk): LevelColorMap => ({
+export const createLevelColorMap = (c: ChalkLike): LevelColorMap => ({
   fatal: c.bgRed.white.bold,
   error: c.red.bold,
   warn: c.yellow.bold,
@@ -25,7 +25,7 @@ export const createLevelColorMap = (c: typeof chalk): LevelColorMap => ({
 // Pure function: Format log entry
 export const formatPrettyLog = (
   logObject: LogEntry,
-  c: typeof chalk,
+  c: ChalkLike,
   colorMap: LevelColorMap
 ): string => {
   const { timestamp, level, service, message, ...rest } = logObject;

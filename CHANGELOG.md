@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.14
+
+### Patch Changes
+
+- **Chalk optional for pretty console transports (Classic, Pretty, Compact, Colorful)**
+  - **Fix**: `ClassicConsoleTransport` (and other chalk-powered transports) now work in both ESM (tsx + `"type": "module"`) and CJS (e.g. ts-node) consumers. Chalk is loaded optionally via a small helper that uses `require` in CJS and `createRequire(import.meta.url)` in ESM; if chalk is missing or fails to load, a no-op is used so the same format is logged without colors.
+  - **README**: Clarified that chalk is optional — install it for colors, or use the same transports without it for plain-text output. Table updated to show "With chalk" / "Without chalk" and added ColorfulConsoleTransport.
+
 ## 0.9.13
 
 ### Patch Changes

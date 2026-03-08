@@ -1,11 +1,12 @@
 /**
  * @file src/logger/transports/BaseConsolePrettyTransport.ts
  * @description An abstract base class for console transports that provide colored, human-readable output.
+ * Chalk is loaded optionally so transports work in both ESM and CJS consumers; if chalk is missing, no colors are applied.
  */
-import chalk from 'chalk';
 import { LogEntry } from '../../types';
 import { LogLevel } from '../levels';
 import { Transport, TransportOptions } from './Transport';
+import { getOptionalChalk, type ChalkLike } from './optionalChalk';
 
 /**
  * @class BaseConsolePrettyTransport
@@ -15,12 +16,11 @@ import { Transport, TransportOptions } from './Transport';
  * @extends {Transport}
  */
 export abstract class BaseConsolePrettyTransport extends Transport {
-  protected readonly chalk: typeof chalk;
+  protected readonly chalk: ChalkLike;
 
   constructor(options?: TransportOptions) {
     super(options);
-    // Chalk v4 is used directly, not instantiated.
-    this.chalk = chalk;
+    this.chalk = getOptionalChalk();
   }
 
   /**
