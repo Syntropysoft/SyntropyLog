@@ -236,6 +236,9 @@ export class RedisConnectionManager {
     if (this.client.isOpen) {
       this.logger.info('Attempting to quit client.');
       try {
+        if (typeof this.client.removeAllListeners === 'function') {
+          this.client.removeAllListeners();
+        }
         await this.client.quit();
       } catch (error) {
         this.logger.error('Error during client.quit().', { error } as any);

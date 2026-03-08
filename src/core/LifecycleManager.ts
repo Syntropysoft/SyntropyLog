@@ -179,6 +179,9 @@ export class LifecycleManager extends EventEmitter {
     try {
       this.logger?.info('Shutting down SyntropyLog framework...');
 
+      // Shutdown MaskingEngine first so regex-test worker is cleaned (avoids process leak)
+      this.maskingEngine?.shutdown?.();
+
       const shutdownPromises = [
         this.redisManager?.shutdown(),
         this.loggerFactory?.shutdown?.(),

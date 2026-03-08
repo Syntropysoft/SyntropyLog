@@ -39,6 +39,11 @@ export interface LoggerConfigLoaderOptions {
  *
  * It does NOT read environment variables directly; all state must be passed via `opts`.
  * If no file is found, it returns an empty object, making the config file optional.
+ *
+ * **Security:** A restricted schema (JSON_SCHEMA) is used to avoid prototype pollution
+ * and dangerous types. Only use with configuration files under deployment team
+ * control (controlled paths and permissions).
+ *
  * @param opts - Options to customize the loading behavior.
  * @returns A partial `LoggerOptions` object, or an empty object if no file is found.
  * @throws An error if a config file is found but fails to be read or parsed.
@@ -84,12 +89,11 @@ export function loadLoggerConfig(
   }
 
   try {
-    // Load and parse the YAML file.
+    // Load and parse the YAML file with restricted schema (avoids prototype pollution / unsafe types).
     const fileContents = fs.readFileSync(configPath, 'utf8');
-    const yamlConfig = yaml.load(fileContents) as Record<
-      string,
-      unknown
-    > | null;
+    const yamlConfig = yaml.load(fileContents, {
+      schema: yaml.JSON_SCHEMA,
+    }) as Record<string, unknown> | null;
 
     // If the YAML has the config under a 'logger' key, extract it.
     // Otherwise, assume the root object is the configuration.

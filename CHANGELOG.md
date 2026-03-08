@@ -1,5 +1,29 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+_Nothing at the moment._
+
+## [0.9.12] - 2026-03-07
+
+### Security
+
+- **loadLoggerConfig**: Use js-yaml's `JSON_SCHEMA` when parsing YAML files to avoid prototype pollution and dangerous types. Use only with configuration files under deployment team control.
+
+### Fixed
+
+- **LifecycleManager**: `MaskingEngine.shutdown()` is now invoked during framework shutdown so the regex-test worker is cleaned up and process leaks are avoided. Defensive optional chaining used when the manager is not in READY state.
+- **RedisConnectionManager**: Call `removeAllListeners()` on the Redis client before `quit()` in `disconnect()` for clean teardown and to avoid retaining listener references.
+
+### Documentation
+
+- **Audit reports**: Added `INFORME_TECH_LEAD_AUDITORIA_LIBRERIA.md` with full audit for enterprise adoption (security, memory, performance, dependencies). Complements existing `INFORME_AUDITORIA_SEGURIDAD_RENDIMIENTO.md`.
+
 ## 0.9.11
 
 ### Patch Changes
@@ -41,11 +65,6 @@
 
 - Security: Removed example IPs and URLs (e.g. 192.168.1.1, example.com) from source code, tests, and documentation to resolve Socket.dev supply chain security warnings.
   Docs: Updated test coverage badge to 92.48%.
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.9.5] - 2026-03-07
 
