@@ -1,7 +1,50 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { stripVTControlCharacters } from 'node:util';
-import { ColorfulConsoleTransport } from '../../../src/logger/transports/ColorfulConsoleTransport';
+import {
+  ColorfulConsoleTransport,
+  createLevelStyleMap,
+  formatColorfulLog,
+} from '../../../src/logger/transports/ColorfulConsoleTransport';
 import { LogEntry } from '../../../src/types';
+import chalk from 'chalk';
+
+describe('ColorfulConsoleTransport Pure Functions', () => {
+  describe('createLevelStyleMap', () => {
+    it('should return a map with styles for all levels', () => {
+      const map = createLevelStyleMap(chalk);
+      expect(map).toHaveProperty('info');
+      expect(map).toHaveProperty('error');
+      expect(map.info).toHaveProperty('level');
+      expect(map.info).toHaveProperty('message');
+    });
+  });
+
+  describe('formatColorfulLog', () => {
+    const styleMap = createLevelStyleMap(chalk);
+    const baseEntry: LogEntry = {
+      level: 'info',
+      message: 'test message',
+      service: 'test-service',
+      timestamp: new Date('2023-01-01T12:00:00Z').toISOString(),
+    };
+
+    it('should format a basic log entry correctly', () => {
+      const result = formatColorfulLog(baseEntry, chalk, styleMap);
+      const stripped = stripVTControlCharacters(result);
+      // Skipping time check due to timezone differences in test env
+      expect(stripped).toContain('INFO');
+      expect(stripped).toContain('(test-service)');
+      expect(stripped).toContain('test message');
+    });
+
+    it('should include metadata if present', () => {
+      const entry = { ...baseEntry, userId: 123 };
+      const result = formatColorfulLog(entry, chalk, styleMap);
+      const stripped = stripVTControlCharacters(result);
+      expect(stripped).toContain('userId=123');
+    });
+  });
+});
 
 describe('ColorfulConsoleTransport', () => {
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;

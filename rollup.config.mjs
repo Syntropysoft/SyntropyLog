@@ -62,7 +62,11 @@ const createDtsConfig = (inputFile, outputName) => ({
   input: inputFile,
   output: [{ file: outputName, format: 'es' }],
   plugins: [dts()],
-  external: [...Object.keys(pkg.peerDependencies || {}), 'events'],
+  external: [
+    ...Object.keys(pkg.peerDependencies || {}),
+    ...builtinModules,
+    ...builtinModules.map((m) => `node:${m}`),
+  ],
 });
 
 // Export an array with all build configurations.

@@ -4,7 +4,8 @@ export default defineConfig({
   test: {
     globals: true, // Enable global test functions like describe, it, beforeEach, etc.
     environment: 'node', // Or 'jsdom' if you need to simulate a browser
-    include: ['tests/**/*.ts', 'test_integration/**/*.ts'], // Search for tests in both folders
+    include: ['tests/**/*.{test,spec}.ts', 'test_integration/**/*.{test,spec}.ts'], // Search for tests in both folders
+    setupFiles: ['./tests/setup.ts'],
     coverage: {
       provider: 'istanbul', // or 'v8'
       reporter: ['text', 'json', 'html', 'lcov'], // lcov is useful for Codecov and similar tools
@@ -14,6 +15,12 @@ export default defineConfig({
         'src/**/{*.d.ts,*.test.ts,*.spec.ts}',
         'src/**/__tests__/**',
       ],
+      thresholds: {
+        lines: 93,
+        functions: 92,
+        branches: 80,
+        statements: 93,
+      },
     },
     deps: {
       // Removed inline config to prevent TypeScript server issues

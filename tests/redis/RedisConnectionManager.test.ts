@@ -5,7 +5,10 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as redis from 'redis';
-import { RedisConnectionManager } from '../../src/redis/RedisConnectionManager';
+import {
+  RedisConnectionManager,
+  createReconnectStrategy,
+} from '../../src/redis/RedisConnectionManager';
 import { ILogger } from '../../src/logger';
 import { RedisInstanceConfig } from '../../src/config';
 
@@ -47,6 +50,40 @@ const mockLogger: ILogger = {
   withRetention: vi.fn().mockReturnThis(),
   withTransactionId: vi.fn().mockReturnThis(),
 };
+
+describe('RedisConnectionManager Pure Functions', () => {
+  describe('createReconnectStrategy', () => {
+    it('should return a function', () => {
+      const strategy = createReconnectStrategy({
+        mode: 'single',
+        instanceName: 'test',
+        url: 'redis://localhost',
+      });
+      expect(typeof strategy).toBe('function');
+    });
+
+    it('should return error if max retries exceeded', () => {
+      const strategy = createReconnectStrategy({
+        mode: 'single',
+        instanceName: 'test',
+        url: 'redis://localhost',
+        retryOptions: { maxRetries: 2 },
+      });
+      expect(strategy(3)).toBeInstanceOf(Error);
+    });
+
+    it('should return delay based on retries', () => {
+      const strategy = createReconnectStrategy({
+        mode: 'single',
+        instanceName: 'test',
+        url: 'redis://localhost',
+        retryOptions: { maxRetries: 100, retryDelay: 1000 },
+      });
+      expect(strategy(1)).toBe(50); // 1 * 50
+      expect(strategy(100)).toBe(1000); // Max capped at retryDelay
+    });
+  });
+});
 
 describe('RedisConnectionManager', () => {
   let manager: RedisConnectionManager;
@@ -130,9 +167,9 @@ describe('RedisConnectionManager', () => {
 
     it('should throw an error for an unsupported mode', () => {
       const invalidConfig = { mode: 'invalid-mode' } as any;
-      expect(() => new RedisConnectionManager(invalidConfig, mockLogger)).toThrow(
-        'Unsupported Redis mode: "invalid-mode"'
-      );
+      expect(
+        () => new RedisConnectionManager(invalidConfig, mockLogger)
+      ).toThrow('Unsupported Redis mode: "invalid-mode"');
     });
 
     it('should use a reconnectStrategy that returns an error if max retries are exceeded', () => {
@@ -143,12 +180,15 @@ describe('RedisConnectionManager', () => {
         retryOptions: { maxRetries: 5 },
       };
       new RedisConnectionManager(configWithRetries, mockLogger);
-      const createClientCall = vi.mocked(redis.createClient).mock.calls[0][0] as any;
+      const createClientCall = vi.mocked(redis.createClient).mock
+        .calls[0][0] as any;
       const strategy = createClientCall.socket.reconnectStrategy;
 
       const error = strategy(6); // One more than maxRetries
       expect(error).toBeInstanceOf(Error);
-      expect((error as Error).message).toContain('Exceeded the maximum number of Redis connection retries');
+      expect((error as Error).message).toContain(
+        'Exceeded the maximum number of Redis connection retries'
+      );
     });
   });
 
@@ -211,7 +251,9 @@ describe('RedisConnectionManager', () => {
     it('should call client.quit() and log on disconnect when client is open', async () => {
       mockNativeClient.isOpen = true;
       await manager.disconnect();
-      expect(mockLogger.info).toHaveBeenCalledWith('Attempting to quit client.');
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Attempting to quit client.'
+      );
       expect(mockNativeClient.quit).toHaveBeenCalledOnce();
       expect(manager.isQuit()).toBe(true);
     });
@@ -252,7 +294,10 @@ describe('RedisConnectionManager', () => {
       const quitError = new Error('Quit failed');
       mockNativeClient.quit.mockRejectedValue(quitError);
       await expect(manager.disconnect()).rejects.toThrow(quitError);
-      expect(mockLogger.error).toHaveBeenCalledWith('Error during client.quit().', { error: quitError });
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Error during client.quit().',
+        { error: quitError }
+      );
     });
 
     it('should reject ensureReady if quit has been called', async () => {
@@ -266,28 +311,39 @@ describe('RedisConnectionManager', () => {
   describe('Event Listeners and Logging', () => {
     it('should log on "connect" event', () => {
       eventListeners.connect();
-      expect(mockLogger.info).toHaveBeenCalledWith('[test-instance] Connecting to Redis...');
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        '[test-instance] Connecting to Redis...'
+      );
     });
 
     it('should log on "ready" event', () => {
       eventListeners.ready();
-      expect(mockLogger.info).toHaveBeenCalledWith('[test-instance] ✅ Redis is operational and ready to accept commands.');
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        '[test-instance] ✅ Redis is operational and ready to accept commands.'
+      );
     });
 
     it('should log on "end" event', () => {
       eventListeners.end();
-      expect(mockLogger.warn).toHaveBeenCalledWith('[test-instance] Connection closed.');
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        '[test-instance] Connection closed.'
+      );
     });
 
     it('should log on "error" event', () => {
       const testError = new Error('Something went wrong');
       eventListeners.error(testError);
-      expect(mockLogger.error).toHaveBeenCalledWith('[test-instance] Client error.', { error: testError });
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        '[test-instance] Client error.',
+        { error: testError }
+      );
     });
 
     it('should log on "reconnecting" event', () => {
       eventListeners.reconnecting();
-      expect(mockLogger.info).toHaveBeenCalledWith('[test-instance] Reconnecting...');
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        '[test-instance] Reconnecting...'
+      );
     });
   });
 
@@ -391,7 +447,10 @@ describe('RedisConnectionManager', () => {
 
       const healthy = await manager.isHealthy();
       expect(healthy).toBe(false);
-      expect(mockLogger.error).toHaveBeenCalledWith('PING failed during health check.', { error: testError });
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'PING failed during health check.',
+        { error: testError }
+      );
     });
   });
 });

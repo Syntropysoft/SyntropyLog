@@ -5,7 +5,10 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ILogger } from '../../src/logger';
-import { createFailingRedisClient } from '../../src/utils/createFailingClient';
+import {
+  createFailingRedisClient,
+  createProxyHandler,
+} from '../../src/utils/createFailingClient';
 import { IBeaconRedis } from '../../src/redis/IBeaconRedis';
 
 // --- Mocks ---
@@ -27,6 +30,34 @@ const mockLogger: ILogger = {
 
 // --- Tests ---
 
+describe('createFailingClient Pure Functions', () => {
+  describe('createProxyHandler', () => {
+    it('should return a handler with a get trap', () => {
+      const handler = createProxyHandler(mockLogger, 'error', {});
+      expect(handler).toHaveProperty('get');
+      expect(typeof handler.get).toBe('function');
+    });
+
+    it('should return special handler if property exists in specialHandlers', () => {
+      const special = () => 'special';
+      const handler = createProxyHandler(mockLogger, 'error', {
+        special,
+      });
+      // @ts-ignore
+      const result = handler.get({}, 'special', {});
+      expect(result).toBe(special);
+    });
+
+    it('should return a rejecting function for other properties', async () => {
+      const handler = createProxyHandler(mockLogger, 'error message', {});
+      // @ts-ignore
+      const fn = handler.get({}, 'anyProp', {});
+      expect(typeof fn).toBe('function');
+      await expect(fn()).rejects.toThrow('error message');
+    });
+  });
+});
+
 describe('createFailingClient', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -38,7 +69,11 @@ describe('createFailingClient', () => {
     let failingClient: IBeaconRedis;
 
     beforeEach(() => {
-      failingClient = createFailingRedisClient(instanceName, initializationError, mockLogger);
+      failingClient = createFailingRedisClient(
+        instanceName,
+        initializationError,
+        mockLogger
+      );
     });
 
     it('should return the instance name correctly via special handler', () => {
@@ -77,7 +112,10 @@ describe('createFailingClient', () => {
       await expect(promise).rejects.toThrow(expectedError);
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
-        { errorMessage: expectedError, arguments: ['my-key', 'my-value', 3600] },
+        {
+          errorMessage: expectedError,
+          arguments: ['my-key', 'my-value', 3600],
+        },
         "Attempted to use property 'set' on a failing client."
       );
     });

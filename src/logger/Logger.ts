@@ -225,7 +225,7 @@ export class Logger {
     const finalEntry = serializationResult.data;
 
     // 2. Apply masking to the entire, serialized entry.
-    const maskedEntry = this.dependencies.maskingEngine.process(
+    const maskedEntry = await this.dependencies.maskingEngine.process(
       finalEntry as Record<string, unknown>
     );
 

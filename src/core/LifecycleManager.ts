@@ -21,6 +21,43 @@ export type SyntropyLogState =
   | 'SHUTTING_DOWN'
   | 'SHUTDOWN';
 
+// Pure helper function for process termination
+const terminateProcess = async (
+  childProcess: ChildProcess,
+  logger: ILogger | null
+): Promise<void> => {
+  if (!childProcess.connected && childProcess.exitCode !== null) {
+    return;
+  }
+
+  const pid = childProcess.pid;
+  logger?.debug(`Sending SIGTERM to process ${pid}...`);
+
+  childProcess.kill('SIGTERM');
+
+  // Wait up to 5 seconds for graceful exit
+  const gracefulExit = new Promise<void>((resolve) => {
+    const onExit = () => {
+      resolve();
+      childProcess.removeListener('exit', onExit);
+    };
+    childProcess.on('exit', onExit);
+  });
+
+  const timeout = new Promise<void>((resolve) => setTimeout(resolve, 5000));
+
+  await Promise.race([gracefulExit, timeout]);
+
+  if (childProcess.exitCode === null) {
+    logger?.warn(
+      `Process ${pid} did not exit after SIGTERM, sending SIGKILL...`
+    );
+    childProcess.kill('SIGKILL');
+  } else {
+    logger?.debug(`Process ${pid} exited gracefully`);
+  }
+};
+
 export class LifecycleManager extends EventEmitter {
   private state: SyntropyLogState = 'NOT_INITIALIZED';
   public config: SyntropyLogConfig | undefined;
@@ -31,6 +68,7 @@ export class LifecycleManager extends EventEmitter {
   public maskingEngine: MaskingEngine;
   private logger: ILogger | null = null;
   private syntropyFacade: SyntropyLog;
+  private trackedProcesses = new Set<ChildProcess>();
 
   constructor(syntropyFacade: SyntropyLog) {
     super();
@@ -170,116 +208,41 @@ export class LifecycleManager extends EventEmitter {
   }
 
   /**
+   * Registers a child process to be managed by the LifecycleManager.
+   * Managed processes will be gracefully terminated during shutdown.
+   * @param childProcess The child process to track
+   */
+  public registerChildProcess(childProcess: ChildProcess): void {
+    this.trackedProcesses.add(childProcess);
+
+    // Auto-remove if it exits on its own
+    childProcess.on('exit', () => {
+      this.trackedProcesses.delete(childProcess);
+    });
+  }
+
+  /**
    * Terminates external processes that might keep the Node.js process active.
-   * This includes regex-test workers and other child processes.
+   * Uses a graceful shutdown strategy (SIGTERM -> wait -> SIGKILL).
    */
   private async terminateExternalProcesses(): Promise<void> {
     try {
-      this.logger?.info('🔍 Starting external process termination...');
-
-      // Get all active handles
-      const activeHandles =
-        (
-          process as NodeJS.Process & { _getActiveHandles?(): unknown[] }
-        )._getActiveHandles?.() ?? [];
-      this.logger?.debug(`Total active handles: ${activeHandles.length}`);
-
-      // Filter child processes that need to be terminated
-      const childProcesses = activeHandles.filter((handle: unknown) => {
-        const h = handle as {
-          constructor: { name: string };
-          connected?: boolean;
-          spawnargs?: string[];
-        };
-        const isChildProcess = h.constructor?.name === 'ChildProcess';
-        const isConnected = h.connected;
-        const hasRegexTest = h.spawnargs?.some((arg: string) =>
-          arg.includes('regex-test')
-        );
-
-        this.logger?.debug(
-          `Handle: ${h.constructor?.name}, connected: ${isConnected}, hasRegexTest: ${hasRegexTest}`
-        );
-
-        return Boolean(isChildProcess && isConnected && hasRegexTest);
-      });
+      if (this.trackedProcesses.size === 0) {
+        this.logger?.info('No tracked external processes to terminate');
+        return;
+      }
 
       this.logger?.info(
-        `Found ${childProcesses.length} regex-test processes to terminate`
+        `Terminating ${this.trackedProcesses.size} external processes...`
       );
 
-      if (childProcesses.length > 0) {
-        this.logger?.info(
-          `Terminating ${childProcesses.length} external processes...`
-        );
+      const terminationPromises = Array.from(this.trackedProcesses).map(
+        (childProcess) => terminateProcess(childProcess, this.logger)
+      );
 
-        // Terminate each child process directly with SIGKILL for maximum effectiveness
-        for (const childProcess of childProcesses as ChildProcess[]) {
-          try {
-            this.logger?.debug(
-              `Terminating process ${childProcess.pid} with SIGKILL...`
-            );
-            childProcess.kill('SIGKILL');
-            this.logger?.debug(
-              `Process ${childProcess.pid} terminated with SIGKILL`
-            );
-          } catch (error) {
-            this.logger?.warn(
-              `Error terminating process ${childProcess.pid}:`,
-              { error: errorToJsonValue(error) }
-            );
-          }
-        }
-
-        // Wait a bit for processes to terminate
-        this.logger?.debug('Waiting 200ms for processes to terminate...');
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
-        // Check if processes are still active
-        const remainingHandles =
-          (
-            process as NodeJS.Process & { _getActiveHandles?(): unknown[] }
-          )._getActiveHandles?.() ?? [];
-        const remainingChildProcesses = remainingHandles.filter(
-          (handle: unknown) => {
-            const h = handle as {
-              constructor: { name: string };
-              connected?: boolean;
-              spawnargs?: string[];
-            };
-            return (
-              h.constructor?.name === 'ChildProcess' &&
-              h.connected &&
-              h.spawnargs?.some((arg: string) => arg.includes('regex-test'))
-            );
-          }
-        );
-
-        if (remainingChildProcesses.length > 0) {
-          this.logger?.warn(
-            `${remainingChildProcesses.length} regex-test processes still active after SIGKILL`
-          );
-
-          // Try to disconnect the processes
-          for (const childProcess of remainingChildProcesses as ChildProcess[]) {
-            try {
-              childProcess.disconnect();
-              this.logger?.debug(`Process ${childProcess.pid} disconnected`);
-            } catch (error) {
-              this.logger?.warn(
-                `Error disconnecting process ${childProcess.pid}:`,
-                { error: errorToJsonValue(error) }
-              );
-            }
-          }
-        } else {
-          this.logger?.info(
-            '✅ All regex-test processes terminated successfully'
-          );
-        }
-      } else {
-        this.logger?.info('No regex-test processes found to terminate');
-      }
+      await Promise.allSettled(terminationPromises);
+      this.trackedProcesses.clear();
+      this.logger?.info('✅ All external processes terminated');
     } catch (error) {
       this.logger?.warn('Error terminating external processes:', {
         error: errorToJsonValue(error),

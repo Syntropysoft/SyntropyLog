@@ -30,10 +30,12 @@ export class SanitizationEngine {
    * @param {Record<string, unknown>} meta - The metadata object to sanitize.
    * @returns {Record<string, unknown>} A new, sanitized metadata object.
    */
-  public process(meta: Record<string, unknown>): Record<string, unknown> {
+  public async process(
+    meta: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     let sanitized = this.sanitizeRecursively(meta) as Record<string, unknown>;
     if (this.maskingEngine) {
-      sanitized = this.maskingEngine.process(sanitized);
+      sanitized = await this.maskingEngine.process(sanitized);
     }
     return sanitized;
   }

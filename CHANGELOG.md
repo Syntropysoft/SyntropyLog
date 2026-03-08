@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.11
+
+### Patch Changes
+
+- Fix memory leak in LoggerFactory, improve process management in LifecycleManager, and fix zombie timers in SerializationPipeline. Refactor core components to use pure functions.
+- Security: Patched a potential ReDoS vulnerability in `MaskingEngine` by enforcing a timeout on regex execution using `regex-test`. Masking operations are now asynchronous to support this safety mechanism.
+- MaskingEngine: Circular reference protection during recursive masking (WeakSet); cleanup of `regex-test` worker on `shutdown()` to avoid process leaks.
+- Build: Rollup type declarations bundle now treats Node.js builtins (`child_process`, etc.) as external, eliminating "Unresolved dependencies" warnings.
+- Types: Extended `declarations.d.ts` for `regex-test` with `test()` and `cleanWorker()` for correct typing and lint compliance.
+
 ## 0.9.10
 
 ### Patch Changes

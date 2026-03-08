@@ -4,13 +4,92 @@
  * This mock is framework agnostic and works with both Vitest and Jest.
  */
 
-import { IBeaconRedis, IBeaconRedisTransaction } from '../redis/IBeaconRedis';
+import { describe, it, expect, vi } from 'vitest';
+import { IBeaconRedis, IBeaconRedisTransaction } from '../redis';
+
+describe('BeaconRedisMock Pure Functions', () => {
+  describe('createMockFn', () => {
+    it('should throw if spyFn is not provided', () => {
+      expect(() => createMockFn(null)).toThrow('SPY FUNCTION NOT INJECTED');
+    });
+
+    it('should call spyFn if provided', () => {
+      const spyFn = vi.fn().mockReturnValue('mocked');
+      const result = createMockFn(spyFn);
+      expect(spyFn).toHaveBeenCalled();
+      expect(result).toBe('mocked');
+    });
+  });
+
+  describe('createTransactionObject', () => {
+    it('should return a transaction object with exec and executeScript', () => {
+      const spyFn = vi.fn().mockReturnValue({ mockResolvedValue: vi.fn() });
+      const tx = createTransactionObject(spyFn);
+      expect(tx).toHaveProperty('exec');
+      expect(tx).toHaveProperty('executeScript');
+    });
+
+    it('should have executeScript that throws', () => {
+      const spyFn = vi.fn().mockReturnValue({ mockResolvedValue: vi.fn() });
+      const tx = createTransactionObject(spyFn);
+      expect(() => tx.executeScript('script', [], [])).toThrow(
+        'SCRIPT execution not supported'
+      );
+    });
+  });
+});
 
 // Function that throws error for Lua script execution in transaction - outside of any mock context
 const throwScriptError = () => {
   throw new Error(
     'SCRIPT execution not supported in transaction (mocked BeaconRedisMock)'
   );
+};
+
+// Pure function: Throw error if spy function is missing
+const throwSpyNotInjectedError = (): never => {
+  throw new Error(`
+🚨 SPY FUNCTION NOT INJECTED! 😡
+
+To use spy functions like toHaveBeenCalled(), toHaveBeenCalledWith(), etc.
+YOU MUST inject your spy function in the constructor:
+
+// For Vitest:
+const mockRedis = new BeaconRedisMock(vi.fn);
+
+// For Jest:
+const mockRedis = new BeaconRedisMock(jest.fn);
+
+// For Jasmine:
+const mockRedis = new BeaconRedisMock(jasmine.createSpy);
+
+// Without spy (basic functionality only):
+const mockRedis = new BeaconRedisMock();
+
+DON'T FORGET AGAIN! 😤
+      `);
+};
+
+// Pure function: Create a mock function using the provided spy factory
+export const createMockFn = (
+  spyFn: ((implementation?: any) => any) | null,
+  implementation?: any
+) => {
+  if (!spyFn) {
+    throwSpyNotInjectedError();
+  }
+  return spyFn!(implementation);
+};
+
+// Pure function: Create transaction object
+export const createTransactionObject = (
+  spyFn: ((implementation?: any) => any) | null
+): IBeaconRedisTransaction => {
+  return {
+    exec: createMockFn(spyFn).mockResolvedValue([]),
+    // Script execution is not implemented in transactions, so it should throw
+    executeScript: throwScriptError,
+  } as any;
 };
 
 export class BeaconRedisMock implements IBeaconRedis {
@@ -69,91 +148,57 @@ export class BeaconRedisMock implements IBeaconRedis {
   constructor(spyFn?: (implementation?: any) => any) {
     this.spyFn = spyFn || null;
 
-    // Initialize mocks after spyFn is set
-    this.getInstanceName = this.createMock();
-    this.connect = this.createMock().mockResolvedValue(undefined);
-    this.disconnect = this.createMock().mockResolvedValue(undefined);
-    this.quit = this.createMock().mockResolvedValue(undefined);
-    this.updateConfig = this.createMock();
-    this.multi = this.createMock().mockReturnValue(
-      this.createTransactionObject()
-    );
-    this.get = this.createMock();
-    this.set = this.createMock();
-    this.del = this.createMock();
-    this.exists = this.createMock();
-    this.expire = this.createMock();
-    this.ttl = this.createMock();
-    this.incr = this.createMock();
-    this.decr = this.createMock();
-    this.incrBy = this.createMock();
-    this.decrBy = this.createMock();
-    this.hGet = this.createMock();
-    this.hSet = this.createMock();
-    this.hGetAll = this.createMock();
-    this.hDel = this.createMock();
-    this.hExists = this.createMock();
-    this.hIncrBy = this.createMock();
-    this.lPush = this.createMock();
-    this.rPush = this.createMock();
-    this.lPop = this.createMock();
-    this.rPop = this.createMock();
-    this.lRange = this.createMock();
-    this.lLen = this.createMock();
-    this.lTrim = this.createMock();
-    this.sAdd = this.createMock();
-    this.sMembers = this.createMock();
-    this.sIsMember = this.createMock();
-    this.sRem = this.createMock();
-    this.sCard = this.createMock();
-    this.zAdd = this.createMock();
-    this.zRange = this.createMock();
-    this.zRangeWithScores = this.createMock();
-    this.zRem = this.createMock();
-    this.zCard = this.createMock();
-    this.zScore = this.createMock();
-    this.subscribe = this.createMock();
-    this.unsubscribe = this.createMock();
-    this.publish = this.createMock();
-    this.ping = this.createMock();
-    this.info = this.createMock();
-    this.executeScript = this.createMock();
-    this.scan = this.createMock().mockResolvedValue({ cursor: 0, keys: [] });
-    this.keys = this.createMock().mockResolvedValue([]);
-  }
+    // Helper to keep constructor clean
+    const mock = (impl?: any) => createMockFn(this.spyFn, impl);
 
-  // Create transaction object outside of mock to avoid hoisting issues
-  private createTransactionObject(): IBeaconRedisTransaction {
-    return {
-      exec: this.createMock().mockResolvedValue([]),
-      // Script execution is not implemented in transactions, so it should throw
-      executeScript: throwScriptError,
-    } as any;
-  }
-
-  private createMock(implementation?: any) {
-    if (!this.spyFn) {
-      throw new Error(`
-🚨 SPY FUNCTION NOT INJECTED! 😡
-
-To use spy functions like toHaveBeenCalled(), toHaveBeenCalledWith(), etc.
-YOU MUST inject your spy function in the constructor:
-
-// For Vitest:
-const mockRedis = new BeaconRedisMock(vi.fn);
-
-// For Jest:
-const mockRedis = new BeaconRedisMock(jest.fn);
-
-// For Jasmine:
-const mockRedis = new BeaconRedisMock(jasmine.createSpy);
-
-// Without spy (basic functionality only):
-const mockRedis = new BeaconRedisMock();
-
-DON'T FORGET AGAIN! 😤
-      `);
-    }
-    return this.spyFn(implementation);
+    // Initialize mocks
+    this.getInstanceName = mock();
+    this.connect = mock().mockResolvedValue(undefined);
+    this.disconnect = mock().mockResolvedValue(undefined);
+    this.quit = mock().mockResolvedValue(undefined);
+    this.updateConfig = mock();
+    this.multi = mock().mockReturnValue(createTransactionObject(this.spyFn));
+    this.get = mock();
+    this.set = mock();
+    this.del = mock();
+    this.exists = mock();
+    this.expire = mock();
+    this.ttl = mock();
+    this.incr = mock();
+    this.decr = mock();
+    this.incrBy = mock();
+    this.decrBy = mock();
+    this.hGet = mock();
+    this.hSet = mock();
+    this.hGetAll = mock();
+    this.hDel = mock();
+    this.hExists = mock();
+    this.hIncrBy = mock();
+    this.lPush = mock();
+    this.rPush = mock();
+    this.lPop = mock();
+    this.rPop = mock();
+    this.lRange = mock();
+    this.lLen = mock();
+    this.lTrim = mock();
+    this.sAdd = mock();
+    this.sMembers = mock();
+    this.sIsMember = mock();
+    this.sRem = mock();
+    this.sCard = mock();
+    this.zAdd = mock();
+    this.zRange = mock();
+    this.zRangeWithScores = mock();
+    this.zRem = mock();
+    this.zCard = mock();
+    this.zScore = mock();
+    this.subscribe = mock();
+    this.unsubscribe = mock();
+    this.publish = mock();
+    this.ping = mock();
+    this.info = mock();
+    this.executeScript = mock();
+    this.scan = mock().mockResolvedValue({ cursor: 0, keys: [] });
+    this.keys = mock().mockResolvedValue([]);
   }
 }

@@ -23,6 +23,68 @@ function isRedisClientType(
   );
 }
 
+// Pure function: Create reconnection strategy
+export const createReconnectStrategy = (config: RedisInstanceConfig) => {
+  return (retries: number): number | Error => {
+    // Check if retryOptions exists before accessing maxRetries
+    const retryOptions =
+      'retryOptions' in config ? config.retryOptions : undefined;
+    const maxRetries = retryOptions?.maxRetries ?? 10;
+
+    if (retries > maxRetries) {
+      return new Error(
+        'Exceeded the maximum number of Redis connection retries.'
+      );
+    }
+    return Math.min(retries * 50, retryOptions?.retryDelay ?? 2000);
+  };
+};
+
+// Pure function: Create native Redis client
+export const createRedisClient = (
+  config: RedisInstanceConfig
+): NodeRedisClient => {
+  switch (config.mode) {
+    case 'single':
+    case 'sentinel': {
+      const reconnectStrategy = createReconnectStrategy(config);
+
+      if (config.mode === 'single') {
+        return createClient({
+          url: config.url,
+          socket: {
+            reconnectStrategy,
+          },
+        }) as NodeRedisClient;
+      } else {
+        const sentinelOptions = {
+          sentinels: config.sentinels,
+          name: config.name,
+          sentinelPassword: config.sentinelPassword,
+          socket: {
+            reconnectStrategy,
+          },
+        };
+        return createClient(sentinelOptions) as NodeRedisClient;
+      }
+    }
+    case 'cluster': {
+      const clusterOptions: RedisClusterOptions = {
+        rootNodes: config.rootNodes.map((node) => ({
+          socket: { host: node.host, port: node.port },
+        })),
+      };
+      return createCluster(clusterOptions) as unknown as NodeRedisClient;
+    }
+    default: {
+      const _exhaustiveCheck: never = config;
+      throw new Error(
+        `Unsupported Redis mode: "${(_exhaustiveCheck as { mode: string }).mode}"`
+      );
+    }
+  }
+};
+
 /**
  * @class RedisConnectionManager
  * Handles the state and lifecycle of a single native `node-redis` client.
@@ -50,72 +112,8 @@ export class RedisConnectionManager {
   constructor(config: RedisInstanceConfig, logger: ILogger) {
     this.logger = logger;
     this.instanceName = config.instanceName;
-    this.client = this.createNativeClient(config);
+    this.client = createRedisClient(config);
     this.setupListeners();
-  }
-
-  /**
-   * Creates a native Redis client based on the instance configuration mode.
-   * @param config The configuration for the specific Redis instance.
-   * @returns A `NodeRedisClient` (either single-node or cluster).
-   */
-  private createNativeClient(config: RedisInstanceConfig): NodeRedisClient {
-    switch (config.mode) {
-      case 'single':
-      case 'sentinel': {
-        // The reconnection strategy only applies to 'single' and 'sentinel' modes.
-        // It is defined here so TypeScript can correctly infer that 'config' has the 'retryOptions' property.
-        const reconnectStrategy = (retries: number) => {
-          const maxRetries = config.retryOptions?.maxRetries ?? 10;
-          if (retries > maxRetries) {
-            return new Error(
-              'Exceeded the maximum number of Redis connection retries.'
-            );
-          }
-          return Math.min(
-            retries * 50,
-            config.retryOptions?.retryDelay ?? 2000
-          );
-        };
-
-        if (config.mode === 'single') {
-          return createClient({
-            url: config.url,
-            socket: {
-              reconnectStrategy,
-            },
-          }) as NodeRedisClient;
-        } else {
-          // An intermediate variable is created so that TypeScript correctly infers the overload.
-          const sentinelOptions = {
-            sentinels: config.sentinels,
-            name: config.name,
-            sentinelPassword: config.sentinelPassword,
-            socket: {
-              reconnectStrategy,
-            },
-          };
-          return createClient(sentinelOptions) as NodeRedisClient;
-        }
-      }
-      case 'cluster': {
-        // Reconnection in cluster mode is handled internally by the library.
-        // The variable is explicitly typed so that TypeScript uses the correct overload of `createClient`.
-        const clusterOptions: RedisClusterOptions = {
-          // Transforms the node configuration to the structure expected by the 'redis' library.
-          rootNodes: config.rootNodes.map((node) => ({
-            socket: { host: node.host, port: node.port },
-          })),
-        };
-        return createCluster(clusterOptions) as unknown as NodeRedisClient;
-      }
-      default: {
-        const _exhaustiveCheck: never = config;
-        throw new Error(
-          `Unsupported Redis mode: "${(_exhaustiveCheck as { mode: string }).mode}"`
-        ); // NOSONAR
-      }
-    }
   }
 
   /**

@@ -42,6 +42,114 @@ function resolveTransportsForEnv(
   return result;
 }
 
+// Pure function: Resolve transports based on configuration
+export const resolveTransports = (
+  config: SyntropyLogConfig
+): {
+  transports: Record<string, Transport[]>;
+  transportPool: Map<string, Transport>;
+} => {
+  const currentEnv = config.logger?.environment ?? 'development';
+
+  const hasTransportList =
+    config.logger?.transportList &&
+    Object.keys(config.logger.transportList).length > 0;
+  const hasEnv =
+    config.logger?.env && Object.keys(config.logger.env).length > 0;
+
+  if (
+    hasTransportList &&
+    hasEnv &&
+    config.logger?.transportList &&
+    config.logger?.env
+  ) {
+    const pool = new Map<string, Transport>(
+      Object.entries(config.logger.transportList)
+    );
+    const defaultNames = config.logger.env[currentEnv] ?? [];
+    const defaultTransports = defaultNames
+      .map((name) => pool.get(name))
+      .filter((t): t is Transport => t != null);
+    return {
+      transports: { default: defaultTransports },
+      transportPool: pool,
+    };
+  } else if (config.logger?.transports) {
+    const raw = config.logger.transports;
+    const pool = new Map<string, Transport>();
+
+    const collectTransport = (entry: TransportEntry): Transport => {
+      const t: Transport =
+        entry instanceof Transport
+          ? entry
+          : entry && typeof entry === 'object' && 'transport' in entry
+            ? (entry as { transport: Transport }).transport
+            : (entry as Transport);
+      const name =
+        t.name ??
+        (t as { constructor?: { name?: string } }).constructor?.name ??
+        `transport-${pool.size}`;
+      pool.set(name, t);
+      return t;
+    };
+
+    let transports: Record<string, Transport[]>;
+
+    if (Array.isArray(raw)) {
+      raw.forEach(collectTransport);
+      transports = {
+        default: resolveTransportsForEnv(raw, currentEnv),
+      };
+    } else {
+      const record = raw as Record<string, TransportEntry[]>;
+      transports = {} as Record<string, Transport[]>;
+      for (const [key, arr] of Object.entries(record)) {
+        arr.forEach(collectTransport);
+        transports[key] = resolveTransportsForEnv(arr, currentEnv);
+      }
+    }
+    return { transports, transportPool: pool };
+  } else {
+    const sanitizationEngine = new SanitizationEngine();
+    const defaultTransport = new ConsoleTransport({
+      sanitizationEngine,
+      name: 'console',
+    });
+    return {
+      transports: { default: [defaultTransport] },
+      transportPool: new Map([['console', defaultTransport]]),
+    };
+  }
+};
+
+// Pure function: Create stable cache key
+export const createCacheKey = (
+  name: string,
+  bindings?: Record<string, JsonValue>
+): string => {
+  if (!bindings || Object.keys(bindings).length === 0) {
+    return name;
+  }
+
+  // Sort keys to ensure consistent cache keys regardless of property order
+  const sortedBindings = Object.keys(bindings)
+    .sort()
+    .reduce(
+      (result, key) => {
+        result[key] = bindings[key];
+        return result;
+      },
+      {} as Record<string, JsonValue>
+    );
+
+  try {
+    return `${name}:${JSON.stringify(sortedBindings)}`;
+  } catch {
+    // Fallback for non-serializable objects
+    return `${name}:${Object.keys(sortedBindings).sort().join(',')}`;
+  }
+};
+
 /**
  * @class LoggerFactory
  * @description Manages the lifecycle and configuration of all logging components.
@@ -68,6 +176,8 @@ export class LoggerFactory {
 
   /** @private A pool to cache logger instances by name for performance. */
   private readonly loggerPool: Map<string, ILogger> = new Map();
+  /** @private Maximum size of the logger pool to prevent memory leaks. */
+  private readonly MAX_POOL_SIZE = 1000;
 
   /**
    * @constructor
@@ -95,71 +205,10 @@ export class LoggerFactory {
       this.contextManager.configure(config.context);
     }
 
-    const currentEnv = config.logger?.environment ?? 'development';
+    const resolved = resolveTransports(config);
+    this.transports = resolved.transports;
+    this.transportPool = resolved.transportPool;
 
-    const hasTransportList =
-      config.logger?.transportList &&
-      Object.keys(config.logger.transportList).length > 0;
-    const hasEnv =
-      config.logger?.env && Object.keys(config.logger.env).length > 0;
-
-    if (
-      hasTransportList &&
-      hasEnv &&
-      config.logger?.transportList &&
-      config.logger?.env
-    ) {
-      const pool = new Map<string, Transport>(
-        Object.entries(config.logger.transportList)
-      );
-      const defaultNames = config.logger.env[currentEnv] ?? [];
-      const defaultTransports = defaultNames
-        .map((name) => pool.get(name))
-        .filter((t): t is Transport => t != null);
-      this.transports = { default: defaultTransports };
-      this.transportPool = pool;
-    } else if (config.logger?.transports) {
-      const raw = config.logger.transports;
-      const pool = new Map<string, Transport>();
-
-      const collectTransport = (entry: TransportEntry): Transport => {
-        const t: Transport =
-          entry instanceof Transport
-            ? entry
-            : entry && typeof entry === 'object' && 'transport' in entry
-              ? (entry as { transport: Transport }).transport
-              : (entry as Transport);
-        const name =
-          t.name ??
-          (t as { constructor?: { name?: string } }).constructor?.name ??
-          `transport-${pool.size}`;
-        pool.set(name, t);
-        return t;
-      };
-
-      if (Array.isArray(raw)) {
-        raw.forEach(collectTransport);
-        this.transports = {
-          default: resolveTransportsForEnv(raw, currentEnv),
-        };
-      } else {
-        const record = raw as Record<string, TransportEntry[]>;
-        this.transports = {} as Record<string, Transport[]>;
-        for (const [key, arr] of Object.entries(record)) {
-          arr.forEach(collectTransport);
-          this.transports[key] = resolveTransportsForEnv(arr, currentEnv);
-        }
-      }
-      this.transportPool = pool;
-    } else {
-      const sanitizationEngine = new SanitizationEngine();
-      const defaultTransport = new ConsoleTransport({
-        sanitizationEngine,
-        name: 'console',
-      });
-      this.transports = { default: [defaultTransport] };
-      this.transportPool = new Map([['console', defaultTransport]]);
-    }
     this.globalLogLevel = config.logger?.level ?? 'info';
     this.serviceName = config.logger?.serviceName ?? 'unknown-service';
 
@@ -187,10 +236,14 @@ export class LoggerFactory {
     bindings?: Record<string, JsonValue>
   ): ILogger {
     // Create a stable cache key that doesn't depend on object reference
-    const cacheKey = this.createCacheKey(name, bindings);
+    const cacheKey = createCacheKey(name, bindings);
 
     if (this.loggerPool.has(cacheKey)) {
-      return this.loggerPool.get(cacheKey) as ILogger;
+      // LRU Strategy: Move accessed item to the end of the Map (most recently used)
+      const cachedLogger = this.loggerPool.get(cacheKey) as ILogger;
+      this.loggerPool.delete(cacheKey);
+      this.loggerPool.set(cacheKey, cachedLogger);
+      return cachedLogger;
     }
 
     const loggerName = name === 'default' ? this.serviceName : name;
@@ -211,39 +264,16 @@ export class LoggerFactory {
     });
     logger.level = this.globalLogLevel;
 
+    // Enforce Max Pool Size (LRU eviction for oldest items)
+    if (this.loggerPool.size >= this.MAX_POOL_SIZE) {
+      const oldestKey = this.loggerPool.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.loggerPool.delete(oldestKey);
+      }
+    }
+
     this.loggerPool.set(cacheKey, logger);
     return logger;
-  }
-
-  /**
-   * Pure: stable cache key for logger instances (same name + bindings → same key).
-   * @private
-   */
-  private createCacheKey(
-    name: string,
-    bindings?: Record<string, JsonValue>
-  ): string {
-    if (!bindings || Object.keys(bindings).length === 0) {
-      return name;
-    }
-
-    // Sort keys to ensure consistent cache keys regardless of property order
-    const sortedBindings = Object.keys(bindings)
-      .sort()
-      .reduce(
-        (result, key) => {
-          result[key] = bindings[key];
-          return result;
-        },
-        {} as Record<string, JsonValue>
-      );
-
-    try {
-      return `${name}:${JSON.stringify(sortedBindings)}`;
-    } catch {
-      // Fallback for non-serializable objects
-      return `${name}:${Object.keys(sortedBindings).sort().join(',')}`;
-    }
   }
 
   /**

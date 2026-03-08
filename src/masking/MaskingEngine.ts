@@ -170,7 +170,9 @@ export class MaskingEngine {
    * @param meta - The metadata object to process
    * @returns A new object with the masked data
    */
-  public process(meta: Record<string, unknown>): Record<string, unknown> {
+  public async process(
+    meta: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     // Set initialized flag on first use
     if (!this.initialized) {
       this.initialized = true;
@@ -178,7 +180,11 @@ export class MaskingEngine {
 
     try {
       // Apply masking rules directly to the data structure
-      const masked = this.applyMaskingRules(meta) as Record<string, unknown>;
+      const visited = new WeakSet<object>();
+      const masked = (await this.applyMaskingRules(meta, visited)) as Record<
+        string,
+        unknown
+      >;
 
       // Return the masked data
       return masked;
@@ -191,16 +197,27 @@ export class MaskingEngine {
   /**
    * Applies masking rules to data recursively.
    * @param data - Data to mask
+   * @param visited - Set of visited objects to prevent circular references
    * @returns Masked data
    * @private
    */
-  private applyMaskingRules(data: unknown): unknown {
+  private async applyMaskingRules(
+    data: unknown,
+    visited: WeakSet<object>
+  ): Promise<unknown> {
     if (data === null || typeof data !== 'object') {
       return data;
     }
 
+    if (visited.has(data)) {
+      return data;
+    }
+    visited.add(data);
+
     if (Array.isArray(data)) {
-      return data.map((item) => this.applyMaskingRules(item));
+      return Promise.all(
+        data.map((item) => this.applyMaskingRules(item, visited))
+      );
     }
 
     const dataObj = data as Record<string, unknown>;
@@ -213,14 +230,25 @@ export class MaskingEngine {
         if (typeof value === 'string') {
           // Check each rule
           for (const rule of this.rules) {
-            if (rule._compiledPattern && rule._compiledPattern.test(key)) {
+            let isMatch = false;
+            if (rule._compiledPattern) {
+              try {
+                // Use regex-test for safe execution with timeout
+                isMatch = await this.regexTest.test(rule._compiledPattern, key);
+              } catch {
+                // Silent failure on timeout/error - treat as no match
+                isMatch = false;
+              }
+            }
+
+            if (isMatch) {
               masked[key] = this.applyStrategy(value, rule);
               break; // First matching rule wins
             }
           }
         } else if (typeof value === 'object' && value !== null) {
           // Recursively mask nested objects
-          masked[key] = this.applyMaskingRules(value);
+          masked[key] = await this.applyMaskingRules(value, visited);
         }
       }
     }
@@ -437,5 +465,9 @@ export class MaskingEngine {
   public shutdown(): void {
     this.rules = [];
     this.initialized = false;
+    // Clean up regex-test worker to prevent process leaks
+    if (this.regexTest?.cleanWorker) {
+      this.regexTest.cleanWorker();
+    }
   }
 }

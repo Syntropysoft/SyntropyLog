@@ -5,6 +5,19 @@ import { LoggerFactory } from '../src/logger/LoggerFactory';
 import { ContextManager } from '../src/context/ContextManager';
 import { RedisManager } from '../src/redis/RedisManager';
 
+// Mock regex-test to avoid spawning child processes during tests
+vi.mock('regex-test', () => {
+  return {
+    default: class MockRegexTest {
+      constructor() {}
+      test(regex: RegExp, input: string) {
+        return Promise.resolve(regex.test(input));
+      }
+      cleanWorker() {}
+    },
+  };
+});
+
 // Use vi.hoisted to make the mockLogger available to the hoisted vi.mock calls.
 const { mockLogger } = vi.hoisted(() => ({
   mockLogger: {

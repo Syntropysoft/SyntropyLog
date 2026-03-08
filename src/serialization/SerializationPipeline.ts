@@ -60,9 +60,10 @@ export class SerializationPipeline {
     try {
       for (const step of this.steps) {
         const stepStartTime = Date.now();
-        const stepExecution = step.execute(currentData, context);
+
+        let timer: NodeJS.Timeout;
         const timeoutPromise = new Promise<SerializableData>((_, reject) => {
-          setTimeout(
+          timer = setTimeout(
             () =>
               reject(
                 new Error(
@@ -72,7 +73,15 @@ export class SerializationPipeline {
             globalTimeout
           );
         });
-        currentData = await Promise.race([stepExecution, timeoutPromise]);
+
+        try {
+          const stepExecution = step.execute(currentData, context);
+          currentData = await Promise.race([stepExecution, timeoutPromise]);
+        } finally {
+          // @ts-expect-error - timer is definitely assigned before use
+          clearTimeout(timer);
+        }
+
         this.metrics.stepDurations[step.name] = Date.now() - stepStartTime;
       }
 

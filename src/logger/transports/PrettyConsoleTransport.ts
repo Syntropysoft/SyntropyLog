@@ -2,10 +2,54 @@
  * @file src/logger/transports/PrettyConsoleTransport.ts
  * @description A transport that formats logs for human readability in a development console, using colors.
  */
+import chalk from 'chalk';
 import { LogLevel } from '../levels';
 import { TransportOptions } from './Transport';
 import { BaseConsolePrettyTransport } from './BaseConsolePrettyTransport';
 import { LogEntry } from '../../types';
+
+type Colorizer = (s: string) => string;
+type LevelColorMap = Record<Exclude<LogLevel, 'silent'>, Colorizer>;
+
+// Pure function: Create color map
+export const createLevelColorMap = (c: typeof chalk): LevelColorMap => ({
+  fatal: c.bgRed.white.bold,
+  error: c.red.bold,
+  warn: c.yellow.bold,
+  info: c.blue.bold,
+  audit: c.white.bold,
+  debug: c.green,
+  trace: c.gray,
+});
+
+// Pure function: Format log entry
+export const formatPrettyLog = (
+  logObject: LogEntry,
+  c: typeof chalk,
+  colorMap: LevelColorMap
+): string => {
+  const { timestamp, level, service, message, ...rest } = logObject;
+
+  const colorizer = colorMap[level as Exclude<LogLevel, 'silent'>] || c.white;
+
+  // Format the main log line
+  const time = c.gray(new Date(timestamp).toLocaleTimeString());
+  const levelString = colorizer(`[${level.toUpperCase()}]`);
+  const serviceString = c.cyan(`(${service})`);
+  const messageText = message || '';
+
+  let logString = `${time} ${levelString} ${serviceString}: ${messageText}`;
+
+  // Handle additional metadata, ensuring it's not empty
+  const metaKeys = Object.keys(rest);
+  if (metaKeys.length > 0) {
+    // Use a more subtle color for metadata
+    const metaString = c.gray(JSON.stringify(rest, null, 2));
+    logString += `\n${metaString}`;
+  }
+
+  return logString;
+};
 
 /**
  * @class PrettyConsoleTransport
@@ -14,10 +58,7 @@ import { LogEntry } from '../../types';
  * @extends {BaseConsolePrettyTransport}
  */
 export class PrettyConsoleTransport extends BaseConsolePrettyTransport {
-  private readonly levelColorMap: Record<
-    Exclude<LogLevel, 'silent'>,
-    (s: string) => string
-  >;
+  private readonly levelColorMap: LevelColorMap;
 
   /**
    * @constructor
@@ -25,15 +66,7 @@ export class PrettyConsoleTransport extends BaseConsolePrettyTransport {
    */
   constructor(options?: TransportOptions) {
     super(options);
-    this.levelColorMap = {
-      fatal: this.chalk.bgRed.white.bold,
-      error: this.chalk.red.bold,
-      warn: this.chalk.yellow.bold,
-      info: this.chalk.blue.bold,
-      audit: this.chalk.white.bold,
-      debug: this.chalk.green,
-      trace: this.chalk.gray,
-    };
+    this.levelColorMap = createLevelColorMap(this.chalk);
   }
 
   /**
@@ -42,28 +75,6 @@ export class PrettyConsoleTransport extends BaseConsolePrettyTransport {
    * @returns {string} The formatted string.
    */
   protected formatLogString(logObject: LogEntry): string {
-    const { timestamp, level, service, message, ...rest } = logObject;
-
-    const colorizer =
-      this.levelColorMap[level as Exclude<LogLevel, 'silent'>] ||
-      this.chalk.white;
-
-    // Format the main log line
-    const time = this.chalk.gray(new Date(timestamp).toLocaleTimeString());
-    const levelString = colorizer(`[${level.toUpperCase()}]`);
-    const serviceString = this.chalk.cyan(`(${service})`);
-    const messageText = message || '';
-
-    let logString = `${time} ${levelString} ${serviceString}: ${messageText}`;
-
-    // Handle additional metadata, ensuring it's not empty
-    const metaKeys = Object.keys(rest);
-    if (metaKeys.length > 0) {
-      // Use a more subtle color for metadata
-      const metaString = this.chalk.gray(JSON.stringify(rest, null, 2));
-      logString += `\n${metaString}`;
-    }
-
-    return logString;
+    return formatPrettyLog(logObject, this.chalk, this.levelColorMap);
   }
 }

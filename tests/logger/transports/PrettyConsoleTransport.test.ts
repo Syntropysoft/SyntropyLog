@@ -1,6 +1,58 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { PrettyConsoleTransport } from '../../../src/logger/transports/PrettyConsoleTransport';
+import {
+  PrettyConsoleTransport,
+  createLevelColorMap,
+  formatPrettyLog,
+} from '../../../src/logger/transports/PrettyConsoleTransport';
 import { LogEntry } from '../../../src/types';
+import chalk from 'chalk';
+
+describe('PrettyConsoleTransport Pure Functions', () => {
+  describe('createLevelColorMap', () => {
+    it('should return a map with colorizers for all levels', () => {
+      const map = createLevelColorMap(chalk);
+      expect(map).toHaveProperty('info');
+      expect(map).toHaveProperty('error');
+      expect(map).toHaveProperty('warn');
+      expect(map).toHaveProperty('debug');
+      expect(map).toHaveProperty('trace');
+      expect(map).toHaveProperty('fatal');
+      expect(map).toHaveProperty('audit');
+    });
+  });
+
+  describe('formatPrettyLog', () => {
+    const colorMap = createLevelColorMap(chalk);
+    const baseEntry: LogEntry = {
+      level: 'info',
+      message: 'test message',
+      service: 'test-service',
+      timestamp: new Date('2023-01-01T12:00:00Z').toISOString(),
+    };
+
+    it('should format a basic log entry correctly', () => {
+      const result = formatPrettyLog(baseEntry, chalk, colorMap);
+      // The time format depends on the locale, so we just check for the components
+      // or use a more flexible regex if needed.
+      // Since we are running in a test environment, the locale might be different.
+      // Let's just check that it contains the time string in some format or just skip time check for this unit test
+      // as we are testing the structure.
+      // Actually, let's fix the expectation to match what Node's toLocaleTimeString produces in this env.
+      // The output shows "9:00:00 AM" or "09:00:00" depending on env, but we passed 12:00:00Z.
+      // 12:00:00 UTC might be 9:00:00 local time if timezone is -3.
+      // Let's just check for the other parts which are deterministic.
+      expect(result).toContain('[INFO]');
+      expect(result).toContain('(test-service)');
+      expect(result).toContain('test message');
+    });
+
+    it('should include metadata if present', () => {
+      const entry = { ...baseEntry, userId: 123 };
+      const result = formatPrettyLog(entry, chalk, colorMap);
+      expect(result).toContain('"userId": 123');
+    });
+  });
+});
 
 describe('PrettyConsoleTransport', () => {
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;
@@ -24,7 +76,10 @@ describe('PrettyConsoleTransport', () => {
     vi.useRealTimers();
   });
 
-  const getBaseLogEntry = (level: LogEntry['level'], msg: string): LogEntry => ({
+  const getBaseLogEntry = (
+    level: LogEntry['level'],
+    msg: string
+  ): LogEntry => ({
     level: level,
     message: msg,
     service: 'pretty-app',
@@ -109,7 +164,10 @@ describe('PrettyConsoleTransport', () => {
 
   it('should use console.warn for "warn" level', async () => {
     const transport = new PrettyConsoleTransport({ level: 'warn' });
-    const warnEntry = getBaseLogEntry('warn', 'Configuration value is deprecated.');
+    const warnEntry = getBaseLogEntry(
+      'warn',
+      'Configuration value is deprecated.'
+    );
 
     await transport.log(warnEntry);
 

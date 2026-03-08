@@ -44,7 +44,57 @@ vi.mock('../../src/masking/MaskingEngine', async (importOriginal) => {
 });
 
 // Import the class to be tested AFTER mocks are defined
-import { LoggerFactory } from '../../src/logger/LoggerFactory';
+import {
+  LoggerFactory,
+  resolveTransports,
+  createCacheKey,
+} from '../../src/logger/LoggerFactory';
+
+describe('LoggerFactory Pure Functions', () => {
+  describe('createCacheKey', () => {
+    it('should return name if no bindings provided', () => {
+      expect(createCacheKey('test')).toBe('test');
+      expect(createCacheKey('test', {})).toBe('test');
+    });
+
+    it('should return consistent key regardless of property order', () => {
+      const key1 = createCacheKey('test', { a: 1, b: 2 });
+      const key2 = createCacheKey('test', { b: 2, a: 1 });
+      expect(key1).toBe(key2);
+      expect(key1).toContain('test');
+      expect(key1).toContain('{"a":1,"b":2}');
+    });
+
+    it('should handle non-serializable objects gracefully', () => {
+      const circular: any = { a: 1 };
+      circular.self = circular;
+      const key = createCacheKey('test', circular);
+      expect(key).toBe('test:a,self');
+    });
+  });
+
+  describe('resolveTransports', () => {
+    it('should return default console transport if no config provided', () => {
+      const result = resolveTransports({});
+      expect(result.transports.default).toHaveLength(1);
+      expect(result.transportPool.has('console')).toBe(true);
+    });
+
+    it('should resolve transports from list and env', () => {
+      const t1 = { name: 't1' } as Transport;
+      const config: SyntropyLogConfig = {
+        logger: {
+          transportList: { t1 },
+          env: { dev: ['t1'] },
+          environment: 'dev',
+        },
+      };
+      const result = resolveTransports(config);
+      expect(result.transports.default).toHaveLength(1);
+      expect(result.transports.default[0]).toBe(t1);
+    });
+  });
+});
 
 describe('LoggerFactory', () => {
   let baseConfig: SyntropyLogConfig;

@@ -11,6 +11,28 @@ import { IBeaconRedis } from '../redis/IBeaconRedis';
 import { ILogger } from '../logger';
 import type { JsonValue } from '../internal-types';
 
+// Pure function: Create a generic proxy handler
+export const createProxyHandler = (
+  logger: ILogger,
+  errorMessage: string,
+  specialHandlers: Record<string, () => unknown>
+): ProxyHandler<object> => ({
+  get(target, prop: string) {
+    if (prop in specialHandlers) {
+      return specialHandlers[prop];
+    }
+    // For any other property, return a function that logs and then rejects a promise.
+    // This covers method calls like .get(), .post(), .set(), etc.
+    return (...args: unknown[]) => {
+      logger.warn(
+        { errorMessage, arguments: args as JsonValue[] },
+        `Attempted to use property '${prop}' on a failing client.`
+      );
+      return Promise.reject(new Error(errorMessage));
+    };
+  },
+});
+
 /**
  * @private
  * Creates a generic proxy object that rejects any method call.
@@ -24,25 +46,8 @@ function createFailingProxy(
   errorMessage: string,
   specialHandlers: Record<string, () => unknown> = {}
 ) {
-  return new Proxy(
-    {},
-    {
-      get(target, prop: string) {
-        if (prop in specialHandlers) {
-          return specialHandlers[prop];
-        }
-        // For any other property, return a function that logs and then rejects a promise.
-        // This covers method calls like .get(), .post(), .set(), etc.
-        return (...args: unknown[]) => {
-          logger.warn(
-            { errorMessage, arguments: args as JsonValue[] },
-            `Attempted to use property '${prop}' on a failing client.`
-          );
-          return Promise.reject(new Error(errorMessage));
-        };
-      },
-    }
-  );
+  const handler = createProxyHandler(logger, errorMessage, specialHandlers);
+  return new Proxy({}, handler);
 }
 
 /**
