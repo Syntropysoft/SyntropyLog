@@ -446,6 +446,8 @@ await syntropyLog.init({
 
 > **Silent Observer guarantee**: if the masking engine fails for any reason, it returns the original object and the application keeps running — it never throws.
 
+**Performance**: Built-in rules use synchronous regex matching (safe, known patterns). Custom rules you add still use the timeout-protected `regex-test` worker to guard against ReDoS. This avoids the ~3–6s delay per log that occurred when every key was tested via the worker queue.
+
 ---
 
 ## 💾 Universal Persistence — Log to Any Database

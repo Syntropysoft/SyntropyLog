@@ -41,6 +41,11 @@ export interface MaskingRule {
   maskChar?: string;
   /** Compiled regex pattern for performance */
   _compiledPattern?: RegExp;
+  /**
+   * Internal: when true, rule is a built-in default (safe pattern); use sync RegExp.test()
+   * instead of regex-test worker to avoid ~3s delay per log from IPC round-trips.
+   */
+  _isDefaultRule?: boolean;
 }
 
 /**
@@ -107,36 +112,42 @@ export class MaskingEngine {
         strategy: MaskingStrategy.CREDIT_CARD,
         preserveLength: true,
         maskChar: this.maskChar,
+        _isDefaultRule: true,
       },
       {
         pattern: /ssn|social_security|security_number/i,
         strategy: MaskingStrategy.SSN,
         preserveLength: true,
         maskChar: this.maskChar,
+        _isDefaultRule: true,
       },
       {
         pattern: /email/i,
         strategy: MaskingStrategy.EMAIL,
         preserveLength: true,
         maskChar: this.maskChar,
+        _isDefaultRule: true,
       },
       {
         pattern: /phone|phone_number|mobile_number/i,
         strategy: MaskingStrategy.PHONE,
         preserveLength: true,
         maskChar: this.maskChar,
+        _isDefaultRule: true,
       },
       {
         pattern: /password|pass|pwd|secret/i,
         strategy: MaskingStrategy.PASSWORD,
         preserveLength: true,
         maskChar: this.maskChar,
+        _isDefaultRule: true,
       },
       {
         pattern: /token|api_key|auth_token|jwt|bearer/i,
         strategy: MaskingStrategy.TOKEN,
         preserveLength: true,
         maskChar: this.maskChar,
+        _isDefaultRule: true,
       },
     ];
 
@@ -259,12 +270,21 @@ export class MaskingEngine {
           for (const rule of this.rules) {
             let isMatch = false;
             if (rule._compiledPattern) {
-              try {
-                // Use regex-test for safe execution with timeout
-                isMatch = await this.regexTest.test(rule._compiledPattern, key);
-              } catch {
-                // Silent failure on timeout/error - treat as no match
-                isMatch = false;
+              if (rule._isDefaultRule) {
+                // Default rules use safe, known patterns (no ReDoS); sync test avoids
+                // regex-test worker IPC queue which caused ~3–6s delay per log.
+                isMatch = rule._compiledPattern.test(key);
+              } else {
+                try {
+                  // Custom rules: use regex-test for safe execution with timeout
+                  isMatch = await this.regexTest.test(
+                    rule._compiledPattern,
+                    key
+                  );
+                } catch {
+                  // Silent failure on timeout/error - treat as no match
+                  isMatch = false;
+                }
               }
             }
 
