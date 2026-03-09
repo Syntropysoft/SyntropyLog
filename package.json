@@ -215,5 +215,10 @@
   },
   "lint-staged": {
     "src/**/*.ts": "eslint --fix --max-warnings=0"
+  },
+  "pnpm": {
+    "overrides": {
+      "serialize-javascript": ">=7.0.3"
+    }
   }
 }
