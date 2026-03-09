@@ -4,7 +4,7 @@
  * These schemas are the single source of truth for the configuration's structure and types.
  */
 
-import { z } from 'zod';
+import * as v from 'valibot';
 import { Transport } from './logger/transports/Transport';
 import { MaskingStrategy } from './masking/MaskingEngine';
 
@@ -14,18 +14,24 @@ import { MaskingStrategy } from './masking/MaskingEngine';
  * @description Schema for a transport descriptor: enable the transport only when current env is in `env`.
  * @private
  */
-const transportDescriptorSchema = z.object({
-  transport: z.instanceof(Transport),
+const transportDescriptorSchema = v.object({
+  transport: v.custom<Transport>(
+    (val) => val instanceof Transport,
+    'Must be an instance of Transport'
+  ),
   /** When set, the transport is only enabled when the environment (e.g. NODE_ENV) is in this list. */
-  env: z.union([z.string(), z.array(z.string())]).optional(),
+  env: v.optional(v.union([v.string(), v.array(v.string())])),
 });
 
 /**
  * @description A transport entry is either a Transport instance or a descriptor with optional env filter.
  * @private
  */
-const transportEntrySchema = z.union([
-  z.instanceof(Transport),
+const transportEntrySchema = v.union([
+  v.custom<Transport>(
+    (val) => val instanceof Transport,
+    'Must be an instance of Transport'
+  ),
   transportDescriptorSchema,
 ]);
 
@@ -33,11 +39,11 @@ const transportEntrySchema = z.union([
  * @description Schema for logger-specific options, including serialization and transports.
  * @private
  */
-const loggerOptionsSchema = z
-  .object({
-    name: z.string().optional(),
-    level: z
-      .enum([
+const loggerOptionsSchema = v.optional(
+  v.object({
+    name: v.optional(v.string()),
+    level: v.optional(
+      v.picklist([
         'audit',
         'fatal',
         'error',
@@ -47,136 +53,137 @@ const loggerOptionsSchema = z
         'trace',
         'silent',
       ])
-      .optional(),
-    serviceName: z.string().optional(),
+    ),
+    serviceName: v.optional(v.string()),
     /**
      * The explicit environment name used to resolve conditional transports (e.g. 'development', 'production').
      * @default 'development'
      */
-    environment: z.string().optional(),
+    environment: v.optional(v.string()),
     /**
      * Pool of transports by name. Use together with `env` to pick per-environment defaults.
      * When both transportList and env are set, this form is used instead of `transports`.
      */
-    transportList: z.record(z.string(), z.instanceof(Transport)).optional(),
+    transportList: v.optional(
+      v.record(
+        v.string(),
+        v.custom<Transport>(
+          (val) => val instanceof Transport,
+          'Must be an instance of Transport'
+        )
+      )
+    ),
     /**
      * Per-environment list of transport names (keys from transportList) to use as default.
      * E.g. { development: ['consola'], production: ['consola', 'db'] }.
      * Used only when transportList is also set.
      */
-    env: z.record(z.string(), z.array(z.string())).optional(),
+    env: v.optional(v.record(v.string(), v.array(v.string()))),
     /**
      * Legacy: array of transport instances or descriptors { transport, env? },
      * or a mapping of logger names (categories) to such arrays.
      * Ignored when both transportList and env are set.
      */
-    transports: z
-      .union([
-        z.array(transportEntrySchema),
-        z.record(z.string(), z.array(transportEntrySchema)),
+    transports: v.optional(
+      v.union([
+        v.array(transportEntrySchema),
+        v.record(v.string(), v.array(transportEntrySchema)),
       ])
-      .optional(),
+    ),
 
     /**
      * The maximum time in milliseconds a custom serializer can run before being timed out.
      * @default 50
      */
-    serializerTimeoutMs: z.number().int().positive().default(50),
-
-    /**
-     * Maximum number of log operations in flight at once (optional).
-     * When undefined or 0, no limit (best throughput; pipeline is sync, only I/O is async).
-     * Set to a positive number (e.g. 1024) to cap in-flight logs and memory if needed.
-     */
-    logConcurrencyLimit: z.number().int().min(0).optional(),
+    serializerTimeoutMs: v.optional(
+      v.pipe(v.number(), v.integer(), v.minValue(1)),
+      50
+    ),
 
     /** Configuration for pretty printing logs in development. */
-    prettyPrint: z
-      .object({
-        enabled: z.boolean().optional().default(false),
+    prettyPrint: v.optional(
+      v.object({
+        enabled: v.optional(v.boolean(), false),
       })
-      .optional(),
+    ),
   })
-  .optional();
-
-/**
- * @description Reusable schema for retry options, commonly used in client configurations.
- * @private
- */
-const retryOptionsSchema = z
-  .object({
-    maxRetries: z.number().int().positive().optional(),
-    retryDelay: z.number().int().positive().optional(),
-  })
-  .optional();
+);
 
 // Removed Redis connection schemas
 
 /**
  * @description Schema for the main data masking configuration block.
  */
-const maskingConfigSchema = z
-  .object({
+const maskingConfigSchema = v.optional(
+  v.object({
     /** Array of masking rules with patterns and strategies. */
-    rules: z
-      .array(
-        z.object({
+    rules: v.optional(
+      v.array(
+        v.object({
           /** Regex pattern to match field names */
-          pattern: z.union([z.string(), z.instanceof(RegExp)]),
+          pattern: v.union([v.string(), v.instance(RegExp)]),
           /** Masking strategy to apply */
-          strategy: z.nativeEnum(MaskingStrategy),
+          strategy: v.enum(MaskingStrategy),
           /** Whether to preserve original length */
-          preserveLength: z.boolean().optional(),
+          preserveLength: v.optional(v.boolean()),
           /** Character to use for masking */
-          maskChar: z.string().optional(),
+          maskChar: v.optional(v.string()),
           /** Custom masking function (for CUSTOM strategy) */
-          customMask: z.function(z.tuple([z.string()]), z.string()).optional(),
+          customMask: v.optional(
+            v.custom<(val: string) => string>(
+              (val) => typeof val === 'function',
+              'Must be a function'
+            )
+          ),
         })
       )
-      .optional(),
+    ),
     /** Default mask character */
-    maskChar: z.string().optional(),
+    maskChar: v.optional(v.string()),
     /** Whether to preserve original length by default */
-    preserveLength: z.boolean().optional(),
+    preserveLength: v.optional(v.boolean()),
     /** Enable default rules for common data types */
-    enableDefaultRules: z.boolean().optional(),
+    enableDefaultRules: v.optional(v.boolean()),
     /**
      * Max ms for evaluating each custom rule regex; if exceeded, no match and a warning is logged.
      * @default 100
      */
-    regexTimeoutMs: z.number().int().positive().default(100),
+    regexTimeoutMs: v.optional(
+      v.pipe(v.number(), v.integer(), v.minValue(1)),
+      100
+    ),
   })
-  .optional();
+);
 
 /**
  * @description Schema for the declarative logging matrix.
  * It controls which context properties are included in the final log output based on the log level.
  * @private
  */
-const loggingMatrixSchema = z
-  .object({
+const loggingMatrixSchema = v.optional(
+  v.object({
     /** An array of context keys to include in logs by default. Can be overridden by level-specific rules. */
-    default: z.array(z.string()).optional(),
+    default: v.optional(v.array(v.string())),
     /** An array of context keys to include for 'trace' level logs. Use `['*']` to include all context properties. */
-    trace: z.array(z.string()).optional(),
+    trace: v.optional(v.array(v.string())),
     /** An array of context keys to include for 'debug' level logs. Use `['*']` to include all context properties. */
-    debug: z.array(z.string()).optional(),
+    debug: v.optional(v.array(v.string())),
     /** An array of context keys to include for 'info' level logs. Use `['*']` to include all context properties. */
-    info: z.array(z.string()).optional(),
+    info: v.optional(v.array(v.string())),
     /** An array of context keys to include for 'warn' level logs. Use `['*']` to include all context properties. */
-    warn: z.array(z.string()).optional(),
+    warn: v.optional(v.array(v.string())),
     /** An array of context keys to include for 'error' level logs. Use `['*']` to include all context properties. */
-    error: z.array(z.string()).optional(),
+    error: v.optional(v.array(v.string())),
     /** An array of context keys to include for 'fatal' level logs. Use `['*']` to include all context properties. */
-    fatal: z.array(z.string()).optional(),
+    fatal: v.optional(v.array(v.string())),
   })
-  .optional();
+);
 
 /**
  * @description The main schema for the entire SyntropyLog configuration.
  * This is the single source of truth for validating the user's configuration object.
  */
-export const syntropyLogConfigSchema = z.object({
+export const syntropyLogConfigSchema = v.object({
   /** Logger-specific configuration. */
   logger: loggerOptionsSchema,
 
@@ -187,23 +194,25 @@ export const syntropyLogConfigSchema = z.object({
   masking: maskingConfigSchema,
 
   /** Context propagation configuration. */
-  context: z
-    .object({
+  context: v.optional(
+    v.object({
       /** The HTTP header name to use for the correlation ID. @default 'x-correlation-id' */
-      correlationIdHeader: z.string().optional(),
+      correlationIdHeader: v.optional(v.string()),
       /** The HTTP header name to use for the external transaction/trace ID. @default 'x-trace-id' */
-      transactionIdHeader: z.string().optional(),
+      transactionIdHeader: v.optional(v.string()),
     })
-    .optional(),
+  ),
 
   /**
    * The maximum time in milliseconds to wait for a graceful shutdown before timing out.
    * @default 5000
    */
-  shutdownTimeout: z
-    .number()
-    .describe('The maximum time in ms to wait for a graceful shutdown.')
-    .int()
-    .positive()
-    .optional(),
+  shutdownTimeout: v.optional(
+    v.pipe(
+      v.number(),
+      v.integer(),
+      v.minValue(1),
+      v.description('The maximum time in ms to wait for a graceful shutdown.')
+    )
+  ),
 });

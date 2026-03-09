@@ -447,7 +447,10 @@ await syntropyLog.init({
 
 > **Silent Observer guarantee**: if the masking engine fails for any reason, it returns the original object and the application keeps running — it never throws.
 
-**Performance**: Built-in rules use synchronous regex matching (safe, known patterns). Custom rules you add still use the timeout-protected `regex-test` worker to guard against ReDoS. This avoids the ~3–6s delay per log that occurred when every key was tested via the worker queue.
+**Performance**: Built-in rules use synchronous regex matching (safe, known patterns). Custom rules use the same synchronous engine for maximum speed.
+
+> ⚠️ **Security Warning (Custom Rules)**
+> Node.js regular expressions execute synchronously on the main thread. To prevent Event Loop blocking, SyntropyLog automatically skips evaluating any JSON keys longer than 256 characters. However, when writing **Custom Masking Rules**, it is your responsibility to write optimized, ReDoS-safe regular expressions. A catastrophic backtracking pattern in a custom rule could temporarily freeze your application if triggered by a specifically crafted payload.
 
 ---
 

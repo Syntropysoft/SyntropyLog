@@ -106,12 +106,6 @@ function resolveEffectiveTransports(
   return list;
 }
 
-/** Optional limiter to cap in-flight log operations and avoid flooding the event loop / GC. */
-export interface IConcurrencyLimiter {
-  acquire(): Promise<void>;
-  release(): void;
-}
-
 export interface LoggerDependencies {
   contextManager: IContextManager;
   serializationManager: SerializationManager;
@@ -119,8 +113,6 @@ export interface LoggerDependencies {
   syntropyLogInstance: SyntropyLog;
   /** Pool of transports by name, for override/add/remove per call. */
   transportPool?: Map<string, Transport>;
-  /** When set, limits how many log operations run concurrently to avoid unbounded promises and memory pressure. */
-  concurrencyLimiter?: IConcurrencyLimiter;
 }
 
 /**
@@ -220,8 +212,6 @@ export class Logger {
     // Capture routing at entry so this call's override/add/remove is not consumed by a concurrent call.
     const effectiveTransports = this.captureEffectiveTransports();
 
-    const limiter = this.dependencies.concurrencyLimiter;
-    if (limiter) await limiter.acquire();
     try {
       const { message, metadata } = parseLogArgs(args);
 
@@ -258,8 +248,8 @@ export class Logger {
           transport.log(maskedEntry as LogEntry);
         }
       }
-    } finally {
-      if (limiter) limiter.release();
+    } catch {
+      // Silent swallow
     }
   }
 

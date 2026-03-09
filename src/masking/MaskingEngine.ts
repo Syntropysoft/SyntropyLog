@@ -485,11 +485,15 @@ export class MaskingEngine {
   }
 
   private testRegexWithTimeout(regex: RegExp, key: string): boolean {
-    const timeoutMs = this.regexTimeoutMs;
-    // Note: Node.js does not support interrupting synchronous RegExp execution via setTimeout.
-    // We explicitly remove the `Promise.race([..., setTimeout])` here to prevent massive
-    // memory leaks and CPU exhaustion out of false security assumptions (creates ~5 timers per log entry).
-    // It's the developer's responsibility to provide safe Regexes, or use re2/super-regex if needed.
+    // Node.js Event Loop Blocking Defense:
+    // V8 regex execution is synchronous and uninterruptible. A catastrophic backtracking (ReDoS)
+    // cannot be caught by a try/catch block if it hangs the thread.
+    // Since we only test the regex against object *keys* (not values), we enforce a strict
+    // length limit. Keys excessively long are skipped to prevent ReDoS vectors.
+    if (key.length > 256) {
+      return false;
+    }
+
     try {
       return regex.test(key);
     } catch {

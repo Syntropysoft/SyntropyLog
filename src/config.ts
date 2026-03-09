@@ -5,13 +5,13 @@
  * while still using Zod schemas for runtime validation.
  */
 
-import { z } from 'zod';
+import * as v from 'valibot';
 import { syntropyLogConfigSchema } from './config.schema';
 
 /**
  * @description The complete, top-level configuration type for the SyntropyLog framework.
  * This type is inferred from the main Zod schema and represents the entire valid configuration object.
  */
-export type SyntropyLogConfig = z.infer<typeof syntropyLogConfigSchema>;
+export type SyntropyLogConfig = v.InferInput<typeof syntropyLogConfigSchema>;
 
 // Redis config types removed

@@ -2,7 +2,11 @@ import { PipelineStep } from '../SerializationPipeline';
 import { SerializationPipelineContext } from '../../types';
 import { SerializableData } from '../../types';
 
-function safeDecycle(data: any, seen: WeakSet<any>, root: any): any {
+function safeDecycle(
+  data: unknown,
+  seen: WeakSet<object>,
+  root: unknown
+): unknown {
   if (data === null || typeof data !== 'object') {
     return data;
   }
@@ -28,12 +32,12 @@ function safeDecycle(data: any, seen: WeakSet<any>, root: any): any {
   }
 
   // Mutate in place to avoid copying the whole object when breaking circular refs.
-  for (const key in data) {
+  for (const key in data as Record<string, unknown>) {
     if (Object.prototype.hasOwnProperty.call(data, key)) {
-      const val = (data as any)[key];
+      const val = (data as Record<string, unknown>)[key];
       const decycledVal = safeDecycle(val, seen, root);
       if (decycledVal !== val) {
-        (data as any)[key] = decycledVal;
+        (data as Record<string, unknown>)[key] = decycledVal;
       }
     }
   }

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import type { ChildProcess } from 'child_process';
-import { ZodError } from 'zod';
+import { ValiError, parse } from 'valibot';
 import { SyntropyLogConfig } from '../config';
 import { syntropyLogConfigSchema } from '../config.schema';
 import { ContextManager, IContextManager } from '../context';
@@ -92,7 +92,7 @@ export class LifecycleManager extends EventEmitter {
     this.state = 'INITIALIZING';
 
     try {
-      const parsedConfig = syntropyLogConfigSchema.parse(config);
+      const parsedConfig = parse(syntropyLogConfigSchema, config);
       const sanitizedConfig = sanitizeConfig(parsedConfig);
       this.config = sanitizedConfig;
 
@@ -130,7 +130,7 @@ export class LifecycleManager extends EventEmitter {
       this.state = 'ERROR';
       this.emit('error', error);
 
-      if (error instanceof ZodError) {
+      if (error instanceof ValiError) {
         console.error(
           '[SyntropyLog] Configuration validation failed:',
           error.issues

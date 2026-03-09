@@ -7,6 +7,6 @@ import { syntropyLogConfigSchema } from '../../src/config.schema';
 describe('config.schema', () => {
   it('should export the main config schema', () => {
     expect(syntropyLogConfigSchema).toBeDefined();
-    expect(typeof syntropyLogConfigSchema.parse).toBe('function');
+    expect(syntropyLogConfigSchema.type).toBe('object');
   });
 });
