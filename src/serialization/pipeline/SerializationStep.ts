@@ -23,43 +23,33 @@ export class SerializationStep implements PipelineStep<SerializableData> {
     }
   }
 
-  async execute(
+  /**
+   * Ejecuta serialización en línea (sync). Sin Promise.race ni timers:
+   * los serializadores deben devolver SerializationResult de forma síncrona.
+   */
+  execute(
     data: SerializableData,
     context: SerializationPipelineContext
-  ): Promise<SerializableData> {
+  ): SerializableData {
     const startTime = Date.now();
 
-    // 1. Find appropriate serializer
     const serializer = this.findSerializer(data);
-
-    if (!serializer) {
-      // If no serializer, return original data (safe by default)
-      return data;
-    }
+    if (!serializer) return data;
 
     try {
-      // 2. Run serialization (resilience is handled by pipeline)
-      const result = await serializer.serialize(
-        data,
-        context.serializationContext
-      );
-
+      const result = serializer.serialize(data, context.serializationContext);
       const duration = Date.now() - startTime;
 
-      // 4. Return serialized data with metadata
       const dataBase =
         typeof result.data === 'object' && result.data !== null
           ? (result.data as Record<string, unknown>)
           : {};
-      return {
-        ...dataBase,
-        serializationDuration: duration,
-        serializer: serializer.name,
-        serializationComplexity:
-          result.complexity || result.metadata?.complexity || null,
-      };
+      (dataBase as Record<string, unknown>).serializationDuration = duration;
+      (dataBase as Record<string, unknown>).serializer = serializer.name;
+      (dataBase as Record<string, unknown>).serializationComplexity =
+        result.complexity || result.metadata?.complexity || null;
+      return dataBase as SerializableData;
     } catch (error) {
-      // Ensure error carries serializer name
       if (
         error instanceof Error &&
         !(error as { serializer?: string }).serializer

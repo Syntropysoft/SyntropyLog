@@ -63,34 +63,40 @@ export class DataSanitizer {
     }
 
     if (Array.isArray(data)) {
-      return data.map((_item, _index) =>
-        this.sanitize(_item, {
-          ...context,
-          currentDepth: currentDepth + 1,
-        })
-      );
+      const ctx: SanitizationContext = {
+        sensitiveFields,
+        maxDepth,
+        currentDepth: currentDepth + 1,
+      };
+      for (let i = 0; i < data.length; i++) {
+        const s = this.sanitize(data[i], ctx);
+        if (s !== data[i]) data[i] = s;
+      }
+      return data;
     }
 
     if (typeof data === 'object') {
-      const sanitized: Record<string, SerializableData> = {};
-
-      for (const [key, value] of Object.entries(data)) {
+      const obj = data as Record<string, SerializableData>;
+      for (const key of Object.keys(obj)) {
         const lowerKey = key.toLowerCase();
         const isSensitive = sensitiveFields.some((field) =>
           lowerKey.includes(field.toLowerCase())
         );
 
         if (isSensitive) {
-          sanitized[key] = '[REDACTED]';
+          obj[key] = '[REDACTED]';
         } else {
-          sanitized[key] = this.sanitize(value, {
-            ...context,
+          const sanitizedValue = this.sanitize(obj[key], {
+            sensitiveFields,
+            maxDepth,
             currentDepth: currentDepth + 1,
           });
+          if (sanitizedValue !== obj[key]) {
+            obj[key] = sanitizedValue;
+          }
         }
       }
-
-      return sanitized;
+      return data;
     }
 
     return data;

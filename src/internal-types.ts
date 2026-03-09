@@ -152,70 +152,7 @@ export type SanitizationContext = {
   maxDepth?: number;
 };
 
-/**
- * Type for Redis values - covers all valid Redis data types
- */
-export type RedisValue =
-  | string
-  | number
-  | bigint
-  | boolean
-  | Buffer
-  | null
-  | undefined
-  | RedisValue[]
-  | {
-      [key: string]: RedisValue;
-    };
-
-/**
- * Type for Redis list elements
- */
-export type RedisListElement = string | number | Buffer | null | undefined;
-
-/**
- * Type for Redis set members
- */
-export type RedisSetMember = string | number | Buffer;
-
-/**
- * Type for Redis sorted set members with scores
- */
-export type RedisSortedSetMember = {
-  score: number;
-  value: RedisValue;
-};
-
-/**
- * Type for Redis hash field values
- */
-export type RedisHashValue = string | number | Buffer;
-
-/**
- * Type for Redis command options
- */
-export type RedisCommandOptions = {
-  [key: string]: JsonValue;
-};
-
-/**
- * Type for Redis pipeline operations
- */
-export type RedisPipelineOperation = {
-  command: string;
-  args: RedisValue[];
-};
-
-/**
- * Type for Redis connection parameters
- */
-export type RedisConnectionParams = {
-  host?: string;
-  port?: number;
-  password?: string;
-  db?: number;
-  [key: string]: unknown;
-};
+// Redis Types removed
 
 /**
  * Type for serialized data

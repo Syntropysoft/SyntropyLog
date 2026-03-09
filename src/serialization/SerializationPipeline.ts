@@ -1,10 +1,17 @@
+/**
+ * Serialization pipeline: "cadena de producción".
+ * El entry de log es un único paquete que recorre la cadena: cada paso lo recibe,
+ * lo modifica in-place si corresponde y lo pasa al siguiente. Si todo sale bien,
+ * el mismo objeto (enriquecido) llega al final sin copias intermedias.
+ */
 import { SerializationResult, SerializationComplexity } from './types';
 import { DataSanitizer } from './utils/DataSanitizer';
 import { SerializableData, SerializationPipelineContext } from '../types';
 
 export interface PipelineStep<T> {
   name: string;
-  execute(data: T, context: SerializationPipelineContext): Promise<T>;
+  /** Recibe el paquete, lo modifica si aplica y devuelve el mismo u otro para el siguiente eslabón. */
+  execute(data: T, context: SerializationPipelineContext): T;
 }
 
 export interface OperationTimeoutStrategy {
@@ -41,12 +48,15 @@ export class SerializationPipeline {
     this.timeoutStrategies.set(strategy.getStrategyName(), strategy);
   }
 
-  async process(
+  /**
+   * Ejecuta la cadena de producción de forma 100% síncrona en memoria.
+   * Sin Promesas ni timers en el camino: evita encolar millones de microtareas en cargas masivas.
+   */
+  process(
     data: SerializableData,
     context: SerializationPipelineContext
-  ): Promise<SerializationResult> {
+  ): SerializationResult {
     const pipelineStartTime = Date.now();
-    const globalTimeout = context?.serializationContext?.timeoutMs ?? 50;
 
     this.metrics = {
       stepDurations: {},
@@ -60,28 +70,7 @@ export class SerializationPipeline {
     try {
       for (const step of this.steps) {
         const stepStartTime = Date.now();
-
-        let timer: NodeJS.Timeout;
-        const timeoutPromise = new Promise<SerializableData>((_, reject) => {
-          timer = setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `Timeout in step '${step.name}' (> ${globalTimeout}ms)`
-                )
-              ),
-            globalTimeout
-          );
-        });
-
-        try {
-          const stepExecution = step.execute(currentData, context);
-          currentData = await Promise.race([stepExecution, timeoutPromise]);
-        } finally {
-          // @ts-expect-error - timer is definitely assigned before use
-          clearTimeout(timer);
-        }
-
+        currentData = step.execute(currentData, context);
         this.metrics.stepDurations[step.name] = Date.now() - stepStartTime;
       }
 

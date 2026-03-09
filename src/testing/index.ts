@@ -33,4 +33,3 @@ export {
 } from './test-helper';
 
 // All mocks for testing (framework agnostic)
-export { BeaconRedisMock } from './BeaconRedisMock';

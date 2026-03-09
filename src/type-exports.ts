@@ -17,9 +17,6 @@ export type { LogLevel } from './logger/levels';
 // --- Transport Interfaces ---
 export type { LogFormatter } from './logger/transports/formatters/LogFormatter';
 
-// --- Interfaces for Instrumented Clients ---
-export type { IBeaconRedis } from './redis/IBeaconRedis';
-
 // --- Main Framework Exports ---
 export { SyntropyLog, syntropyLog } from './SyntropyLog';
 

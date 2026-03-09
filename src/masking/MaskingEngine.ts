@@ -186,26 +186,18 @@ export class MaskingEngine {
    * @param meta - The metadata object to process
    * @returns A new object with the masked data, or a safe fallback object if masking fails
    */
-  public async process(
-    meta: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
-    // Set initialized flag on first use
+  /**
+   * Synchronous masking: pure CPU (regexes), no I/O. Avoids Promise/timer pressure per log.
+   */
+  public process(meta: Record<string, unknown>): Record<string, unknown> {
     if (!this.initialized) {
       this.initialized = true;
     }
 
     try {
-      // Apply masking rules directly to the data structure
       const visited = new WeakSet<object>();
-      const masked = (await this.applyMaskingRules(meta, visited)) as Record<
-        string,
-        unknown
-      >;
-
-      // Return the masked data
-      return masked;
+      return this.applyMaskingRules(meta, visited) as Record<string, unknown>;
     } catch {
-      // Do not return original data: emit a safe placeholder so sensitive payload is never logged
       return {
         ...MaskingEngine.buildSafeFallbackFromMeta(meta),
         _maskingFailed: true,
@@ -232,16 +224,9 @@ export class MaskingEngine {
   }
 
   /**
-   * Applies masking rules to data recursively.
-   * @param data - Data to mask
-   * @param visited - Set of visited objects to prevent circular references
-   * @returns Masked data
-   * @private
+   * Applies masking rules recursively. Synchronous (pure CPU, regexes only) to avoid Promise pressure per log.
    */
-  private async applyMaskingRules(
-    data: unknown,
-    visited: WeakSet<object>
-  ): Promise<unknown> {
+  private applyMaskingRules(data: unknown, visited: WeakSet<object>): unknown {
     if (data === null || typeof data !== 'object') {
       return data;
     }
@@ -252,48 +237,48 @@ export class MaskingEngine {
     visited.add(data);
 
     if (Array.isArray(data)) {
-      return Promise.all(
-        data.map((item) => this.applyMaskingRules(item, visited))
-      );
+      let isArrayModified = false;
+      const out: unknown[] = new Array(data.length);
+      for (let i = 0; i < data.length; i++) {
+        const maskedItem = this.applyMaskingRules(data[i], visited);
+        out[i] = maskedItem;
+        if (maskedItem !== data[i]) {
+          isArrayModified = true;
+        }
+      }
+      return isArrayModified ? out : data;
     }
 
     const dataObj = data as Record<string, unknown>;
-    const masked = { ...dataObj };
 
     for (const key in dataObj) {
-      if (Object.prototype.hasOwnProperty.call(dataObj, key)) {
-        const value = dataObj[key];
+      if (!Object.prototype.hasOwnProperty.call(dataObj, key)) continue;
+      const value = dataObj[key];
 
-        if (typeof value === 'string') {
-          // Check each rule
-          for (const rule of this.rules) {
-            let isMatch = false;
-            if (rule._compiledPattern) {
-              if (rule._isDefaultRule) {
-                // Default rules use safe, known patterns (no ReDoS); sync test.
-                isMatch = rule._compiledPattern.test(key);
-              } else {
-                // Custom rules: run RegExp.test with configurable timeout; on timeout warn and skip
-                isMatch = await this.testRegexWithTimeout(
-                  rule._compiledPattern,
-                  key
-                );
-              }
-            }
-
-            if (isMatch) {
-              masked[key] = this.applyStrategy(value, rule);
-              break; // First matching rule wins
+      if (typeof value === 'string') {
+        for (const rule of this.rules) {
+          let isMatch = false;
+          if (rule._compiledPattern) {
+            if (rule._isDefaultRule) {
+              isMatch = rule._compiledPattern.test(key);
+            } else {
+              isMatch = this.testRegexWithTimeout(rule._compiledPattern, key);
             }
           }
-        } else if (typeof value === 'object' && value !== null) {
-          // Recursively mask nested objects
-          masked[key] = await this.applyMaskingRules(value, visited);
+          if (isMatch) {
+            dataObj[key] = this.applyStrategy(value, rule);
+            break;
+          }
+        }
+      } else if (typeof value === 'object' && value !== null) {
+        const maskedValue = this.applyMaskingRules(value, visited);
+        if (maskedValue !== value) {
+          dataObj[key] = maskedValue;
         }
       }
     }
 
-    return masked;
+    return dataObj;
   }
 
   /**
@@ -499,32 +484,17 @@ export class MaskingEngine {
     return this.initialized;
   }
 
-  /**
-   * Runs RegExp.test(key) with a timeout. On timeout logs a warning and returns false.
-   * @private
-   */
-  private testRegexWithTimeout(regex: RegExp, key: string): Promise<boolean> {
+  private testRegexWithTimeout(regex: RegExp, key: string): boolean {
     const timeoutMs = this.regexTimeoutMs;
-    let timer: ReturnType<typeof setTimeout>;
-    const timeoutPromise = new Promise<boolean>((resolve) => {
-      timer = setTimeout(() => {
-        console.warn(
-          `[SyntropyLog] Masking rule regex timed out (${timeoutMs}ms); key skipped. Consider using a simpler pattern.`
-        );
-        resolve(false);
-      }, timeoutMs);
-    });
-    const testPromise = new Promise<boolean>((resolve) => {
-      try {
-        resolve(regex.test(key));
-      } catch {
-        resolve(false);
-      }
-    }).then((result) => {
-      clearTimeout(timer);
-      return result;
-    });
-    return Promise.race([testPromise, timeoutPromise]);
+    // Note: Node.js does not support interrupting synchronous RegExp execution via setTimeout.
+    // We explicitly remove the `Promise.race([..., setTimeout])` here to prevent massive
+    // memory leaks and CPU exhaustion out of false security assumptions (creates ~5 timers per log entry).
+    // It's the developer's responsibility to provide safe Regexes, or use re2/super-regex if needed.
+    try {
+      return regex.test(key);
+    } catch {
+      return false;
+    }
   }
 
   /**

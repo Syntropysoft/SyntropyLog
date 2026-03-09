@@ -36,47 +36,51 @@ describe('SyntropyLog Integration Tests', () => {
 
   describe('pipeline to SpyTransport (context propagation)', () => {
     it('should correctly propagate context to the final log message', async () => {
-    const spyTransport = new SpyTransport();
-    const config: SyntropyLogConfig = {
-      // silent: true, // This is removed in favor of a more robust testing strategy.
-      logger: {
-        level: 'debug',
-        transports: [spyTransport],
-        serializerTimeoutMs: 1000,
-      },
-      // No redis/http/broker for this test to keep it focused.
-    };
+      const spyTransport = new SpyTransport();
+      const config: SyntropyLogConfig = {
+        // silent: true, // This is removed in favor of a more robust testing strategy.
+        logger: {
+          level: 'debug',
+          transports: [spyTransport],
+          serializerTimeoutMs: 1000,
+        },
+      };
 
-    await initAndWaitReady(config);
+      await initAndWaitReady(config);
 
-    const contextManager = syntropyLog.getContextManager();
-    const logger = syntropyLog.getLogger('integration-test');
-    const correlationId = `test-${Date.now()}`;
+      const contextManager = syntropyLog.getContextManager();
+      const logger = syntropyLog.getLogger('integration-test');
+      const correlationId = `test-${Date.now()}`;
 
-    // Clear any logs that might have been generated during initialization.
-    spyTransport.clear();
+      // Clear any logs that might have been generated during initialization.
+      spyTransport.clear();
 
-    // Act
-    await contextManager.run(async () => {
-      contextManager.set('correlationId', correlationId);
-      // Use pino-style logging: logger.info(metadata, message)
-      await logger.info({ userId: 123 }, 'This is a test message with context.');
-    });
+      // Act
+      await contextManager.run(async () => {
+        contextManager.set('correlationId', correlationId);
+        // Use pino-style logging: logger.info(metadata, message)
+        await logger.info(
+          { userId: 123 },
+          'This is a test message with context.'
+        );
+      });
 
-    // Assert
-    const businessEntries = spyTransport.getEntries().filter(e => e.service === 'integration-test');
-    expect(businessEntries.length).toBe(1);
-    const logObject = businessEntries[0];
+      // Assert
+      const businessEntries = spyTransport
+        .getEntries()
+        .filter((e) => e.service === 'integration-test');
+      expect(businessEntries.length).toBe(1);
+      const logObject = businessEntries[0];
 
-    expect(logObject).toBeDefined();
+      expect(logObject).toBeDefined();
 
-    // With the check above, TypeScript knows logObject is defined, but we can be more explicit.
-    if (logObject) {
-      expect(logObject.level).toBe('info');
-      expect(logObject.message).toBe('This is a test message with context.');
-      expect(logObject.correlationId).toBe(correlationId);
-      expect(logObject.userId).toBe(123);
-    }
+      // With the check above, TypeScript knows logObject is defined, but we can be more explicit.
+      if (logObject) {
+        expect(logObject.level).toBe('info');
+        expect(logObject.message).toBe('This is a test message with context.');
+        expect(logObject.correlationId).toBe(correlationId);
+        expect(logObject.userId).toBe(123);
+      }
     });
   });
 
@@ -102,7 +106,8 @@ describe('SyntropyLog Integration Tests', () => {
       await logger.info({ reqId: 1 }, 'Pipeline to adapter');
 
       const ourEntries = captured.filter(
-        (d) => (d as Record<string, unknown>).service === 'universal-adapter-test'
+        (d) =>
+          (d as Record<string, unknown>).service === 'universal-adapter-test'
       );
       expect(ourEntries.length).toBe(1);
       const entry = ourEntries[0] as Record<string, unknown>;
@@ -131,7 +136,8 @@ describe('SyntropyLog Integration Tests', () => {
 
       expect(logSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
       const lastCall = logSpy.mock.calls[logSpy.mock.calls.length - 1][0];
-      const str = typeof lastCall === 'string' ? lastCall : JSON.stringify(lastCall);
+      const str =
+        typeof lastCall === 'string' ? lastCall : JSON.stringify(lastCall);
       expect(str).toContain('ConsoleTransport message');
       expect(str).toContain('"level":"info"');
       logSpy.mockRestore();
@@ -222,4 +228,4 @@ describe('SyntropyLog Integration Tests', () => {
       logSpy.mockRestore();
     });
   });
-}); 
+});

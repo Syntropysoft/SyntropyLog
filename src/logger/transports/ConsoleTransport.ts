@@ -27,7 +27,7 @@ export class ConsoleTransport extends Transport {
    * @param {LogEntry} entry - The log entry to process.
    * @returns {Promise<void>}
    */
-  public async log(entry: LogEntry): Promise<void> {
+  public log(entry: LogEntry): void | Promise<void> {
     if (!this.isLevelEnabled(entry.level)) {
       return;
     }

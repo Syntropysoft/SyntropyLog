@@ -1,6 +1,7 @@
 import { SyntropyLog } from '../SyntropyLog';
 import { SyntropyLogConfig } from '../config';
 import { Logger, LoggerDependencies } from './Logger';
+import { ConcurrencyLimiter } from './ConcurrencyLimiter';
 import { ILogger } from './ILogger';
 import { IContextManager } from '../context/IContextManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
@@ -173,6 +174,8 @@ export class LoggerFactory {
   private readonly serializationManager: SerializationManager;
   /** @private The engine responsible for masking sensitive data. */
   private readonly maskingEngine: MaskingEngine;
+  /** @private Optional limiter to cap in-flight log operations. */
+  private readonly concurrencyLimiter: ConcurrencyLimiter | undefined;
 
   /** @private A pool to cache logger instances by name for performance. */
   private readonly loggerPool: Map<string, ILogger> = new Map();
@@ -223,6 +226,11 @@ export class LoggerFactory {
       enableDefaultRules: config.masking?.enableDefaultRules !== false,
       regexTimeoutMs: config.masking?.regexTimeoutMs,
     });
+
+    // Sin límite por defecto: pipeline/masking son sync y transport es fire-and-forget; el límite solo tiene sentido si se quiere acotar I/O.
+    const limit = config.logger?.logConcurrencyLimit;
+    this.concurrencyLimiter =
+      limit == null || limit < 1 ? undefined : new ConcurrencyLimiter(limit);
   }
 
   /**
@@ -255,6 +263,7 @@ export class LoggerFactory {
       maskingEngine: this.maskingEngine,
       syntropyLogInstance: this.syntropyLogInstance,
       transportPool: this.transportPool,
+      concurrencyLimiter: this.concurrencyLimiter,
     };
 
     // Retrieve transports for this specific logger name, or fall back to 'default'

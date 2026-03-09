@@ -37,7 +37,7 @@ vi.mock('../../src/logger/LoggerFactory', () => {
     },
   };
 });
-vi.mock('../../src/redis/RedisManager');
+// Mocks extracted
 vi.mock('../../src/context/ContextManager');
 
 describe('LifecycleManager', () => {
@@ -62,7 +62,7 @@ describe('LifecycleManager', () => {
   describe('init', () => {
     it('should transition to READY state on successful initialization', async () => {
       const config: SyntropyLogConfig = {
-        logger: { level: 'info' },
+        logger: { level: 'info', serializerTimeoutMs: 50 },
       };
 
       await lifecycleManager.init(config);
@@ -72,7 +72,9 @@ describe('LifecycleManager', () => {
     });
 
     it('should not re-initialize if already initialized', async () => {
-      const config: SyntropyLogConfig = { logger: { level: 'info' } };
+      const config: SyntropyLogConfig = {
+        logger: { level: 'info', serializerTimeoutMs: 50 },
+      };
 
       // First init
       await lifecycleManager.init(config);

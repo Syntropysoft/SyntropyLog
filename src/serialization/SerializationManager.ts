@@ -114,7 +114,10 @@ export class SerializationManager {
     this.serializationStep.addSerializer(serializer);
   }
 
-  async serialize(
+  /**
+   * Serialización 100% síncrona: pipeline en memoria sin Promesas ni timers.
+   */
+  serialize(
     data: SerializableData,
     context: SerializationContextConfig = {
       depth: 0,
@@ -122,10 +125,9 @@ export class SerializationManager {
       sensitiveFields: [],
       sanitize: true,
     }
-  ): Promise<SerializationResult> {
+  ): SerializationResult {
     const startTime = Date.now();
 
-    // Create pipeline context
     const pipelineContext: SerializationPipelineContext = {
       serializationContext: context,
       sanitizeSensitiveData: this.config.sanitizeSensitiveData,
@@ -133,10 +135,8 @@ export class SerializationManager {
       enableMetrics: this.config.enableMetrics,
     };
 
-    // Run pipeline
-    const result = await this.pipeline.process(data, pipelineContext);
+    const result = this.pipeline.process(data, pipelineContext);
 
-    // Update metrics
     if (this.config.enableMetrics) {
       this.updateMetrics(result, Date.now() - startTime);
     }

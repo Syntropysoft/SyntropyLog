@@ -85,20 +85,23 @@ const createDtsConfig = (inputFile, outputName) => ({
 // Export an array with all build configurations.
 export default [
   // --- JavaScript Bundles (minified) ---
+  // inlineDynamicImports: false so Redis stays in a separate chunk; main bundle stays small when redis is unused.
   {
     input: 'src/index.ts',
     output: [
       {
-        file: './dist/index.cjs',
+        dir: 'dist',
         format: 'cjs',
         sourcemap: false,
-        inlineDynamicImports: true,
+        entryFileNames: '[name].cjs',
+        chunkFileNames: 'chunks/[name]-[hash].cjs',
       },
       {
-        file: './dist/index.mjs',
+        dir: 'dist',
         format: 'esm',
         sourcemap: false,
-        inlineDynamicImports: true,
+        entryFileNames: '[name].mjs',
+        chunkFileNames: 'chunks/[name]-[hash].mjs',
       },
     ],
     plugins: mainJsPlugins,
