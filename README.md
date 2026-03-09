@@ -47,6 +47,10 @@ SyntropyLog was designed with the constraints of **banking, healthcare, and fina
 - **HIPAA**: Field-level control over what appears in logs at each severity level via the Logging Matrix.
 - **SOX**: Immutable audit trail via `withRetention` bindings and dedicated transports.
 
+### Tree-shaking friendly
+
+We ship with `sideEffects: false` and ESM so bundlers (Vite, Rollup, webpack, esbuild) can tree-shake unused code. What ends up in your app is only what you import.
+
 ---
 
 ## 🛡️ Why SyntropyLog? (The Resilience Factor)

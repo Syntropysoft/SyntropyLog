@@ -2,6 +2,7 @@ import typescript from '@rollup/plugin-typescript';
 import commonjs from '@rollup/plugin-commonjs';
 import resolve from '@rollup/plugin-node-resolve';
 import json from '@rollup/plugin-json';
+import terser from '@rollup/plugin-terser';
 import dts from 'rollup-plugin-dts';
 import { builtinModules } from 'node:module';
 import path from 'path';
@@ -20,7 +21,19 @@ const external = [
   'type-detect',
 ];
 
-// Common plugins for all JavaScript bundles. (sourcemap: false to keep published package small)
+// Common plugins for main bundle (minify to reduce CJS/ESM size)
+const mainJsPlugins = [
+  resolve(),
+  commonjs(),
+  typescript({
+    tsconfig: './tsconfig.rollup.json',
+    sourceMap: false,
+  }),
+  json(),
+  terser({ format: { comments: false } }),
+];
+
+// Plugins for testing bundle (no minify for easier debugging)
 const jsPlugins = [
   resolve(),
   commonjs(),
@@ -71,7 +84,7 @@ const createDtsConfig = (inputFile, outputName) => ({
 
 // Export an array with all build configurations.
 export default [
-  // --- JavaScript Bundles ---
+  // --- JavaScript Bundles (minified) ---
   {
     input: 'src/index.ts',
     output: [
@@ -88,7 +101,7 @@ export default [
         inlineDynamicImports: true,
       },
     ],
-    plugins: jsPlugins,
+    plugins: mainJsPlugins,
     external,
   },
 

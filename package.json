@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.9.18",
+  "version": "0.9.19",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -132,7 +132,7 @@
     "example:transport-pool": "npx tsx examples/TransportPoolExample.ts",
     "setup": "node scripts/setup-env.js",
     "build": "npm run clean && npm run build:types && rollup -c",
-    "build:types": "tsc -p src/tsconfig.json",
+    "build:types": "tsc -p src/tsconfig.json && rm -f dist/tsconfig.tsbuildinfo",
     "dev": "rollup -c -w",
     "clean": "rm -rf dist",
     "lint": "eslint . --fix",
@@ -181,6 +181,7 @@
     "@rollup/plugin-commonjs": "^28.0.2",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.2",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.13.5",

@@ -182,31 +182,38 @@ export class LifecycleManager extends EventEmitter {
 
       this.maskingEngine?.shutdown?.();
 
-      const shutdownPromises = [
-        this.redisManager?.shutdown(),
-        this.loggerFactory?.shutdown?.(),
-      ].filter(Boolean);
-
+      // Shut down Redis and external processes first (logger stays active so these logs are written)
+      const shutdownSteps: Promise<void>[] = [];
+      if (this.redisManager) shutdownSteps.push(this.redisManager.shutdown());
+      shutdownSteps.push(this.terminateExternalProcesses());
       this.logger?.info(
-        `📋 Executing ${shutdownPromises.length} shutdown promises...`
+        `📋 Executing ${shutdownSteps.length} shutdown steps...`
       );
-      await Promise.allSettled(shutdownPromises);
-      this.logger?.info('✅ Shutdown promises completed');
+      await Promise.allSettled(shutdownSteps);
 
-      // Terminate external processes that might keep the process active
-      this.logger?.info('🔍 Starting external process termination...');
-      await this.terminateExternalProcesses();
+      // Final shutdown messages; await so they are fully written before we close transports
+      await this.logger?.info('✅ Shutdown steps completed');
+      await this.logger?.info('All managers have been shut down.');
+      await this.logger?.info('✅ State changed to SHUTDOWN');
 
-      this.logger?.info('All managers have been shut down.');
+      await this.loggerFactory?.shutdown?.();
+
+      if (this.state === 'SHUTTING_DOWN') {
+        this.emit('transports_drained');
+      }
       this.state = 'SHUTDOWN';
       this.emit('shutdown');
-      this.logger?.info('✅ State changed to SHUTDOWN');
     } catch (error) {
       this.state = 'ERROR';
       this.emit('error', error);
       this.logger?.error('❌ Error during shutdown:', {
         error: errorToJsonValue(error),
       });
+      await this.loggerFactory?.shutdown?.();
+      // Transports vacíos también en caso de error (seguimos en orden de apagado)
+      if (this.state === 'ERROR') {
+        this.emit('transports_drained');
+      }
     }
   }
 

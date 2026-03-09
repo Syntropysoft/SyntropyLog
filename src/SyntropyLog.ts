@@ -42,6 +42,9 @@ export class SyntropyLog extends EventEmitter {
     this.lifecycleManager.on('ready', () => this.emit('ready'));
     this.lifecycleManager.on('error', (err) => this.emit('error', err));
     this.lifecycleManager.on('shutting_down', () => this.emit('shutting_down'));
+    this.lifecycleManager.on('transports_drained', () =>
+      this.emit('transports_drained')
+    );
     this.lifecycleManager.on('shutdown', () => this.emit('shutdown'));
   }
 

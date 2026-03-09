@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.19
+
+### Patch Changes
+
+- **Shutdown and package size**
+  - **Shutdown:** `shutdown()` now resolves only after all shutdown logs are written. LifecycleManager reorders shutdown (Redis + external processes first), awaits final log calls, then closes the logger factory so no logs appear after "Shutdown completed".
+  - **Smaller bundles:** Main CJS/ESM bundles are minified with Terser (~176KB → ~60KB each). Build no longer publishes `tsconfig.tsbuildinfo`; `src/services` excluded from type build.
+  - **README:** Added "Tree-shaking friendly" section.
+
 ## 0.9.18
 
 ### Patch Changes
