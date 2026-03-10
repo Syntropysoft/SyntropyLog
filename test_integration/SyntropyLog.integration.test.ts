@@ -227,5 +227,204 @@ describe('SyntropyLog Integration Tests', () => {
       expect(plain).toContain('Compact message');
       logSpy.mockRestore();
     });
+    describe('End-to-End Functional Capabilities', () => {
+      it('should correctly apply masking rules to sensitive data before outputting', async () => {
+        const captured: Record<string, unknown>[] = [];
+        const executor = (data: unknown) => {
+          captured.push(data as Record<string, unknown>);
+        };
+        const adapter = new UniversalAdapter({ executor });
+        const transport = new AdapterTransport({ adapter, level: 'info' });
+
+        const config: SyntropyLogConfig = {
+          logger: {
+            level: 'info',
+            transports: [transport],
+          },
+          loggingMatrix: {
+            info: ['*'], // Allow all fields for this test so we can verify masking and not matrix filtering
+          },
+          masking: {
+            enableDefaultRules: true,
+            maskChar: '*',
+          },
+        };
+
+        await initAndWaitReady(config);
+        const logger = syntropyLog.getLogger('masking-test');
+
+        const sensitivePayload = {
+          user: 'john_doe',
+          password: 'mySuperSecretPassword123',
+          credit_card: '4532-1111-2222-3333',
+          safeField: 'Hello World',
+        };
+
+        await logger.info(sensitivePayload, 'User registration attempt');
+
+        const ourLogs = captured.filter((c) => c.service === 'masking-test');
+        expect(ourLogs.length).toBe(1);
+        const entry = ourLogs[0];
+
+        expect(entry.message).toBe('User registration attempt');
+        // The payload is merged into the root or `meta` depending on formatting.
+        // UniversalLogFormatter merges meta into the root object.
+        expect(entry.user).toBe('john_doe');
+        expect(entry.safeField).toBe('Hello World');
+
+        // Validate masking
+        expect(entry.password).toBe('**********');
+        expect(entry.credit_card).toBe('****-****-****-3333');
+      });
+
+      it('should filter context fields based on the Logging Matrix for different levels', async () => {
+        const captured: Record<string, unknown>[] = [];
+        const executor = (data: unknown) => {
+          captured.push(data as Record<string, unknown>);
+        };
+
+        const config: SyntropyLogConfig = {
+          logger: {
+            level: 'info',
+            transports: [
+              new AdapterTransport({
+                adapter: new UniversalAdapter({ executor }),
+              }),
+            ],
+          },
+          loggingMatrix: {
+            default: ['correlationId'],
+            info: ['correlationId', 'tenantId'],
+            error: ['*'], // Allow everything on error
+          },
+        };
+
+        await initAndWaitReady(config);
+        const logger = syntropyLog.getLogger('matrix-test');
+        const contextManager = syntropyLog.getContextManager();
+
+        await contextManager.run(async () => {
+          contextManager.set('correlationId', 'req-123');
+          contextManager.set('tenantId', 'tenant-A');
+          contextManager.set('secretInternalId', 'hidden-456');
+
+          // Info level
+          await logger.info('Info message');
+          // Error level
+          await logger.error('Error message');
+        });
+
+        const ourLogs = captured.filter((c) => c.service === 'matrix-test');
+        expect(ourLogs.length).toBe(2);
+
+        const infoLog = ourLogs.find((c) => c.level === 'info');
+        const errorLog = ourLogs.find((c) => c.level === 'error');
+
+        expect(infoLog).toBeDefined();
+        expect(errorLog).toBeDefined();
+
+        // Info shouldn't have secretInternalId
+        expect(infoLog?.correlationId).toBe('req-123');
+        expect(infoLog?.tenantId).toBe('tenant-A');
+        expect(infoLog?.secretInternalId).toBeUndefined();
+
+        // Error should have everything (but also be masked since masking runs after the matrix)
+        expect(errorLog?.correlationId).toBe('req-123');
+        expect(errorLog?.tenantId).toBe('tenant-A');
+        expect(errorLog?.secretInternalId).toBe('**********');
+      });
+
+      it('should propagate local bindings (withRetention, withSource) to child loggers', async () => {
+        const captured: Record<string, unknown>[] = [];
+        const executor = (data: unknown) => {
+          captured.push(data as Record<string, unknown>);
+        };
+
+        const config: SyntropyLogConfig = {
+          logger: {
+            level: 'info',
+            transports: [
+              new AdapterTransport({
+                adapter: new UniversalAdapter({ executor }),
+              }),
+            ],
+          },
+        };
+
+        await initAndWaitReady(config);
+
+        const baseLogger = syntropyLog.getLogger('base-service');
+        // Create child loggers
+        const auditLogger = baseLogger
+          .withSource('AuditModule')
+          .withRetention({ policy: 'COMPLIANCE_7_YEARS', secure: true });
+
+        // Ensure base logger is unaffected
+        await baseLogger.info('Standard log');
+        // Use child logger
+        await auditLogger.info('Audit event log');
+
+        const ourLogs = captured.filter((c) => c.service === 'base-service');
+        expect(ourLogs.length).toBe(2);
+
+        const standardLog = ourLogs.find((l) => l.message === 'Standard log');
+        const auditLog = ourLogs.find((l) => l.message === 'Audit event log');
+
+        expect(standardLog).toBeDefined();
+        expect(auditLog).toBeDefined();
+
+        // Verify base logger
+        expect(standardLog?.retention).toBeUndefined();
+        expect(standardLog?.source).toBeUndefined();
+
+        // Verify child logger
+        expect(auditLog?.service).toBe('base-service');
+        expect(auditLog?.source).toBe('AuditModule');
+        expect(auditLog?.retention).toEqual({
+          policy: 'COMPLIANCE_7_YEARS',
+          secure: true,
+        });
+      });
+
+      it('should handle catastrophic serialization issues (circular refs) safely without crashing', async () => {
+        const captured: Record<string, unknown>[] = [];
+        const executor = (data: unknown) => {
+          captured.push(data as Record<string, unknown>);
+        };
+
+        const config: SyntropyLogConfig = {
+          logger: {
+            level: 'info',
+            transports: [
+              new AdapterTransport({
+                adapter: new UniversalAdapter({ executor }),
+              }),
+            ],
+          },
+        };
+
+        await initAndWaitReady(config);
+        const logger = syntropyLog.getLogger('resilience-test');
+
+        // Create a nasty circular reference
+        const circularObj: any = { name: 'I am circular' };
+        circularObj.self = circularObj;
+
+        // This should NOT throw an Error, the pipeline should handle it gracefully
+        await expect(
+          logger.info({ nastyPayload: circularObj }, 'Attempting circular log')
+        ).resolves.not.toThrow();
+
+        const ourLogs = captured.filter((c) => c.service === 'resilience-test');
+        expect(ourLogs.length).toBe(1);
+        const entry = ourLogs[0];
+
+        expect(entry.message).toBe('Attempting circular log');
+        // Verify string representation (safeDecycle handles it as [MAX_DEPTH_REACHED] or identical)
+        const payloadStr = JSON.stringify(entry);
+        expect(payloadStr).toContain('I am circular');
+        expect(payloadStr).toContain('[Circular]');
+      });
+    });
   });
 });

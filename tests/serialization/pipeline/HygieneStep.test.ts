@@ -35,7 +35,7 @@ describe('HygieneStep', () => {
     const result: any = await step.execute(circular, mockContext);
     expect(result).toBeDefined();
     expect(result.a).toBe(1);
-    expect(result.self).toBe(result);
+    expect(result.self).toBe('[Circular]');
   });
 
   it('should format Error objects correctly', async () => {

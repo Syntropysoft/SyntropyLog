@@ -2,17 +2,13 @@ import { PipelineStep } from '../SerializationPipeline';
 import { SerializationPipelineContext } from '../../types';
 import { SerializableData } from '../../types';
 
-function safeDecycle(
-  data: unknown,
-  seen: WeakSet<object>,
-  root: unknown
-): unknown {
+function safeDecycle(data: unknown, seen: WeakSet<object>): unknown {
   if (data === null || typeof data !== 'object') {
     return data;
   }
 
   if (seen.has(data)) {
-    return root; // Restore circular ref to root so result.self === result
+    return '[Circular]';
   }
 
   seen.add(data);
@@ -21,7 +17,7 @@ function safeDecycle(
     let isModified = false;
     const out = new Array(data.length);
     for (let i = 0; i < data.length; i++) {
-      const decycledItem = safeDecycle(data[i], seen, root);
+      const decycledItem = safeDecycle(data[i], seen);
       out[i] = decycledItem;
       if (decycledItem !== data[i]) {
         isModified = true;
@@ -35,7 +31,7 @@ function safeDecycle(
   for (const key in data as Record<string, unknown>) {
     if (Object.prototype.hasOwnProperty.call(data, key)) {
       const val = (data as Record<string, unknown>)[key];
-      const decycledVal = safeDecycle(val, seen, root);
+      const decycledVal = safeDecycle(val, seen);
       if (decycledVal !== val) {
         (data as Record<string, unknown>)[key] = decycledVal;
       }
@@ -85,7 +81,7 @@ export class HygieneStep implements PipelineStep<SerializableData> {
         // 3. Fallback: Circular reference detected, or hostile object (e.g. Proxy that throws on get).
         let cleaned: SerializableData;
         try {
-          cleaned = safeDecycle(data, new WeakSet(), data) as SerializableData;
+          cleaned = safeDecycle(data, new WeakSet()) as SerializableData;
         } catch (e: unknown) {
           let msg: string;
           try {
