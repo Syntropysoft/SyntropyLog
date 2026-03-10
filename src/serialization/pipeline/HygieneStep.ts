@@ -2,13 +2,13 @@ import { PipelineStep } from '../SerializationPipeline';
 import { SerializationPipelineContext } from '../../types';
 import { SerializableData } from '../../types';
 
-function safeDecycle(data: any, seen: WeakSet<any>, root: any): any {
+function safeDecycle(data: unknown, seen: WeakSet<object>): unknown {
   if (data === null || typeof data !== 'object') {
     return data;
   }
 
   if (seen.has(data)) {
-    return root; // Restore circular ref to root so result.self === result
+    return '[Circular]';
   }
 
   seen.add(data);
@@ -17,7 +17,7 @@ function safeDecycle(data: any, seen: WeakSet<any>, root: any): any {
     let isModified = false;
     const out = new Array(data.length);
     for (let i = 0; i < data.length; i++) {
-      const decycledItem = safeDecycle(data[i], seen, root);
+      const decycledItem = safeDecycle(data[i], seen);
       out[i] = decycledItem;
       if (decycledItem !== data[i]) {
         isModified = true;
@@ -28,12 +28,12 @@ function safeDecycle(data: any, seen: WeakSet<any>, root: any): any {
   }
 
   // Mutate in place to avoid copying the whole object when breaking circular refs.
-  for (const key in data) {
+  for (const key in data as Record<string, unknown>) {
     if (Object.prototype.hasOwnProperty.call(data, key)) {
-      const val = (data as any)[key];
-      const decycledVal = safeDecycle(val, seen, root);
+      const val = (data as Record<string, unknown>)[key];
+      const decycledVal = safeDecycle(val, seen);
       if (decycledVal !== val) {
-        (data as any)[key] = decycledVal;
+        (data as Record<string, unknown>)[key] = decycledVal;
       }
     }
   }
@@ -81,7 +81,7 @@ export class HygieneStep implements PipelineStep<SerializableData> {
         // 3. Fallback: Circular reference detected, or hostile object (e.g. Proxy that throws on get).
         let cleaned: SerializableData;
         try {
-          cleaned = safeDecycle(data, new WeakSet(), data) as SerializableData;
+          cleaned = safeDecycle(data, new WeakSet()) as SerializableData;
         } catch (e: unknown) {
           let msg: string;
           try {

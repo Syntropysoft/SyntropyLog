@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ZodError } from 'zod';
+import { ValiError } from 'valibot';
 import { SyntropyLog } from '../src/SyntropyLog';
 import { LoggerFactory } from '../src/logger/LoggerFactory';
 import { ContextManager } from '../src/context/ContextManager';
@@ -154,12 +154,12 @@ describe('SyntropyLog', () => {
       const invalidConfig = { logger: { level: 123 } }; // Invalid level
 
       await expect(syntropy.init(invalidConfig as any)).rejects.toThrow(
-        ZodError
+        ValiError
       );
 
       expect(syntropy.getState()).toBe('ERROR');
       expect(errorSpy).toHaveBeenCalledOnce();
-      expect(errorSpy).toHaveBeenCalledWith(expect.any(ZodError));
+      expect(errorSpy).toHaveBeenCalledWith(expect.any(ValiError));
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         '[SyntropyLog] Configuration validation failed:',

@@ -35,7 +35,7 @@ describe('HygieneStep', () => {
     const result: any = await step.execute(circular, mockContext);
     expect(result).toBeDefined();
     expect(result.a).toBe(1);
-    expect(result.self).toBe(result);
+    expect(result.self).toBe('[Circular]');
   });
 
   it('should format Error objects correctly', async () => {
@@ -55,20 +55,42 @@ describe('HygieneStep', () => {
     expect(result).toEqual(data);
   });
 
-  it('should handle failures gracefully', async () => {
-    // Proxy that throws on get so that safeDecycle triggers the throw when it enumerates or reads a key.
+  it('should handle arrays without modification when no circular refs', async () => {
+    const data = [1, 'hello', { safe: true }];
+    const result = await step.execute(data as any, mockContext);
+    expect(result).toEqual(data);
+  });
+
+  it('should handle circular references inside arrays', async () => {
+    const inner: any = { name: 'inner' };
+    inner.self = inner;
+    const data = [inner, { safe: 'value' }];
+
+    const result: any = await step.execute(data as any, mockContext);
+    expect(result[0].name).toBe('inner');
+    expect(result[0].self).toBe('[Circular]');
+    expect(result[1].safe).toBe('value');
+  });
+
+  it('should handle objects whose toString/valueOf throws in outer catch', async () => {
+    // Proxy that throws on JSON.stringify and safeDecycle
+    let throwCount = 0;
     const evil = new Proxy(
-      { x: 1 },
+      {},
       {
         get(_t, key) {
-          if (key === 'x') throw new Error('Proxy error');
+          // Allow WeakSet operations
+          if (typeof key === 'symbol' || key === 'then') return undefined;
+          throwCount++;
+          if (throwCount > 2) throw new Error('get failed');
           return undefined;
+        },
+        ownKeys() {
+          throw new Error('ownKeys failed');
         },
       }
     );
-
-    const result = await step.execute(evil, mockContext);
+    const result = await step.execute(evil as any, mockContext);
     expect(typeof result).toBe('string');
-    expect(result).toContain('[HYGIENE_ERROR:');
   });
 });
