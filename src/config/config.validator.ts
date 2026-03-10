@@ -4,18 +4,18 @@
  * Replaces valibot for runtime config validation while keeping identical error quality.
  */
 
-import { ok, err, optional, object, arrayOf, chain, Result } from './Result';
+import { ok, err, optional, object, arrayOf, Result } from './Result';
 import {
   isString,
   isBoolean,
   isPositiveInt,
   isFunction,
   isStringOrRegExp,
-  isInstance,
   recordOf,
+  oneOf,
 } from './validators';
-import { oneOf } from './validators';
 import { Transport } from '../logger/transports/Transport';
+export { Transport };
 import { MaskingStrategy } from '../masking/MaskingEngine';
 import type { SyntropyLogConfig } from '../config.schema';
 

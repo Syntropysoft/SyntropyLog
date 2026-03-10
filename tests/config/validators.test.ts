@@ -123,6 +123,13 @@ describe('Primitive validators', () => {
       if (!r.ok) expect(r.errors[0]).toContain('Foo');
     });
 
+    it('should use constructor name if no custom name is provided', () => {
+      const isBarNoName = isInstance(Bar);
+      const r = isBarNoName(new Foo());
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors[0]).toContain('Bar');
+    });
+
     it('rejects a plain string', () => {
       expect(isFoo('string').ok).toBe(false);
     });

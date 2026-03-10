@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseConfig,
   ConfigValidationError,
+  Transport,
 } from '../../src/config/config.validator';
 import { MaskingStrategy } from '../../src/masking/MaskingEngine';
 
@@ -58,6 +59,25 @@ describe('config.schema / parseConfig()', () => {
     it('should accept valid context config', () => {
       expect(
         valid({ context: { correlationIdHeader: 'x-request-id' } })
+      ).not.toThrow();
+    });
+
+    it('should accept transport descriptors with env array', () => {
+      class MockTransport extends Transport {
+        async execute() {}
+        log() {}
+      }
+      expect(
+        valid({
+          logger: {
+            transports: [
+              {
+                transport: new MockTransport(),
+                env: ['production', 'staging'],
+              },
+            ],
+          },
+        })
       ).not.toThrow();
     });
 
@@ -163,6 +183,12 @@ describe('config.schema / parseConfig()', () => {
           },
         })
       ).toThrow(ConfigValidationError);
+    });
+
+    it('should reject non-array and non-object transports', () => {
+      expect(invalid({ logger: { transports: 123 } })).toThrow(
+        ConfigValidationError
+      );
     });
   });
 });
