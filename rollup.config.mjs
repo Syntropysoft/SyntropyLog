@@ -2,7 +2,6 @@ import typescript from '@rollup/plugin-typescript';
 import commonjs from '@rollup/plugin-commonjs';
 import resolve from '@rollup/plugin-node-resolve';
 import json from '@rollup/plugin-json';
-import terser from '@rollup/plugin-terser';
 import dts from 'rollup-plugin-dts';
 import { builtinModules } from 'node:module';
 import path from 'path';
@@ -30,7 +29,6 @@ const mainJsPlugins = [
     sourceMap: false,
   }),
   json(),
-  terser({ format: { comments: false } }),
 ];
 
 // Plugins for testing bundle (no minify for easier debugging)
