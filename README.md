@@ -604,20 +604,7 @@ const dbTransport = new UniversalAdapter({
 
 ---
 
-## 📚 Learn More
-
-SyntropyLog goes deep. Explore our specialized guides:
-
-| | Guide | Description |
-| :--- | :--- | :--- |
-| 🔧 | [Master Configuration](./docs/configuration.md) | Every option explained: `loggingMatrix`, `serializers`, masking, context. |
-| 💾 | [Universal Persistence](./docs/persistence.md) | Map logs to any DB (SQL/NoSQL) with pure JSON, zero dependencies. |
-| 🧬 | [Serialization & Resiliency](./docs/serialization.md) | Circular reference protection, automated timeouts, and the Safe Pipeline. |
-| ⚙️ | [Middleware & Frameworks](./docs/middleware.md) | Integration patterns for Express, NestJS, and more via Universal Contracts. |
-| 🏢 | [Enterprise Patterns](./docs/enterprise.md) | Scalable architectures, ELK, Kubernetes, and compliance. |
-| 🧪 | [Testing Strategy](./docs/testing.md) | Zero-boilerplate mocking with `SyntropyLogMock`. |
-| 🎭 | [Core Philosophy](./docs/philosophy.md) | The "Silent Observer" principle and error handling strategy. |
-| 📦 | [Examples](https://github.com/Syntropysoft/syntropylog-examples) | Real integrations with Express, Redis, Kafka, and more. |
+---
 
 ---
 
