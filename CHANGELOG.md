@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.9.20
+
+### Patch Changes
+
+- Optimization and Security Refactor:
+  - Migrated configuration validation from Zod to Valibot to significantly reduce bundle size.
+  - Removed `ConcurrencyLimiter` and `logConcurrencyLimit` to simplify pipeline processing and eliminate async bottlenecks.
+  - Restored `optionalChalk` implementation for built-in visual console transports.
+  - Achieved 100% global test coverage.
+  - Implemented ReDoS (Catastrophic Backtracking) defenses in `MaskingEngine` with synchronous length limits on property keys.
+
 ## 0.9.19
 
 ### Patch Changes
