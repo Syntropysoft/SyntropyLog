@@ -170,8 +170,7 @@
     "provenance": true
   },
   "dependencies": {
-    "js-yaml": "^4.1.1",
-    "valibot": "^1.2.0"
+    "js-yaml": "^4.1.1"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",

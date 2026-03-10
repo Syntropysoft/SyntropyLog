@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ValiError } from 'valibot';
+import { ConfigValidationError } from '../src/config/config.validator';
 import { SyntropyLog } from '../src/SyntropyLog';
 import { LoggerFactory } from '../src/logger/LoggerFactory';
 import { ContextManager } from '../src/context/ContextManager';
@@ -154,12 +154,12 @@ describe('SyntropyLog', () => {
       const invalidConfig = { logger: { level: 123 } }; // Invalid level
 
       await expect(syntropy.init(invalidConfig as any)).rejects.toThrow(
-        ValiError
+        ConfigValidationError
       );
 
       expect(syntropy.getState()).toBe('ERROR');
       expect(errorSpy).toHaveBeenCalledOnce();
-      expect(errorSpy).toHaveBeenCalledWith(expect.any(ValiError));
+      expect(errorSpy).toHaveBeenCalledWith(expect.any(ConfigValidationError));
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         '[SyntropyLog] Configuration validation failed:',
