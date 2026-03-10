@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0
+
+### Patch Changes
+
+- refactor: replace valibot with zero-dependency ROP config validator.
+  This change significantly reduces the bundle size by eliminating the valibot dependency (~30kB raw reduction) and introduces a robust, functional configuration validation system with 100% test coverage.
+
 ## 0.9.20
 
 ### Patch Changes

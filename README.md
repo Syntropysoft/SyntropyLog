@@ -16,8 +16,8 @@
   <a href="https://www.npmjs.com/package/syntropylog"><img src="https://img.shields.io/npm/v/syntropylog.svg" alt="NPM Version"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
-  <a href="#"><img src="https://img.shields.io/badge/coverage-92.47%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.9.12-brightgreen.svg" alt="Version 0.9.12"></a>
+  <a href="#"><img src="https://img.shields.io/badge/coverage-95.13%25-brightgreen" alt="Test Coverage"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.10.0-brightgreen.svg" alt="Version 0.10.0"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
@@ -57,7 +57,7 @@ We ship with `sideEffects: false` and ESM so bundlers (Vite, Rollup, webpack, es
 
 Traditional loggers (and even modern ones) share a common weakness: **serialization is a blocking operation**. If you log a massive, deeply nested, or circular object, the Node.js Event Loop stops. Your API stops responding. Your service might even crash with a `TypeError`.
 
-SyntropyLog v0.9.1 introduces the **Log Resilience Engine**, making your application immune to "Death by Log":
+SyntropyLog v0.10.0 introduces the **Log Resilience Engine**, making your application immune to "Death by Log":
 
 1.  **Event Loop Protection**: Every serialization step is wrapped in a mandatory timeout (default: **50ms**). If serialization takes too long, it is aborted via `Promise.race`, and a safe subset of the data is logged instead. Your app keeps running.
 2.  **Circular Reference Immunity**: Built-in hygiene automatically detects and neutralizes circular references. No more `TypeError: Converting circular structure to JSON`.
@@ -604,20 +604,7 @@ const dbTransport = new UniversalAdapter({
 
 ---
 
-## 📚 Learn More
-
-SyntropyLog goes deep. Explore our specialized guides:
-
-| | Guide | Description |
-| :--- | :--- | :--- |
-| 🔧 | [Master Configuration](./docs/configuration.md) | Every option explained: `loggingMatrix`, `serializers`, masking, context. |
-| 💾 | [Universal Persistence](./docs/persistence.md) | Map logs to any DB (SQL/NoSQL) with pure JSON, zero dependencies. |
-| 🧬 | [Serialization & Resiliency](./docs/serialization.md) | Circular reference protection, automated timeouts, and the Safe Pipeline. |
-| ⚙️ | [Middleware & Frameworks](./docs/middleware.md) | Integration patterns for Express, NestJS, and more via Universal Contracts. |
-| 🏢 | [Enterprise Patterns](./docs/enterprise.md) | Scalable architectures, ELK, Kubernetes, and compliance. |
-| 🧪 | [Testing Strategy](./docs/testing.md) | Zero-boilerplate mocking with `SyntropyLogMock`. |
-| 🎭 | [Core Philosophy](./docs/philosophy.md) | The "Silent Observer" principle and error handling strategy. |
-| 📦 | [Examples](https://github.com/Syntropysoft/syntropylog-examples) | Real integrations with Express, Redis, Kafka, and more. |
+---
 
 ---
 
