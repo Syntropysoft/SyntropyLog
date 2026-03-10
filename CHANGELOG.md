@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.9.21
+## 0.10.0
 
 ### Patch Changes
 
