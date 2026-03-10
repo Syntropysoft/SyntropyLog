@@ -422,4 +422,139 @@ describe('MaskingEngine', () => {
       expect(result.level99.email).toBe('u*****@example.com');
     });
   });
+
+  describe('Non-preserveLength branches', () => {
+    it('should apply credit card masking without preserveLength', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /cc/i,
+        strategy: MaskingStrategy.CREDIT_CARD,
+        preserveLength: false,
+        maskChar: '*',
+      });
+      const result = (await engine.process({
+        cc: '4111-1111-1111-1111',
+      })) as any;
+      expect(result.cc).toBe('****-****-****-1111');
+    });
+
+    it('should apply SSN masking without preserveLength', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /ssn/i,
+        strategy: MaskingStrategy.SSN,
+        preserveLength: false,
+      });
+      const result = (await engine.process({ ssn: '123-45-6789' })) as any;
+      expect(result.ssn).toBe('***-**-6789');
+    });
+
+    it('should apply phone masking without preserveLength', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /phone/i,
+        strategy: MaskingStrategy.PHONE,
+        preserveLength: false,
+        maskChar: '*',
+      });
+      const result = (await engine.process({ phone: '555-123-4567' })) as any;
+      expect(result.phone).toBe('***-***-4567');
+    });
+
+    it('should apply email masking without preserveLength', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /email/i,
+        strategy: MaskingStrategy.EMAIL,
+        preserveLength: false,
+      });
+      const result = (await engine.process({
+        email: 'john@example.com',
+      })) as any;
+      expect(result.email).toBe('j***@example.com');
+    });
+
+    it('should mask email with single-char username (no char to preserve)', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /email/i,
+        strategy: MaskingStrategy.EMAIL,
+        preserveLength: true,
+        maskChar: '*',
+      });
+      const result = (await engine.process({ email: 'a@example.com' })) as any;
+      // single char username => maskChar.repeat(1)
+      expect(result.email).toBe('*@example.com');
+    });
+
+    it('should mask email without @ (fallback to maskDefault)', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /email/i,
+        strategy: MaskingStrategy.EMAIL,
+        preserveLength: true,
+        maskChar: '*',
+      });
+      const result = (await engine.process({ email: 'invalidemail' })) as any;
+      // no @ → maskDefault with preserveLength=true → repeat(length)
+      expect(result.email).toBe('************');
+    });
+
+    it('should mask short token without preserveLength (<=8 chars)', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /tok/i,
+        strategy: MaskingStrategy.TOKEN,
+        preserveLength: false,
+        maskChar: '*',
+      });
+      const result = (await engine.process({ tok: 'short' })) as any;
+      // short value (<=8 chars), no preserveLength → maskChar repeat(length)
+      expect(result.tok).toBe('*****');
+    });
+
+    it('should mask token without preserveLength (>8 chars)', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /tok/i,
+        strategy: MaskingStrategy.TOKEN,
+        preserveLength: false,
+        maskChar: '*',
+      });
+      const result = (await engine.process({
+        tok: 'someLongToken1234',
+      })) as any;
+      // > 8 chars: first 4 + '...' + last 5 → 'some' + '...' + 'n1234'
+      expect(result.tok).toBe('some...n1234');
+    });
+
+    it('should apply maskDefault without preserveLength (capped at 8 chars)', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /myfield/i,
+        strategy: MaskingStrategy.EMAIL, // Triggers maskDefault via bad email (no @)
+        preserveLength: false,
+        maskChar: '*',
+      });
+      const result = (await engine.process({ myfield: 'toolongvalue' })) as any;
+      // maskDefault without preserveLength → repeat(min(length, 8))
+      expect(result.myfield.length).toBeLessThanOrEqual(8);
+    });
+  });
+
+  describe('ReDoS Guard', () => {
+    it('should skip regex test on keys longer than 256 chars', async () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /password/i,
+        strategy: MaskingStrategy.PASSWORD,
+        maskChar: '*',
+      });
+      const longKey = 'a'.repeat(300);
+      const data: any = { [longKey]: 'should-not-be-masked' };
+      const result = (await engine.process(data)) as any;
+      // Key is >256 chars so regex is skipped → no masking applied
+      expect(result[longKey]).toBe('should-not-be-masked');
+    });
+  });
 });
