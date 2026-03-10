@@ -3,26 +3,26 @@ import { SerializationPipelineContext } from '../../types';
 import { DataSanitizer } from '../utils/DataSanitizer';
 import { SerializableData } from '../../types';
 
-/** Pure: builds the step result with consistent shape (single place for metrics). */
+/** Mutates data (when object) with step metadata to avoid an extra allocation per log. */
 function withResult(
   data: SerializableData,
   duration: number,
   sanitized: boolean,
   sanitizationError?: string
 ): SerializableData {
-  const base =
-    typeof data === 'object' && data !== null
-      ? (data as Record<string, unknown>)
-      : {};
-  const result = {
-    ...base,
+  if (typeof data === 'object' && data !== null) {
+    const base = data as Record<string, unknown>;
+    base.sanitizationDuration = duration;
+    base.sanitized = sanitized;
+    if (sanitizationError !== undefined)
+      base.sanitizationError = sanitizationError;
+    return data;
+  }
+  return {
     sanitizationDuration: duration,
     sanitized,
-  };
-  if (sanitizationError !== undefined) {
-    (result as Record<string, unknown>).sanitizationError = sanitizationError;
-  }
-  return result as SerializableData;
+    ...(sanitizationError !== undefined && { sanitizationError }),
+  } as SerializableData;
 }
 
 /** Pure: normalizes an unknown error to a string message. */
@@ -38,10 +38,10 @@ export class SanitizationStep implements PipelineStep<SerializableData> {
     this.sanitizer = sanitizer ?? new DataSanitizer();
   }
 
-  async execute(
+  execute(
     data: SerializableData,
     context: SerializationPipelineContext
-  ): Promise<SerializableData> {
+  ): SerializableData {
     const startTime = Date.now();
     const elapsed = (): number => Date.now() - startTime; // impure: reads time
 

@@ -27,6 +27,14 @@ type PendingRouting =
   | { add: string[]; remove?: string[] }
   | { add?: string[]; remove: string[] };
 
+/** Shared serialization context to avoid one object allocation per log. */
+const SERIALIZATION_CONTEXT = {
+  depth: 0,
+  maxDepth: 10,
+  sensitiveFields: [] as string[],
+  sanitize: true,
+};
+
 // --- Pure helpers (same inputs → same outputs, no side effects) ---
 
 /** Pure: should this level be logged given the minimum level? Audit always passes. */
@@ -98,6 +106,12 @@ function resolveEffectiveTransports(
   return list;
 }
 
+/** Optional limiter to cap in-flight log operations and avoid flooding the event loop / GC. */
+export interface IConcurrencyLimiter {
+  acquire(): Promise<void>;
+  release(): void;
+}
+
 export interface LoggerDependencies {
   contextManager: IContextManager;
   serializationManager: SerializationManager;
@@ -105,6 +119,8 @@ export interface LoggerDependencies {
   syntropyLogInstance: SyntropyLog;
   /** Pool of transports by name, for override/add/remove per call. */
   transportPool?: Map<string, Transport>;
+  /** When set, limits how many log operations run concurrently to avoid unbounded promises and memory pressure. */
+  concurrencyLimiter?: IConcurrencyLimiter;
 }
 
 /**
@@ -171,8 +187,8 @@ export class Logger {
     return this;
   }
 
-  /** Resolve effective transports for this call from pendingRouting and pool; clears pendingRouting. */
-  private getEffectiveTransports(): Transport[] {
+  /** Resolve effective transports from pendingRouting and pool; clears pendingRouting. Call once per _log at entry to avoid races. */
+  private captureEffectiveTransports(): Transport[] {
     const routing = this.pendingRouting;
     this.pendingRouting = null;
     return resolveEffectiveTransports(
@@ -187,6 +203,7 @@ export class Logger {
    * The core asynchronous logging method that runs the full processing pipeline.
    * It handles argument parsing, level filtering, serialization, masking,
    * and finally dispatches the processed log entry to the appropriate transports.
+   * Routing is captured at entry to avoid race conditions when multiple log calls run concurrently.
    * @param {LogLevel} level - The severity level of the log message.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to be logged, following the Pino-like signature (e.g., `(obj, msg, ...)` or `(msg, ...)`).
    * @returns {Promise<void>}
@@ -200,45 +217,50 @@ export class Logger {
     const minLevel = this.level as Exclude<LogLevel, 'silent'>;
     if (!shouldLogByLevel(level, minLevel)) return;
 
-    const { message, metadata } = parseLogArgs(args);
+    // Capture routing at entry so this call's override/add/remove is not consumed by a concurrent call.
+    const effectiveTransports = this.captureEffectiveTransports();
 
-    const context = this.dependencies.contextManager.getFilteredContext(level);
-    const logEntry: LogEntry = {
-      ...context,
-      ...this.bindings,
-      level,
-      timestamp: new Date().toISOString(),
-      service: this.name,
-      message,
-      ...metadata,
-    };
+    const limiter = this.dependencies.concurrencyLimiter;
+    if (limiter) await limiter.acquire();
+    try {
+      const { message, metadata } = parseLogArgs(args);
 
-    // 1. Serialization Pipeline (Hygiene + Custom + Resilience)
-    const serializationResult =
-      await this.dependencies.serializationManager.serialize(logEntry, {
-        depth: 0,
-        maxDepth: 10,
-        sensitiveFields: [],
-        sanitize: true,
-      });
+      const context =
+        this.dependencies.contextManager.getFilteredContext(level);
 
-    const finalEntry = serializationResult.data;
+      const logEntry: Record<string, unknown> = {
+        level,
+        timestamp: new Date().toISOString(),
+        service: this.name,
+        message,
+      };
 
-    // 2. Apply masking to the entire, serialized entry.
-    const maskedEntry = await this.dependencies.maskingEngine.process(
-      finalEntry as Record<string, unknown>
-    );
+      // Mutate using Object.assign to avoid massive GC allocation of intermediate objects created by ...spreads
+      Object.assign(logEntry, context, this.bindings, metadata);
 
-    // Dispatch to transports (use effective set for this call if override/add/remove was set)
-    const effectiveTransports = this.getEffectiveTransports();
-    await Promise.all(
-      effectiveTransports.map((transport) => {
+      // Cadena de producción síncrona hasta I/O: pipeline y masking sin await (no encolar Promesas).
+      // 1. Pipeline (hygiene, serialización, sanitización, timeout) — 100% sync
+      const serializationResult =
+        this.dependencies.serializationManager.serialize(
+          logEntry,
+          SERIALIZATION_CONTEXT
+        );
+      const finalEntry = serializationResult.data;
+
+      // 2. Masking (síncrono, mismo objeto)
+      const maskedEntry = this.dependencies.maskingEngine.process(
+        finalEntry as Record<string, unknown>
+      );
+
+      // 3. Transports: fire-and-forget hacia I/O (no await para no encolar 1.6M Promesas)
+      for (const transport of effectiveTransports) {
         if (transport.isLevelEnabled(level)) {
-          return transport.log(maskedEntry as LogEntry);
+          transport.log(maskedEntry as LogEntry);
         }
-        return Promise.resolve();
-      })
-    );
+      }
+    } finally {
+      if (limiter) limiter.release();
+    }
   }
 
   /**

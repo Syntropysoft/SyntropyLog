@@ -35,7 +35,7 @@ export class SanitizationEngine {
   ): Promise<Record<string, unknown>> {
     let sanitized = this.sanitizeRecursively(meta) as Record<string, unknown>;
     if (this.maskingEngine) {
-      sanitized = await this.maskingEngine.process(sanitized);
+      sanitized = this.maskingEngine.process(sanitized);
     }
     return sanitized;
   }

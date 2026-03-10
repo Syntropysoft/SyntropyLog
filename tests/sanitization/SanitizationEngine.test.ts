@@ -32,8 +32,9 @@ describe('SanitizationEngine', () => {
 
   describe('String Sanitization', () => {
     it('should remove ANSI escape codes from a string', async () => {
-      const dirtyString = 'This is a \u001b[31mred\u001b[39m string.';
-      const cleanString = 'This is a red string.';
+      const dirtyString =
+        '\u001b[31mThis\u001b[0m is a \u001b[1mtest\u001b[22m string with \u001b[32mcolors\u001b[39m.';
+      const cleanString = 'This is a test string with colors.';
       const result = await engine.process({ message: dirtyString });
       expect(result.message).toBe(cleanString);
     });
@@ -146,10 +147,15 @@ describe('SanitizationEngine', () => {
   describe('Immutability and Edge Cases', () => {
     it('should not mutate the original object', async () => {
       const originalObject = {
-        user: { name: 'test', color: '\u001b[31mred\u001b[39m' },
+        level1: {
+          text: '\u001b[31mRed Alert\u001b[39m',
+        },
       };
+
       await engine.process(originalObject);
-      expect(originalObject.user.color).toBe('\u001b[31mred\u001b[39m');
+
+      // Verify the original string is intact in the original object
+      expect(originalObject.level1.text).toBe('\u001b[31mRed Alert\u001b[39m');
     });
 
     it('should handle an empty object', async () => {

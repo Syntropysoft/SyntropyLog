@@ -21,19 +21,22 @@ import { SerializableData } from '../../types';
 
 const DEFAULT_TIMEOUT_MS = 3000;
 
-/** Pure: build success payload for timeout step. */
+/** Mutates data (when object) with timeout metadata to avoid an extra allocation per log. */
 function buildSuccessPayload(
   data: SerializableData,
   duration: number,
   operationTimeout: number,
   strategy: OperationTimeoutStrategy | null
 ): SerializableData {
-  const base =
-    typeof data === 'object' && data !== null
-      ? (data as Record<string, unknown>)
-      : {};
+  if (typeof data === 'object' && data !== null) {
+    const base = data as Record<string, unknown>;
+    base.timeoutDuration = duration;
+    base.operationTimeout = operationTimeout;
+    base.timeoutStrategy = strategy?.getStrategyName() ?? 'default';
+    base.timeoutApplied = strategy != null;
+    return data;
+  }
   return {
-    ...base,
     timeoutDuration: duration,
     operationTimeout,
     timeoutStrategy: strategy?.getStrategyName() ?? 'default',
@@ -41,18 +44,23 @@ function buildSuccessPayload(
   } as SerializableData;
 }
 
-/** Pure: build error payload for timeout step (silent observer). */
+/** Mutates data (when object) with error payload for timeout step (silent observer). */
 function buildErrorPayload(
   data: SerializableData,
   duration: number,
   error: unknown
 ): SerializableData {
-  const base =
-    typeof data === 'object' && data !== null
-      ? (data as Record<string, unknown>)
-      : {};
+  if (typeof data === 'object' && data !== null) {
+    const base = data as Record<string, unknown>;
+    base.timeoutDuration = duration;
+    base.operationTimeout = DEFAULT_TIMEOUT_MS;
+    base.timeoutStrategy = 'default';
+    base.timeoutApplied = false;
+    base.timeoutError =
+      error instanceof Error ? error.message : 'Timeout error';
+    return data;
+  }
   return {
-    ...base,
     timeoutDuration: duration,
     operationTimeout: DEFAULT_TIMEOUT_MS,
     timeoutStrategy: 'default',
@@ -69,10 +77,10 @@ export class TimeoutStep implements PipelineStep<SerializableData> {
     this.timeoutStrategies = timeoutStrategies;
   }
 
-  async execute(
+  execute(
     data: SerializableData,
     _context: SerializationPipelineContext
-  ): Promise<SerializableData> {
+  ): SerializableData {
     const startTime = Date.now();
 
     try {

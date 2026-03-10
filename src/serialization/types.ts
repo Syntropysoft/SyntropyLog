@@ -20,11 +20,11 @@ export interface ISerializer {
   /** Priority level for serializer selection (higher = more preferred) */
   readonly priority: number;
 
-  /** Serialize data to string representation */
+  /** Serialize data; must return in-line (sync). No Promesas para evitar encolar en cargas masivas. */
   serialize(
     data: SerializableData,
     context?: SerializationContextConfig
-  ): Promise<SerializationResult>;
+  ): SerializationResult;
 
   /** Check if this serializer can handle the given data */
   canSerialize(data: SerializableData): boolean;

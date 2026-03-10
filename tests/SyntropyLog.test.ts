@@ -3,7 +3,6 @@ import { ZodError } from 'zod';
 import { SyntropyLog } from '../src/SyntropyLog';
 import { LoggerFactory } from '../src/logger/LoggerFactory';
 import { ContextManager } from '../src/context/ContextManager';
-import { RedisManager } from '../src/redis/RedisManager';
 
 // Mock regex-test to avoid spawning child processes during tests
 vi.mock('regex-test', () => {
@@ -67,22 +66,11 @@ vi.mock('../src/context/ContextManager', () => {
   };
 });
 
-vi.mock('../src/redis/RedisManager', () => {
-  return {
-    RedisManager: vi.fn().mockImplementation(function () {
-      return {
-        init: vi.fn(),
-        shutdown: vi.fn().mockResolvedValue(undefined),
-        getInstance: vi.fn(),
-      };
-    }),
-  };
-});
+// End mocks
 
 describe('SyntropyLog', () => {
   const MockedLoggerFactory = vi.mocked(LoggerFactory);
   const MockedContextManager = vi.mocked(ContextManager);
-  const MockedRedisManager = vi.mocked(RedisManager);
 
   // Helper to reset the singleton SyntropyLog instance for test isolation.
   const resetSyntropySingleton = () => {
@@ -118,7 +106,6 @@ describe('SyntropyLog', () => {
 
   const validConfig = {
     logger: { serializerTimeoutMs: 50, level: 'info' as const },
-    redis: { instances: [] },
   };
 
   describe('Initialization (init)', () => {
@@ -154,7 +141,6 @@ describe('SyntropyLog', () => {
       );
 
       expect(MockedLoggerFactory).toHaveBeenCalledOnce();
-      expect(MockedRedisManager).toHaveBeenCalledOnce();
     });
 
     it('should emit an error and throw if config validation fails', async () => {
@@ -187,12 +173,10 @@ describe('SyntropyLog', () => {
       const syntropy = SyntropyLog.getInstance();
       await syntropy.init({
         logger: { serializerTimeoutMs: 100 },
-        redis: { instances: [] },
       });
 
       expect(syntropy.getState()).toBe('READY');
       expect(MockedLoggerFactory).toHaveBeenCalledOnce();
-      expect(MockedRedisManager).toHaveBeenCalledOnce();
     });
   });
 
@@ -201,15 +185,6 @@ describe('SyntropyLog', () => {
       const syntropy = SyntropyLog.getInstance();
       expect(() => syntropy.getLogger()).toThrow(
         'Logger Factory not available.'
-      );
-    });
-
-    it('should throw when getRedis() is called and Redis manager is not available', async () => {
-      const syntropy = SyntropyLog.getInstance();
-      await syntropy.init(validConfig);
-      (syntropy as any).lifecycleManager.redisManager = undefined;
-      await expect(syntropy.getRedis('default')).rejects.toThrow(
-        'Redis manager not available'
       );
     });
 

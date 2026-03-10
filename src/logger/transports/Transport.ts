@@ -71,9 +71,9 @@ export abstract class Transport {
    * The core method that all concrete transports must implement. This method
    * handles the actual sending/writing of the log entry.
    * @param {LogEntry} entry - The final, processed log entry to be outputted.
-   * @returns {Promise<void>}
+   * @returns {void | Promise<void>}
    */
-  abstract log(entry: LogEntry): Promise<void>;
+  abstract log(entry: LogEntry): void | Promise<void>;
 
   /**
    * A method to ensure all buffered logs are written before the application exits.

@@ -21,6 +21,9 @@ interface Context {
   data: Map<string, ContextValue>;
 }
 
+/** Shared empty object to avoid allocating when there is no context data. */
+const EMPTY_FILTERED_CONTEXT: FilteredContext = Object.freeze({});
+
 /**
  * Manages asynchronous context using Node.js `AsyncLocalStorage`.
  * This is the core component for propagating context-specific data
@@ -203,23 +206,24 @@ export class ContextManager implements IContextManager {
     const fullContext = this.getAll();
 
     if (!this.loggingMatrix) {
-      // If no loggingMatrix, always include correlationId
-      const context = { ...fullContext };
+      const keyCount = Object.keys(fullContext).length;
       const headerCorrelationId = this.get(this.correlationIdHeader);
       const internalCorrelationId = this.get('correlationId');
-
-      // If header correlationId is missing, use internal one
+      if (keyCount === 0 && !headerCorrelationId && !internalCorrelationId) {
+        return EMPTY_FILTERED_CONTEXT;
+      }
+      const context: FilteredContext = {};
+      Object.assign(context, fullContext);
       if (!headerCorrelationId && internalCorrelationId) {
         context[this.correlationIdHeader] = internalCorrelationId;
       }
-
       return context;
     }
 
     const fieldsToKeep =
       this.loggingMatrix[level] ?? this.loggingMatrix.default;
     if (!fieldsToKeep) {
-      return {};
+      return EMPTY_FILTERED_CONTEXT;
     }
 
     // Mapeo de nombres de campos del loggingMatrix a claves reales del contexto

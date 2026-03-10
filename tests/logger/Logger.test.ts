@@ -82,16 +82,14 @@ const createMockTransport = (options: {
 
 const createMockPipelineComponents = () => ({
   mockMasker: {
-    process: vi.fn().mockImplementation((entry) => entry),
+    process: vi.fn().mockImplementation((entry: any) => entry),
   },
   mockSerializationManager: {
-    serialize: vi.fn().mockImplementation((data) =>
-      Promise.resolve({
-        success: true,
-        data,
-        metadata: { serializer: 'test', stepDurations: {} },
-      })
-    ),
+    serialize: vi.fn().mockImplementation((data: any) => ({
+      success: true,
+      data,
+      metadata: { serializer: 'test', stepDurations: {} },
+    })),
   },
 });
 

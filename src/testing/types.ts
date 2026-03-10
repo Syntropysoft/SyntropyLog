@@ -12,5 +12,5 @@ export interface SyntropyLogTestHarness {
    */
   spyTransport: SpyTransport;
 
-  // Mocks for other clients (Redis, HTTP, etc.) will be added here in the future.
+  // Mocks for other clients (HTTP, etc.) will be added here in the future.
 }

@@ -42,7 +42,6 @@
     "log-aggregation",
     "log-enrichment",
     "error-logging",
-    "redis",
     "http-client",
     "message-broker",
     "kafka",
@@ -171,13 +170,11 @@
     "provenance": true
   },
   "dependencies": {
-    "flatted": "^3.3.3",
     "js-yaml": "^4.1.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
-    "@redis/client": "^1.6.1",
     "@rollup/plugin-commonjs": "^28.0.2",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
@@ -196,7 +193,6 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.5.1",
-    "redis": "^4.6.12",
     "rollup": "^4.34.8",
     "rollup-plugin-dts": "^6.1.1",
     "tslib": "^2.8.1",
@@ -204,14 +200,6 @@
     "typescript-eslint": "8.56.1",
     "vitest": "^4.0.18",
     "@changesets/cli": "^2.27.1"
-  },
-  "peerDependencies": {
-    "redis": "^4.6.12 || ^5.10.0"
-  },
-  "peerDependenciesMeta": {
-    "redis": {
-      "optional": true
-    }
   },
   "lint-staged": {
     "src/**/*.ts": "eslint --fix --max-warnings=0"

@@ -6,7 +6,6 @@ import { syntropyLogConfigSchema } from '../config.schema';
 import { ContextManager, IContextManager } from '../context';
 import { ILogger } from '../logger';
 import { LoggerFactory } from '../logger/LoggerFactory';
-import { RedisManager } from '../redis/RedisManager';
 import { sanitizeConfig } from '../utils/sanitizeConfig';
 import { SerializationManager } from '../serialization/SerializationManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
@@ -63,7 +62,6 @@ export class LifecycleManager extends EventEmitter {
   public config: SyntropyLogConfig | undefined;
   public contextManager: IContextManager | undefined;
   public loggerFactory: LoggerFactory | undefined;
-  public redisManager: RedisManager | undefined;
   public serializationManager: SerializationManager;
   public maskingEngine: MaskingEngine;
   private logger: ILogger | null = null;
@@ -125,23 +123,6 @@ export class LifecycleManager extends EventEmitter {
       const logger = this.loggerFactory.getLogger('syntropylog-main');
       this.logger = logger;
 
-      if (this.config.redis) {
-        try {
-          const { RedisManager } = await import('../redis/RedisManager');
-          this.redisManager = new RedisManager(
-            this.config.redis,
-            logger.withSource('redis-manager'),
-            this.contextManager
-          );
-          this.redisManager.init();
-        } catch (error) {
-          logger.error(
-            'Failed to initialize Redis manager. Make sure redis package is installed.',
-            { error: errorToJsonValue(error) }
-          );
-        }
-      }
-
       logger.info('SyntropyLog framework initialized successfully.');
       this.state = 'READY';
       this.emit('ready');
@@ -182,9 +163,8 @@ export class LifecycleManager extends EventEmitter {
 
       this.maskingEngine?.shutdown?.();
 
-      // Shut down Redis and external processes first (logger stays active so these logs are written)
+      // Shut down external processes first (logger stays active so these logs are written)
       const shutdownSteps: Promise<void>[] = [];
-      if (this.redisManager) shutdownSteps.push(this.redisManager.shutdown());
       shutdownSteps.push(this.terminateExternalProcesses());
       this.logger?.info(
         `📋 Executing ${shutdownSteps.length} shutdown steps...`
@@ -264,7 +244,6 @@ export class LifecycleManager extends EventEmitter {
     config: SyntropyLogConfig;
     contextManager: IContextManager;
     loggerFactory: LoggerFactory;
-    redisManager: RedisManager;
   } {
     if (this.state !== 'READY') {
       throw new Error(

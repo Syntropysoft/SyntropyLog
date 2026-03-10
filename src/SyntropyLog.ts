@@ -12,7 +12,6 @@ import { ILogger } from './logger';
 import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
 import { LogLevel } from './logger/levels';
 import { LoggingMatrix, JsonValue } from './types';
-import { IBeaconRedis } from './redis/IBeaconRedis';
 
 /** Pure: throws if value is null/undefined; returns value otherwise. Use for guard clauses. */
 function requireDefined<T>(
@@ -85,15 +84,6 @@ export class SyntropyLog extends EventEmitter {
       'Logger Factory not available.'
     );
     return this.lifecycleManager.loggerFactory!.getLogger(name, bindings);
-  }
-
-  public async getRedis(name: string): Promise<IBeaconRedis> {
-    this.lifecycleManager.ensureReady();
-    requireDefined(
-      this.lifecycleManager.redisManager,
-      'Redis manager not available. Make sure Redis is configured and redis package is installed.'
-    );
-    return this.lifecycleManager.redisManager.getInstance(name);
   }
 
   public getContextManager(): IContextManager {
