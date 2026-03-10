@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.1
+
+### Patch Changes
+
+- security: remove code minification from the production bundle.
+  This ensures that the library follows npm best practices, providing transparent and auditable code as flagged by socket.dev security alerts. Both CommonJS (`require`) and ES Modules (`import`) artifacts are now distributed in readable format.
+
 ## 0.10.0
 
 ### Patch Changes
