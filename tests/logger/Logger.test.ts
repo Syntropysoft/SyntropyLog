@@ -80,18 +80,30 @@ const createMockTransport = (options: {
   return t;
 };
 
-const createMockPipelineComponents = () => ({
-  mockMasker: {
-    process: vi.fn().mockImplementation((entry: any) => entry),
-  },
-  mockSerializationManager: {
+const createMockPipelineComponents = () => {
+  const mockSerializationManager = {
     serialize: vi.fn().mockImplementation((data: any) => ({
       success: true,
       data,
       metadata: { serializer: 'test', stepDurations: {} },
     })),
-  },
-});
+    serializeDirect: vi.fn(),
+  };
+
+  mockSerializationManager.serializeDirect.mockImplementation(
+    (level, message, timestamp, service, metadata) => {
+      const data = { level, message, timestamp, service, ...metadata };
+      return mockSerializationManager.serialize(data);
+    }
+  );
+
+  return {
+    mockMasker: {
+      process: vi.fn().mockImplementation((entry: any) => entry),
+    },
+    mockSerializationManager,
+  };
+};
 
 describe('Logger', () => {
   let mockMasker: Mocked<MaskingEngine>;
@@ -283,6 +295,22 @@ describe('Logger', () => {
       const loggerWithRetention = logger.withRetention(rules as any);
       expect(loggerWithRetention).toBeInstanceOf(Logger);
       expect((loggerWithRetention as any).bindings.retention).toEqual(rules);
+    });
+
+    it('should store retention by reference (no deep clone)', () => {
+      const rules = { ttl: 3600 };
+      const transport = createMockTransport({ level: 'info', name: 't1' });
+      const log = new Logger('ref-test', [transport], dependencies);
+      log.level = 'info';
+      const child = log.withRetention(rules as any);
+      child.info('first');
+      rules.ttl = 7200;
+      child.info('second');
+      expect(transport.log).toHaveBeenCalledTimes(2);
+      const secondCall = (transport.log as any).mock.calls[1][0];
+      const entry = typeof secondCall === 'string' ? JSON.parse(secondCall) : secondCall;
+      const retention = typeof entry?.retention === 'string' ? JSON.parse(entry.retention) : entry?.retention;
+      expect(retention?.ttl).toBe(7200);
     });
 
     it('should support withTransactionId fluent method', () => {

@@ -26,13 +26,11 @@ export class SanitizationEngine {
   }
 
   /**
-   * Processes a log metadata object, sanitizing all its string values.
-   * @param {Record<string, unknown>} meta - The metadata object to sanitize.
-   * @returns {Record<string, unknown>} A new, sanitized metadata object.
+   * Procesa un objeto de metadata, sanitizando sus strings. Síncrono para no generar Promesas en el GC.
+   * @param meta - The metadata object to sanitize.
+   * @returns A new, sanitized metadata object.
    */
-  public async process(
-    meta: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
+  public process(meta: Record<string, unknown>): Record<string, unknown> {
     let sanitized = this.sanitizeRecursively(meta) as Record<string, unknown>;
     if (this.maskingEngine) {
       sanitized = this.maskingEngine.process(sanitized);

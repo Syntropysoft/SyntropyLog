@@ -1,0 +1,90 @@
+# Compila el addon Rust (syntropylog-native) en Windows, Linux y macOS.
+# Cada runner produce el .node para su plataforma; un job final junta todos los artefactos.
+name: Build native addon
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: cargo
+          cache-target: syntropylog-native/target
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build addon (current platform)
+        run: cd syntropylog-native && pnpm exec napi build --release
+        shell: bash
+
+      - name: Test addon
+        run: cd syntropylog-native && node test-node.mjs
+        shell: bash
+
+      - name: Upload addon artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: addon-${{ matrix.os }}
+          path: |
+            syntropylog-native/*.node
+            syntropylog-native/index.js
+            syntropylog-native/index.d.ts
+
+  merge:
+    name: Merge platform artifacts
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all addon artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: addon-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Flatten into single addon package
+        run: |
+          mkdir -p addon-package
+          f_js=$(find artifacts -name index.js | head -1)
+          f_ts=$(find artifacts -name index.d.ts | head -1)
+          [ -n "$f_js" ] && cp "$f_js" addon-package/
+          [ -n "$f_ts" ] && cp "$f_ts" addon-package/
+          find artifacts -name "*.node" -exec cp {} addon-package/ \;
+          echo "Package contents:"
+          ls -la addon-package/
+
+      - name: Upload merged addon (all platforms)
+        uses: actions/upload-artifact@v4
+        with:
+          name: syntropylog-native-all-platforms
+          path: addon-package

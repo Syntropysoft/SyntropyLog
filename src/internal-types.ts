@@ -45,7 +45,9 @@ export type LogMetadata = Record<string, JsonValue>;
 export type LogBindings = Record<string, JsonValue>;
 
 /**
- * Type for retention rules that can be attached to loggers
+ * Type for retention rules that can be attached to loggers via the fluent API (e.g. withRetention).
+ * Supports both flat fields (ttl, maxSize, …) and arbitrary complex JSON (nested objects, arrays).
+ * The full object is serialized with the log entry (shallow in native path: nested values as JSON string).
  */
 export type LogRetentionRules = {
   ttl?: number;
@@ -221,8 +223,10 @@ export type SerializationResult = {
   complexity: string;
   sanitized: boolean;
   success: boolean;
-  metadata: SerializationMetadata;
+  metadata: SerializationMetadata | null;
   error?: string;
+  /** Cuando está definido, la línea ya viene serializada y enmascarada desde el addon nativo; el Logger debe pasarla tal cual a los transports. */
+  serializedNative?: string;
 };
 
 /**

@@ -11,11 +11,10 @@ import { LogEntry } from '../../types';
  */
 export interface ILogTransportAdapter {
   /**
-   * Sends a log entry to the external destination.
-   * @param {LogEntry} entry - The structured log entry.
-   * @returns {Promise<void>}
+   * Sends a log entry to the external destination. La librería invoca sin await (fire-and-forget).
+   * @param entry - The structured log entry or a pre-serialized JSON string (ruta nativa).
    */
-  log(entry: LogEntry): Promise<void>;
+  log(entry: LogEntry | string): void | Promise<void>;
 
   /**
    * Optional method to flush any buffered logs.

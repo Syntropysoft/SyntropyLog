@@ -38,6 +38,9 @@ describe('SerializationManager', () => {
         enableDeepSanitization: true,
       },
     });
+    // Forzar pipeline JS en tests (sin addon) para que se usen los serializers registrados.
+    (manager as any).getNativeAddon = vi.fn().mockReturnValue(null);
+    (manager as any).nativeChecked = true;
   });
 
   afterEach(() => {

@@ -55,18 +55,36 @@ export class MockContextManager implements IContextManager {
    * @param {() => T} callback The function to execute within the new context.
    * @returns {T} The result of the callback.
    */
-  public async run(fn: ContextCallback): Promise<void> {
-    // Deep-clone the original store to ensure true isolation.
+  public run(fn: ContextCallback): Promise<void> {
     const originalStore = JSON.parse(JSON.stringify(this.store));
-    this.store = { ...this.store }; // Inherit from parent for the current run.
+    this.store = { ...this.store };
 
-    try {
-      // Await the callback, which might be sync or async.
-      await fn();
-    } finally {
-      // Always restore the original, unmodified context.
-      this.store = originalStore;
-    }
+    return new Promise((resolve, reject) => {
+      try {
+        const result = fn();
+        if (
+          result != null &&
+          typeof (result as Promise<unknown>).then === 'function'
+        ) {
+          (result as Promise<void>).then(
+            () => {
+              this.store = originalStore;
+              resolve();
+            },
+            (err) => {
+              this.store = originalStore;
+              reject(err);
+            }
+          );
+        } else {
+          this.store = originalStore;
+          resolve();
+        }
+      } catch (error) {
+        this.store = originalStore;
+        reject(error);
+      }
+    });
   }
 
   /**

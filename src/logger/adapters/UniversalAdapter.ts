@@ -27,13 +27,26 @@ export class UniversalAdapter implements ILogTransportAdapter {
   }
 
   /**
-   * Receives formatted data and passes it to the executor.
+   * Recibe el entry y lo pasa al executor. Fire-and-forget (no devuelve Promise) para no encolar en el GC.
+   * Si recibe un string (ruta nativa), lo parsea para que el executor reciba siempre un objeto.
    */
-  public async log(data: unknown): Promise<void> {
+  public log(entry: unknown): void {
     try {
-      await this.executor(data);
+      const data =
+        typeof entry === 'string' ? (JSON.parse(entry) as unknown) : entry;
+      const result = this.executor(data);
+      // Fire-and-forget: no devolvemos Promise, pero capturamos rechazos para Silent Observer
+      if (
+        result != null &&
+        typeof (result as Promise<unknown>).then === 'function'
+      ) {
+        (result as Promise<void>).catch((err: unknown) => {
+          console.error(
+            `UniversalAdapter execution failed: ${err instanceof Error ? err.message : String(err)}`
+          );
+        });
+      }
     } catch (error) {
-      // In a "Silent Observer" way, we log but don't break the app
       console.error(
         `UniversalAdapter execution failed: ${error instanceof Error ? error.message : String(error)}`
       );

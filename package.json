@@ -125,9 +125,12 @@
   "workspaces": [
     ".",
     "examples/*",
-    "modules/@syntropylog/types"
+    "modules/@syntropylog/types",
+    "syntropylog-native"
   ],
   "scripts": {
+    "bench": "pnpm -C benchmark run bench",
+    "bench:memory": "pnpm -C benchmark run bench:memory",
     "example:transport-pool": "npx tsx examples/TransportPoolExample.ts",
     "setup": "node scripts/setup-env.js",
     "build": "npm run clean && npm run build:types && rollup -c",
@@ -172,7 +175,11 @@
   "dependencies": {
     "js-yaml": "^4.1.1"
   },
+  "optionalDependencies": {
+    "syntropylog-native": "workspace:*"
+  },
   "devDependencies": {
+    "@napi-rs/cli": "^2.18.0",
     "@changesets/cli": "^2.27.1",
     "@eslint/js": "^9.21.0",
     "@rollup/plugin-commonjs": "^28.0.2",

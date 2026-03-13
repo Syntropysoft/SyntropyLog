@@ -170,10 +170,10 @@ export class LifecycleManager extends EventEmitter {
       );
       await Promise.allSettled(shutdownSteps);
 
-      // Final shutdown messages; await so they are fully written before we close transports
-      await this.logger?.info('✅ Shutdown steps completed');
-      await this.logger?.info('All managers have been shut down.');
-      await this.logger?.info('✅ State changed to SHUTDOWN');
+      // Mensajes finales de shutdown (log es síncrono; el drain real se hace en shutdown de transports)
+      this.logger?.info('✅ Shutdown steps completed');
+      this.logger?.info('All managers have been shut down.');
+      this.logger?.info('✅ State changed to SHUTDOWN');
 
       await this.loggerFactory?.shutdown?.();
 

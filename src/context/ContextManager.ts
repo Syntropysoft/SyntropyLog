@@ -62,22 +62,26 @@ export class ContextManager implements IContextManager {
 
   /**
    * Executes a function within a new, isolated asynchronous context.
-   * Any data set via `set()` inside the callback will only be available
-   * within that callback's asynchronous execution path. The new context
-   * inherits values from the parent context, if one exists.
-   * @template T The return type of the callback.
+   * Callback se ejecuta de forma síncrona; si devuelve Promise, se espera sin crear Promise extra en el camino crítico.
    * @param callback The function to execute within the new context.
-   * @returns {T} The result of the callback function.
+   * @returns {Promise<void>} Resuelve cuando el callback termina (o cuando su Promise, si hay, se resuelve).
    */
   public run(fn: ContextCallback): Promise<void> {
     return new Promise((resolve, reject) => {
       const parentContext = this.storage.getStore();
       const newContextData = new Map(parentContext?.data);
 
-      this.storage.run({ data: newContextData }, async () => {
+      this.storage.run({ data: newContextData }, () => {
         try {
-          await Promise.resolve(fn());
-          resolve();
+          const result = fn();
+          if (
+            result != null &&
+            typeof (result as Promise<unknown>).then === 'function'
+          ) {
+            (result as Promise<void>).then(resolve, reject);
+          } else {
+            resolve();
+          }
         } catch (error) {
           reject(error);
         }

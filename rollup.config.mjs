@@ -13,6 +13,7 @@ import pkg from './package.json' with { type: 'json' };
 // List of external dependencies that should not be bundled.
 const external = [
   ...Object.keys(pkg.dependencies || {}),
+  ...Object.keys(pkg.optionalDependencies || {}),
   ...Object.keys(pkg.peerDependencies || {}),
   ...builtinModules,
   ...builtinModules.map((m) => `node:${m}`),
@@ -41,6 +42,11 @@ const jsPlugins = [
   }),
   json(),
 ];
+
+// ESM bundles need a require shim so require('syntropylog-native') works (resolve from dist/ like CJS).
+const esmRequireIntro = `import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+`;
 
 // Base configuration for each entry point.
 const createEntryConfig = (
@@ -100,6 +106,7 @@ export default [
         sourcemap: false,
         entryFileNames: '[name].mjs',
         chunkFileNames: 'chunks/[name]-[hash].mjs',
+        intro: esmRequireIntro,
       },
     ],
     plugins: mainJsPlugins,

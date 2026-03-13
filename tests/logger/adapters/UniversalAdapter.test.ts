@@ -20,7 +20,7 @@ describe('UniversalAdapter', () => {
     ).toThrow('UniversalAdapter requires an executor function.');
   });
 
-  it('should accept a valid executor and call it with data on log()', async () => {
+  it('should accept a valid executor and call it with data on log()', () => {
     const adapter = new UniversalAdapter({ executor });
     const data = {
       level: 'info',
@@ -28,18 +28,18 @@ describe('UniversalAdapter', () => {
       timestamp: new Date().toISOString(),
     };
 
-    await adapter.log(data);
+    adapter.log(data);
 
     expect(executor).toHaveBeenCalledTimes(1);
     expect(executor).toHaveBeenCalledWith(data);
   });
 
-  it('should support sync executor', async () => {
+  it('should support sync executor', () => {
     const syncExecutor = vi.fn();
     const adapter = new UniversalAdapter({ executor: syncExecutor });
     const data = { msg: 'sync' };
 
-    await adapter.log(data);
+    adapter.log(data);
 
     expect(syncExecutor).toHaveBeenCalledWith(data);
   });
@@ -52,7 +52,9 @@ describe('UniversalAdapter', () => {
 
     const adapter = new UniversalAdapter({ executor });
 
-    await expect(adapter.log({})).resolves.not.toThrow();
+    adapter.log({});
+    await Promise.resolve(); // deja que el .catch del executor se ejecute
+
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining(
         'UniversalAdapter execution failed: Executor failed'
@@ -70,7 +72,8 @@ describe('UniversalAdapter', () => {
 
     const adapter = new UniversalAdapter({ executor });
 
-    await adapter.log({});
+    adapter.log({});
+    await Promise.resolve(); // deja que el .catch del executor se ejecute
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('UniversalAdapter execution failed: string error')

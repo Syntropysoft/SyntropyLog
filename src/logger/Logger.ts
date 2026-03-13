@@ -27,14 +27,6 @@ type PendingRouting =
   | { add: string[]; remove?: string[] }
   | { add?: string[]; remove: string[] };
 
-/** Shared serialization context to avoid one object allocation per log. */
-const SERIALIZATION_CONTEXT = {
-  depth: 0,
-  maxDepth: 10,
-  sensitiveFields: [] as string[],
-  sanitize: true,
-};
-
 // --- Pure helpers (same inputs → same outputs, no side effects) ---
 
 /** Pure: should this level be logged given the minimum level? Audit always passes. */
@@ -192,18 +184,18 @@ export class Logger {
 
   /**
    * @private
-   * The core asynchronous logging method that runs the full processing pipeline.
+   * Método de logging síncrono que ejecuta el pipeline completo (sin devolver Promise).
    * It handles argument parsing, level filtering, serialization, masking,
    * and finally dispatches the processed log entry to the appropriate transports.
    * Routing is captured at entry to avoid race conditions when multiple log calls run concurrently.
    * @param {LogLevel} level - The severity level of the log message.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to be logged, following the Pino-like signature (e.g., `(obj, msg, ...)` or `(msg, ...)`).
-   * @returns {Promise<void>}
+   * @returns {void} Síncrono; no se devuelve Promise para no saturar el GC.
    */
-  private async _log(
+  private _log(
     level: LogLevel,
     ...args: (LogFormatArg | LogMetadata | JsonValue)[]
-  ): Promise<void> {
+  ): void {
     if (level === 'silent') return;
 
     const minLevel = this.level as Exclude<LogLevel, 'silent'>;
@@ -213,43 +205,100 @@ export class Logger {
     const effectiveTransports = this.captureEffectiveTransports();
 
     try {
-      const { message, metadata } = parseLogArgs(args);
+      // 1. Camino ultra-rápido para el caso común: logger.info("mensaje")
+      // Evitamos llamar a parseLogArgs (que crea un objeto { message, metadata })
+      if (args.length === 1 && typeof args[0] === 'string') {
+        const message = args[0];
+        const context =
+          this.dependencies.contextManager.getFilteredContext(level);
 
+        // Chequear si hay bindings o contexto sin reservar memoria (sin Object.keys)
+        let hasExtra = false;
+        for (const key in context) {
+          if (key) hasExtra = true;
+          break;
+        }
+        if (!hasExtra) {
+          for (const key in this.bindings) {
+            if (key) hasExtra = true;
+            break;
+          }
+        }
+
+        const effectiveMetadata = hasExtra
+          ? Object.assign({}, context, this.bindings)
+          : undefined;
+
+        const serializationResult =
+          this.dependencies.serializationManager.serializeDirect(
+            level,
+            message,
+            Date.now(),
+            this.name,
+            effectiveMetadata
+          );
+
+        if (serializationResult.serializedNative) {
+          for (const transport of effectiveTransports) {
+            if (transport.isLevelEnabled(level)) {
+              transport.log(serializationResult.serializedNative);
+            }
+          }
+          return;
+        }
+      }
+
+      // 2. Camino normal para argumentos complejos
+      const { message, metadata } = parseLogArgs(args);
       const context =
         this.dependencies.contextManager.getFilteredContext(level);
 
-      const logEntry: Record<string, unknown> = {
-        level,
-        timestamp: new Date().toISOString(),
-        service: this.name,
-        message,
-      };
+      // Chequear si hay bindings o contexto sin reservar memoria
+      let hasExtra = false;
+      for (const key in context) {
+        if (key) hasExtra = true;
+        break;
+      }
+      if (!hasExtra) {
+        for (const key in this.bindings) {
+          if (key) hasExtra = true;
+          break;
+        }
+      }
 
-      // Mutate using Object.assign to avoid massive GC allocation of intermediate objects created by ...spreads
-      Object.assign(logEntry, context, this.bindings, metadata);
+      const effectiveMetadata = hasExtra
+        ? Object.assign({}, context, this.bindings, metadata)
+        : metadata;
 
-      // Cadena de producción síncrona hasta I/O: pipeline y masking sin await (no encolar Promesas).
-      // 1. Pipeline (hygiene, serialización, sanitización, timeout) — 100% sync
       const serializationResult =
-        this.dependencies.serializationManager.serialize(
-          logEntry,
-          SERIALIZATION_CONTEXT
+        this.dependencies.serializationManager.serializeDirect(
+          level,
+          message,
+          Date.now(),
+          this.name,
+          effectiveMetadata
         );
-      const finalEntry = serializationResult.data;
 
-      // 2. Masking (síncrono, mismo objeto)
-      const maskedEntry = this.dependencies.maskingEngine.process(
-        finalEntry as Record<string, unknown>
-      );
-
-      // 3. Transports: fire-and-forget hacia I/O (no await para no encolar 1.6M Promesas)
-      for (const transport of effectiveTransports) {
-        if (transport.isLevelEnabled(level)) {
-          transport.log(maskedEntry as LogEntry);
+      // 2. Si la ruta nativa devolvió ya la línea, pasarla a los transports; si no, masking y luego objeto.
+      if (serializationResult.serializedNative) {
+        for (const transport of effectiveTransports) {
+          if (transport.isLevelEnabled(level)) {
+            transport.log(serializationResult.serializedNative);
+          }
+        }
+      } else {
+        const finalEntry = serializationResult.data;
+        const maskedEntry = this.dependencies.maskingEngine.process(
+          finalEntry as Record<string, unknown>
+        );
+        for (const transport of effectiveTransports) {
+          if (transport.isLevelEnabled(level)) {
+            transport.log(maskedEntry as LogEntry);
+          }
         }
       }
     } catch {
-      // Silent swallow
+      // Intentionally swallow: logging must not throw. Failures (serialization, transport) are dropped.
     }
   }
 
@@ -257,56 +306,56 @@ export class Logger {
    * Logs a message at the 'info' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  info(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
-    return this._log('info', ...args);
+  info(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void {
+    this._log('info', ...args);
   }
 
   /**
    * Logs a message at the 'warn' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  warn(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
-    return this._log('warn', ...args);
+  warn(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void {
+    this._log('warn', ...args);
   }
 
   /**
    * Logs a message at the 'error' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  error(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
-    return this._log('error', ...args);
+  error(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void {
+    this._log('error', ...args);
   }
 
   /**
    * Logs a message at the 'debug' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  debug(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
-    return this._log('debug', ...args);
+  debug(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void {
+    this._log('debug', ...args);
   }
 
   /**
    * Logs a message at the 'trace' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  trace(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
-    return this._log('trace', ...args);
+  trace(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void {
+    this._log('trace', ...args);
   }
 
   /**
    * Logs a message at the 'audit' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  audit(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
-    return this._log('audit', ...args);
+  audit(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void {
+    this._log('audit', ...args);
   }
 
   /**
    * Logs a message at the 'fatal' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  fatal(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void> {
-    return this._log('fatal', ...args);
+  fatal(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void {
+    this._log('fatal', ...args);
   }
 
   /**
@@ -320,7 +369,7 @@ export class Logger {
 
   /**
    * Creates a new child logger instance that inherits the parent's configuration
-   * and adds the specified bindings.
+   * and adds the specified bindings. Bindings are stored by reference (no deep clone).
    * @param {LogBindings} bindings - Key-value pairs to bind to the child logger.
    * @returns {ILogger} A new logger instance with the specified bindings.
    */
