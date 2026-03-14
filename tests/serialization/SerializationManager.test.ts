@@ -57,6 +57,32 @@ describe('SerializationManager', () => {
     });
   });
 
+  describe('buildNativeConfigJson (cache)', () => {
+    it('returns cached JSON on second call', () => {
+      const m = new SerializationManager({
+        sanitizationContext: {
+          sensitiveFields: ['pwd'],
+          redactPatterns: [/secret/gi],
+          maxStringLength: 200,
+        },
+      });
+      (m as any).getNativeAddon = vi.fn().mockReturnValue(null);
+      (m as any).nativeChecked = true;
+
+      const build = (m as any).buildNativeConfigJson.bind(m);
+      const first = build();
+      const second = build();
+
+      expect(first).toBe(second);
+      expect(JSON.parse(first)).toMatchObject({
+        sensitiveFields: ['pwd'],
+        maxDepth: expect.any(Number),
+        maxStringLength: 200,
+        sanitize: true,
+      });
+    });
+  });
+
   describe('isNativeAddonInUse', () => {
     it('returns false when getNativeAddon returns null', () => {
       expect((manager as any).getNativeAddon()).toBe(null);
@@ -260,17 +286,143 @@ describe('SerializationManager', () => {
       expect(result.serializedNative).toBe(nativeLine);
       expect(result.success).toBe(true);
     });
+
+    it('should use fastSerializeFromJson in serialize() when metadata is empty (Object.keys(metadata).length === 0)', () => {
+      const m = new SerializationManager({ enableMetrics: true });
+      const nativeLine =
+        '{"level":"info","message":"m","service":"s","timestamp":100}';
+      const fastSerializeFromJson = vi.fn().mockReturnValue(nativeLine);
+      const fastSerialize = vi.fn();
+      const fakeAddon = {
+        fastSerialize,
+        fastSerializeFromJson,
+        configureNative: vi.fn(),
+      };
+      (m as any).getNativeAddon = vi.fn().mockReturnValue(fakeAddon);
+      (m as any).nativeChecked = true;
+
+      const result = m.serialize({
+        level: 'info',
+        message: 'm',
+        service: 's',
+        timestamp: 100,
+      });
+
+      expect(fastSerializeFromJson).toHaveBeenCalledWith(
+        'info',
+        'm',
+        100,
+        's',
+        '{}'
+      );
+      expect(fastSerialize).not.toHaveBeenCalled();
+      expect(result.serializedNative).toBe(nativeLine);
+      expect(result.success).toBe(true);
+      expect(result.serializer).toBe('native');
+      const metrics = m.getMetrics();
+      expect(metrics.successfulSerializations).toBe(1);
+    });
+
+    it('should use fastSerializeFromJson in serialize() with metadata and return success with metrics', () => {
+      const m = new SerializationManager({ enableMetrics: true });
+      const nativeLine =
+        '{"level":"info","message":"hi","service":"svc","timestamp":100,"a":1}';
+      const fastSerializeFromJson = vi.fn().mockReturnValue(nativeLine);
+      const fastSerialize = vi.fn();
+      const fakeAddon = {
+        fastSerialize,
+        fastSerializeFromJson,
+        configureNative: vi.fn(),
+      };
+      (m as any).getNativeAddon = vi.fn().mockReturnValue(fakeAddon);
+      (m as any).nativeChecked = true;
+
+      const result = m.serialize({
+        level: 'info',
+        message: 'hi',
+        service: 'svc',
+        timestamp: 100,
+        a: 1,
+      });
+
+      expect(fastSerializeFromJson).toHaveBeenCalledWith(
+        'info',
+        'hi',
+        100,
+        'svc',
+        '{"a":1}'
+      );
+      expect(fastSerialize).not.toHaveBeenCalled();
+      expect(result.serializedNative).toBe(nativeLine);
+      expect(result.success).toBe(true);
+      expect(result.serializer).toBe('native');
+      expect(result.metadata).toEqual({});
+      const metrics = m.getMetrics();
+      expect(metrics.totalSerializations).toBe(1);
+      expect(metrics.successfulSerializations).toBe(1);
+    });
+
+    it('should fall back to fastSerialize when JSON.stringify(metadata) throws in serialize() (e.g. circular)', () => {
+      const m = new SerializationManager();
+      const nativeLine =
+        '{"level":"info","message":"m","service":"s","timestamp":100}';
+      const fastSerializeFromJson = vi.fn();
+      const fastSerialize = vi.fn().mockReturnValue(nativeLine);
+      const fakeAddon = {
+        fastSerialize,
+        fastSerializeFromJson,
+        configureNative: vi.fn(),
+      };
+      (m as any).getNativeAddon = vi.fn().mockReturnValue(fakeAddon);
+      (m as any).nativeChecked = true;
+
+      const circular: Record<string, unknown> = { a: 1 };
+      circular.self = circular;
+
+      const result = m.serialize({
+        level: 'info',
+        message: 'm',
+        service: 's',
+        timestamp: 100,
+        ...circular,
+      });
+
+      expect(fastSerialize).toHaveBeenCalledWith(
+        'info',
+        'm',
+        100,
+        's',
+        expect.objectContaining({ a: 1, self: expect.anything() })
+      );
+      expect(result.serializedNative).toBe(nativeLine);
+      expect(result.success).toBe(true);
+    });
+
+    it('should remove duplicate metadata key from logEntry in serializeDirect when no native addon', () => {
+      const m = new SerializationManager();
+      (m as any).getNativeAddon = vi.fn().mockReturnValue(null);
+      (m as any).nativeChecked = true;
+
+      const result = m.serializeDirect('info', 'msg', 123, 'svc', {
+        metadata: { nested: true },
+        other: 1,
+      });
+
+      expect(result.success).toBe(true);
+      const data = result.data as Record<string, unknown>;
+      expect(data.level).toBe('info');
+      expect(data.message).toBe('msg');
+      expect(data.other).toBe(1);
+    });
   });
 
   describe('getRegisteredSerializers and getPipelineMetrics', () => {
     it('should return only the names of currently registered serializers', () => {
       expect(manager.getRegisteredSerializers()).toEqual([]);
-      const a = createMockDefaultSerializer();
-      a.name = 'custom-a';
+      const a = { ...createMockDefaultSerializer(), name: 'custom-a' };
       manager.register(a);
       expect(manager.getRegisteredSerializers()).toContain('custom-a');
-      const b = createMockDefaultSerializer();
-      b.name = 'custom-b';
+      const b = { ...createMockDefaultSerializer(), name: 'custom-b' };
       manager.register(b);
       expect(manager.getRegisteredSerializers()).toContain('custom-a');
       expect(manager.getRegisteredSerializers()).toContain('custom-b');
@@ -314,8 +466,8 @@ describe('SerializationManager', () => {
       const result = manager.serialize({ id: 1 });
 
       expect(result.success).toBe(true);
-      expect(result.data.serialized).toBe(true);
-      expect(result.metadata.serializer).toBe('test-serializer');
+      expect((result.data as Record<string, unknown>).serialized).toBe(true);
+      expect(result.metadata!.serializer).toBe('test-serializer');
     });
 
     it('should fall back to raw serialization (hygiene) if no serializer matches', () => {

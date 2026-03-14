@@ -246,6 +246,20 @@ describe('SyntropyLog', () => {
       await syntropy.init(validConfig);
       expect(syntropy.getSerializer()).toBeDefined();
     });
+
+    it('should throw when isNativeAddonInUse() is called before init (ensureReady)', () => {
+      const syntropy = SyntropyLog.getInstance();
+      expect(() => syntropy.isNativeAddonInUse()).toThrow(
+        'SyntropyLog is not ready'
+      );
+    });
+
+    it('should return isNativeAddonInUse() from serializer after init', async () => {
+      const syntropy = SyntropyLog.getInstance();
+      await syntropy.init(validConfig);
+      const result = syntropy.isNativeAddonInUse();
+      expect(typeof result).toBe('boolean');
+    });
   });
 
   describe('reconfigureLoggingMatrix', () => {
