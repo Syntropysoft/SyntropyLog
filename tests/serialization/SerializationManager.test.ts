@@ -177,6 +177,26 @@ describe('SerializationManager', () => {
       expect(result.serializedNative).toBe(fallbackLine);
     });
 
+    it('should use only fastSerialize when addon has no fastSerializeFromJson', () => {
+      const m = new SerializationManager();
+      const nativeLine =
+        '{"level":"info","message":"msg","service":"s","timestamp":123}';
+      const fastSerialize = vi.fn().mockReturnValue(nativeLine);
+      const fakeAddon = {
+        fastSerialize,
+        configureNative: vi.fn(),
+      };
+      (m as any).getNativeAddon = vi.fn().mockReturnValue(fakeAddon);
+      (m as any).nativeChecked = true;
+
+      const result = m.serializeDirect('info', 'msg', 123, 's', { a: 1 });
+      expect(fastSerialize).toHaveBeenCalledWith('info', 'msg', 123, 's', {
+        a: 1,
+      });
+      expect(result.serializedNative).toBe(nativeLine);
+      expect(result.success).toBe(true);
+    });
+
     it('should fall back to JS pipeline when native returns SYNTROPYLOG_NATIVE_ERROR and return pipeline output (no onSerializationFallback)', () => {
       const onSerializationFallback = vi.fn();
       const m = new SerializationManager({ onSerializationFallback });
@@ -216,6 +236,29 @@ describe('SerializationManager', () => {
       expect(onSerializationFallback).toHaveBeenCalledWith(expect.any(Error));
       expect(result.success).toBe(true);
       expect((result.data as Record<string, unknown>)?.message).toBe('x');
+    });
+
+    it('should use only fastSerialize in serialize() when addon has no fastSerializeFromJson', () => {
+      const m = new SerializationManager();
+      const nativeLine =
+        '{"level":"info","message":"m","service":"s","timestamp":100}';
+      const fastSerialize = vi.fn().mockReturnValue(nativeLine);
+      const fakeAddon = {
+        fastSerialize,
+        configureNative: vi.fn(),
+      };
+      (m as any).getNativeAddon = vi.fn().mockReturnValue(fakeAddon);
+      (m as any).nativeChecked = true;
+
+      const result = m.serialize({
+        level: 'info',
+        message: 'm',
+        service: 's',
+        timestamp: 100,
+      });
+      expect(fastSerialize).toHaveBeenCalled();
+      expect(result.serializedNative).toBe(nativeLine);
+      expect(result.success).toBe(true);
     });
   });
 
@@ -316,6 +359,86 @@ describe('SerializationManager', () => {
       expect(metrics.totalSerializations).toBe(1);
       expect(metrics.successfulSerializations).toBe(1);
       expect(metrics.serializerDistribution['default']).toBe(1);
+    });
+
+    it('should return zero averages when no serializations have run', () => {
+      const metrics = manager.getMetrics();
+      expect(metrics.totalSerializations).toBe(0);
+      expect(metrics.averageSerializationDuration).toBe(0);
+      expect(metrics.averageOperationTimeout).toBe(0);
+    });
+
+    it('should track complexity distribution for complex and critical', () => {
+      const complexSerializer: ISerializer = {
+        name: 'complex-serializer',
+        priority: 50,
+        canSerialize: vi.fn((d: any) => d.type === 'Query'),
+        getComplexity: vi.fn().mockReturnValue(SerializationComplexity.COMPLEX),
+        serialize: vi.fn().mockReturnValue({
+          success: true,
+          data: { level: 'info', message: 'x' },
+          serializer: 'complex-serializer',
+          duration: 1,
+          complexity: SerializationComplexity.COMPLEX,
+          sanitized: false,
+          metadata: {},
+        }),
+      };
+      const criticalSerializer: ISerializer = {
+        name: 'critical-serializer',
+        priority: 40,
+        canSerialize: vi.fn((d: any) => d.type === 'Other'),
+        getComplexity: vi
+          .fn()
+          .mockReturnValue(SerializationComplexity.CRITICAL),
+        serialize: vi.fn().mockReturnValue({
+          success: true,
+          data: { level: 'info', message: 'y' },
+          serializer: 'critical-serializer',
+          duration: 2,
+          complexity: SerializationComplexity.CRITICAL,
+          sanitized: false,
+          metadata: {},
+        }),
+      };
+      manager.register(complexSerializer);
+      manager.register(criticalSerializer);
+      manager.serialize({ type: 'Query' });
+      manager.serialize({ type: 'Other' });
+
+      const metrics = manager.getMetrics();
+      expect(metrics.complexityDistribution.medium).toBe(1);
+      expect(metrics.complexityDistribution.high).toBe(1);
+    });
+
+    it('should spread entry.metadata into root when pipeline returns data with metadata', () => {
+      const serializerWithMetadata: ISerializer = {
+        name: 'with-meta',
+        priority: 50,
+        canSerialize: vi.fn().mockReturnValue(true),
+        getComplexity: vi.fn().mockReturnValue(SerializationComplexity.SIMPLE),
+        serialize: vi.fn().mockReturnValue({
+          success: true,
+          data: {
+            level: 'info',
+            message: 'm',
+            service: 's',
+            timestamp: 1,
+            metadata: { foo: 42 },
+          },
+          serializer: 'with-meta',
+          duration: 0,
+          complexity: SerializationComplexity.SIMPLE,
+          sanitized: false,
+          metadata: {},
+        }),
+      };
+      manager.register(serializerWithMetadata);
+      const result = manager.serialize({ type: 'Query' });
+      expect(result.success).toBe(true);
+      const data = result.data as Record<string, unknown>;
+      expect(data.foo).toBe(42);
+      expect(data.metadata).toBeUndefined();
     });
   });
 });
