@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.1
+
+### Patch Changes
+
+- Fix: remove duplicate createRequire declaration in ESM bundle. Rollup was injecting an intro that re-declared createRequire already imported by SerializationManager, causing "Identifier 'createRequire' has already been declared" when loading the package in Node ESM (e.g. tsx or "type": "module").
+
 ## 0.11.0
 
 ### Minor Changes
