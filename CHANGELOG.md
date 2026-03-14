@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.3
+
+### Patch Changes
+
+- Refresh logo: README now points to syntropysoft.com/syntropylog-logo.png.
+
 ## 0.11.2
 
 ### Patch Changes
