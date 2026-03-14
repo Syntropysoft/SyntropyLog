@@ -1,5 +1,5 @@
-# Release to npm: builds native addon on all platforms so published syntropylog-native
-# includes .node binaries for Linux, Windows, and macOS (transparent for users).
+# Release to npm. Only runs on push to main (not on feature/auxiliary branches).
+# Builds native addon on all platforms; changesets/action handles version PR or publish.
 name: Release
 
 on:

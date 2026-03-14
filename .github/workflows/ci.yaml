@@ -1,8 +1,10 @@
 # .github/workflows/ci.yml
+# Runs on all branches (push) and on PRs targeting main/develop.
+# Covers lint, build, test, coverage, and benchmark (native addon). No publish.
 name: CI
 
 on:
-  push: # Se ejecuta en pushes a cualquier rama
+  push:
   pull_request:
     branches: [ main, develop ]
 
