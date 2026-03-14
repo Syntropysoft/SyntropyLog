@@ -71,7 +71,7 @@ export async function initLegacyBridge(
     masking: maskingPolicy,
     logger: {
       level: 'info',
-      serializerTimeoutMs: 5000,
+      serializerTimeoutMs: 100,
       transports: {
         // App logs: standard console or separate file
         default: [],

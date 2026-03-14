@@ -5,6 +5,27 @@
 
 import { SerializableData, SanitizationConfig } from '../../types';
 import { DEFAULT_VALUES } from '../../constants';
+import {
+  MASK_KEY_PWD,
+  MASK_KEY_TOK,
+  MASK_KEY_SEC,
+  MASK_KEY_KEY,
+  MASK_KEY_AUTH,
+  MASK_KEY_AUTHORIZATION,
+  MASK_KEY_API_KEY,
+  MASK_KEY_APIKEY,
+  MASK_KEY_PRIVATE_KEY,
+  MASK_KEY_PRIVATEKEY,
+  MASK_KEY_CREDENTIAL,
+  MASK_KEY_CREDENTIAL_ID,
+  MASK_KEY_CREDENTIALID,
+  MASK_KEY_ACCESS_TOKEN,
+  MASK_KEY_ACCESSTOKEN,
+  MASK_KEY_REFRESH_TOKEN,
+  MASK_KEY_REFRESHTOKEN,
+  MASK_KEY_SESSION_ID,
+  MASK_KEY_SESSIONID,
+} from '../../sensitiveKeys';
 
 export interface SanitizationContext {
   sensitiveFields?: string[];
@@ -14,25 +35,25 @@ export interface SanitizationContext {
 
 export class DataSanitizer {
   private defaultSensitiveFields = [
-    'password',
-    'token',
-    'secret',
-    'key',
-    'auth',
-    'authorization',
-    'api_key',
-    'apikey',
-    'private_key',
-    'privatekey',
-    'credential',
-    'credential_id',
-    'credentialid',
-    'access_token',
-    'accesstoken',
-    'refresh_token',
-    'refreshtoken',
-    'session_id',
-    'sessionid',
+    MASK_KEY_PWD,
+    MASK_KEY_TOK,
+    MASK_KEY_SEC,
+    MASK_KEY_KEY,
+    MASK_KEY_AUTH,
+    MASK_KEY_AUTHORIZATION,
+    MASK_KEY_API_KEY,
+    MASK_KEY_APIKEY,
+    MASK_KEY_PRIVATE_KEY,
+    MASK_KEY_PRIVATEKEY,
+    MASK_KEY_CREDENTIAL,
+    MASK_KEY_CREDENTIAL_ID,
+    MASK_KEY_CREDENTIALID,
+    MASK_KEY_ACCESS_TOKEN,
+    MASK_KEY_ACCESSTOKEN,
+    MASK_KEY_REFRESH_TOKEN,
+    MASK_KEY_REFRESHTOKEN,
+    MASK_KEY_SESSION_ID,
+    MASK_KEY_SESSIONID,
   ];
 
   private defaultMaxDepth = DEFAULT_VALUES.maxDepth;

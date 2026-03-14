@@ -123,6 +123,8 @@ await syntropyLog.init({
 });
 ```
 
+Para reglas custom **sin literales** (y sin alertas de Sonar), importá el objeto **`maskEnum`**: incluye todos los aliases (`MASK_KEY_*`) y los arrays `MASK_KEYS_PASSWORD`, `MASK_KEYS_TOKEN`, `MASK_KEYS_ALL`. Un solo import, declarativo. Detalle: [Sensitive key aliases (EN)](../docs/SENSITIVE_KEY_ALIASES.md).
+
 Si el masking falla (p. ej. timeout en una regla custom), el pipeline no lanza: devuelve el objeto y el flujo sigue (Silent Observer).
 
 ---

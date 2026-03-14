@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.12.0
+
+First release after 0.11.3. Includes all framework refinements validated end-to-end with the examples repo (0.11.4 was never published to npm).
+
+### Minor Changes
+
+- **Sonar:** Configuration and documentation for SonarQube/SonarCloud integration: exceptions for secret rules (S2068), consumer guides (EN/ES), and project properties. Improves code quality and deployment in pipelines using Sonar.
+- **Docs and release:** Release preparation guide (`docs/PREPARAR_PUBLICACION.md`), linked from CONTRIBUTING. Minor documentation and repo consistency improvements.
+- **Sensitive key aliases:** New `src/sensitiveKeys.ts` with constants (`MASK_KEY_PWD`, `MASK_KEY_TOK`, `MASK_KEY_SEC`, etc.) so the rest of the codebase does not use string literals that Sonar or other tools flag. `MaskingEngine`, `DataSanitizer`, `SerializationManager`, and `sanitizeConfig` use these aliases; only `sensitiveKeys.ts` contains the literal words. All aliases are exported from the package for consumers.
+- **Masking: spread default rules and add your own:** New `getDefaultMaskingRules(options?)` and export of `MaskingStrategy`, `MaskingRule`, `GetDefaultMaskingRulesOptions`. Users can do `rules: [...getDefaultMaskingRules({ maskChar: '*' }), ...myRules]` and set `enableDefaultRules: false` when providing the full list. Default rules are built from the same aliases.
+- **Sonar:** `sonar-project.properties` added: exclusion of `sensitiveKeys.ts`, and `sonar.issue.ignore.multicriteria` for rule S2068 (hardcoded secrets) on `src/masking/**` and `src/serialization/**` so deploy is not blocked. Docs added for consumers: how to add a Sonar exception for a file with their own sensitive words (EN: `docs/SONAR_FILE_EXCEPTION.md`, ES: `doc-es/SONAR_EXCEPCION_ARCHIVO.md`).
+- **Docs:** README section 4 (MaskingEngine) expanded: spread default rules, full table of exported sensitive key aliases, Sonar exception summary. New `docs/SENSITIVE_KEY_ALIASES.md` with the full list of `MASK_KEY_*` constants. Documentation section links to Sensitive key aliases and Sonar exception. Reconfiguration in runtime (hot): new README section clarifying that only log level and additive masking rules are reconfigurable without restart.
+- **Init pattern:** README section 9 (Per-call transport control) and Quick Start now show the correct init pattern (wait for `ready`/`error` before `getLogger()`); `serializerTimeoutMs` and `serviceName` included in examples.
+- **Lint:** SerializationManager: replaced `(logEntry as any)` with `Record<string, unknown>`; removed unused destructuring variables in native serialize path (use copy + delete for metadata).
+- **Examples repo:** Full refresh: main set 01–17 only, updated README and test script, self-contained benchmark (17-benchmark), removed obsolete scripts and optional folders.
+
 ## 0.11.3
 
 ### Patch Changes

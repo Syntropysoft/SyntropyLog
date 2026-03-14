@@ -1,8 +1,8 @@
 /**
- * Prueba todos los console transports en una sola init (pool + override).
- * Ejecutar desde la raíz del repo: npx tsx examples/AllTransportsExample.ts
+ * Tests all console transports in a single init (pool + override).
+ * Run from repo root: npx tsx examples/AllTransportsExample.ts
  *
- * Usa la librería local (imports desde ../src) para validar antes de publicar.
+ * Uses the local library (imports from ../src) for validation before publishing.
  */
 import { syntropyLog } from '../src/SyntropyLog';
 import { ConsoleTransport } from '../src/logger/transports/ConsoleTransport';
@@ -39,53 +39,53 @@ async function main() {
   console.log('\n' + '='.repeat(60));
   console.log('  1. Default (plain JSON)');
   console.log('='.repeat(60));
-  await log.override('json').info('Mensaje de prueba info');
-  await log.override('json').warn('Mensaje de prueba warn');
-  await log.override('json').error('Mensaje de prueba error');
+  await log.override('json').info('Test message info');
+  await log.override('json').warn('Test message warn');
+  await log.override('json').error('Test message error');
   await log
     .override('json')
-    .info('Con metadata', { userId: 'u-1', action: 'login' });
+    .info('With metadata', { userId: 'u-1', action: 'login' });
 
   console.log('\n' + '='.repeat(60));
   console.log('  2. ClassicConsoleTransport');
   console.log('='.repeat(60));
-  await log.override('classic').info('Mensaje de prueba info');
-  await log.override('classic').warn('Mensaje de prueba warn');
-  await log.override('classic').error('Mensaje de prueba error');
+  await log.override('classic').info('Test message info');
+  await log.override('classic').warn('Test message warn');
+  await log.override('classic').error('Test message error');
   await log
     .override('classic')
-    .info('Con metadata', { userId: 'u-1', action: 'login' });
+    .info('With metadata', { userId: 'u-1', action: 'login' });
 
   console.log('\n' + '='.repeat(60));
   console.log('  3. PrettyConsoleTransport');
   console.log('='.repeat(60));
-  await log.override('pretty').info('Mensaje de prueba info');
-  await log.override('pretty').warn('Mensaje de prueba warn');
+  await log.override('pretty').info('Test message info');
+  await log.override('pretty').warn('Test message warn');
   await log
     .override('pretty')
-    .info('Con metadata', { userId: 'u-1', action: 'login' });
+    .info('With metadata', { userId: 'u-1', action: 'login' });
 
   console.log('\n' + '='.repeat(60));
   console.log('  4. CompactConsoleTransport');
   console.log('='.repeat(60));
-  await log.override('compact').info('Mensaje de prueba info');
-  await log.override('compact').warn('Mensaje de prueba warn');
+  await log.override('compact').info('Test message info');
+  await log.override('compact').warn('Test message warn');
   await log
     .override('compact')
-    .info('Con metadata', { userId: 'u-1', action: 'login' });
+    .info('With metadata', { userId: 'u-1', action: 'login' });
 
   console.log('\n' + '='.repeat(60));
   console.log('  5. ColorfulConsoleTransport');
   console.log('='.repeat(60));
-  await log.override('colorful').info('Mensaje de prueba info');
-  await log.override('colorful').warn('Mensaje de prueba warn');
+  await log.override('colorful').info('Test message info');
+  await log.override('colorful').warn('Test message warn');
   await log
     .override('colorful')
-    .info('Con metadata', { userId: 'u-1', action: 'login' });
+    .info('With metadata', { userId: 'u-1', action: 'login' });
 
   await syntropyLog.shutdown();
   console.log('\n' + '='.repeat(60));
-  console.log('  Todos los transportes OK');
+  console.log('  All transports OK');
   console.log('='.repeat(60) + '\n');
 }
 

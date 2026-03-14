@@ -88,6 +88,8 @@ We welcome code contributions! To contribute code, please follow these steps:
 
 ## Release process (maintainers)
 
+Guía detallada: [docs/PREPARAR_PUBLICACION.md](docs/PREPARAR_PUBLICACION.md).
+
 **Ramas auxiliares (feature, develop, etc.):** en cada push y en los PRs se ejecuta solo el workflow **CI** (lint, build, tests, benchmark con addon nativo). No se publica nada en npm. Así puedes validar que todo pase antes de integrar a `main`.
 
 **Solo al hacer push a `main`** se ejecuta el workflow **Release** (build del addon en todas las plataformas y, si hay changesets, versionado/publicación en npm).

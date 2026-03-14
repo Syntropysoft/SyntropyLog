@@ -12,6 +12,7 @@ import { ILogger } from './logger';
 import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
 import { LogLevel } from './logger/levels';
 import { LoggingMatrix, JsonValue } from './types';
+import type { ReconfigureTransportsForDebugOptions } from './logger/LoggerFactory';
 
 /** Pure: throws if value is null/undefined; returns value otherwise. Use for guard clauses. */
 function requireDefined<T>(
@@ -110,6 +111,25 @@ export class SyntropyLog extends EventEmitter {
   public reconfigureLoggingMatrix(matrix: LoggingMatrix): void {
     this.lifecycleManager.ensureReady();
     this.lifecycleManager.contextManager.reconfigureLoggingMatrix(matrix);
+  }
+
+  /**
+   * Add a console transport in hot (e.g. per POD) for developer clarity only. Existing transports are not removed.
+   * Use when a developer needs to review an error inside a POD and see output clearly (e.g. add ColorfulConsoleTransport). No AdapterTransport or custom. Call resetTransports() to remove the added one(s).
+   */
+  public reconfigureTransportsForDebug(
+    options: ReconfigureTransportsForDebugOptions
+  ): void {
+    this.lifecycleManager.ensureReady();
+    this.lifecycleManager.loggerFactory!.reconfigureTransportsForDebug(options);
+  }
+
+  /**
+   * Remove the transport(s) added by reconfigureTransportsForDebug (back to original set after debugging in a POD). No-op if never called.
+   */
+  public resetTransports(): void {
+    this.lifecycleManager.ensureReady();
+    this.lifecycleManager.loggerFactory!.resetTransports();
   }
 
   public getMasker() {

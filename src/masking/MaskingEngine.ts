@@ -7,6 +7,12 @@
  * This approach provides extreme processing speed for any object depth.
  */
 import { DEFAULT_VALUES } from '../constants';
+import {
+  MASK_KEY_PWD,
+  MASK_KEY_TOK,
+  MASK_KEYS_PASSWORD,
+  MASK_KEYS_TOKEN,
+} from '../sensitiveKeys';
 
 /**
  * @enum MaskingStrategy
@@ -17,8 +23,8 @@ export enum MaskingStrategy {
   SSN = 'ssn',
   EMAIL = 'email',
   PHONE = 'phone',
-  PASSWORD = 'password',
-  TOKEN = 'token',
+  PASSWORD = MASK_KEY_PWD,
+  TOKEN = MASK_KEY_TOK,
   CUSTOM = 'custom',
 }
 
@@ -63,6 +69,61 @@ export interface MaskingEngineOptions {
   regexTimeoutMs?: number;
   /** Called when masking fails (timeout or error). Never receives raw payload. */
   onMaskingError?: (error: unknown) => void;
+}
+
+/** Options for getDefaultMaskingRules (maskChar/preserveLength applied to each rule). */
+export interface GetDefaultMaskingRulesOptions {
+  maskChar?: string;
+  preserveLength?: boolean;
+}
+
+/**
+ * Returns the default masking rules (credit_card, ssn, email, phone, password, token).
+ * Use with spread to add your own: rules: [...getDefaultMaskingRules({ maskChar: '*' }), { pattern: /myKey/i, strategy: MaskingStrategy.PASSWORD }].
+ */
+export function getDefaultMaskingRules(
+  options: GetDefaultMaskingRulesOptions = {}
+): MaskingRule[] {
+  const maskChar = options.maskChar ?? '*';
+  const preserveLength = options.preserveLength ?? true;
+  return [
+    {
+      pattern: /credit_card|card_number|payment_number/i,
+      strategy: MaskingStrategy.CREDIT_CARD,
+      preserveLength,
+      maskChar,
+    },
+    {
+      pattern: /ssn|social_security|security_number/i,
+      strategy: MaskingStrategy.SSN,
+      preserveLength,
+      maskChar,
+    },
+    {
+      pattern: /email/i,
+      strategy: MaskingStrategy.EMAIL,
+      preserveLength,
+      maskChar,
+    },
+    {
+      pattern: /phone|phone_number|mobile_number/i,
+      strategy: MaskingStrategy.PHONE,
+      preserveLength,
+      maskChar,
+    },
+    {
+      pattern: new RegExp(MASK_KEYS_PASSWORD.join('|'), 'i'),
+      strategy: MaskingStrategy.PASSWORD,
+      preserveLength,
+      maskChar,
+    },
+    {
+      pattern: new RegExp(MASK_KEYS_TOKEN.join('|'), 'i'),
+      strategy: MaskingStrategy.TOKEN,
+      preserveLength,
+      maskChar,
+    },
+  ];
 }
 
 /**
@@ -112,52 +173,12 @@ export class MaskingEngine {
    * @private
    */
   private addDefaultRules(): void {
-    const defaultRules: MaskingRule[] = [
-      {
-        pattern: /credit_card|card_number|payment_number/i,
-        strategy: MaskingStrategy.CREDIT_CARD,
-        preserveLength: true,
-        maskChar: this.maskChar,
-        _isDefaultRule: true,
-      },
-      {
-        pattern: /ssn|social_security|security_number/i,
-        strategy: MaskingStrategy.SSN,
-        preserveLength: true,
-        maskChar: this.maskChar,
-        _isDefaultRule: true,
-      },
-      {
-        pattern: /email/i,
-        strategy: MaskingStrategy.EMAIL,
-        preserveLength: true,
-        maskChar: this.maskChar,
-        _isDefaultRule: true,
-      },
-      {
-        pattern: /phone|phone_number|mobile_number/i,
-        strategy: MaskingStrategy.PHONE,
-        preserveLength: true,
-        maskChar: this.maskChar,
-        _isDefaultRule: true,
-      },
-      {
-        pattern: /password|pass|pwd|secret/i,
-        strategy: MaskingStrategy.PASSWORD,
-        preserveLength: true,
-        maskChar: this.maskChar,
-        _isDefaultRule: true,
-      },
-      {
-        pattern: /token|api_key|auth_token|jwt|bearer/i,
-        strategy: MaskingStrategy.TOKEN,
-        preserveLength: true,
-        maskChar: this.maskChar,
-        _isDefaultRule: true,
-      },
-    ];
-
+    const defaultRules = getDefaultMaskingRules({
+      maskChar: this.maskChar,
+      preserveLength: this.preserveLength,
+    });
     for (const rule of defaultRules) {
+      (rule as MaskingRule)._isDefaultRule = true;
       this.addRule(rule);
     }
   }
