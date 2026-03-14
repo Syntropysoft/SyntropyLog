@@ -1,7 +1,7 @@
 # SyntropyLog
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Syntropysoft/SyntropyLog/main/assets/beaconLog-2.png" alt="SyntropyLog Logo" width="170"/>
+  <img src="https://syntropysoft.com/syntropylog-logo.png" alt="SyntropyLog Logo" width="170"/>
 </p>
 
 <h1 align="center">SyntropyLog</h1>
@@ -17,7 +17,7 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-95.13%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.11.1-brightgreen.svg" alt="Version 0.11.1"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.11.3-brightgreen.svg" alt="Version 0.11.3"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
