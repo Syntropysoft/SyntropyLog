@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0
+
+### Minor Changes
+
+- - **Native addon (Rust):** `fastSerializeFromJson(level, message, timestamp, service, metadataJson)` for single N-API cross when metadata is JSON-serializable; fallback to `fastSerialize` on error. SerializationManager uses this path when `JSON.stringify(metadata)` succeeds.
+  - **Docs:** Benchmark reports (EN/ES) updated; new "Scope and interpretation of results" section (representative workloads, 10M+ note). CONTRIBUTING: CI runs on branches, Release only on main.
+  - **CI:** Reproducible lockfile (no machine-specific `link:`); benchmark job uses `bench:memory` for stable memory; build-native and test-node.mjs fixed for current addon API.
+  - **Security:** pnpm override for `flatted` >= 3.4.0 (GHSA-25h7-pfq9-p65f).
+  - **Tests:** Branch coverage raised to meet 80% threshold (internal-types, SerializationManager metrics and native paths).
+
 ## 0.10.1
 
 ### Patch Changes
