@@ -122,7 +122,17 @@ jobs:
         run: cd syntropylog-native && pnpm exec napi build --platform --release
         shell: bash
 
+      - name: List built addon artifacts (for debugging)
+        run: ls -la syntropylog-native/*.node 2>/dev/null || echo "No .node files in syntropylog-native/"
+
       - name: Run benchmark and assert native addon in use
         run: |
+          # Run from repo root so workspace addon (with freshly built .node) is resolved
           pnpm run bench 2>&1 | tee bench.log
-          grep -q "native addon (Rust): yes" bench.log || (echo "Expected 'native addon (Rust): yes' in benchmark output"; exit 1)
+          if ! grep -q "native addon (Rust): yes" bench.log; then
+            echo "Expected 'native addon (Rust): yes' in benchmark output. First lines of bench.log:"
+            head -25 bench.log
+            echo "--- line with 'native addon' ---"
+            grep "native addon" bench.log || true
+            exit 1
+          fi
