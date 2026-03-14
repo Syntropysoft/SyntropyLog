@@ -44,7 +44,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build addon (current platform)
-        run: cd syntropylog-native && pnpm exec napi build --release
+        run: cd syntropylog-native && pnpm exec napi build --platform --release
         shell: bash
 
       - name: Test addon

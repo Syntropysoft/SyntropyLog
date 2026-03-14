@@ -1,5 +1,5 @@
 /**
- * Tests del addon: ping y fast_serialize (sanitización + enmascarado).
+ * Tests del addon: ping y fastSerializeFromJson (sanitización + enmascarado).
  * Ejecutar después de: pnpm exec napi build --platform --release
  */
 import { createRequire } from 'node:module';
@@ -15,12 +15,7 @@ if (pingResult !== 'pong') {
 }
 console.log('OK ping:', pingResult);
 
-// --- fast_serialize: objeto desde Node (sin JSON.stringify), enmascarado en Rust ---
-const entry = {
-  level: 'info',
-  message: 'test',
-  user: { email: 'u@x.com', password: 'secret123' },
-};
+// --- configure native (masking config) ---
 const config = JSON.stringify({
   sensitiveFields: ['password', 'token'],
   redactPatterns: [],
@@ -28,12 +23,25 @@ const config = JSON.stringify({
   maxStringLength: 300,
   sanitize: true,
 });
-const out = native.fastSerialize(entry, config);
-const parsed = JSON.parse(out);
-if (parsed.user?.password !== '[REDACTED]') {
-  console.error('fast_serialize: expected user.password "[REDACTED]", got:', parsed.user?.password);
+native.configureNative(config);
+
+// --- fastSerializeFromJson: metadata como JSON, enmascarado en Rust ---
+const level = 'info';
+const message = 'test';
+const timestamp = Date.now();
+const service = 'test-service';
+const metadata = { user: { email: 'u@x.com', password: 'secret123' } };
+const metadataJson = JSON.stringify(metadata);
+const out = native.fastSerializeFromJson(level, message, timestamp, service, metadataJson);
+if (out.startsWith('[SYNTROPYLOG_NATIVE_ERROR]')) {
+  console.error('fastSerializeFromJson failed:', out);
   process.exit(1);
 }
-console.log('OK fast_serialize: sensitive field redacted');
+const parsed = JSON.parse(out);
+if (parsed.user?.password !== '[REDACTED]') {
+  console.error('fastSerializeFromJson: expected user.password "[REDACTED]", got:', parsed.user?.password);
+  process.exit(1);
+}
+console.log('OK fastSerializeFromJson: sensitive field redacted');
 
 console.log('All tests passed.');
