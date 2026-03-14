@@ -43,7 +43,7 @@ export class AdapterTransport extends Transport {
 
   /**
    * Delegates the log entry to the configured adapter.
-   * Fire-and-forget: no espera al adapter para no devolver Promise. Síncrono (void).
+   * Fire-and-forget: does not wait for the adapter so it does not return a Promise. Synchronous (void).
    * @param entry - Log entry object or pre-serialized JSON string.
    */
   public log(entry: LogEntry | string): void {

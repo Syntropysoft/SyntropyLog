@@ -1,6 +1,6 @@
-import { syntropyLog } from './src/SyntropyLog';
-import { UniversalAdapter } from './src/logger/adapters/UniversalAdapter';
-import { AdapterTransport } from './src/logger/transports/AdapterTransport';
+import { syntropyLog } from '../src/SyntropyLog';
+import { UniversalAdapter } from '../src/logger/adapters/UniversalAdapter';
+import { AdapterTransport } from '../src/logger/transports/AdapterTransport';
 
 async function run() {
   const captured: unknown[] = [];

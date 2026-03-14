@@ -315,8 +315,12 @@ describe('MaskingEngine', () => {
       expect(result).not.toHaveProperty('normal');
     });
 
-    it('should preserve allowed safe keys in fallback when masking fails', async () => {
-      const engine = new MaskingEngine({ enableDefaultRules: false });
+    it('should not expose any user data on masking failure (only redaction marker)', async () => {
+      const onMaskingError = vi.fn();
+      const engine = new MaskingEngine({
+        enableDefaultRules: false,
+        onMaskingError,
+      });
       engine.addRule({
         pattern: /level/i,
         strategy: MaskingStrategy.CUSTOM,
@@ -335,11 +339,18 @@ describe('MaskingEngine', () => {
       const result = await engine.process(originalData);
 
       expect(result).toHaveProperty('_maskingFailed', true);
-      expect(result).toHaveProperty('level', 'info');
-      expect(result).toHaveProperty('timestamp', '2024-01-01T00:00:00Z');
-      expect(result).toHaveProperty('message', 'test');
-      expect(result).toHaveProperty('service', 'my-service');
+      expect(result).toHaveProperty('_maskingFailedMessage');
+      expect(result._maskingFailedMessage).toContain(
+        'Masking could not be applied'
+      );
+      // No user/meta data returned to avoid leaking sensitive content
+      expect(result).not.toHaveProperty('level');
+      expect(result).not.toHaveProperty('timestamp');
+      expect(result).not.toHaveProperty('message');
+      expect(result).not.toHaveProperty('service');
       expect(result).not.toHaveProperty('secret');
+      expect(onMaskingError).toHaveBeenCalledTimes(1);
+      expect(onMaskingError).toHaveBeenCalledWith(expect.any(Error));
     });
 
     it('should handle circular references gracefully', async () => {

@@ -43,6 +43,8 @@ export interface MaskingConfig {
   preserveLength?: boolean;
   enableDefaultRules?: boolean;
   regexTimeoutMs?: number;
+  /** Called when masking fails (e.g. timeout, error). Never receives raw payload. */
+  onMaskingError?: (error: unknown) => void;
 }
 
 export interface LoggingMatrixConfig {
@@ -70,6 +72,14 @@ export interface SyntropyLogConfig {
   masking?: MaskingConfig;
   context?: ContextConfig;
   shutdownTimeout?: number;
+  /** Called when logging fails (serialization or transport). Optional; for observability. */
+  onLogFailure?: (error: unknown, entry?: unknown) => void;
+  /** Called when a transport fails (flush, shutdown, or log write). Optional; single handler from config. */
+  onTransportError?: (error: unknown, context?: string) => void;
+  /** Called when a pipeline step fails (e.g. hygiene). Optional; for observability. */
+  onStepError?: (step: string, error: unknown) => void;
+  /** Called when native addon fails and the framework falls back to the JS pipeline. Optional; for observability. */
+  onSerializationFallback?: (reason?: unknown) => void;
 }
 
 // Re-export for convenience

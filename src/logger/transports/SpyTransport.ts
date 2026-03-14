@@ -23,7 +23,7 @@ export class SpyTransport extends Transport {
   }
 
   /**
-   * Stores the log entry in an in-memory array. Si recibe un string (ruta nativa), lo parsea a LogEntry.
+   * Stores the log entry in an in-memory array. If it receives a string (native path), parses it to LogEntry.
    * @param entry - Log entry object or pre-serialized JSON string.
    * @returns {Promise<void>}
    */

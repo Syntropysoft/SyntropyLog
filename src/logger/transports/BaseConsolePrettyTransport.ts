@@ -25,7 +25,7 @@ export abstract class BaseConsolePrettyTransport extends Transport {
 
   /**
    * The core log method. It handles common logic and delegates specific
-   * formatting to the subclass. When entry is a pre-serialized string (ruta nativa), la escribe tal cual.
+   * formatting to the subclass. When entry is a pre-serialized string (native path), it is written as-is.
    * @param entry - Log entry object or pre-serialized JSON string.
    */
   public log(entry: LogEntry | string): void {

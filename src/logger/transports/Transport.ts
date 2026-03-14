@@ -69,8 +69,8 @@ export abstract class Transport {
 
   /**
    * The core method that all concrete transports must implement. This method
-   * handles the actual sending/writing of the log entry. Síncrono (void) para no encolar Promesas en el GC.
-   * @param entry - The final log entry: either a LogEntry object or a pre-serialized JSON string (ruta nativa).
+   * handles the actual sending/writing of the log entry. Synchronous (void) to avoid enqueueing Promises in the GC.
+   * @param entry - The final log entry: either a LogEntry object or a pre-serialized JSON string (native path).
    */
   abstract log(entry: LogEntry | string): void;
 

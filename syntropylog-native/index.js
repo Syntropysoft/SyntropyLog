@@ -310,8 +310,9 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { configureNative, fastSerialize, ping } = nativeBinding
+const { configureNative, fastSerialize, fastSerializeFromJson, ping } = nativeBinding
 
 module.exports.configureNative = configureNative
 module.exports.fastSerialize = fastSerialize
+module.exports.fastSerializeFromJson = fastSerializeFromJson
 module.exports.ping = ping

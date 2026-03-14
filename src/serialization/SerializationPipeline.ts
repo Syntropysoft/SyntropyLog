@@ -1,16 +1,16 @@
 /**
- * Serialization pipeline: "cadena de producción".
- * El entry de log es un único paquete que recorre la cadena: cada paso lo recibe,
- * lo modifica in-place si corresponde y lo pasa al siguiente. Si todo sale bien,
- * el mismo objeto (enriquecido) llega al final sin copias intermedias.
+ * Serialization pipeline: the log entry is a single package that flows through the chain.
+ * Each step receives it, may modify in-place, and passes it to the next. On success,
+ * the same (enriched) object reaches the end with no intermediate copies.
  */
 import { SerializationResult, SerializationComplexity } from './types';
 import { DataSanitizer } from './utils/DataSanitizer';
 import { SerializableData, SerializationPipelineContext } from '../types';
+import { DEFAULT_VALUES } from '../constants';
 
 export interface PipelineStep<T> {
   name: string;
-  /** Recibe el paquete, lo modifica si aplica y devuelve el mismo u otro para el siguiente eslabón. */
+  /** Receives the package, optionally modifies it, and returns it (or another) for the next step. */
   execute(data: T, context: SerializationPipelineContext): T;
 }
 
@@ -49,8 +49,8 @@ export class SerializationPipeline {
   }
 
   /**
-   * Ejecuta la cadena de producción de forma 100% síncrona en memoria.
-   * Sin Promesas ni timers en el camino: evita encolar millones de microtareas en cargas masivas.
+   * Runs the pipeline 100% synchronously in memory.
+   * No Promises or timers in the path: avoids enqueueing millions of microtasks under heavy load.
    */
   process(
     data: SerializableData,
@@ -177,7 +177,7 @@ export class SerializationPipeline {
 
 export class DefaultTimeoutStrategy implements OperationTimeoutStrategy {
   calculateTimeout(_data: SerializableData): number {
-    return 5000; // 5 seconds default
+    return DEFAULT_VALUES.pipelineOperationTimeoutMs;
   }
 
   getStrategyName(): string {

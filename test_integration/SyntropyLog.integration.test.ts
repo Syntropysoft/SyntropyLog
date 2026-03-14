@@ -275,7 +275,11 @@ describe('SyntropyLog Integration Tests', () => {
 
         // Validate masking (JS: ********** / ****-...; Rust: [REDACTED]; native sin credit_card en sensibles = valor crudo)
         expect(['**********', '[REDACTED]']).toContain(entry.password);
-        expect(['****-****-****-3333', '[REDACTED]', '4532-1111-2222-3333']).toContain(entry.credit_card);
+        expect([
+          '****-****-****-3333',
+          '[REDACTED]',
+          '4532-1111-2222-3333',
+        ]).toContain(entry.credit_card);
       });
 
       it('should filter context fields based on the Logging Matrix for different levels', async () => {
@@ -332,7 +336,9 @@ describe('SyntropyLog Integration Tests', () => {
         // Error should have everything (but also be masked since masking runs after the matrix)
         expect(errorLog?.correlationId).toBe('req-123');
         expect(errorLog?.tenantId).toBe('tenant-A');
-        expect(['**********', '[REDACTED]']).toContain(errorLog?.secretInternalId);
+        expect(['**********', '[REDACTED]']).toContain(
+          errorLog?.secretInternalId
+        );
       });
 
       it('should propagate local bindings (withRetention, withSource) to child loggers', async () => {
@@ -409,12 +415,18 @@ describe('SyntropyLog Integration Tests', () => {
         const complexRetention = {
           ttl: 86400,
           maxSize: 100_000,
-          policy: { region: 'eu', buckets: ['audit', 'compliance'], tiers: { hot: 7, cold: 90 } },
+          policy: {
+            region: 'eu',
+            buckets: ['audit', 'compliance'],
+            tiers: { hot: 7, cold: 90 },
+          },
           tags: ['pii', 'audit'],
         };
 
         const logger = syntropyLog.getLogger('retention-test');
-        logger.withRetention(complexRetention as any).info('Audit with complex retention');
+        logger
+          .withRetention(complexRetention as any)
+          .info('Audit with complex retention');
 
         const raw = captured.find((c) => {
           const obj = typeof c === 'string' ? JSON.parse(c) : c;
@@ -425,10 +437,17 @@ describe('SyntropyLog Integration Tests', () => {
         expect(logObj.message).toBe('Audit with complex retention');
         expect(logObj.retention).toBeDefined();
         // Con ruta nativa (shallow) retention puede llegar como string JSON; con pipeline JS como objeto
-        const retention = typeof logObj.retention === 'string' ? JSON.parse(logObj.retention) : logObj.retention;
+        const retention =
+          typeof logObj.retention === 'string'
+            ? JSON.parse(logObj.retention)
+            : logObj.retention;
         expect(retention.ttl).toBe(86400);
         expect(retention.maxSize).toBe(100_000);
-        expect(retention.policy).toEqual({ region: 'eu', buckets: ['audit', 'compliance'], tiers: { hot: 7, cold: 90 } });
+        expect(retention.policy).toEqual({
+          region: 'eu',
+          buckets: ['audit', 'compliance'],
+          tiers: { hot: 7, cold: 90 },
+        });
         expect(retention.tags).toEqual(['pii', 'audit']);
       });
 
@@ -464,10 +483,13 @@ describe('SyntropyLog Integration Tests', () => {
         const entry = ourLogs[0];
 
         expect(entry.message).toBe('Attempting circular log');
-        // Verify string representation (safeDecycle handles it as [MAX_DEPTH_REACHED] or identical)
+        // Verify string representation: JS path may use [Circular], native/truncate use [MAX_DEPTH]
         const payloadStr = JSON.stringify(entry);
         expect(payloadStr).toContain('I am circular');
-        expect(payloadStr).toContain('[Circular]');
+        expect(
+          payloadStr.includes('[Circular]') ||
+            payloadStr.includes('[MAX_DEPTH]')
+        ).toBe(true);
       });
     });
   });

@@ -7,5 +7,5 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 const native = require(join(__dirname, 'index.js'))
 
-export const { configureNative, fastSerialize, ping } = native
+export const { configureNative, fastSerialize, fastSerializeFromJson, ping } = native
 export default native

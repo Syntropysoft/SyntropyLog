@@ -81,4 +81,32 @@ describe('UniversalAdapter', () => {
 
     consoleErrorSpy.mockRestore();
   });
+
+  it('should call onError when provided instead of console.error (sync throw)', () => {
+    const onError = vi.fn();
+    executor = vi.fn().mockImplementation(() => {
+      throw new Error('sync throw');
+    });
+
+    const adapter = new UniversalAdapter({ executor, onError });
+
+    adapter.log({});
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+    expect((onError.mock.calls[0][0] as Error).message).toBe('sync throw');
+  });
+
+  it('should call onError when provided instead of console.error (async reject)', async () => {
+    const onError = vi.fn();
+    executor = vi.fn().mockRejectedValue(new Error('async reject'));
+
+    const adapter = new UniversalAdapter({ executor, onError });
+
+    adapter.log({});
+    await Promise.resolve();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+  });
 });

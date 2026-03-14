@@ -62,7 +62,7 @@ export class ContextManager implements IContextManager {
 
   /**
    * Executes a function within a new, isolated asynchronous context.
-   * Callback se ejecuta de forma síncrona; si devuelve Promise, se espera sin crear Promise extra en el camino crítico.
+   * Callback runs synchronously; if it returns a Promise, it is awaited without creating an extra Promise on the hot path.
    * @param callback The function to execute within the new context.
    * @returns {Promise<void>} Resuelve cuando el callback termina (o cuando su Promise, si hay, se resuelve).
    */
@@ -230,7 +230,7 @@ export class ContextManager implements IContextManager {
       return EMPTY_FILTERED_CONTEXT;
     }
 
-    // Mapeo de nombres de campos del loggingMatrix a claves reales del contexto
+    // Map loggingMatrix field names to actual context keys
     const fieldMapping: Record<string, string[]> = {
       correlationId: [this.correlationIdHeader, 'correlationId'],
       transactionId: [this.transactionIdHeader, 'transactionId'],

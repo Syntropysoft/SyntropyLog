@@ -1,10 +1,11 @@
 /**
- * SyntropyLog Types - Internal types for the framework
+ * SyntropyLog Types - Public type API
  *
- * This file now uses internal types and only contains types specific to this module.
+ * Re-exports from internal-types (single source of truth). Only SerializableData
+ * and LogLevel are defined elsewhere; LoggerOptions and LogEntry come from internal-types.
  */
 
-// Import internal types
+// Import internal types (single source of truth)
 import type {
   JsonValue,
   LogMetadata,
@@ -23,6 +24,8 @@ import type {
   LogContext,
   PipelineContext,
   SanitizationContext,
+  LogEntry,
+  LoggerOptions,
   ILogger,
   IContextManager,
   // Serialization types
@@ -63,6 +66,8 @@ export {
   LogContext,
   PipelineContext,
   SanitizationContext,
+  LogEntry,
+  LoggerOptions,
   ILogger,
   IContextManager,
   // Serialization types
@@ -82,30 +87,8 @@ export {
   errorToJsonValue,
 };
 
-// Redefine SerializableData for flexibility in this module
+// Only local definition: flexibility for this module (internal-types uses SerializedData = unknown)
 export type SerializableData = unknown;
 
-import type { LogLevel } from './logger/levels';
-
-// Re-export LogLevel for external use
+// Re-export LogLevel for external use (defined in logger/levels)
 export type { LogLevel } from './logger/levels';
-
-// Override LoggerOptions to use LogLevel instead of string
-export type LoggerOptions = {
-  level?: LogLevel;
-  serviceName?: string;
-  transports?: unknown[]; // Will be properly typed in the logger implementation
-  bindings?: Record<string, unknown>;
-};
-
-// Override LogEntry to use LogLevel instead of string
-export type LogEntry = {
-  /** The severity level of the log. */
-  level: LogLevel;
-  /** The main log message, formatted from the arguments. */
-  message: string;
-  /** The ISO 8601 timestamp of when the log was created. */
-  timestamp: string;
-  /** Any other properties are treated as structured metadata. */
-  [key: string]: unknown;
-};

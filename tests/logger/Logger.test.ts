@@ -308,8 +308,12 @@ describe('Logger', () => {
       child.info('second');
       expect(transport.log).toHaveBeenCalledTimes(2);
       const secondCall = (transport.log as any).mock.calls[1][0];
-      const entry = typeof secondCall === 'string' ? JSON.parse(secondCall) : secondCall;
-      const retention = typeof entry?.retention === 'string' ? JSON.parse(entry.retention) : entry?.retention;
+      const entry =
+        typeof secondCall === 'string' ? JSON.parse(secondCall) : secondCall;
+      const retention =
+        typeof entry?.retention === 'string'
+          ? JSON.parse(entry.retention)
+          : entry?.retention;
       expect(retention?.ttl).toBe(7200);
     });
 
@@ -404,6 +408,59 @@ describe('Logger', () => {
       expect(traceTransport.log).toHaveBeenCalledOnce();
       const logEntry = (traceTransport.log as any).mock.calls[0][0];
       expect(logEntry.level).toBe('trace');
+    });
+  });
+
+  describe('error hooks (onLogFailure, onTransportError)', () => {
+    it('should call onLogFailure when serialization fails', async () => {
+      const onLogFailure = vi.fn();
+      (mockSerializationManager.serializeDirect as any).mockImplementationOnce(
+        () => {
+          throw new Error('serialize failed');
+        }
+      );
+      const loggerWithHook = new Logger('test', transports, {
+        ...dependencies,
+        onLogFailure,
+      });
+      loggerWithHook.level = 'info';
+
+      loggerWithHook.info('msg');
+
+      expect(onLogFailure).toHaveBeenCalledTimes(1);
+      expect(onLogFailure).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({
+          level: 'error',
+          message: expect.stringContaining('logging failed'),
+          service: 'test',
+        })
+      );
+    });
+
+    it('should call onTransportError when transport.log throws while writing error entry', async () => {
+      const onTransportError = vi.fn();
+      (mockSerializationManager.serializeDirect as any).mockImplementationOnce(
+        () => {
+          throw new Error('serialize failed');
+        }
+      );
+      const failingTransport = createMockTransport({
+        level: 'error',
+        name: 'failing',
+      });
+      (failingTransport.log as any).mockImplementationOnce(() => {
+        throw new Error('transport write failed');
+      });
+      const loggerWithHook = new Logger('test', [failingTransport], {
+        ...dependencies,
+        onTransportError,
+      });
+      loggerWithHook.level = 'info';
+
+      loggerWithHook.info('msg');
+
+      expect(onTransportError).toHaveBeenCalledWith(expect.any(Error), 'log');
     });
   });
 });

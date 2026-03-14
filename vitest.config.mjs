@@ -4,7 +4,8 @@ export default defineConfig({
   test: {
     globals: true, // Enable global test functions like describe, it, beforeEach, etc.
     environment: 'node', // Or 'jsdom' if you need to simulate a browser
-    include: ['tests/**/*.{test,spec}.ts', 'test_integration/**/*.{test,spec}.ts'], // Search for tests in both folders
+    // Unit tests only; integration tests run via: pnpm run test:integration
+    include: ['tests/**/*.{test,spec}.ts'],
     setupFiles: ['./tests/setup.ts'],
     coverage: {
       provider: 'istanbul', // or 'v8'

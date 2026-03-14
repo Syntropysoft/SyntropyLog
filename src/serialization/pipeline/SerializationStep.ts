@@ -24,8 +24,8 @@ export class SerializationStep implements PipelineStep<SerializableData> {
   }
 
   /**
-   * Ejecuta serialización en línea (sync). Sin Promise.race ni timers:
-   * los serializadores deben devolver SerializationResult de forma síncrona.
+   * Runs in-line serialization (sync). No Promise.race or timers;
+   * serializers must return SerializationResult synchronously.
    */
   execute(
     data: SerializableData,

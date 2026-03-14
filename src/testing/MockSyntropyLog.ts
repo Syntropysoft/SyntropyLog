@@ -3,6 +3,9 @@
  *
  * This mock provides a testing-agnostic version of SyntropyLog
  * that can be used with both Vitest and Jest without conflicts.
+ *
+ * @deprecated Prefer createSyntropyLogMock() and createTestHelper() from 'syntropylog/testing' (SyntropyLogMock).
+ * This class is kept for tests that assert its behavior and for framework-agnostic use without Vitest/Jest.
  */
 
 export interface IMockLogger {
@@ -56,6 +59,7 @@ function createMockFn<T = any>(implementation?: (...args: any[]) => T) {
   return mockFn;
 }
 
+/** @deprecated Prefer createSyntropyLogMock() from 'syntropylog/testing'. */
 export class MockSyntropyLog implements IMockSyntropyLog {
   private logger: IMockLogger;
   private contextManager: IMockContextManager;
@@ -113,18 +117,4 @@ export class MockSyntropyLog implements IMockSyntropyLog {
       }
     });
   }
-}
-
-/**
- * Creates a test helper that works with any testing framework
- */
-export function createTestHelper() {
-  const mockSyntropyLog = new MockSyntropyLog();
-
-  return {
-    mockSyntropyLog,
-    beforeEach: () => {
-      mockSyntropyLog.reset();
-    },
-  };
 }

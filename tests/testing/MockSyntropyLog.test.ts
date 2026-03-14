@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { MockSyntropyLog, createTestHelper } from '../../src/testing/MockSyntropyLog';
+import { MockSyntropyLog } from '../../src/testing/MockSyntropyLog';
+import { createTestHelper } from '../../src/testing/test-helper';
 
 describe('MockSyntropyLog', () => {
   let mockSyntropyLog: MockSyntropyLog;
@@ -11,7 +12,7 @@ describe('MockSyntropyLog', () => {
   describe('Basic Functionality', () => {
     it('should create logger with all methods', () => {
       const logger = mockSyntropyLog.getLogger();
-      
+
       expect(logger).toBeDefined();
       expect(logger.info).toBeDefined();
       expect(logger.error).toBeDefined();
@@ -22,7 +23,7 @@ describe('MockSyntropyLog', () => {
 
     it('should create context manager with all methods', () => {
       const contextManager = mockSyntropyLog.getContextManager();
-      
+
       expect(contextManager).toBeDefined();
       expect(contextManager.getCorrelationId).toBeDefined();
       expect(contextManager.getTransactionId).toBeDefined();
@@ -37,14 +38,14 @@ describe('MockSyntropyLog', () => {
     it('should return same logger instance', () => {
       const logger1 = mockSyntropyLog.getLogger('service1');
       const logger2 = mockSyntropyLog.getLogger('service2');
-      
+
       expect(logger1).toBe(logger2);
     });
 
     it('should return same context manager instance', () => {
       const context1 = mockSyntropyLog.getContextManager();
       const context2 = mockSyntropyLog.getContextManager();
-      
+
       expect(context1).toBe(context2);
     });
   });
@@ -52,7 +53,7 @@ describe('MockSyntropyLog', () => {
   describe('Logger Methods', () => {
     it('should call logger methods without throwing', () => {
       const logger = mockSyntropyLog.getLogger();
-      
+
       expect(() => {
         logger.info('test message');
         logger.error('test error');
@@ -64,7 +65,7 @@ describe('MockSyntropyLog', () => {
 
     it('should accept multiple arguments', () => {
       const logger = mockSyntropyLog.getLogger();
-      
+
       expect(() => {
         logger.info('message', { data: 'test' }, 123);
         logger.error('error', new Error('test'), { context: 'test' });
@@ -76,27 +77,27 @@ describe('MockSyntropyLog', () => {
     it('should return default correlation ID', () => {
       const contextManager = mockSyntropyLog.getContextManager();
       const correlationId = contextManager.getCorrelationId();
-      
+
       expect(correlationId).toBe('mock-correlation-id');
     });
 
     it('should return default transaction ID', () => {
       const contextManager = mockSyntropyLog.getContextManager();
       const transactionId = contextManager.getTransactionId();
-      
+
       expect(transactionId).toBe('mock-transaction-id');
     });
 
     it('should return default correlation header name', () => {
       const contextManager = mockSyntropyLog.getContextManager();
       const headerName = contextManager.getCorrelationIdHeaderName();
-      
+
       expect(headerName).toBe('x-correlation-id');
     });
 
     it('should call setter methods without throwing', () => {
       const contextManager = mockSyntropyLog.getContextManager();
-      
+
       expect(() => {
         contextManager.setCorrelationId('new-id');
         contextManager.setTransactionId('new-tx-id');
@@ -108,9 +109,9 @@ describe('MockSyntropyLog', () => {
     it('should run async functions', async () => {
       const contextManager = mockSyntropyLog.getContextManager();
       const testFn = vi.fn().mockResolvedValue('test result');
-      
+
       const result = await contextManager.run(testFn);
-      
+
       expect(result).toBe('test result');
       expect(testFn).toHaveBeenCalled();
     });
@@ -118,9 +119,9 @@ describe('MockSyntropyLog', () => {
     it('should run sync functions', async () => {
       const contextManager = mockSyntropyLog.getContextManager();
       const testFn = vi.fn().mockReturnValue('sync result');
-      
+
       const result = await contextManager.run(testFn);
-      
+
       expect(result).toBe('sync result');
       expect(testFn).toHaveBeenCalled();
     });
@@ -148,7 +149,7 @@ describe('MockSyntropyLog', () => {
   describe('Test Helper', () => {
     it('should create test helper', () => {
       const testHelper = createTestHelper();
-      
+
       expect(testHelper).toBeDefined();
       expect(testHelper.mockSyntropyLog).toBeDefined();
       expect(testHelper.beforeEach).toBeDefined();
@@ -156,21 +157,21 @@ describe('MockSyntropyLog', () => {
 
     it('should call beforeEach without throwing', () => {
       const testHelper = createTestHelper();
-      
+
       expect(() => testHelper.beforeEach()).not.toThrow();
     });
 
     it('should reset mocks in beforeEach', () => {
       const testHelper = createTestHelper();
       const logger = testHelper.mockSyntropyLog.getLogger();
-      
+
       // Call some methods
       logger.info('test');
       logger.error('test');
-      
+
       // Reset
       testHelper.beforeEach();
-      
+
       // Should still work after reset
       expect(() => logger.info('test')).not.toThrow();
     });
@@ -180,7 +181,7 @@ describe('MockSyntropyLog', () => {
     it('should handle undefined arguments', () => {
       const logger = mockSyntropyLog.getLogger();
       const contextManager = mockSyntropyLog.getContextManager();
-      
+
       expect(() => {
         logger.info();
         logger.error();
@@ -192,7 +193,7 @@ describe('MockSyntropyLog', () => {
     it('should handle null arguments', () => {
       const logger = mockSyntropyLog.getLogger();
       const contextManager = mockSyntropyLog.getContextManager();
-      
+
       expect(() => {
         logger.info(null);
         logger.error(null);
@@ -204,19 +205,19 @@ describe('MockSyntropyLog', () => {
     it('should handle complex objects', () => {
       const logger = mockSyntropyLog.getLogger();
       const contextManager = mockSyntropyLog.getContextManager();
-      
+
       const complexObj = {
         nested: {
           array: [1, 2, 3],
           func: () => 'test',
-          date: new Date()
-        }
+          date: new Date(),
+        },
       };
-      
+
       expect(() => {
         logger.info(complexObj);
         contextManager.set('complex', complexObj);
       }).not.toThrow();
     });
   });
-}); 
+});

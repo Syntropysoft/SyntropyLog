@@ -26,7 +26,7 @@ export class SanitizationEngine {
   }
 
   /**
-   * Procesa un objeto de metadata, sanitizando sus strings. Síncrono para no generar Promesas en el GC.
+   * Processes a metadata object, sanitizing its strings. Synchronous to avoid creating Promises in the GC.
    * @param meta - The metadata object to sanitize.
    * @returns A new, sanitized metadata object.
    */
@@ -53,7 +53,7 @@ export class SanitizationEngine {
       return data.map((item) => this.sanitizeRecursively(item));
     }
 
-    // Clave: Solo procesar objetos planos para no corromper instancias de clases.
+    // Key: only process plain objects so we do not corrupt class instances.
     if (
       typeof data === 'object' &&
       data !== null &&

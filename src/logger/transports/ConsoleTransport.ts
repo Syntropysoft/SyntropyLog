@@ -22,7 +22,7 @@ export class ConsoleTransport extends Transport {
 
   /**
    * Logs a structured entry to the console as a single JSON string.
-   * Accepts either a LogEntry object (formatted and stringified here) or a pre-serialized string (ruta nativa).
+   * Accepts either a LogEntry object (formatted and stringified here) or a pre-serialized string (native path).
    * @param entry - Log entry object or pre-serialized JSON string.
    */
   public log(entry: LogEntry | string): void {

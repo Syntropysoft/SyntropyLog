@@ -8,6 +8,7 @@
  */
 
 import { createRequire } from 'node:module';
+import { DEFAULT_VALUES } from '../constants';
 import {
   ISerializer,
   SerializationResult,
@@ -34,8 +35,12 @@ export interface SerializationManagerConfig {
   enableMetrics?: boolean;
   sanitizeSensitiveData?: boolean;
   sanitizationContext?: SanitizationConfig;
-  /** Si true, estilo Pino: solo primer nivel; objetos anidados se stringify en Node (un stringify por valor). Más rápido para entries con objetos complejos; la salida tendrá valores anidados como string JSON. */
+  /** If true, Pino-style: only first level; nested objects are stringified in Node (one stringify per value). Faster for entries with complex objects; output will have nested values as JSON string. */
   nativeShallow?: boolean;
+  /** Optional: called when a pipeline step fails (e.g. hygiene). For observability. */
+  onStepError?: (step: string, error: unknown) => void;
+  /** Optional: called when native addon fails and we fall back to JS pipeline. For observability. */
+  onSerializationFallback?: (reason?: unknown) => void;
 }
 
 type NativeAddon = {
@@ -45,6 +50,13 @@ type NativeAddon = {
     timestamp: number,
     service: string,
     metadata: unknown
+  ) => string;
+  fastSerializeFromJson?: (
+    level: string,
+    message: string,
+    timestamp: number,
+    service: string,
+    metadataJson: string
   ) => string;
   configureNative: (config: string) => void;
 };
@@ -57,10 +69,14 @@ export class SerializationManager {
   private hygieneStep: HygieneStep;
   private sanitizationStep: SanitizationStep;
   private timeoutStep: TimeoutStep;
-  private config: Required<SerializationManagerConfig>;
+  private config: Required<
+    Omit<SerializationManagerConfig, 'onStepError' | 'onSerializationFallback'>
+  >;
+  private onStepError?: (step: string, error: unknown) => void;
+  private onSerializationFallback?: (reason?: unknown) => void;
   private nativeAddon: NativeAddon | null = null;
   private nativeChecked = false;
-  /** Cache del JSON de config para Rust; se construye una vez y se reutiliza en cada serialize(). */
+  /** Cached JSON config for Rust addon; built once and reused for each serialize(). */
   private cachedNativeConfigJson: string | null = null;
   private metrics: {
     totalSerializations: number;
@@ -77,7 +93,7 @@ export class SerializationManager {
 
   constructor(config: SerializationManagerConfig = {}) {
     this.config = {
-      timeoutMs: config.timeoutMs || 5000,
+      timeoutMs: config.timeoutMs ?? DEFAULT_VALUES.serializerTimeoutMs,
       enableMetrics: config.enableMetrics ?? true,
       sanitizeSensitiveData: config.sanitizeSensitiveData ?? true,
       nativeShallow: config.nativeShallow ?? false,
@@ -100,11 +116,15 @@ export class SerializationManager {
           /token\s*=\s*['"][^'"]*['"]/gi,
           /secret\s*=\s*['"][^'"]*['"]/gi,
         ],
-        maxStringLength: config.sanitizationContext?.maxStringLength || 300,
+        maxStringLength:
+          config.sanitizationContext?.maxStringLength ??
+          DEFAULT_VALUES.maxStringLength,
         enableDeepSanitization:
           config.sanitizationContext?.enableDeepSanitization ?? true,
       },
     };
+    this.onStepError = config.onStepError;
+    this.onSerializationFallback = config.onSerializationFallback;
 
     this.metrics = {
       totalSerializations: 0,
@@ -128,7 +148,7 @@ export class SerializationManager {
     this.sanitizationStep = new SanitizationStep();
     this.timeoutStep = new TimeoutStep(this.pipeline['timeoutStrategies']);
 
-    // Configure pipeline: custom serialization first, then HYGIENE (safety), then masking
+    // Configure pipeline: custom serialization first, then HYGIENE (safety), then masking/sanitization
     this.pipeline.addStep(this.serializationStep);
     this.pipeline.addStep(this.hygieneStep);
     this.pipeline.addStep(this.sanitizationStep);
@@ -142,6 +162,10 @@ export class SerializationManager {
   private getNativeAddon(): NativeAddon | null {
     if (this.nativeChecked) return this.nativeAddon;
     this.nativeChecked = true;
+    if (process.env.SYNTROPYLOG_NATIVE_DISABLE === '1') {
+      this.nativeAddon = null;
+      return null;
+    }
     try {
       this.nativeAddon = require('syntropylog-native') as NativeAddon;
       if (this.nativeAddon && this.nativeAddon.configureNative) {
@@ -169,19 +193,17 @@ export class SerializationManager {
     this.cachedNativeConfigJson = JSON.stringify({
       sensitiveFields: ctx.sensitiveFields || [],
       redactPatterns,
-      maxDepth: 10,
-      maxStringLength: ctx.maxStringLength ?? 300,
+      maxDepth: DEFAULT_VALUES.maxDepth,
+      maxStringLength: ctx.maxStringLength ?? DEFAULT_VALUES.maxStringLength,
       sanitize: this.config.sanitizeSensitiveData,
     });
     return this.cachedNativeConfigJson;
   }
 
   /**
-   * Serialización 100% síncrona: pipeline en memoria sin Promesas ni timers.
-   * Si el addon nativo está disponible, lo usa (sanitización + enmascarado en Rust) y devuelve serializedNative.
-   /**
-   * Ruta ultra-rápida (Zero-Allocation) para el hot-path.
-   * Evita crear el objeto logEntry intermedio en el Logger.
+   * 100% synchronous serialization: in-memory pipeline, no Promises or timers.
+   * If the native addon is available, it is used (sanitization + masking in Rust) and returns serializedNative.
+   * Fast path: avoids creating an intermediate logEntry object in the Logger.
    */
   public serializeDirect(
     level: string,
@@ -193,13 +215,54 @@ export class SerializationManager {
     const native = this.getNativeAddon();
     if (native) {
       try {
-        const line = native.fastSerialize(
-          level,
-          message,
-          timestamp,
-          service,
-          metadata
-        );
+        let line: string;
+        if (typeof native.fastSerializeFromJson === 'function') {
+          let metadataJson: string | null = null;
+          try {
+            metadataJson =
+              metadata === undefined || metadata === null
+                ? 'null'
+                : JSON.stringify(metadata);
+          } catch {
+            // Circular or non-serializable; use object path
+          }
+          if (metadataJson !== null) {
+            line = native.fastSerializeFromJson(
+              level,
+              message,
+              timestamp,
+              service,
+              metadataJson
+            );
+            if (!line.startsWith('[SYNTROPYLOG_NATIVE_ERROR]')) {
+              return {
+                serializedNative: line,
+                data: null,
+                serializer: 'native',
+                duration: 0,
+                complexity: SerializationComplexity.SIMPLE,
+                sanitized: true,
+                success: true,
+                metadata: null as SerializationMetadata | null,
+              };
+            }
+          }
+          line = native.fastSerialize(
+            level,
+            message,
+            timestamp,
+            service,
+            metadata
+          );
+        } else {
+          line = native.fastSerialize(
+            level,
+            message,
+            timestamp,
+            service,
+            metadata
+          );
+        }
 
         if (!line.startsWith('[SYNTROPYLOG_NATIVE_ERROR]')) {
           return {
@@ -210,15 +273,15 @@ export class SerializationManager {
             complexity: SerializationComplexity.SIMPLE,
             sanitized: true,
             success: true,
-            metadata: null as SerializationMetadata | null, // Evitamos {}
+            metadata: null as SerializationMetadata | null,
           };
         }
-      } catch {
-        // Fallback al pipeline JS si falla el nativo
+      } catch (err) {
+        this.onSerializationFallback?.(err);
       }
     }
 
-    // Si no hay nativo, construimos el objeto y usamos el pipeline normal
+    // If no native addon, build the object and use the normal pipeline
     const logEntry = {
       level,
       message,
@@ -229,25 +292,26 @@ export class SerializationManager {
 
     // Remove duplicates that might be in metadata
     delete (logEntry as any).metadata; // Should not be there but just in case
-    
+
     return this.serialize(logEntry, {
-      timeoutMs: this.config.timeoutMs ?? 1000,
+      timeoutMs:
+        this.config.timeoutMs ?? DEFAULT_VALUES.serializeDirectTimeoutMs,
       depth: 0,
-      maxDepth: 10,
+      maxDepth: DEFAULT_VALUES.maxDepth,
       sensitiveFields: [],
       sanitize: true,
     });
   }
 
   /**
-   * Serialización 100% síncrona: pipeline en memoria sin Promesas ni timers.
-   * Si el addon nativo está disponible, lo usa (sanitización + enmascarado en Rust) y devuelve serializedNative.
+   * 100% synchronous serialization: in-memory pipeline, no Promises or timers.
+   * If the native addon is available, it is used (sanitization + masking in Rust) and returns serializedNative.
    */
   serialize(
     data: SerializableData,
     context: SerializationContextConfig = {
       depth: 0,
-      maxDepth: 10,
+      maxDepth: DEFAULT_VALUES.maxDepth,
       sensitiveFields: [],
       sanitize: true,
     }
@@ -258,6 +322,7 @@ export class SerializationManager {
       sanitizeSensitiveData: this.config.sanitizeSensitiveData,
       sanitizationContext: this.config.sanitizationContext,
       enableMetrics: this.config.enableMetrics,
+      onStepError: this.onStepError,
     };
 
     const native = this.getNativeAddon();
@@ -278,13 +343,60 @@ export class SerializationManager {
           ...metadata
         } = entry;
 
-        const line = native.fastSerialize(
-          level,
-          message,
-          timestamp,
-          service,
-          metadata
-        );
+        let line: string;
+        if (typeof native.fastSerializeFromJson === 'function') {
+          let metadataJson: string | null = null;
+          try {
+            metadataJson =
+              Object.keys(metadata).length === 0
+                ? '{}'
+                : JSON.stringify(metadata);
+          } catch {
+            // Circular or non-serializable; use object path
+          }
+          if (metadataJson !== null) {
+            line = native.fastSerializeFromJson(
+              level,
+              message,
+              timestamp,
+              service,
+              metadataJson
+            );
+            if (!line.startsWith('[SYNTROPYLOG_NATIVE_ERROR]')) {
+              const duration = Date.now() - startTime;
+              if (this.config.enableMetrics) {
+                this.metrics.totalSerializations++;
+                this.metrics.successfulSerializations++;
+              }
+              return {
+                data: data as SerializableData,
+                serializer: 'native',
+                duration,
+                complexity: 'low',
+                sanitized: true,
+                success: true,
+                metadata: {},
+                serializedNative: line,
+              };
+            }
+          }
+          line = native.fastSerialize(
+            level,
+            message,
+            timestamp,
+            service,
+            metadata
+          );
+        } else {
+          line = native.fastSerialize(
+            level,
+            message,
+            timestamp,
+            service,
+            metadata
+          );
+        }
+
         if (!line.startsWith('[SYNTROPYLOG_NATIVE_ERROR]')) {
           const duration = Date.now() - startTime;
           if (this.config.enableMetrics) {
@@ -303,15 +415,19 @@ export class SerializationManager {
             serializedNative: line,
           };
         }
-      } catch {
-        /* fallback to JS pipeline */
+      } catch (err) {
+        this.onSerializationFallback?.(err);
       }
     }
 
     const result = this.pipeline.process(data, pipelineContext);
-    
+
     // Ensure the result data is flat if it's an object, matching our standardized model
-    if (result.success && typeof result.data === 'object' && result.data !== null) {
+    if (
+      result.success &&
+      typeof result.data === 'object' &&
+      result.data !== null
+    ) {
       const entry = result.data as Record<string, unknown>;
       if (entry.metadata && typeof entry.metadata === 'object') {
         // This is where the problematic nesting happened. We spread it into the root.
@@ -373,7 +489,7 @@ export class SerializationManager {
         (this.metrics.serializerDistribution[serializer] || 0) + 1;
 
       // Timeout strategy distribution
-      const timeoutStrategy = result.metadata.timeoutStrategy || 'unknown';
+      const timeoutStrategy = result.metadata?.timeoutStrategy || 'unknown';
       this.metrics.timeoutStrategyDistribution[timeoutStrategy] =
         (this.metrics.timeoutStrategyDistribution[timeoutStrategy] || 0) + 1;
     } else {

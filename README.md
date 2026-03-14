@@ -86,6 +86,8 @@ Tested with **2,000,000 logs** on Node.js 20+ (Nulled I/O).
 
 > SyntropyLog is **5.5x faster than Winston** and only ~20% slower than pure console while providing deep-object masking and context management.
 
+To compare native addon vs JS-only pipeline: run `pnpm run bench` (with addon) and `SYNTROPYLOG_NATIVE_DISABLE=1 pnpm run bench` (JS only). The benchmark reports "native addon (Rust): yes/no" at startup.
+
 ---
 
 ## 🚀 Quick Start (60 seconds)
@@ -94,6 +96,8 @@ Tested with **2,000,000 logs** on Node.js 20+ (Nulled I/O).
 ```bash
 npm install syntropylog
 ```
+
+For the best performance, the package includes **prebuilt native addon binaries (Rust)** for Linux, Windows, and macOS; they install automatically on supported platforms. If the addon is unavailable (e.g. unsupported Node version or platform), the framework falls back to the JS pipeline transparently.
 
 ### **Available Console Transports**
 
@@ -198,6 +202,22 @@ await initializeSyntropyLog();
 const logger = syntropyLog.getLogger();
 logger.info('System is clean and ready.');
 ```
+
+### **Optional error and fallback hooks**
+
+You can pass optional callbacks in the config for observability (logging never throws; these hooks let you observe failures):
+
+| Hook | When it is called |
+|------|--------------------|
+| `onLogFailure?(error, entry)` | When a log call fails (serialization or transport error). |
+| `onTransportError?(error, context)` | When a transport fails (flush, shutdown, or log write). `context` is `'flush'`, `'shutdown'`, or `'log'`. |
+| `onSerializationFallback?(reason)` | When the native addon is used but fails for a call and the framework falls back to the JS pipeline. |
+| `onStepError?(step, error)` | When a pipeline step fails (e.g. hygiene). |
+| `masking.onMaskingError?(error)` | When masking fails (e.g. timeout); never receives raw payload. |
+
+Use `onSerializationFallback` to detect when the native addon failed for a given call and the JS pipeline was used instead (e.g. for metrics or alerting). You can also call `syntropyLog.isNativeAddonInUse()` at runtime to check if the Rust addon is loaded.
+
+Example: `syntropyLog.init({ onLogFailure: (err) => metrics.increment('log_failures'), ... });`
 
 ### **3. Graceful Shutdown (Essential)**
 ```typescript
@@ -636,6 +656,14 @@ const dbTransport = new UniversalAdapter({
 | :--- | :--- | :--- |
 | ✅ **Safe to change** | Logging Matrix, Log Level, additive Masking Fields | — |
 | 🔒 **Fixed at init** | — | Transports, core masking config (`maskChar`, `maxDepth`), Redis/HTTP/broker infrastructure |
+
+---
+
+## 📚 Documentation
+
+- **[Improvement plan & roadmap](docs/code-improvement-analysis-and-plan.md)** — Code analysis, prioritized backlog, and phased work plan.
+- **[Rust addon implementation plan](doc-es/rust-implementation-plan.md)** (ES) — Phased checklist to maximize use of the native addon (“Formula 1” path); links to [rust-pipeline-optimization.md](doc-es/rust-pipeline-optimization.md) for details.
+- **Benchmarks** — Summary in the [Performance Benchmarks](#-performance-benchmarks) section above; run `pnpm run bench` or `pnpm run bench:memory` from the repo root. [Benchmark run report (throughput + memory + high-demand stack)](docs/benchmark-memory-run.md) (EN) · [Informe de ejecución (ES)](doc-es/benchmark-memory-run.md). With the optional Rust addon built (`cd syntropylog-native && pnpm run build`), the benchmark reports native addon usage.
 
 ---
 

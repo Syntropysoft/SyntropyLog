@@ -10,6 +10,8 @@ export type UniversalExecutor = (data: unknown) => Promise<void> | void;
 export interface UniversalAdapterOptions {
   /** The function that will actually persist the data (e.g. result of an ORM call) */
   executor: UniversalExecutor;
+  /** Optional: called when executor fails. If not set, errors are logged to console.error. */
+  onError?: (error: unknown) => void;
 }
 
 /**
@@ -18,17 +20,19 @@ export interface UniversalAdapterOptions {
  */
 export class UniversalAdapter implements ILogTransportAdapter {
   private readonly executor: UniversalExecutor;
+  private readonly onError?: (error: unknown) => void;
 
   constructor(options: UniversalAdapterOptions) {
     if (typeof options.executor !== 'function') {
       throw new Error('UniversalAdapter requires an executor function.');
     }
     this.executor = options.executor;
+    this.onError = options.onError;
   }
 
   /**
-   * Recibe el entry y lo pasa al executor. Fire-and-forget (no devuelve Promise) para no encolar en el GC.
-   * Si recibe un string (ruta nativa), lo parsea para que el executor reciba siempre un objeto.
+   * Receives the entry and passes it to the executor. Fire-and-forget (does not return a Promise) to avoid GC pressure.
+   * If it receives a string (native path), parses it so the executor always receives an object.
    */
   public log(entry: unknown): void {
     try {
@@ -41,15 +45,19 @@ export class UniversalAdapter implements ILogTransportAdapter {
         typeof (result as Promise<unknown>).then === 'function'
       ) {
         (result as Promise<void>).catch((err: unknown) => {
-          console.error(
-            `UniversalAdapter execution failed: ${err instanceof Error ? err.message : String(err)}`
-          );
+          if (this.onError) this.onError(err);
+          else
+            console.error(
+              `UniversalAdapter execution failed: ${err instanceof Error ? err.message : String(err)}`
+            );
         });
       }
     } catch (error) {
-      console.error(
-        `UniversalAdapter execution failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (this.onError) this.onError(error);
+      else
+        console.error(
+          `UniversalAdapter execution failed: ${error instanceof Error ? error.message : String(error)}`
+        );
     }
   }
 }

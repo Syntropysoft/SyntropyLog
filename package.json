@@ -173,15 +173,16 @@
     "provenance": true
   },
   "dependencies": {
-    "js-yaml": "^4.1.1"
+    "js-yaml": "^4.1.1",
+    "syntropylog": "link:../../../../Library/pnpm/global/5/node_modules/syntropylog"
   },
   "optionalDependencies": {
     "syntropylog-native": "workspace:*"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^2.18.0",
     "@changesets/cli": "^2.27.1",
     "@eslint/js": "^9.21.0",
+    "@napi-rs/cli": "^2.18.0",
     "@rollup/plugin-commonjs": "^28.0.2",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
@@ -211,7 +212,9 @@
   },
   "pnpm": {
     "overrides": {
-      "serialize-javascript": ">=7.0.3"
+      "serialize-javascript": ">=7.0.3",
+      "syntropylog-native": "link:../../../../Library/pnpm/global/5/node_modules/syntropylog-native",
+      "syntropylog": "link:../../../../Library/pnpm/global/5/node_modules/syntropylog"
     }
   }
 }

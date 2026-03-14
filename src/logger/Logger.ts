@@ -72,6 +72,20 @@ function parseLogArgs(args: (LogFormatArg | LogMetadata | JsonValue)[]): {
   return { message: message || '', metadata };
 }
 
+/** Pure: true if context or bindings has any own enumerable key (no allocation, no Object.keys). */
+function hasContextOrBindings(
+  context: Record<string, unknown>,
+  bindings: LogBindings
+): boolean {
+  for (const key in context) {
+    if (key) return true;
+  }
+  for (const key in bindings) {
+    if (key) return true;
+  }
+  return false;
+}
+
 /** Pure: resolve effective transports from default list + pool and routing (no mutation). */
 function resolveEffectiveTransports(
   defaultTransports: Transport[],
@@ -105,6 +119,10 @@ export interface LoggerDependencies {
   syntropyLogInstance: SyntropyLog;
   /** Pool of transports by name, for override/add/remove per call. */
   transportPool?: Map<string, Transport>;
+  /** Optional: called when logging fails (serialization or transport). For observability. */
+  onLogFailure?: (error: unknown, entry?: LogEntry) => void;
+  /** Optional: called when a transport fails (e.g. log write). Single handler from config. */
+  onTransportError?: (error: unknown, context?: string) => void;
 }
 
 /**
@@ -184,13 +202,13 @@ export class Logger {
 
   /**
    * @private
-   * Método de logging síncrono que ejecuta el pipeline completo (sin devolver Promise).
-   * It handles argument parsing, level filtering, serialization, masking,
+   * Synchronous logging method that runs the full pipeline (does not return a Promise).
+   * Handles argument parsing, level filtering, serialization, masking,
    * and finally dispatches the processed log entry to the appropriate transports.
    * Routing is captured at entry to avoid race conditions when multiple log calls run concurrently.
    * @param {LogLevel} level - The severity level of the log message.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to be logged, following the Pino-like signature (e.g., `(obj, msg, ...)` or `(msg, ...)`).
-   * @returns {void} Síncrono; no se devuelve Promise para no saturar el GC.
+   * @returns {void} Synchronous; no Promise returned to avoid GC pressure.
    */
   private _log(
     level: LogLevel,
@@ -205,26 +223,16 @@ export class Logger {
     const effectiveTransports = this.captureEffectiveTransports();
 
     try {
-      // 1. Camino ultra-rápido para el caso común: logger.info("mensaje")
-      // Evitamos llamar a parseLogArgs (que crea un objeto { message, metadata })
+      // 1. Fast path for the common case: logger.info("message")
+      // Skip parseLogArgs (which allocates { message, metadata })
       if (args.length === 1 && typeof args[0] === 'string') {
         const message = args[0];
         const context =
           this.dependencies.contextManager.getFilteredContext(level);
-
-        // Chequear si hay bindings o contexto sin reservar memoria (sin Object.keys)
-        let hasExtra = false;
-        for (const key in context) {
-          if (key) hasExtra = true;
-          break;
-        }
-        if (!hasExtra) {
-          for (const key in this.bindings) {
-            if (key) hasExtra = true;
-            break;
-          }
-        }
-
+        const hasExtra = hasContextOrBindings(
+          context as Record<string, unknown>,
+          this.bindings
+        );
         const effectiveMetadata = hasExtra
           ? Object.assign({}, context, this.bindings)
           : undefined;
@@ -248,24 +256,14 @@ export class Logger {
         }
       }
 
-      // 2. Camino normal para argumentos complejos
+      // 2. Normal path for complex arguments
       const { message, metadata } = parseLogArgs(args);
       const context =
         this.dependencies.contextManager.getFilteredContext(level);
-
-      // Chequear si hay bindings o contexto sin reservar memoria
-      let hasExtra = false;
-      for (const key in context) {
-        if (key) hasExtra = true;
-        break;
-      }
-      if (!hasExtra) {
-        for (const key in this.bindings) {
-          if (key) hasExtra = true;
-          break;
-        }
-      }
-
+      const hasExtra = hasContextOrBindings(
+        context as Record<string, unknown>,
+        this.bindings
+      );
       const effectiveMetadata = hasExtra
         ? Object.assign({}, context, this.bindings, metadata)
         : metadata;
@@ -279,7 +277,7 @@ export class Logger {
           effectiveMetadata
         );
 
-      // 2. Si la ruta nativa devolvió ya la línea, pasarla a los transports; si no, masking y luego objeto.
+      // 2. If native path already returned the line, pass it to transports; otherwise mask then pass object.
       if (serializationResult.serializedNative) {
         for (const transport of effectiveTransports) {
           if (transport.isLevelEnabled(level)) {
@@ -297,8 +295,26 @@ export class Logger {
           }
         }
       }
-    } catch {
-      // Intentionally swallow: logging must not throw. Failures (serialization, transport) are dropped.
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      const errorEntry: LogEntry = {
+        level: 'error',
+        message:
+          'SyntropyLog: logging failed (serialization or transport error)',
+        timestamp: new Date().toISOString(),
+        service: this.name,
+        error: errorMessage,
+        stack: err instanceof Error ? err.stack : undefined,
+      };
+      this.dependencies.onLogFailure?.(err, errorEntry);
+      for (const transport of effectiveTransports) {
+        if (!transport.isLevelEnabled('error')) continue;
+        try {
+          transport.log(errorEntry);
+        } catch (transportErr) {
+          this.dependencies.onTransportError?.(transportErr, 'log');
+        }
+      }
     }
   }
 
