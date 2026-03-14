@@ -17,7 +17,7 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-95.13%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.11.3-brightgreen.svg" alt="Version 0.11.3"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.11.4-brightgreen.svg" alt="Version 0.11.4"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
@@ -52,7 +52,7 @@ Everything below is part of the same stack (benchmarks use this full stack). Eac
 | 13 | **Matrix in runtime** | `reconfigureLoggingMatrix()` without restart; only field visibility, not security. |
 | 14 | **Tree-shaking** | `sideEffects: false` + ESM; bundle only what you import. |
 
-**More detail and examples (ES):** [doc-es/caracteristicas-y-ejemplos.md](doc-es/caracteristicas-y-ejemplos.md).
+**More detail and examples:** this README (English). [Also in Spanish (ES): features and examples](doc-es/caracteristicas-y-ejemplos.md).
 
 ---
 
@@ -126,7 +126,7 @@ if (syntropyLog.isNativeAddonInUse()) {
 }
 ```
 
-See [doc-es/building-native-addon.es.md](doc-es/building-native-addon.es.md) for building from source.
+To build the native addon from source, see [doc-es/building-native-addon.es.md](doc-es/building-native-addon.es.md) (Spanish).
 
 ---
 
@@ -215,6 +215,54 @@ await syntropyLog.init({
   },
 });
 ```
+
+### Spread default rules and add your own
+
+You can use the default rules and add more in one go: pass `getDefaultMaskingRules({ maskChar: '*', preserveLength: true })` and spread your custom rules. Set `enableDefaultRules: false` when you provide the full list yourself.
+
+```typescript
+import { getDefaultMaskingRules, MaskingStrategy } from 'syntropylog';
+
+masking: {
+  enableDefaultRules: false,
+  maskChar: '*',
+  rules: [
+    ...getDefaultMaskingRules({ maskChar: '*' }),
+    { pattern: /myCustomKey|internalSecret/i, strategy: MaskingStrategy.PASSWORD },
+  ],
+}
+```
+
+### Sensitive key aliases: use `maskEnum`
+
+The library exports a **single object `maskEnum`** with all sensitive key aliases and grouped arrays. Import it once and pick or spread what you need—no string literals (Sonar-safe), and no listing every constant.
+
+```typescript
+import { maskEnum, MaskingStrategy, getDefaultMaskingRules } from 'syntropylog';
+
+masking: {
+  enableDefaultRules: false,
+  maskChar: '*',
+  rules: [
+    ...getDefaultMaskingRules({ maskChar: '*' }),
+    // One pattern for all token-like keys (access_token, refresh_token, api_key, jwt, …)
+    { pattern: new RegExp(maskEnum.MASK_KEYS_TOKEN.join('|'), 'i'), strategy: MaskingStrategy.TOKEN },
+    // Or pick a few
+    { pattern: new RegExp([maskEnum.MASK_KEY_ACCESS_TOKEN, maskEnum.MASK_KEY_REFRESH_TOKEN].join('|'), 'i'), strategy: MaskingStrategy.TOKEN },
+  ],
+}
+```
+
+`maskEnum` includes every `MASK_KEY_*` (e.g. `MASK_KEY_PWD`, `MASK_KEY_ACCESS_TOKEN`) plus `MASK_KEYS_PASSWORD`, `MASK_KEYS_TOKEN`, and `MASK_KEYS_ALL`. Full list and alternatives: [docs/SENSITIVE_KEY_ALIASES.md](docs/SENSITIVE_KEY_ALIASES.md).
+
+### Sonar exception for a file with your own words
+
+If you have a file in your project where you define **your own** sensitive words or aliases (e.g. `mySensitiveKeys.ts`), Sonar may report secrets (e.g. S2068) there. You can add an exception so that file does not block the deploy:
+
+- **Exclude the file from analysis:** in your `sonar-project.properties`, add it to `sonar.exclusions` (e.g. `sonar.exclusions=**/mySensitiveKeys.ts`).
+- **Or ignore only rule S2068 on that file:** use `sonar.issue.ignore.multicriteria` with `ruleKey=typescript:S2068` and `resourceKey` set to that file’s path.
+
+Full steps and examples: [docs/SONAR_FILE_EXCEPTION.md](docs/SONAR_FILE_EXCEPTION.md).
 
 | Strategy | Example output |
 |----------|----------------|
@@ -311,22 +359,28 @@ auditLogger.info({ userId: 123, action: 'payment' }, 'Payment processed');
 
 **What:** For a single log call you can send only to specific transports (`.override()`), add destinations (`.add()`), or remove one (`.remove()`), without creating new logger instances.
 
-**How:** Define a transport pool with `transportList` and `env`, then use the fluent methods on the next call only:
+**How:** Define a transport pool with `transportList` and `env`, then use the fluent methods on the next call only. Wait for `ready` before calling `getLogger()` (see [Quick Start](#init-and-first-log)):
 
 ```typescript
-await syntropyLog.init({
-  logger: {
-    envKey: 'NODE_ENV',
-    transportList: {
-      consola: new ColorfulConsoleTransport({ name: 'consola' }),
-      db:      dbTransport,
-      azure:   azureTransport,
+await new Promise<void>((resolve, reject) => {
+  syntropyLog.on('ready', () => resolve());
+  syntropyLog.on('error', (err) => reject(err));
+  syntropyLog.init({
+    logger: {
+      envKey: 'NODE_ENV',
+      serviceName: 'my-app',
+      serializerTimeoutMs: 100,
+      transportList: {
+        consola: new ColorfulConsoleTransport({ name: 'consola' }),
+        db:      dbTransport,
+        azure:   azureTransport,
+      },
+      env: {
+        development: ['consola'],
+        production:  ['consola', 'db', 'azure'],
+      },
     },
-    env: {
-      development: ['consola'],
-      production:  ['consola', 'db', 'azure'],
-    },
-  },
+  });
 });
 
 const log = syntropyLog.getLogger('app');
@@ -448,21 +502,98 @@ syntropyLog.init({
 
 ---
 
+## Reconfiguration in runtime (hot)
+
+**The only things you can reconfigure without restart are:**
+
+1. **Log level** — e.g. raise to `debug` on a single POD for troubleshooting.
+2. **Add masking rules** — add new rules so additional fields are redacted from logs.
+3. **Transports (debug only)** — **only add** a console transport for developer clarity when someone has to review an error inside a POD. Existing transports are not removed; you add one (e.g. ColorfulConsoleTransport) so the developer sees output clearly. Only library console transports (Console, Pretty, Compact, Colorful, Classic); no AdapterTransport or custom. Call `resetTransports()` to remove the added one(s).
+
+**Transports in hot (per POD — add one for visual debug; existing stay):**
+
+```typescript
+import { syntropyLog, ColorfulConsoleTransport } from 'syntropylog';
+
+// When a developer needs to review an error inside a POD: add a console transport (existing transports stay)
+syntropyLog.reconfigureTransportsForDebug({
+  add: [new ColorfulConsoleTransport({ level: 'error' })],
+});
+// Later: remove the added transport(s)
+syntropyLog.resetTransports();
+```
+
+Philosophy: only add console transports for visual help when debugging in a POD; existing transports are not removed. If you pass any other transport, the call throws.
+
+**The library does not provide an HTTP endpoint.** Your backend should expose one (e.g. `POST /admin/reconfigure-logging`) so that, per POD or per service, you can apply the reconfigurations above. Supported body fields: `level`, `loggingMatrix`, `addTransportForDebug`, `addMaskingRules`, and **`resetTransports`** (set to `true` when done debugging to restore original transports and avoid extra logger overhead). Example with Express:
+
+```typescript
+import express from 'express';
+import { syntropyLog, ColorfulConsoleTransport, MaskingStrategy } from 'syntropylog';
+
+const app = express();
+app.use(express.json());
+
+// Your endpoint: reconfigure everything that can be changed in hot
+app.post('/admin/reconfigure-logging', (req, res) => {
+  try {
+    const { level, loggingMatrix, addTransportForDebug, addMaskingRules, resetTransports } = req.body ?? {};
+
+    if (level) {
+      const logger = syntropyLog.getLogger();
+      logger.setLevel(level);
+    }
+    if (loggingMatrix) syntropyLog.reconfigureLoggingMatrix(loggingMatrix);
+    if (addTransportForDebug === true) {
+      syntropyLog.reconfigureTransportsForDebug({ add: [new ColorfulConsoleTransport({ level: 'error' })] });
+    }
+    // Restore original transports when done debugging; avoids extra logger overhead
+    if (resetTransports === true) syntropyLog.resetTransports();
+    if (Array.isArray(addMaskingRules)) {
+      const masker = syntropyLog.getMasker();
+      for (const r of addMaskingRules) {
+        masker.addRule({ pattern: new RegExp(r.pattern, 'i'), strategy: r.strategy });
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+```
+
+Secure this route (e.g. auth, internal only). When debugging in a POD is finished, send `resetTransports: true` so the added console transport is removed and everything is left as it was, avoiding extra logger overhead. Core masking config (`maskChar`, `maxDepth`), and the rest stay as set at `init()`.
+
+---
+
 ## Security & Compliance
 
 | Dynamically configurable | Fixed at init |
 |--------------------------|---------------|
-| Logging Matrix, log level, additive masking rules | Transports, core masking config (`maskChar`, `maxDepth`), Redis/HTTP/broker |
+| Log level, additive masking rules, transports (debug: add console only for visual help in a POD; existing stay; `resetTransports()` to remove added) | Core masking config (`maskChar`, `maxDepth`), Redis/HTTP/broker |
 
 ---
 
 ## Documentation
 
-- **[Features and examples (ES)](doc-es/caracteristicas-y-ejemplos.md)** — Canonical stack list with explanations and code examples; aligned with the benchmark report.
+**English (primary)**
+
+- **This README** — Full picture, Quick Start, and a “How” section per feature (above).
+- **[Examples repository](https://github.com/Syntropysoft/syntropylog-examples)** — Runnable examples 01–17: setup, context, transports, HTTP correlation, testing, benchmark.
+- **[Transport pool and per-environment routing](examples/TRANSPORT_POOL_AND_ENV.md)** — `transportList`, `env`, override/add/remove; runnable [TransportPoolExample.ts](examples/TransportPoolExample.ts).
+- **[Sensitive key aliases](docs/SENSITIVE_KEY_ALIASES.md)** — Recommended use of `maskEnum` (single object, declarative); full list of `MASK_KEY_*` and grouped arrays.
+- **[Sonar: exception for a specific file](docs/SONAR_FILE_EXCEPTION.md)** — How to add a Sonar exception when you have your own file with sensitive words or aliases (so it does not block deploy).
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)** — How to contribute.
+- **[SECURITY.md](./SECURITY.md)** — Security policy and environment variables.
+
+**Spanish (ES)**
+
+- **[Features and examples](doc-es/caracteristicas-y-ejemplos.md)** — Canonical stack list with explanations and code examples; aligned with the benchmark report.
 - **[Benchmark report (throughput + memory)](doc-es/benchmark-memory-run.md)** — Run `pnpm run bench` or `pnpm run bench:memory` from repo root. Compare native vs JS: `pnpm run bench` vs `SYNTROPYLOG_NATIVE_DISABLE=1 pnpm run bench`.
-- **[Rust addon (ES)](doc-es/building-native-addon.es.md)** — Build from source.
+- **[Rust addon — build from source](doc-es/building-native-addon.es.md)**.
 - **[Improvement plan & roadmap](doc-es/code-improvement-analysis-and-plan.md)** — Backlog and phased plan.
-- **[Rust implementation plan (ES)](doc-es/rust-implementation-plan.md)** — Native addon checklist; links to [rust-pipeline-optimization.md](doc-es/rust-pipeline-optimization.md).
+- **[Rust implementation plan](doc-es/rust-implementation-plan.md)** — Native addon checklist; links to [rust-pipeline-optimization.md](doc-es/rust-pipeline-optimization.md).
 
 ---
 

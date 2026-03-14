@@ -10,6 +10,7 @@ export * from './internal-types';
 
 // --- Core Types for Configuration and Usage ---
 export type { SyntropyLogConfig } from './config';
+export type { ReconfigureTransportsForDebugOptions } from './logger/LoggerFactory';
 export type { ILogger } from './logger/ILogger';
 export type { IContextManager } from './context/IContextManager';
 export type { LogEntry, JsonValue, LoggerOptions } from './types';
@@ -37,8 +38,19 @@ export { UniversalLogFormatter } from './logger/formatters/UniversalLogFormatter
 
 // --- Utility Classes for Advanced Configuration ---
 export { SerializationManager } from './serialization/SerializationManager';
-export { MaskingEngine } from './masking/MaskingEngine';
+export {
+  MaskingEngine,
+  MaskingStrategy,
+  getDefaultMaskingRules,
+} from './masking/MaskingEngine';
+export type {
+  MaskingRule,
+  GetDefaultMaskingRulesOptions,
+} from './masking/MaskingEngine';
 export { SanitizationEngine } from './sanitization/SanitizationEngine';
+
+// --- Sensitive key aliases (for custom rules without writing literals) ---
+export * from './sensitiveKeys';
 
 // --- Default values (constants) ---
 export { DEFAULT_VALUES } from './constants';

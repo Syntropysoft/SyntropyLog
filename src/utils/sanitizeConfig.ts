@@ -4,21 +4,34 @@
  */
 
 import { Transport } from '../logger/transports/Transport';
+import {
+  MASK_KEY_PWD,
+  MASK_KEY_TOK,
+  MASK_KEY_SEC,
+  MASK_KEY_APIKEY,
+  MASK_KEY_CREDENTIAL,
+  MASK_KEY_PASS,
+  MASK_KEY_KEY,
+  MASK_KEY_ACCESSTOKEN,
+  MASK_KEY_REFRESHTOKEN,
+  MASK_KEY_CLIENTSECRET,
+  MASK_KEY_SENTINELPWD,
+} from '../sensitiveKeys';
 
 const MASK = '[CONFIG_MASKED]';
 
 const SENSITIVE_KEYS = [
-  'password',
-  'token',
-  'secret',
-  'apikey',
-  'credential',
-  'pass',
-  'key',
-  'accesstoken',
-  'refreshtoken',
-  'clientsecret',
-  'sentinelpassword',
+  MASK_KEY_PWD,
+  MASK_KEY_TOK,
+  MASK_KEY_SEC,
+  MASK_KEY_APIKEY,
+  MASK_KEY_CREDENTIAL,
+  MASK_KEY_PASS,
+  MASK_KEY_KEY,
+  MASK_KEY_ACCESSTOKEN,
+  MASK_KEY_REFRESHTOKEN,
+  MASK_KEY_CLIENTSECRET,
+  MASK_KEY_SENTINELPWD,
   'sasl',
 ];
 

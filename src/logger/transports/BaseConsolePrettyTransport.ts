@@ -25,22 +25,39 @@ export abstract class BaseConsolePrettyTransport extends Transport {
 
   /**
    * The core log method. It handles common logic and delegates specific
-   * formatting to the subclass. When entry is a pre-serialized string (native path), it is written as-is.
+   * formatting to the subclass. When entry is a pre-serialized string (native path),
+   * it is parsed back to a LogEntry so the subclass can apply colors/formatting.
+   * The extra parse is acceptable: pretty/colorful transports are for dev/staging
+   * where clarity for the developer matters more than a small perf cost.
    * @param entry - Log entry object or pre-serialized JSON string.
    */
   public log(entry: LogEntry | string): void {
+    let logObject: LogEntry;
     if (typeof entry === 'string') {
-      console.log(entry);
-      return;
+      try {
+        const parsed = JSON.parse(entry) as LogEntry;
+        if (!parsed.level || !parsed.timestamp) {
+          console.log(entry);
+          return;
+        }
+        logObject = parsed;
+      } catch {
+        console.log(entry);
+        return;
+      }
+    } else {
+      logObject = entry;
     }
-    if (!this.isLevelEnabled(entry.level)) {
+    if (!this.isLevelEnabled(logObject.level)) {
       return;
     }
 
     // Apply the formatter first if it exists.
-    const finalObject = this.formatter ? this.formatter.format(entry) : entry;
+    const finalObject = this.formatter
+      ? this.formatter.format(logObject)
+      : logObject;
 
-    // Let the subclass format the final string.
+    // Let the subclass format the final string (with colors).
     const logString = this.formatLogString(finalObject as LogEntry);
 
     // Select the appropriate console method based on the log level.

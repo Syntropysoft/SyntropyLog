@@ -37,7 +37,20 @@ export type { LogLevel, LogEntry } from './types';
 
 // Export configuration types for better autocompletion
 export type { SyntropyLogConfig } from './config';
+export type { ReconfigureTransportsForDebugOptions } from './logger/LoggerFactory';
 
 // --- Universal Contracts for Advanced Users (Extensibility) ---
 export type { ISerializer } from './serialization/types';
 export { SerializationComplexity } from './serialization/types';
+
+// --- Masking: default rules (spread + add your own) and sensitive key aliases ---
+export {
+  MaskingEngine,
+  MaskingStrategy,
+  getDefaultMaskingRules,
+} from './masking/MaskingEngine';
+export type {
+  MaskingRule,
+  GetDefaultMaskingRulesOptions,
+} from './masking/MaskingEngine';
+export * from './sensitiveKeys';

@@ -29,6 +29,43 @@ import {
   SerializerDistribution,
   TimeoutStrategyDistribution,
 } from '../types';
+import {
+  MASK_KEY_PWD,
+  MASK_KEY_TOK,
+  MASK_KEY_SEC,
+  MASK_KEY_KEY,
+  MASK_KEY_AUTH,
+  MASK_KEY_CREDENTIAL,
+  MASK_KEY_API_KEY,
+  MASK_KEY_PRIVATE_KEY,
+  MASK_KEY_CONNECTION_STRING,
+  MASK_KEY_WALLET_LOCATION,
+} from '../sensitiveKeys';
+
+function getDefaultSensitiveFields(): string[] {
+  return [
+    MASK_KEY_PWD,
+    MASK_KEY_TOK,
+    MASK_KEY_SEC,
+    MASK_KEY_KEY,
+    MASK_KEY_AUTH,
+    MASK_KEY_CREDENTIAL,
+    MASK_KEY_API_KEY,
+    MASK_KEY_PRIVATE_KEY,
+    MASK_KEY_CONNECTION_STRING,
+    MASK_KEY_WALLET_LOCATION,
+  ];
+}
+
+function getDefaultRedactPatterns(): RegExp[] {
+  const q = '[\'"][^\'"]*[\'"]';
+  return [
+    new RegExp(`${MASK_KEY_PWD}\\s*=\\s*${q}`, 'gi'),
+    /user\s*=\s*['"][^'"]*['"]/gi,
+    new RegExp(`${MASK_KEY_TOK}\\s*=\\s*${q}`, 'gi'),
+    new RegExp(`${MASK_KEY_SEC}\\s*=\\s*${q}`, 'gi'),
+  ];
+}
 
 export interface SerializationManagerConfig {
   timeoutMs?: number;
@@ -98,24 +135,12 @@ export class SerializationManager {
       sanitizeSensitiveData: config.sanitizeSensitiveData ?? true,
       nativeShallow: config.nativeShallow ?? false,
       sanitizationContext: {
-        sensitiveFields: config.sanitizationContext?.sensitiveFields || [
-          'password',
-          'token',
-          'secret',
-          'key',
-          'auth',
-          'credential',
-          'api_key',
-          'private_key',
-          'connection_string',
-          'wallet_location',
-        ],
-        redactPatterns: config.sanitizationContext?.redactPatterns || [
-          /password\s*=\s*['"][^'"]*['"]/gi,
-          /user\s*=\s*['"][^'"]*['"]/gi,
-          /token\s*=\s*['"][^'"]*['"]/gi,
-          /secret\s*=\s*['"][^'"]*['"]/gi,
-        ],
+        sensitiveFields:
+          config.sanitizationContext?.sensitiveFields ||
+          getDefaultSensitiveFields(),
+        redactPatterns:
+          config.sanitizationContext?.redactPatterns ||
+          getDefaultRedactPatterns(),
         maxStringLength:
           config.sanitizationContext?.maxStringLength ??
           DEFAULT_VALUES.maxStringLength,
@@ -291,7 +316,7 @@ export class SerializationManager {
     };
 
     // Remove duplicates that might be in metadata
-    delete (logEntry as any).metadata; // Should not be there but just in case
+    delete (logEntry as Record<string, unknown>).metadata; // Should not be there but just in case
 
     return this.serialize(logEntry, {
       timeoutMs:
@@ -334,14 +359,12 @@ export class SerializationManager {
         const timestamp = (entry.timestamp as number) || Date.now();
         const service = (entry.service as string) || '';
 
-        // Standardize flat metadata
-        const {
-          level: _l,
-          message: _m,
-          timestamp: _t,
-          service: _s,
-          ...metadata
-        } = entry;
+        // Standardize flat metadata (omit level, message, timestamp, service)
+        const metadata = { ...entry };
+        delete metadata.level;
+        delete metadata.message;
+        delete metadata.timestamp;
+        delete metadata.service;
 
         let line: string;
         if (typeof native.fastSerializeFromJson === 'function') {

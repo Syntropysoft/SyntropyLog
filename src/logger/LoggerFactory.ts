@@ -8,6 +8,10 @@ import { MaskingEngine } from '../masking/MaskingEngine';
 import { SerializationManager } from '../serialization/SerializationManager';
 import { Transport } from './transports/Transport';
 import { ConsoleTransport } from './transports/ConsoleTransport';
+import { PrettyConsoleTransport } from './transports/PrettyConsoleTransport';
+import { CompactConsoleTransport } from './transports/CompactConsoleTransport';
+import { ColorfulConsoleTransport } from './transports/ColorfulConsoleTransport';
+import { ClassicConsoleTransport } from './transports/ClassicConsoleTransport';
 import { LogLevel } from './levels';
 import { SanitizationEngine } from '../sanitization/SanitizationEngine';
 import { JsonValue } from '../types';
@@ -16,6 +20,30 @@ import { JsonValue } from '../types';
 type TransportEntry =
   | Transport
   | { transport: Transport; env?: string | string[] };
+
+/**
+ * Options for reconfigureTransportsForDebug.
+ * Philosophy: only add console transports for developer clarity when reviewing an error inside a POD; existing transports are not removed.
+ * Allowed: ConsoleTransport, PrettyConsoleTransport, CompactConsoleTransport, ColorfulConsoleTransport, ClassicConsoleTransport.
+ * No AdapterTransport or custom — logs stay in the process (stdout/stderr).
+ */
+export interface ReconfigureTransportsForDebugOptions {
+  /** Add these transports to the default set (existing transports stay; for visual help when debugging in a POD). */
+  add: Transport[];
+}
+
+/** Built-in console transport classes allowed for debug reconfigure (console only, developer clarity in a POD). */
+const ALLOWED_DEBUG_TRANSPORT_CLASSES = [
+  ConsoleTransport,
+  PrettyConsoleTransport,
+  CompactConsoleTransport,
+  ColorfulConsoleTransport,
+  ClassicConsoleTransport,
+] as const;
+
+function isAllowedDebugTransport(t: Transport): boolean {
+  return ALLOWED_DEBUG_TRANSPORT_CLASSES.some((C) => t instanceof C);
+}
 
 /** Pure: same entries + currentEnv → same result; no I/O or mutation. */
 function resolveTransportsForEnv(
@@ -162,10 +190,13 @@ export class LoggerFactory {
   private readonly contextManager: IContextManager;
   /** @private The main framework instance, used as a mediator. */
   private readonly syntropyLogInstance: SyntropyLog;
-  /** @private A mapping of category names to their respective transports (default set per env). */
-  private readonly transports: Record<string, Transport[]>;
-  /** @private Pool of all configured transports by name, for override/add/remove per call. */
-  private readonly transportPool: Map<string, Transport>;
+  /** @private A mapping of category names to their respective transports (default set per env). Mutated by reconfigureTransportsForDebug/resetTransports. */
+  private transports: Record<string, Transport[]>;
+  /** @private Pool of all configured transports by name, for override/add/remove per call. Mutated by reconfigureTransportsForDebug/resetTransports. */
+  private transportPool: Map<string, Transport>;
+  /** @private Snapshot of transports/pool before first debug reconfigure; used by resetTransports. */
+  private savedOriginalTransports: Record<string, Transport[]> | null = null;
+  private savedOriginalPool: Map<string, Transport> | null = null;
   /** @private The global minimum log level for all created loggers. */
   private readonly globalLogLevel: LogLevel;
   /** @private The global service name, used as a default for loggers. */
@@ -289,6 +320,54 @@ export class LoggerFactory {
 
     this.loggerPool.set(cacheKey, logger);
     return logger;
+  }
+
+  /**
+   * Add console transport(s) in hot (e.g. per POD) for developer clarity only. Existing transports are not removed.
+   * Philosophy: only add a console transport so the developer reviewing an error inside a POD can see output clearly (e.g. ColorfulConsoleTransport). No AdapterTransport or custom. Call resetTransports() to restore (removes the added ones).
+   */
+  public reconfigureTransportsForDebug(
+    options: ReconfigureTransportsForDebugOptions
+  ): void {
+    const { add } = options;
+    if (!add?.length) return;
+    for (const t of add) {
+      if (!isAllowedDebugTransport(t)) {
+        throw new Error(
+          `reconfigureTransportsForDebug: only library console transports are allowed (for developer clarity inside a POD). Got: ${(t as { constructor?: { name?: string } }).constructor?.name ?? 'unknown'}.`
+        );
+      }
+    }
+    if (!this.savedOriginalTransports) {
+      this.savedOriginalTransports = {};
+      for (const k of Object.keys(this.transports)) {
+        this.savedOriginalTransports[k] = this.transports[k];
+      }
+      this.savedOriginalPool = new Map(this.transportPool);
+    }
+    const nameFor = (t: Transport): string =>
+      t.name ??
+      (t as { constructor?: { name?: string } }).constructor?.name ??
+      `transport-${this.transportPool.size}`;
+    this.transports.default = [...this.transports.default, ...add];
+    for (const t of add) {
+      this.transportPool.set(nameFor(t), t);
+    }
+    this.loggerPool.clear();
+  }
+
+  /**
+   * Restore transports to the config from before the first reconfigureTransportsForDebug (back to normal after debugging in a POD).
+   * No-op if reconfigureTransportsForDebug was never called.
+   */
+  public resetTransports(): void {
+    if (!this.savedOriginalTransports || !this.savedOriginalPool) return;
+    for (const k of Object.keys(this.savedOriginalTransports)) {
+      this.transports[k] = this.savedOriginalTransports[k];
+    }
+    this.transportPool.clear();
+    this.savedOriginalPool.forEach((v, k) => this.transportPool.set(k, v));
+    this.loggerPool.clear();
   }
 
   /**

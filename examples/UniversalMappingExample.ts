@@ -1,7 +1,7 @@
 /**
  * @file examples/UniversalMappingExample.ts
- * @description Demostración de UniversalAdapter y UniversalLogFormatter.
- * Mapea logs de aplicación a un esquema "Legacy SIEM" plano sin tocar el código de negocio.
+ * @description Demonstrates UniversalAdapter and UniversalLogFormatter.
+ * Maps application logs to a flat "Legacy SIEM" schema without touching business code.
  */
 import {
   syntropyLog,
@@ -12,62 +12,64 @@ import {
 import { AdapterTransport } from '../src/logger/transports/AdapterTransport';
 
 async function runExample() {
-  // 1. Definimos el mapeo para el "Legacy SIEM"
-  // El SIEM espera campos específicos: 'evt_time', 'sev', 'msg', 'app_id', 'tx_id'
+  // 1. Define the mapping for the "Legacy SIEM"
+  // SIEM expects specific fields: 'evt_time', 'sev', 'msg', 'app_id', 'tx_id'
   const legacyFormatter = new UniversalLogFormatter({
     mapping: {
       evt_time: 'timestamp',
       sev: 'level',
       msg: 'message',
-      app_id: { value: 'PAYMENT-GATEWAY-01' }, // Valor estático
-      tx_id: ['transactionId', 'correlationId', { value: 'N/A' }], // Fallbacks en cascada
-      user: 'user.id', // Path profundo (si existe en metadatos)
+      app_id: { value: 'PAYMENT-GATEWAY-01' }, // Static value
+      tx_id: ['transactionId', 'correlationId', { value: 'N/A' }], // Cascading fallbacks
+      user: 'user.id', // Deep path (if present in metadata)
       retention_days: 'retention.days',
     },
   });
 
-  // 2. Definimos el adaptador universal con un ejecutor (ej. una llamada a API o DB)
+  // 2. Define the universal adapter with an executor (e.g. API or DB call)
   const siemAdapter = new UniversalAdapter({
     executor: async (mappedData) => {
-      console.log('\n--- [DESTINO LEGACY SIEM] ---');
+      console.log('\n--- [LEGACY SIEM DESTINATION] ---');
       console.log(
-        'Enviando objeto mapeado:',
+        'Sending mapped object:',
         JSON.stringify(mappedData, null, 2)
       );
       console.log('-----------------------------\n');
-      // Aquí iría: await axios.post('http://localhost:3000/logs', mappedData);
+      // Here you would: await axios.post('http://localhost:3000/logs', mappedData);
     },
   });
 
-  // 3. Configuramos el transporte usando el adaptador y el formateador
+  // 3. Configure the transport using the adapter and formatter
   const legacyTransport = new AdapterTransport({
     adapter: siemAdapter,
-    formatter: legacyFormatter as any, // Cast por compatibilidad de tipos estructural
+    formatter: legacyFormatter as any, // Cast for structural type compatibility
     name: 'LegacySiemTransport',
   });
 
-  await syntropyLog.init({
-    logger: {
-      serviceName: 'payment-service',
-      level: 'info' as LogLevel,
-      serializerTimeoutMs: 5000,
-      transports: [legacyTransport],
-    },
+  await new Promise<void>((resolve, reject) => {
+    syntropyLog.on('ready', () => resolve());
+    syntropyLog.on('error', (err) => reject(err));
+    syntropyLog.init({
+      logger: {
+        serviceName: 'payment-service',
+        level: 'info' as LogLevel,
+        serializerTimeoutMs: 100,
+        transports: [legacyTransport],
+      },
+    });
   });
 
   const logger = syntropyLog.getLogger('payment-service');
 
-  console.log('Iniciando transacción...');
+  console.log('Starting transaction...');
 
-  // 5. El código de negocio solo loguea con metadatos estándar
-  // SyntropyLog se encarga de la magia del mapeo
-  await logger
-    .withTransactionId('TX-999555')
-    .info('Procesando pago de tarjeta', {
-      user: { id: 'usr_4422', email: 'test@example.com' },
-      amount: 1500.5,
-      retention: { days: 90, policy: 'FINANCIAL_RECORDS' },
-    });
+  // 5. Business code only logs with standard metadata
+  // SyntropyLog handles the mapping
+  await logger.withTransactionId('TX-999555').info('Processing card payment', {
+    user: { id: 'usr_4422', email: 'test@example.com' },
+    amount: 1500.5,
+    retention: { days: 90, policy: 'FINANCIAL_RECORDS' },
+  });
 
   await syntropyLog.shutdown();
 }
