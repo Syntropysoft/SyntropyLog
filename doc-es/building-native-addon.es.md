@@ -206,8 +206,8 @@ Para compilar el addon y luego empaquetar el **paquete principal** (con el addon
    ```bash
    pnpm pack
    ```
-   Se genera un `.tgz` (ej. `syntropylog-0.10.1.tgz`) que incluye `syntropylog-native` con el `.node` compilado para tu plataforma.
+   Se genera un `.tgz` (ej. `syntropylog-0.11.0.tgz`) que incluye `syntropylog-native` con el `.node` compilado para tu plataforma.
 
-3. **Instalar en otro proyecto**: `pnpm add /ruta/a/syntropylog-0.10.1.tgz`
+3. **Instalar en otro proyecto**: `pnpm add /ruta/a/syntropylog-0.11.0.tgz`
 
 Si te saltas el paso 1, el tarball llevará lo que haya en `syntropylog-native/` (por ejemplo un binario viejo o ninguno).
