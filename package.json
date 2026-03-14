@@ -212,6 +212,7 @@
   },
   "pnpm": {
     "overrides": {
+      "flatted": ">=3.4.0",
       "serialize-javascript": ">=7.0.3",
       "syntropylog-native": "link:../../../../Library/pnpm/global/5/node_modules/syntropylog-native",
       "syntropylog": "link:../../../../Library/pnpm/global/5/node_modules/syntropylog"
