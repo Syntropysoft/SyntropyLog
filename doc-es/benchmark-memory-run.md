@@ -95,7 +95,7 @@ SyntropyLog está pensado para **alta demanda** y entornos regulados. Las cifras
 - **Logging Matrix** — control declarativo de qué campos de contexto salen por nivel (poco en `info`, todo en `error`).
 - **Universal Adapter** (y **AdapterTransport**) — enviar logs a cualquier backend (PostgreSQL, MongoDB, Elasticsearch, S3) con un solo `executor`; sin atarte a un vendor.
 - **MaskingEngine** — reglas built-in y custom; los campos sensibles no salen del pipeline.
-- **Pipeline de serialización** — referencias circulares, límites de profundidad/ancho, timeouts; el log no bloquea el event loop.
+- **Pipeline de serialización** — referencias circulares, límite de profundidad configurable, timeouts; el log no bloquea el event loop.
 - **SanitizationEngine** — strip de caracteres de control; seguro frente a log injection.
 - **Contexto / headers** — propagación de correlation ID y transaction ID; única fuente de verdad desde la config.
 - **API fluida** — `withRetention`, `withSource`, `withTransactionId`.
@@ -107,6 +107,8 @@ SyntropyLog está pensado para **alta demanda** y entornos regulados. Las cifras
 - **Tree-shaking** — `sideEffects: false` y ESM; en el bundle solo entra lo que importás.
 
 Para alta demanda tenés **un solo bundle**: JSON, masking, matrix, adapters, contexto y seguridad, todo automático si está configurado — con poca memoria y sin rival en esa categoría.
+
+**Lista canónica con ejemplos:** cada punto de la lista anterior está desarrollado con explicación y ejemplos de código en [caracteristicas-y-ejemplos.md](./caracteristicas-y-ejemplos.md).
 
 ---
 

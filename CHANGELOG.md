@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.2
+
+### Patch Changes
+
+- Docs: README overhaul — full picture table (14 features), init-as-Promise pattern, and a "How" section per feature so users can see what the library does and how to use it. Serialization timeout example set to 100ms (50–100ms recommended). Aligned with doc-es/caracteristicas-y-ejemplos.md.
+
 ## 0.11.1
 
 ### Patch Changes

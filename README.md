@@ -17,92 +17,426 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-95.13%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.11.0-brightgreen.svg" alt="Version 0.11.0"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.11.1-brightgreen.svg" alt="Version 0.11.1"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
 ---
 
-## 🎯 What is SyntropyLog?
+## What is SyntropyLog?
 
-SyntropyLog is a **structured observability framework** for Node.js — built from scratch, designed around flexibility and control.
+SyntropyLog is a **structured observability framework** for Node.js. You declare what your logs should carry (context, level-based fields, retention, masking), and SyntropyLog makes it happen everywhere—automatically. No manual plumbing, no hidden behavior.
 
-The core idea is simple: **you declare what your logs should carry, and SyntropyLog makes it happen everywhere, automatically.** No manual plumbing, no scattered configuration, no hidden behavior.
-
-That means:
-- A **declarative Logging Matrix** that controls exactly which context fields appear at each log level — lean on `info`, full context on `error`.
-- A **fluent logger API** (`withRetention`, `withSource`, `withTransactionId`) that lets you create specialized loggers carrying arbitrary organization-defined metadata.
-- **Add, remove, or override transports on demand** — per log call you can send only to specific transports (`.override()`), add extra destinations (`.add()`), or drop one (`.remove()`), without creating new logger instances.
-- A **MaskingEngine** that redacts sensitive fields before they reach any transport — built-in strategies and fully custom rules.
-- An **Intelligent Serialization Pipeline** that automatically detects and neutralizes circular references, limits object depth, and enforces execution timeouts — making logs immune to application crashes.
-- A **UniversalAdapter** that routes logs to any backend (PostgreSQL, MongoDB, Elasticsearch, S3) via a single `executor` function — no coupling, no lock-in.
-- A **SanitizationEngine** that strips control characters from all log output, preventing log injection attacks.
-- **Lightning Speed**: Optimized core pipeline delivering **~1,000,000 ops/s** even with full masking and context.
-
-**This is not just another logger. It's about giving your team full declarative control over observability data with industry-leading performance and reliability.**
-
-### Built for regulated industries
-
-SyntropyLog was designed with the constraints of **banking, healthcare, and financial services** in mind:
-
-- **HIPAA**: Field-level control over what appears in logs at each severity level via the Logging Matrix.
-- **SOX**: Immutable audit trail via `withRetention` bindings and dedicated transports.
-
-### Tree-shaking friendly
-
-We ship with `sideEffects: false` and ESM so bundlers (Vite, Rollup, webpack, esbuild) can tree-shake unused code. What ends up in your app is only what you import.
+It is built for **high demand** and **regulated environments** (banking, healthcare, financial services): HIPAA-style field control via the Logging Matrix, SOX-style audit trails via `withRetention`, and a pipeline that never lets logging crash your app.
 
 ---
 
-## 🛡️ Why SyntropyLog? (The Resilience Factor)
+## Full picture — what's in the box
 
-Traditional loggers (and even modern ones) share a common weakness: **serialization is a blocking operation**. If you log a massive, deeply nested, or circular object, the Node.js Event Loop stops. Your API stops responding. Your service might even crash with a `TypeError`.
+Everything below is part of the same stack (benchmarks use this full stack). Each item has a **How** section in this README so you can see how to use it.
 
-SyntropyLog v0.11.0 introduces the **Log Resilience Engine**, making your application immune to "Death by Log":
+| # | Feature | What it does |
+|---|--------|---------------|
+| 1 | **Native addon (Rust)** | Single-pass serialize + mask + sanitize; ANSI strip. Falls back to JS if unavailable. |
+| 2 | **Logging Matrix** | Declarative control of which context fields appear per level (lean on `info`, full on `error`). |
+| 3 | **Universal Adapter** | Send logs to any backend (PostgreSQL, MongoDB, Elasticsearch, S3) via one `executor` function. |
+| 4 | **MaskingEngine** | Redact sensitive fields before any transport; built-in + custom rules. |
+| 5 | **Serialization pipeline** | Circular refs, depth limit, timeout; logging never blocks the event loop. |
+| 6 | **SanitizationEngine** | Strip control characters; log injection resistant. |
+| 7 | **Context / headers** | Correlation ID and transaction ID from config; single source of truth. |
+| 8 | **Fluent API** | `withRetention`, `withSource`, `withTransactionId` — bind once, carry on every log. |
+| 9 | **Per-call transport control** | `.override()`, `.add()`, `.remove()` for one log call without new logger instances. |
+| 10 | **Audit & retention** | `audit` level (always logged); `withRetention(anyJson)` for compliance routing. |
+| 11 | **Lifecycle** | `init()` / `shutdown()`; graceful flush on SIGTERM/SIGINT. |
+| 12 | **Observability hooks** | `onLogFailure`, `onTransportError`, `onSerializationFallback`, etc.; `isNativeAddonInUse()`. |
+| 13 | **Matrix in runtime** | `reconfigureLoggingMatrix()` without restart; only field visibility, not security. |
+| 14 | **Tree-shaking** | `sideEffects: false` + ESM; bundle only what you import. |
 
-1.  **Event Loop Protection**: Every serialization step is wrapped in a mandatory timeout (default: **50ms**). If serialization takes too long, it is aborted via `Promise.race`, and a safe subset of the data is logged instead. Your app keeps running.
-2.  **Circular Reference Immunity**: Built-in hygiene automatically detects and neutralizes circular references. No more `TypeError: Converting circular structure to JSON`.
-3.  **Configurable Safety Limits**: Every object is protected by a double-guard:
-    - `serializationMaxDepth` (default: **10**): Automatically truncates objects deeper than this to prevent Stack Overflow.
-    - `serializationMaxBreadth` (default: **100**): Limits arrays and object keys to prevent Event Loop blockage on massive structures.
-4.  **Silent Observer**: Logging should never throw. Our pipeline catches and reports its own failures inside the log message itself, ensuring 100% reliability.
-5.  **Lightning Pipeline**: Consolidation of serialization, masking, and sanitization into a single recursive pass, reaching Pino-level efficiency with Enterprise-level security.
-
-> [!WARNING]
-> **Pathological Object Protection**: When an object exceeds the configured Depth or Breadth, it will be automatically truncated (e.g., `[Max Depth reached]` or `[Truncated 500 items]`). This is a feature, not a bug — it ensures your application survives even when buggy code tries to log half the database!
+**More detail and examples (ES):** [doc-es/caracteristicas-y-ejemplos.md](doc-es/caracteristicas-y-ejemplos.md).
 
 ---
 
-## 🚀 Quick Start (60 seconds)
+## Quick Start
 
-### **1. Install**
+### Install
+
 ```bash
 npm install syntropylog
 ```
 
-For the best performance, the package includes **prebuilt native addon binaries (Rust)** for Linux, Windows, and macOS; they install automatically on supported platforms. If the addon is unavailable (e.g. unsupported Node version or platform), the framework falls back to the JS pipeline transparently.
+Prebuilt native addon (Rust) for Linux, Windows, macOS installs automatically on Node ≥20. If unavailable, the JS pipeline is used transparently.
 
-### **Available Console Transports**
+### Init and first log
 
-By default, SyntropyLog outputs **lightweight plain JSON to the console — automatically, with no configuration needed**. No imports, no setup, no extra dependencies.
-
-If you want **colored, human-readable output** for development, use one of the pretty console transports. Colours use **built-in ANSI codes** (no chalk or extra dependency). When stdout is a TTY you get colours; when piping or in CI, or if `NO_COLOR` is set, the same format is shown in plain text.
-
-| Transport | Style | Recommended for |
-| :--- | :--- | :--- |
-| *(default)* | Plain JSON | Production / log aggregators |
-| `ClassicConsoleTransport` | Structured single-line, colored | Development |
-| `PrettyConsoleTransport` | Human-readable pretty, colored | Development / debugging |
-| `CompactConsoleTransport` | Compact one-liner, colored | Development |
-| `ColorfulConsoleTransport` | Full-line colored | Development |
+**Initialization is a Promise that must resolve before you can print logs.** Until it resolves (on the `ready` event), `getLogger()` returns a no-op logger that drops all messages. Listen for `ready` and `error` *before* calling `init()`.
 
 ```typescript
-// Default — no import needed, works out of the box
-syntropyLog.init({ logger: { level: 'info', serviceName: 'my-app' } });
+import { syntropyLog } from 'syntropylog';
 
-// Pretty + colors (built-in ANSI; no extra deps)
+async function initializeSyntropyLog() {
+  return new Promise<void>((resolve, reject) => {
+    syntropyLog.on('ready', () => resolve());
+    syntropyLog.on('error', (err) => reject(err));
+    syntropyLog.init({
+      logger: { level: 'info', serviceName: 'my-app' },
+    });
+  });
+}
+
+async function main() {
+  await initializeSyntropyLog();   // promise must resolve before any log
+  const log = syntropyLog.getLogger();
+  log.info('Hello, SyntropyLog.');
+}
+main();
+```
+
+### Graceful shutdown
+
+```typescript
+process.on('SIGTERM', async () => {
+  await syntropyLog.shutdown();
+  process.exit(0);
+});
+process.on('SIGINT', async () => {
+  await syntropyLog.shutdown();
+  process.exit(0);
+});
+```
+
+### Framework entry points
+
+| Framework | Where to call `await init` |
+|----------|----------------------------|
+| Express / Fastify | Before `app.listen()` in server entry |
+| NestJS | `AppModule.onModuleInit()` or before `app.listen()` in `bootstrap()` |
+| Lambda / Serverless | Module-level lazy singleton (outside the handler) |
+
+---
+
+## 1. Native addon (Rust)
+
+**What:** Optional Rust addon does serialize + mask + sanitize in one pass. Used automatically when available; no config. Disable with `SYNTROPYLOG_NATIVE_DISABLE=1` (e.g. debugging).
+
+**How:** Nothing to configure. Check at runtime:
+
+```typescript
+if (syntropyLog.isNativeAddonInUse()) {
+  // Rust pipeline active
+}
+```
+
+See [doc-es/building-native-addon.es.md](doc-es/building-native-addon.es.md) for building from source.
+
+---
+
+## 2. Logging Matrix
+
+**What:** A JSON contract that defines exactly which context fields appear at each log level. If a field isn’t in the matrix for that level, it never appears in the output.
+
+**How:** Set `loggingMatrix` in `init()`:
+
+```typescript
+await syntropyLog.init({
+  logger: { level: 'info', serviceName: 'my-app' },
+  loggingMatrix: {
+    default: ['correlationId'],
+    info:    ['correlationId', 'userId', 'operation'],
+    warn:    ['correlationId', 'userId', 'operation', 'errorCode'],
+    error:   ['correlationId', 'userId', 'operation', 'errorCode', 'tenantId', 'orderId'],
+    fatal:   ['*'],  // all context fields
+  },
+});
+```
+
+| Matrix key | Resolves to context |
+|------------|---------------------|
+| `correlationId` | `x-correlation-id`, `correlationId` |
+| `transactionId` | `x-trace-id`, `transactionId` |
+| `userId`, `tenantId`, `operation`, `errorCode`, `orderId`, `paymentId`, `eventType` | same key |
+| `*` | All context fields |
+
+---
+
+## 3. Universal Adapter — log to any backend
+
+**What:** Send each log to PostgreSQL, MongoDB, Elasticsearch, S3, etc. by implementing a single `executor`. No vendor lock-in; you receive one structured object per log (already masked).
+
+**How:** Use `AdapterTransport` + `UniversalAdapter`:
+
+```typescript
+import { AdapterTransport, UniversalAdapter } from 'syntropylog';
+
+const dbTransport = new AdapterTransport({
+  name: 'db',
+  adapter: new UniversalAdapter({
+    executor: async (logEntry) => {
+      await prisma.systemLog.create({
+        data: {
+          level:         logEntry.level,
+          message:       logEntry.message,
+          serviceName:   logEntry.serviceName,
+          correlationId: logEntry.correlationId,
+          payload:       logEntry.meta,
+          timestamp:     new Date(logEntry.timestamp),
+        },
+      });
+    },
+  }),
+});
+```
+
+`logEntry` has: `level`, `message`, `serviceName`, `correlationId`, `timestamp`, `meta`. If `executor` throws, SyntropyLog logs the error and continues (Silent Observer).
+
+---
+
+## 4. MaskingEngine
+
+**What:** Redacts sensitive fields before logs reach any transport. Built-in rules (password, email, token, card, SSN, phone) plus custom rules by name/regex.
+
+**How:** Configure `masking` in `init()`:
+
+```typescript
+import { MaskingStrategy } from 'syntropylog';
+
+await syntropyLog.init({
+  logger: { ... },
+  masking: {
+    enableDefaultRules: true,
+    maskChar: '*',
+    preserveLength: true,
+    rules: [
+      {
+        pattern: /cuit|cuil/i,
+        strategy: MaskingStrategy.CUSTOM,
+        customMask: (value) => value.replace(/\d(?=\d{4})/g, '*'),
+      },
+    ],
+  },
+});
+```
+
+| Strategy | Example output |
+|----------|----------------|
+| PASSWORD | `********` |
+| EMAIL | `j***@example.com` |
+| TOKEN | `eyJh...a1B9c` |
+| CREDIT_CARD | `****-****-****-1234` |
+
+If masking fails, the pipeline does not throw (Silent Observer). Custom rules: use ReDoS-safe regex; keys longer than 256 chars are skipped.
+
+---
+
+## 5. Serialization pipeline (resilience)
+
+**What:** Prevents "death by log": circular refs are neutralized, depth is limited (default 10 → `[MAX_DEPTH_REACHED]`), and a configurable timeout via `serializerTimeoutMs` aborts long serialization so the event loop keeps running. For most apps 50–100ms is enough; the library default is higher.
+
+**How:** Set timeout in logger config (e.g. 50–100ms):
+
+```typescript
+logger: {
+  serviceName: 'my-app',
+  serializerTimeoutMs: 100,  // optional; e.g. 50–100ms for most apps
+}
+```
+
+Logging never throws; failures are reported inside the log payload.
+
+---
+
+## 6. SanitizationEngine
+
+**What:** Strips control characters and ANSI from string values before any transport writes. Reduces log injection risk.
+
+**How:** No configuration; it runs inside the pipeline. Together with the Logging Matrix (whitelist), it forms the safety boundary for log content.
+
+---
+
+## 7. Context — correlation ID and transaction ID
+
+**What:** One config defines header names; correlation and transaction IDs propagate to all logs and operations inside the same context (e.g. one request).
+
+**How:** Set `context` in `init()` and use a small middleware:
+
+```typescript
+await syntropyLog.init({
+  context: {
+    correlationIdHeader: 'X-Correlation-ID',
+    transactionIdHeader: 'X-Transaction-ID',
+  },
+});
+
+// Express/Fastify middleware (once per app)
+const { contextManager } = syntropyLog;
+app.use(async (req, res, next) => {
+  await contextManager.run(async () => {
+    const correlationId = contextManager.getCorrelationId();
+    contextManager.set(contextManager.getCorrelationIdHeaderName(), correlationId);
+    next();
+  });
+});
+```
+
+After that, every `logger.info(...)` inside the request carries the same `correlationId` without passing it manually.
+
+---
+
+## 8. Fluent API — withRetention, withSource, withTransactionId
+
+**What:** Builders that return new loggers with bound metadata: `withSource('ModuleName')`, `withTransactionId('txn-123')`, `withRetention({ policy: 'SOX', years: 5 })`. Every log from that logger carries that data.
+
+**How:**
+
+```typescript
+const log = syntropyLog.getLogger();
+
+const auditLogger = log
+  .withSource('PaymentService')
+  .withRetention({ policy: 'SOX_AUDIT_TRAIL', years: 5 });
+
+auditLogger.info({ userId: 123, action: 'payment' }, 'Payment processed');
+// Entry includes source and retention; your executor can route by retention.policy
+```
+
+| Builder | Binds |
+|---------|--------|
+| `withSource('X')` | `source: 'X'` |
+| `withTransactionId('id')` | `transactionId: 'id'` |
+| `withRetention({ ... })` | `retention: { ... }` (any JSON) |
+| `child({ k: v })` | arbitrary key-value |
+
+---
+
+## 9. Per-call transport control
+
+**What:** For a single log call you can send only to specific transports (`.override()`), add destinations (`.add()`), or remove one (`.remove()`), without creating new logger instances.
+
+**How:** Define a transport pool with `transportList` and `env`, then use the fluent methods on the next call only:
+
+```typescript
+await syntropyLog.init({
+  logger: {
+    envKey: 'NODE_ENV',
+    transportList: {
+      consola: new ColorfulConsoleTransport({ name: 'consola' }),
+      db:      dbTransport,
+      azure:   azureTransport,
+    },
+    env: {
+      development: ['consola'],
+      production:  ['consola', 'db', 'azure'],
+    },
+  },
+});
+
+const log = syntropyLog.getLogger('app');
+log.info('uses env default');
+log.override('consola').info('only to console');
+log.remove('db').add('azure').info('default minus db, plus azure');
+```
+
+See [examples/TRANSPORT_POOL_AND_ENV.md](examples/TRANSPORT_POOL_AND_ENV.md) and `examples/TransportPoolExample.ts`.
+
+---
+
+## 10. Audit and retention
+
+**What:** The `audit` level is always logged regardless of the configured level. `withRetention(anyJson)` attaches policy metadata (e.g. GDPR, SOX, PCI-DSS) so your `executor` can route to different tables or buckets.
+
+**How:**
+
+```typescript
+const auditLogger = log.withRetention({ policy: 'GDPR_ARTICLE_17', years: 7 });
+auditLogger.audit({ userId: 123, action: 'data-export' }, 'GDPR export');
+// Always written; retention travels in the entry for routing
+```
+
+Your `executor` can read `logEntry.retention?.policy` and persist to the right store.
+
+---
+
+## 11. Lifecycle — init / shutdown
+
+**What:** `init()` starts the pipeline and emits `ready` when safe to use. `shutdown()` flushes in-flight logs and closes resources; hook it to SIGTERM/SIGINT so you don’t lose logs on exit.
+
+**How:** Init is shown in Quick Start. Shutdown:
+
+```typescript
+process.on('SIGTERM', async () => {
+  await syntropyLog.shutdown();
+  process.exit(0);
+});
+```
+
+---
+
+## 12. Observability hooks
+
+**What:** Optional callbacks to observe failures without logging throwing: `onLogFailure`, `onTransportError`, `onSerializationFallback`, `onStepError`, `masking.onMaskingError`. Plus `isNativeAddonInUse()` at runtime.
+
+**How:** Pass them in `init()`:
+
+```typescript
+await syntropyLog.init({
+  logger: { ... },
+  onLogFailure: (err, entry) => metrics.increment('log_failures'),
+  onTransportError: (err, context) => alerting.notify('transport', context, err),
+  onSerializationFallback: () => metrics.increment('serialization_fallback'),
+  masking: { onMaskingError: (err) => metrics.increment('masking_errors') },
+});
+```
+
+| Hook | When it runs |
+|------|----------------|
+| `onLogFailure?(error, entry)` | Log call fails (serialization or transport) |
+| `onTransportError?(error, context)` | Transport fails; `context` is `'flush'`, `'shutdown'`, or `'log'` |
+| `onSerializationFallback?(reason)` | Native addon failed for this call; JS pipeline used |
+| `onStepError?(step, error)` | Pipeline step failed (e.g. hygiene) |
+| `masking.onMaskingError?(error)` | Masking failed (e.g. timeout); never receives raw payload |
+
+---
+
+## 13. Matrix in runtime
+
+**What:** Change which context fields are visible per level without restart. Security boundary: only field visibility changes; masking and transports stay as set at `init()`.
+
+**How:**
+
+```typescript
+syntropyLog.reconfigureLoggingMatrix({
+  default: ['correlationId'],
+  info:    ['correlationId', 'userId', 'operation'],
+  error:   ['*'],
+});
+// Restore later with original matrix
+```
+
+---
+
+## 14. Tree-shaking
+
+**What:** Package is published with `sideEffects: false` and ESM so bundlers include only what you import.
+
+**How:** Import only what you use; unused transports and adapters are dropped from the bundle.
+
+---
+
+## Console transports (default and pretty)
+
+By default the library outputs **plain JSON** to the console. For colored, human-readable output in development, use a pretty transport:
+
+| Transport | Style |
+|-----------|--------|
+| *(default)* | Plain JSON |
+| `ClassicConsoleTransport` | Single-line, colored |
+| `PrettyConsoleTransport` | Pretty-printed, colored |
+| `CompactConsoleTransport` | Compact one-liner, colored |
+| `ColorfulConsoleTransport` | Full-line colored |
+
+Colors use built-in ANSI; no chalk. Disabled when stdout is not a TTY or when `NO_COLOR` is set.
+
+```typescript
 import { ClassicConsoleTransport } from 'syntropylog';
-
 syntropyLog.init({
   logger: {
     level: 'info',
@@ -112,545 +446,26 @@ syntropyLog.init({
 });
 ```
 
-### **Transport pool and per-environment routing**
+---
 
-You can define a **named pool of transports** (`transportList`) and choose **per environment** which ones are active (`env`). For a single log call you can override, add, or remove destinations with `.override()`, `.add()`, and `.remove()`.
+## Security & Compliance
 
-```typescript
-import { syntropyLog, ColorfulConsoleTransport, AdapterTransport, UniversalAdapter } from 'syntropylog';
-
-const mockToConsole = (label: string) =>
-  new AdapterTransport({
-    name: label,
-    adapter: new UniversalAdapter({
-      executor: (data) => console.log(`[${label}]`, JSON.stringify(data)),
-    }),
-  });
-
-await syntropyLog.init({
-  logger: {
-    envKey: 'NODE_ENV',
-    transportList: {
-      consola: new ColorfulConsoleTransport({ name: 'consola' }),
-      db: mockToConsole('db'),
-      azure: mockToConsole('azure'),
-      archivo: mockToConsole('archivo'),
-    },
-    env: {
-      development: ['consola'],
-      staging: ['consola', 'archivo', 'azure'],
-      production: ['consola', 'db', 'azure'],
-    },
-  },
-  redis: { instances: [] },
-});
-
-const log = syntropyLog.getLogger('app');
-log.info('default according to env');
-log.override('consola').info('only to console');
-log.remove('db').add('archivo').info('default minus db, plus file');
-```
-
-**Full guide and runnable example:** see [examples/TRANSPORT_POOL_AND_ENV.md](examples/TRANSPORT_POOL_AND_ENV.md) and run `examples/TransportPoolExample.ts` to see it in action.
+| Dynamically configurable | Fixed at init |
+|--------------------------|---------------|
+| Logging Matrix, log level, additive masking rules | Transports, core masking config (`maskChar`, `maxDepth`), Redis/HTTP/broker |
 
 ---
 
-```typescript
-import { syntropyLog } from 'syntropylog';
-import { ClassicConsoleTransport } from 'syntropylog';
+## Documentation
 
-const config = {
-  logger: {
-    level: 'info',
-    serviceName: 'ecommerce-app',
-    transports: [new ClassicConsoleTransport()],
-  },
-  context: {
-    correlationIdHeader: 'X-Correlation-ID', // defines the header name used everywhere
-  },
-};
-
-// Always wait for the 'ready' event — see the Critical section below
-async function initializeSyntropyLog() {
-  return new Promise<void>((resolve, reject) => {
-    syntropyLog.on('ready', () => resolve());
-    syntropyLog.on('error', (err) => reject(err));
-    syntropyLog.init(config);
-  });
-}
-
-await initializeSyntropyLog();
-
-// Safe to use from here on
-const logger = syntropyLog.getLogger();
-logger.info('System is clean and ready.');
-```
-
-### **Optional error and fallback hooks**
-
-You can pass optional callbacks in the config for observability (logging never throws; these hooks let you observe failures):
-
-| Hook | When it is called |
-|------|--------------------|
-| `onLogFailure?(error, entry)` | When a log call fails (serialization or transport error). |
-| `onTransportError?(error, context)` | When a transport fails (flush, shutdown, or log write). `context` is `'flush'`, `'shutdown'`, or `'log'`. |
-| `onSerializationFallback?(reason)` | When the native addon is used but fails for a call and the framework falls back to the JS pipeline. |
-| `onStepError?(step, error)` | When a pipeline step fails (e.g. hygiene). |
-| `masking.onMaskingError?(error)` | When masking fails (e.g. timeout); never receives raw payload. |
-
-Use `onSerializationFallback` to detect when the native addon failed for a given call and the JS pipeline was used instead (e.g. for metrics or alerting). You can also call `syntropyLog.isNativeAddonInUse()` at runtime to check if the Rust addon is loaded.
-
-Example: `syntropyLog.init({ onLogFailure: (err) => metrics.increment('log_failures'), ... });`
-
-### **3. Graceful Shutdown (Essential)**
-```typescript
-async function gracefulShutdown() {
-  await syntropyLog.shutdown();
-}
-
-process.on('SIGTERM', async () => { await gracefulShutdown(); process.exit(0); });
-process.on('SIGINT',  async () => { await gracefulShutdown(); process.exit(0); });
-```
+- **[Features and examples (ES)](doc-es/caracteristicas-y-ejemplos.md)** — Canonical stack list with explanations and code examples; aligned with the benchmark report.
+- **[Benchmark report (throughput + memory)](doc-es/benchmark-memory-run.md)** — Run `pnpm run bench` or `pnpm run bench:memory` from repo root. Compare native vs JS: `pnpm run bench` vs `SYNTROPYLOG_NATIVE_DISABLE=1 pnpm run bench`.
+- **[Rust addon (ES)](doc-es/building-native-addon.es.md)** — Build from source.
+- **[Improvement plan & roadmap](doc-es/code-improvement-analysis-and-plan.md)** — Backlog and phased plan.
+- **[Rust implementation plan (ES)](doc-es/rust-implementation-plan.md)** — Native addon checklist; links to [rust-pipeline-optimization.md](doc-es/rust-pipeline-optimization.md).
 
 ---
 
-## ⚠️ Critical: Await Initialization Before Use
+## Contributing & License
 
-> **SyntropyLog MUST be fully initialized before any call to `getLogger()`, `getRedis()`, or any other resource.** Calling these methods before initialization completes will silently produce a no-op logger that **drops all messages**.
-
-### Why this matters
-
-`syntropyLog.init()` bootstraps the internal pipeline, connects managed resources (Redis, brokers), and wires up serialization and masking layers asynchronously. Until the `ready` event fires, there is no active logger.
-
-### ❌ Anti-pattern — fire-and-forget init
-
-```typescript
-syntropyLog.init(config); // ← not awaited
-
-const logger = syntropyLog.getLogger();
-logger.info('This message is silently dropped.'); // ← init not complete yet
-```
-
-### ✅ Correct pattern — event-based initialization
-
-```typescript
-async function initializeSyntropyLog() {
-  return new Promise<void>((resolve, reject) => {
-    syntropyLog.on('ready', () => resolve());  // ← wait for this
-    syntropyLog.on('error', (err) => reject(err));
-    syntropyLog.init(config);
-  });
-}
-
-await initializeSyntropyLog(); // ← nothing runs before this resolves
-const logger = syntropyLog.getLogger();
-logger.info('System initialized and ready.');
-```
-
-### Framework entry points
-
-| Framework | Bootstrap location |
-| :--- | :--- |
-| **Express / Fastify** | Call `await initializeSyntropyLog()` before `app.listen()` in `server.ts` / `main.ts` |
-| **NestJS** | Inside `AppModule.onModuleInit()` or in `bootstrap()` before `app.listen()` |
-| **Lambda / Serverless** | Module-level block (outside the handler), using a lazy singleton pattern |
-
----
-
-## 🔗 Context: Automatic Correlation ID Propagation
-
-> Context management is powered by Node.js `AsyncLocalStorage`. Context is **not global** — it only exists inside `contextManager.run()` blocks. In production, SyntropyLog's adapters create it automatically for every request.
-
-### How it works
-
-The `correlationIdHeader` you set in `context` config is the **single source of truth** — it's the header name read from incoming requests and propagated to all outgoing calls and logs.
-
-```typescript
-// Defined once in init()
-context: {
-  correlationIdHeader: 'X-Correlation-ID',
-}
-```
-
-### The Context Wrapper
-
-```typescript
-// ❌ WITHOUT context — no correlationId in logs
-logger.info('User logged in');
-
-// ✅ WITH context — correlationId flows automatically to every log
-await contextManager.run(async () => {
-  logger.info('User logged in'); // correlationId attached automatically
-});
-```
-
-### 🔮 The Magic Middleware (2 Lines of Code)
-
-Add this **once** to your Express/Fastify app and never think about Correlation IDs again:
-
-```typescript
-app.use(async (req, res, next) => {
-  await contextManager.run(async () => {
-    // 🎯 MAGIC: Just 2 lines!
-    const correlationId = contextManager.getCorrelationId();             // Detects incoming or generates new
-    contextManager.set(contextManager.getCorrelationIdHeaderName(), correlationId); // Sets in context
-
-    next();
-  });
-});
-```
-
-Why this is marvelous:
-
-- **Intelligent Detection**: `getCorrelationId()` uses the existing ID from the incoming request or generates a new one
-- **Automatic Configuration**: `getCorrelationIdHeaderName()` reads your `context.correlationIdHeader` config — change it once, updated everywhere
-- **Automatic Propagation**: Once set, it propagates to all logs and operations
-
-### In Real Applications
-
-In production, context is created automatically by SyntropyLog's built-in adapters (no manual `run()` needed):
-
-- HTTP middleware (Express, Fastify, Koa)
-- Message queue handlers (Kafka, RabbitMQ)
-- Background job processors / API gateways
-
-| Scenario | Pattern |
-| :--- | :--- |
-| **Examples & quick tests** | Wrap logging in `contextManager.run()` manually |
-| **Production apps** | Use SyntropyLog's HTTP/broker adapters — context is automatic |
-
----
-
-## 🎯 What Your Logs Look Like
-
-The **Logging Matrix** lets you control exactly how much data appears per log level — lean on success, rich on failure:
-
-**INFO (success path)** — minimal cost:
-```
-12:56:00 [INFO] (ecommerce-app): User request processed { status: 'completed', duration: '150ms' }
-{ "userId": 123, "operation": "user-login" }
-```
-
-**ERROR (failure path)** — full context for debugging:
-```
-12:56:00 [ERROR] (ecommerce-app): User request processed { status: 'completed', duration: '150ms' }
-{
-  "userId": 123, "email": "user@example.com", "password": "***MASKED***",
-  "firstName": "John", "ipAddress": "127.0.0.1",
-  "sessionId": "sess-789", "requestId": "req-456"
-}
-```
-
-> Same log call, different information per level. Success logs are lean and cheap; error logs have all the context you need to debug — with sensitive fields always masked.
-
----
-
-## 📋 Logging Matrix — Declarative Field Control
-
-The **Logging Matrix** is a JSON contract that defines *exactly* which context fields appear in each log level. It's lightweight, powerful, and provides a strong security guarantee: **if a field isn't in the matrix, it can't appear in the log output — no matter what's in the context.**
-
-### Why this matters
-
-Without it, any field stored in the `AsyncLocalStorage` context would flow into every log. With it, you have an explicit whitelist per level:
-
-```typescript
-await syntropyLog.init({
-  logger: { ... },
-  context: { ... },
-  loggingMatrix: {
-    // Always include these in every level (unless overridden below)
-    default: ['correlationId'],
-
-    // info: lean — just what you need to understand the happy path
-    info:  ['correlationId', 'userId', 'operation'],
-
-    // warn: a bit more context to understand what triggered the warning
-    warn:  ['correlationId', 'userId', 'operation', 'errorCode'],
-
-    // error/fatal: everything — full context to debug the failure
-    error: ['correlationId', 'userId', 'operation', 'errorCode', 'tenantId', 'orderId'],
-    fatal: ['*'], // wildcard: include ALL context fields
-  },
-});
-```
-
-Available named fields mapped by the engine:
-
-| Matrix key | Context key(s) it resolves |
-| :--- | :--- |
-| `correlationId` | `x-correlation-id`, `correlationId` |
-| `transactionId` | `x-trace-id`, `transactionId` |
-| `userId` | `userId` |
-| `tenantId` | `tenantId` |
-| `operation` | `operation` |
-| `errorCode` | `errorCode` |
-| `orderId` | `orderId` |
-| `paymentId` | `paymentId` |
-| `eventType` | `eventType` |
-| `*` | All context fields (wildcard for `debug`/`fatal`) |
-
-### 🔒 Injection Safety
-
-The `SanitizationEngine` runs **before** any transport writes a log entry. It strips ANSI escape codes and control characters from every string value — making log injection attacks against terminal or SIEM viewers impossible.
-
-Two-layer protection:
-1. **Logging Matrix** — whitelist filter: only declared fields pass through
-2. **SanitizationEngine** — strips control characters from string values before output
-
-### Dynamic reconfiguration
-
-The matrix can be updated at runtime **without restarting** your application. Useful for temporarily increasing verbosity in production:
-
-```typescript
-const { contextManager } = syntropyLog;
-
-// Temporarily enable full context for debug investigation
-contextManager.reconfigureLoggingMatrix({
-  default: ['correlationId'],
-  info:    ['correlationId', 'userId', 'operation'],
-  error:   ['*'], // full context on errors
-});
-
-// Later, restore original config
-contextManager.reconfigureLoggingMatrix(originalMatrix);
-```
-
-> **Security boundary**: `reconfigureLoggingMatrix()` only changes *which* context fields are visible — it cannot alter masking rules, transports, or any security configuration set at `init()` time.
-
----
-
-## 🛡️ Data Masking
-
-SyntropyLog ships with a **MaskingEngine** that automatically redacts sensitive fields in every log — before they ever reach a transport or database.
-
-### Built-in strategies (enabled by default)
-
-| Strategy | Matched field names (regex) | Example output |
-| :--- | :--- | :--- |
-| `PASSWORD` | `password`, `pass`, `pwd`, `secret` | `********` |
-| `EMAIL` | `email` | `j***@example.com` |
-| `TOKEN` | `token`, `api_key`, `auth_token`, `jwt`, `bearer` | `eyJh...a1B9c` |
-| `CREDIT_CARD` | `credit_card`, `card_number`, `payment_number` | `****-****-****-1234` |
-| `SSN` | `ssn`, `social_security`, `security_number` | `***-**-6789` |
-| `PHONE` | `phone`, `phone_number`, `mobile_number` | `***-***-4567` |
-
-### Configuration in `init()`
-
-```typescript
-import { MaskingStrategy } from 'syntropylog';
-
-await syntropyLog.init({
-  logger: { ... },
-  context: { ... },
-  masking: {
-    // Default rules are ON — set to false to start from scratch
-    enableDefaultRules: true,
-
-    // Global mask character
-    maskChar: '*',
-
-    // Preserve original field length by default
-    preserveLength: true,
-
-    // Add your own rules on top of the defaults
-    rules: [
-      {
-        // Mask any field whose name contains 'cuit' or 'cuil'
-        pattern: /cuit|cuil/i,
-        strategy: MaskingStrategy.CUSTOM,
-        customMask: (value) => value.replace(/\d(?=\d{4})/g, '*'), // keep last 4 digits
-      },
-      {
-        // Mask internal API keys
-        pattern: /internal_key|service_secret/i,
-        strategy: MaskingStrategy.TOKEN,
-      },
-    ],
-  },
-});
-```
-
-> **Silent Observer guarantee**: if the masking engine fails for any reason, it returns the original object and the application keeps running — it never throws.
-
-**Performance**: Built-in rules use synchronous regex matching (safe, known patterns). Custom rules use the same synchronous engine for maximum speed.
-
-> ⚠️ **Security Warning (Custom Rules)**
-> Node.js regular expressions execute synchronously on the main thread. To prevent Event Loop blocking, SyntropyLog automatically skips evaluating any JSON keys longer than 256 characters. However, when writing **Custom Masking Rules**, it is your responsibility to write optimized, ReDoS-safe regular expressions. A catastrophic backtracking pattern in a custom rule could temporarily freeze your application if triggered by a specifically crafted payload.
-
----
-
-## 💾 Universal Persistence — Log to Any Database
-
-The `UniversalAdapter` lets you send structured logs to **any storage backend** (PostgreSQL, MongoDB, Elasticsearch, S3, etc.) by providing a single `executor` function. No coupling to any ORM or driver.
-
-```typescript
-import { UniversalAdapter } from 'syntropylog';
-import { prisma } from './db'; // your Prisma client, Mongoose model, pg pool, etc.
-
-const dbTransport = new UniversalAdapter({
-  executor: async (logEntry) => {
-    // logEntry is the fully-formed, masked log object
-    await prisma.systemLog.create({
-      data: {
-        level:       logEntry.level,
-        message:     logEntry.message,
-        service:     logEntry.serviceName,
-        correlationId: logEntry.correlationId,
-        payload:     logEntry.meta,   // JSON column
-        timestamp:   new Date(logEntry.timestamp),
-      },
-    });
-  },
-});
-
-await syntropyLog.init({
-  logger: {
-    serviceName: 'ecommerce-app',
-    transports: [new ClassicConsoleTransport(), dbTransport], // ← add alongside console
-  },
-  ...
-});
-```
-
-### How the executor receives data
-
-The `executor` receives a single structured object — already masked and serialized — with these fields:
-
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `level` | `string` | Log level: `info`, `error`, etc. |
-| `message` | `string` | The log message |
-| `serviceName` | `string` | From your config |
-| `correlationId` | `string` | From the active context |
-| `timestamp` | `number` | Unix timestamp |
-| `meta` | `object` | Any extra fields passed to the log call — already masked |
-
-> **Silent Observer**: if your `executor` throws, SyntropyLog logs the error to console and continues — your app never crashes because of a log transport failure.
-
-### 🔗 Fluent Logger API — Specialized Loggers
-
-The `ILogger` interface provides **fluent builders** that create new, immutable child loggers with specific bindings attached. Every log call from that logger will carry those bindings automatically — no passing parameters around.
-
-| Builder | What it binds | Typical use |
-| :--- | :--- | :--- |
-| `withSource('ModuleName')` | `source: 'ModuleName'` | Tag logs by module or component |
-| `withTransactionId('txn-123')` | `transactionId: 'txn-123'` | Track a business transaction ID |
-| `withRetention({ ...anyJson })` | `retention: { ...anyJson }` | Attach org-defined metadata to route logs |
-| `child({ key: value })` | Any key-value pairs | General-purpose bindings |
-
-All builders return a **new logger** — the original is never mutated.
-
-#### `withRetention()` — Your JSON, Your Rules
-
-`withRetention()` accepts **any JSON** object. SyntropyLog deep-clones it and attaches it as a `retention` field in every log entry — without reading or interpreting its contents. The meaning belongs entirely to your organization.
-
-```typescript
-const logger = syntropyLog.getLogger();
-
-// Each logger carries the metadata your team defined
-const complianceLogger = logger.withRetention({
-  policy:    'GDPR_ARTICLE_17',
-  years:     7,
-  immutable: true,
-  region:    'eu-west-1',
-});
-
-const auditLogger = logger.withRetention({
-  policy: 'SOX_AUDIT_TRAIL',
-  years:  5,
-});
-
-const debugLogger = logger.withRetention({
-  policy: 'EPHEMERAL',
-  days:   7,
-  tier:   'hot',
-});
-
-// Combine with other fluent builders
-const paymentAuditLogger = logger
-  .withSource('PaymentService')
-  .withRetention({ policy: 'PCI_DSS', years: 5 });
-```
-
-Use them anywhere in your application — the binding is already in every log:
-
-```typescript
-// In PaymentService.ts
-complianceLogger.info({ userId: 123, action: 'data-export' }, 'GDPR event');
-
-// In AuthModule.ts — completely independent, same pattern
-auditLogger.warn({ userId: 456, action: 'login-failed' }, 'Security event');
-```
-
-Each entry arrives at the transport with `retention` ready to be acted upon:
-
-```json
-{
-  "level":         "info",
-  "message":       "GDPR event",
-  "correlationId": "uuid-...",
-  "source":        "PaymentService",
-  "retention":     { "policy": "GDPR_ARTICLE_17", "years": 7, "immutable": true },
-  "userId":        123,
-  "action":        "data-export"
-}
-```
-
-Your executor routes it — SyntropyLog has no opinion on the content:
-
-```typescript
-const dbTransport = new UniversalAdapter({
-  executor: async (logEntry) => {
-    const policy = logEntry.retention?.policy;
-
-    const destination =
-      policy === 'GDPR_ARTICLE_17' || policy === 'SOX_AUDIT_TRAIL' ? 'audit_logs'
-      : policy === 'PCI_DSS'                                        ? 'payment_audit_logs'
-      : policy === 'EPHEMERAL'                                      ? 'debug_logs'
-      :                                                               'system_logs';
-
-    await db[destination].insert(logEntry);
-  },
-});
-```
-
-> **The JSON is yours.** Field names, values, and interpretation belong entirely to your organization. `withRetention()` is just the mechanism to bind it once and have it travel with every log — automatically, safely, immutably.
-
----
-
-## ✨ Key Capabilities
-
-| Feature | Description |
-| :--- | :--- |
-| **Instance Management** | Register shared resources once, use them everywhere with confidence. |
-| **Correlation Tracking** | Trace requests across multiple services and DBs automatically. |
-| **Silent Observer** | If logging fails, your application keeps running perfectly. |
-| **Universal Persistence** | Map logs to ANY database (SQL/NoSQL) with pure JSON mapping. |
-
----
-
----
-
----
-
-## 🔒 Security & Compliance
-
-| | Dynamically configurable | Immutable |
-| :--- | :--- | :--- |
-| ✅ **Safe to change** | Logging Matrix, Log Level, additive Masking Fields | — |
-| 🔒 **Fixed at init** | — | Transports, core masking config (`maskChar`, `maxDepth`), Redis/HTTP/broker infrastructure |
-
----
-
-## 📚 Documentation
-
-- **[Improvement plan & roadmap](docs/code-improvement-analysis-and-plan.md)** — Code analysis, prioritized backlog, and phased work plan.
-- **[Rust addon implementation plan](doc-es/rust-implementation-plan.md)** (ES) — Phased checklist to maximize use of the native addon (“Formula 1” path); links to [rust-pipeline-optimization.md](doc-es/rust-pipeline-optimization.md) for details.
-- **Benchmarks** — Run `pnpm run bench` or `pnpm run bench:memory` from the repo root. [Benchmark run report (throughput + memory + high-demand stack)](docs/benchmark-memory-run.md) (EN) · [Informe de ejecución (ES)](doc-es/benchmark-memory-run.md). With the optional Rust addon built (`cd syntropylog-native && pnpm run build`), the benchmark reports native addon usage. To compare native vs JS-only: `pnpm run bench` vs `SYNTROPYLOG_NATIVE_DISABLE=1 pnpm run bench`.
-
----
-
-## 🤝 Contributing & License
-
-We love contributors! Check our [Contributing Guide](./CONTRIBUTING.md).
-Project licensed under **Apache-2.0**.
+See [CONTRIBUTING.md](./CONTRIBUTING.md). License: **Apache-2.0**.
