@@ -127,8 +127,8 @@ jobs:
 
       - name: Run benchmark and assert native addon in use
         run: |
-          # Run from repo root so workspace addon (with freshly built .node) is resolved
-          pnpm run bench 2>&1 | tee bench.log
+          # bench:memory uses NODE_OPTIONS=--expose-gc for stable memory numbers
+          pnpm run bench:memory 2>&1 | tee bench.log
           if ! grep -q "native addon (Rust): yes" bench.log; then
             echo "Expected 'native addon (Rust): yes' in benchmark output. First lines of bench.log:"
             head -25 bench.log
