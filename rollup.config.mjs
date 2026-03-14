@@ -43,10 +43,7 @@ const jsPlugins = [
   json(),
 ];
 
-// ESM bundles need a require shim so require('syntropylog-native') works (resolve from dist/ like CJS).
-const esmRequireIntro = `import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-`;
+// ESM: createRequire is already provided by SerializationManager.ts in the bundle; do not inject a duplicate intro.
 
 // Base configuration for each entry point.
 const createEntryConfig = (
@@ -106,7 +103,6 @@ export default [
         sourcemap: false,
         entryFileNames: '[name].mjs',
         chunkFileNames: 'chunks/[name]-[hash].mjs',
-        intro: esmRequireIntro,
       },
     ],
     plugins: mainJsPlugins,

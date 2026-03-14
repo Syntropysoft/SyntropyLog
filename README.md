@@ -73,23 +73,6 @@ SyntropyLog v0.11.0 introduces the **Log Resilience Engine**, making your applic
 
 ---
 
-## 📊 Performance Benchmarks
-
-Tested with **2,000,000 logs** on Node.js 20+ (Nulled I/O).
-
-| Library | Throughput | Avg Latency | Notes |
-| :--- | :--- | :--- | :--- |
-| **Pino** | ~4.1M ops/s | 0.24 µs | Fastest, no masking by default |
-| **SyntropyLog v0.11.0** | **~980k ops/s** | **1.02 µs** | **Secure-by-default (Masking + Context)** |
-| **Console.log** | ~1.2M ops/s | 0.83 µs | Baseline Node.js performance |
-| **Winston** | ~175k ops/s | 5.70 µs | Traditional legacy logger |
-
-> SyntropyLog is **5.5x faster than Winston** and only ~20% slower than pure console while providing deep-object masking and context management.
-
-To compare native addon vs JS-only pipeline: run `pnpm run bench` (with addon) and `SYNTROPYLOG_NATIVE_DISABLE=1 pnpm run bench` (JS only). The benchmark reports "native addon (Rust): yes/no" at startup.
-
----
-
 ## 🚀 Quick Start (60 seconds)
 
 ### **1. Install**
@@ -663,7 +646,7 @@ const dbTransport = new UniversalAdapter({
 
 - **[Improvement plan & roadmap](docs/code-improvement-analysis-and-plan.md)** — Code analysis, prioritized backlog, and phased work plan.
 - **[Rust addon implementation plan](doc-es/rust-implementation-plan.md)** (ES) — Phased checklist to maximize use of the native addon (“Formula 1” path); links to [rust-pipeline-optimization.md](doc-es/rust-pipeline-optimization.md) for details.
-- **Benchmarks** — Summary in the [Performance Benchmarks](#-performance-benchmarks) section above; run `pnpm run bench` or `pnpm run bench:memory` from the repo root. [Benchmark run report (throughput + memory + high-demand stack)](docs/benchmark-memory-run.md) (EN) · [Informe de ejecución (ES)](doc-es/benchmark-memory-run.md). With the optional Rust addon built (`cd syntropylog-native && pnpm run build`), the benchmark reports native addon usage.
+- **Benchmarks** — Run `pnpm run bench` or `pnpm run bench:memory` from the repo root. [Benchmark run report (throughput + memory + high-demand stack)](docs/benchmark-memory-run.md) (EN) · [Informe de ejecución (ES)](doc-es/benchmark-memory-run.md). With the optional Rust addon built (`cd syntropylog-native && pnpm run build`), the benchmark reports native addon usage. To compare native vs JS-only: `pnpm run bench` vs `SYNTROPYLOG_NATIVE_DISABLE=1 pnpm run bench`.
 
 ---
 

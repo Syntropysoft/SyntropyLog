@@ -1,5 +1,16 @@
 # Security Policy
 
+## Environment Variables
+
+This package reads **only** the following environment variables. **None are used for credentials, secrets, or data exfiltration.**
+
+| Variable | Purpose |
+| -------- | ------- |
+| `NO_COLOR` | [Standard convention](https://no-color.org/) to disable ANSI colors in console output (e.g. CI, pipes). Checked only to decide whether to use colored output. |
+| `SYNTROPYLOG_NATIVE_DISABLE` | When set to `1`, disables the optional native addon so the library runs in pure JS (e.g. debugging, environments where the addon is not built). |
+
+No other environment variables are read. No API keys, tokens, or secrets are ever read from the environment by this package.
+
 ## Supported Versions
 
 Use this section to tell people about which versions of your project are
