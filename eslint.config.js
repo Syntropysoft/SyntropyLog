@@ -53,5 +53,17 @@ module.exports = tseslint.config(
         rules: {
             '@typescript-eslint/no-explicit-any': 'off',
         },
+    },
+    {
+        files: ['**/*.mjs'],
+        languageOptions: {
+            globals: {
+                console: 'readonly',
+                process: 'readonly',
+                JSON: 'readonly',
+                URL: 'readonly',
+                Buffer: 'readonly',
+            },
+        },
     }
 );

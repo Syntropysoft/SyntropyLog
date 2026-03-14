@@ -10,6 +10,7 @@ import { SerializationManager } from '../serialization/SerializationManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
 import { errorToJsonValue } from '../types';
+import { DEFAULT_VALUES } from '../constants';
 
 export type SyntropyLogState =
   | 'NOT_INITIALIZED'
@@ -42,7 +43,9 @@ const terminateProcess = async (
     childProcess.on('exit', onExit);
   });
 
-  const timeout = new Promise<void>((resolve) => setTimeout(resolve, 5000));
+  const timeout = new Promise<void>((resolve) =>
+    setTimeout(resolve, DEFAULT_VALUES.shutdownWaitMs)
+  );
 
   await Promise.race([gracefulExit, timeout]);
 
@@ -104,6 +107,8 @@ export class LifecycleManager extends EventEmitter {
         timeoutMs: this.config.logger?.serializerTimeoutMs,
         sanitizeSensitiveData:
           this.config.masking?.enableDefaultRules !== false,
+        onStepError: this.config.onStepError,
+        onSerializationFallback: this.config.onSerializationFallback,
       });
 
       this.maskingEngine = new MaskingEngine({
@@ -112,6 +117,7 @@ export class LifecycleManager extends EventEmitter {
         preserveLength: this.config.masking?.preserveLength,
         enableDefaultRules: this.config.masking?.enableDefaultRules !== false,
         regexTimeoutMs: this.config.masking?.regexTimeoutMs,
+        onMaskingError: this.config.masking?.onMaskingError,
       });
 
       this.loggerFactory = new LoggerFactory(
@@ -170,10 +176,10 @@ export class LifecycleManager extends EventEmitter {
       );
       await Promise.allSettled(shutdownSteps);
 
-      // Final shutdown messages; await so they are fully written before we close transports
-      await this.logger?.info('✅ Shutdown steps completed');
-      await this.logger?.info('All managers have been shut down.');
-      await this.logger?.info('✅ State changed to SHUTDOWN');
+      // Final shutdown messages (log is synchronous; actual drain is done in transport shutdown)
+      this.logger?.info('✅ Shutdown steps completed');
+      this.logger?.info('All managers have been shut down.');
+      this.logger?.info('✅ State changed to SHUTDOWN');
 
       await this.loggerFactory?.shutdown?.();
 
@@ -189,7 +195,7 @@ export class LifecycleManager extends EventEmitter {
         error: errorToJsonValue(error),
       });
       await this.loggerFactory?.shutdown?.();
-      // Transports vacíos también en caso de error (seguimos en orden de apagado)
+      // Empty transports on error as well (we still follow shutdown order)
       if (this.state === 'ERROR') {
         this.emit('transports_drained');
       }

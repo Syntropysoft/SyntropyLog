@@ -1,64 +1,48 @@
 /**
  * FILE: tests/type-exports.test.ts
- * DESCRIPTION: Smoke test for type exports to ensure all type exports work correctly.
- * This test verifies that all exported types can be imported without errors.
+ * DESCRIPTION: Smoke test for type exports and P0 regression: index exports must be in type-exports.
  */
 
 import { describe, it, expect } from 'vitest';
 
-// Import all type exports to verify they work
+// Import types to verify they exist (compile-time check)
 import type {
-  // Core Types
   SyntropyLogConfig,
   ILogger,
   IContextManager,
   LogEntry,
-  
-  // Transport Types
   LogFormatter,
-  
-  // Redis Types
-  IBeaconRedis,
 } from '../src/type-exports';
 
 describe('Type Exports Smoke Test', () => {
-  it('should export all core types without errors', () => {
-    // This test verifies that all types can be imported
-    // If any type is missing or has issues, this will fail at compile time
-    
-    // Verify that the types are defined (not undefined)
+  it('should export core types without errors', () => {
     expect(typeof SyntropyLogConfig).toBeDefined();
     expect(typeof ILogger).toBeDefined();
     expect(typeof IContextManager).toBeDefined();
     expect(typeof LogEntry).toBeDefined();
   });
 
-  it('should export all transport types without errors', () => {
+  it('should export transport types without errors', () => {
     expect(typeof LogFormatter).toBeDefined();
   });
+});
 
-  it('should export all Redis types without errors', () => {
-    expect(typeof IBeaconRedis).toBeDefined();
-  });
+/**
+ * P0 regression: every runtime export from index must exist in type-exports
+ * so that dist/index.d.ts stays complete (rollup-plugin-dts uses type-exports as entry).
+ */
+describe('P0: index exports ⊆ type-exports', () => {
+  it('every export from index.ts must be present in type-exports.ts', async () => {
+    const indexExports = await import('../src/index');
+    const typeExportsModule = await import('../src/type-exports');
 
-  it('should have all expected type exports available', () => {
-    // This test verifies that all expected types are exported
-    // The actual import verification happens at compile time above
-    
-    // Create a simple object to verify our test structure
-    const typeCategories = {
-      core: ['SyntropyLogConfig', 'ILogger', 'IContextManager', 'LogEntry'],
-      transport: ['LogFormatter'],
-      redis: ['IBeaconRedis'],
-    };
-    
-    // Verify our test structure is complete
-    expect(typeCategories.core).toHaveLength(4);
-    expect(typeCategories.transport).toHaveLength(1);
-    expect(typeCategories.redis).toHaveLength(1);
-    
-    // Total expected exports
-    const totalExports = Object.values(typeCategories).flat().length;
-    expect(totalExports).toBe(6);
+    const indexKeys = Object.keys(indexExports).filter((k) => k !== 'default');
+    const typeExportKeys = new Set(Object.keys(typeExportsModule));
+
+    const missing: string[] = indexKeys.filter((k) => !typeExportKeys.has(k));
+    expect(
+      missing,
+      `Add these to src/type-exports.ts so .d.ts stays complete: ${missing.join(', ')}`
+    ).toEqual([]);
   });
-}); 
+});

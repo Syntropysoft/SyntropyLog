@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -125,9 +125,12 @@
   "workspaces": [
     ".",
     "examples/*",
-    "modules/@syntropylog/types"
+    "modules/@syntropylog/types",
+    "syntropylog-native"
   ],
   "scripts": {
+    "bench": "pnpm -C benchmark run bench",
+    "bench:memory": "pnpm -C benchmark run bench:memory",
     "example:transport-pool": "npx tsx examples/TransportPoolExample.ts",
     "setup": "node scripts/setup-env.js",
     "build": "npm run clean && npm run build:types && rollup -c",
@@ -172,9 +175,13 @@
   "dependencies": {
     "js-yaml": "^4.1.1"
   },
+  "optionalDependencies": {
+    "syntropylog-native": "workspace:*"
+  },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
     "@eslint/js": "^9.21.0",
+    "@napi-rs/cli": "^2.18.0",
     "@rollup/plugin-commonjs": "^28.0.2",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
@@ -204,6 +211,7 @@
   },
   "pnpm": {
     "overrides": {
+      "flatted": ">=3.4.0",
       "serialize-javascript": ">=7.0.3"
     }
   }

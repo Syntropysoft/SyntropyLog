@@ -20,7 +20,7 @@ export interface ISerializer {
   /** Priority level for serializer selection (higher = more preferred) */
   readonly priority: number;
 
-  /** Serialize data; must return in-line (sync). No Promesas para evitar encolar en cargas masivas. */
+  /** Serialize data; must return in-line (sync). No Promises to avoid enqueueing under heavy load. */
   serialize(
     data: SerializableData,
     context?: SerializationContextConfig

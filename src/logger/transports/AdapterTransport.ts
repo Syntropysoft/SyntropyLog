@@ -43,19 +43,19 @@ export class AdapterTransport extends Transport {
 
   /**
    * Delegates the log entry to the configured adapter.
-   * @param {LogEntry} entry - The log entry to process.
-   * @returns {Promise<void>}
+   * Fire-and-forget: does not wait for the adapter so it does not return a Promise. Synchronous (void).
+   * @param entry - Log entry object or pre-serialized JSON string.
    */
-  public async log(entry: LogEntry): Promise<void> {
-    // Guard clause: ensure level is enabled for this transport
+  public log(entry: LogEntry | string): void {
+    if (typeof entry === 'string') {
+      void this.adapter.log(entry);
+      return;
+    }
     if (!this.isLevelEnabled(entry.level)) {
       return;
     }
-
     const finalObject = this.formatter ? this.formatter.format(entry) : entry;
-
-    // The type assertion is safe as the adapter is expected to handle the formatted entry
-    await this.adapter.log(finalObject as LogEntry);
+    void this.adapter.log(finalObject as LogEntry);
   }
 
   /**

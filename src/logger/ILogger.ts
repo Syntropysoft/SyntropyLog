@@ -21,43 +21,43 @@ export interface ILogger {
    * This level typically bypasses standard filtering to ensure persistence.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log.
    */
-  audit(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
+  audit(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void;
 
   /**
    * Logs a message at the 'fatal' level. The application will likely exit.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  fatal(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
+  fatal(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void;
 
   /**
    * Logs a message at the 'error' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  error(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
+  error(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void;
 
   /**
    * Logs a message at the 'warn' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  warn(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
+  warn(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void;
 
   /**
    * Logs a message at the 'info' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  info(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
+  info(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void;
 
   /**
    * Logs a message at the 'debug' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  debug(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
+  debug(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void;
 
   /**
    * Logs a message at the 'trace' level.
    * @param {...(LogFormatArg | LogMetadata | JsonValue)[]} args - The arguments to log (metadata object, message, or format args).
    */
-  trace(...args: (LogFormatArg | LogMetadata | JsonValue)[]): Promise<void>;
+  trace(...args: (LogFormatArg | LogMetadata | JsonValue)[]): void;
 
   // --- Lifecycle and Persistent Context Methods ---
 
@@ -88,7 +88,8 @@ export interface ILogger {
 
   /**
    * Creates a new logger instance with a `retention` field bound to it.
-   * The provided rules object will be deep-cloned to ensure immutability.
+   * The rules object is stored by reference; do not mutate it after passing if you need consistent logs.
+   * Supports complex JSON (nested objects, arrays); serialized with the entry (shallow in native path).
    * @param {LogRetentionRules} rules - A JSON object containing the retention rules.
    * @returns {ILogger} A new `ILogger` instance with the `retention` binding.
    */

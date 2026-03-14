@@ -17,7 +17,7 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-95.13%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.10.0-brightgreen.svg" alt="Version 0.10.0"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.11.0-brightgreen.svg" alt="Version 0.11.0"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
@@ -37,8 +37,9 @@ That means:
 - An **Intelligent Serialization Pipeline** that automatically detects and neutralizes circular references, limits object depth, and enforces execution timeouts — making logs immune to application crashes.
 - A **UniversalAdapter** that routes logs to any backend (PostgreSQL, MongoDB, Elasticsearch, S3) via a single `executor` function — no coupling, no lock-in.
 - A **SanitizationEngine** that strips control characters from all log output, preventing log injection attacks.
+- **Lightning Speed**: Optimized core pipeline delivering **~1,000,000 ops/s** even with full masking and context.
 
-**This is not about performance benchmarks. It's about giving your team full declarative control over observability data — what flows, where it goes, and what it means.**
+**This is not just another logger. It's about giving your team full declarative control over observability data with industry-leading performance and reliability.**
 
 ### Built for regulated industries
 
@@ -57,12 +58,35 @@ We ship with `sideEffects: false` and ESM so bundlers (Vite, Rollup, webpack, es
 
 Traditional loggers (and even modern ones) share a common weakness: **serialization is a blocking operation**. If you log a massive, deeply nested, or circular object, the Node.js Event Loop stops. Your API stops responding. Your service might even crash with a `TypeError`.
 
-SyntropyLog v0.10.0 introduces the **Log Resilience Engine**, making your application immune to "Death by Log":
+SyntropyLog v0.11.0 introduces the **Log Resilience Engine**, making your application immune to "Death by Log":
 
 1.  **Event Loop Protection**: Every serialization step is wrapped in a mandatory timeout (default: **50ms**). If serialization takes too long, it is aborted via `Promise.race`, and a safe subset of the data is logged instead. Your app keeps running.
 2.  **Circular Reference Immunity**: Built-in hygiene automatically detects and neutralizes circular references. No more `TypeError: Converting circular structure to JSON`.
-3.  **Configurable Performance**: 50ms is the safe default, but it's fully configurable via `serializerTimeoutMs`. You control the balance between log detail and application performance.
+3.  **Configurable Safety Limits**: Every object is protected by a double-guard:
+    - `serializationMaxDepth` (default: **10**): Automatically truncates objects deeper than this to prevent Stack Overflow.
+    - `serializationMaxBreadth` (default: **100**): Limits arrays and object keys to prevent Event Loop blockage on massive structures.
 4.  **Silent Observer**: Logging should never throw. Our pipeline catches and reports its own failures inside the log message itself, ensuring 100% reliability.
+5.  **Lightning Pipeline**: Consolidation of serialization, masking, and sanitization into a single recursive pass, reaching Pino-level efficiency with Enterprise-level security.
+
+> [!WARNING]
+> **Pathological Object Protection**: When an object exceeds the configured Depth or Breadth, it will be automatically truncated (e.g., `[Max Depth reached]` or `[Truncated 500 items]`). This is a feature, not a bug — it ensures your application survives even when buggy code tries to log half the database!
+
+---
+
+## 📊 Performance Benchmarks
+
+Tested with **2,000,000 logs** on Node.js 20+ (Nulled I/O).
+
+| Library | Throughput | Avg Latency | Notes |
+| :--- | :--- | :--- | :--- |
+| **Pino** | ~4.1M ops/s | 0.24 µs | Fastest, no masking by default |
+| **SyntropyLog v0.11.0** | **~980k ops/s** | **1.02 µs** | **Secure-by-default (Masking + Context)** |
+| **Console.log** | ~1.2M ops/s | 0.83 µs | Baseline Node.js performance |
+| **Winston** | ~175k ops/s | 5.70 µs | Traditional legacy logger |
+
+> SyntropyLog is **5.5x faster than Winston** and only ~20% slower than pure console while providing deep-object masking and context management.
+
+To compare native addon vs JS-only pipeline: run `pnpm run bench` (with addon) and `SYNTROPYLOG_NATIVE_DISABLE=1 pnpm run bench` (JS only). The benchmark reports "native addon (Rust): yes/no" at startup.
 
 ---
 
@@ -72,6 +96,8 @@ SyntropyLog v0.10.0 introduces the **Log Resilience Engine**, making your applic
 ```bash
 npm install syntropylog
 ```
+
+For the best performance, the package includes **prebuilt native addon binaries (Rust)** for Linux, Windows, and macOS; they install automatically on supported platforms. If the addon is unavailable (e.g. unsupported Node version or platform), the framework falls back to the JS pipeline transparently.
 
 ### **Available Console Transports**
 
@@ -176,6 +202,22 @@ await initializeSyntropyLog();
 const logger = syntropyLog.getLogger();
 logger.info('System is clean and ready.');
 ```
+
+### **Optional error and fallback hooks**
+
+You can pass optional callbacks in the config for observability (logging never throws; these hooks let you observe failures):
+
+| Hook | When it is called |
+|------|--------------------|
+| `onLogFailure?(error, entry)` | When a log call fails (serialization or transport error). |
+| `onTransportError?(error, context)` | When a transport fails (flush, shutdown, or log write). `context` is `'flush'`, `'shutdown'`, or `'log'`. |
+| `onSerializationFallback?(reason)` | When the native addon is used but fails for a call and the framework falls back to the JS pipeline. |
+| `onStepError?(step, error)` | When a pipeline step fails (e.g. hygiene). |
+| `masking.onMaskingError?(error)` | When masking fails (e.g. timeout); never receives raw payload. |
+
+Use `onSerializationFallback` to detect when the native addon failed for a given call and the JS pipeline was used instead (e.g. for metrics or alerting). You can also call `syntropyLog.isNativeAddonInUse()` at runtime to check if the Rust addon is loaded.
+
+Example: `syntropyLog.init({ onLogFailure: (err) => metrics.increment('log_failures'), ... });`
 
 ### **3. Graceful Shutdown (Essential)**
 ```typescript
@@ -614,6 +656,14 @@ const dbTransport = new UniversalAdapter({
 | :--- | :--- | :--- |
 | ✅ **Safe to change** | Logging Matrix, Log Level, additive Masking Fields | — |
 | 🔒 **Fixed at init** | — | Transports, core masking config (`maskChar`, `maxDepth`), Redis/HTTP/broker infrastructure |
+
+---
+
+## 📚 Documentation
+
+- **[Improvement plan & roadmap](docs/code-improvement-analysis-and-plan.md)** — Code analysis, prioritized backlog, and phased work plan.
+- **[Rust addon implementation plan](doc-es/rust-implementation-plan.md)** (ES) — Phased checklist to maximize use of the native addon (“Formula 1” path); links to [rust-pipeline-optimization.md](doc-es/rust-pipeline-optimization.md) for details.
+- **Benchmarks** — Summary in the [Performance Benchmarks](#-performance-benchmarks) section above; run `pnpm run bench` or `pnpm run bench:memory` from the repo root. [Benchmark run report (throughput + memory + high-demand stack)](docs/benchmark-memory-run.md) (EN) · [Informe de ejecución (ES)](doc-es/benchmark-memory-run.md). With the optional Rust addon built (`cd syntropylog-native && pnpm run build`), the benchmark reports native addon usage.
 
 ---
 

@@ -10,6 +10,8 @@ export type UniversalExecutor = (data: unknown) => Promise<void> | void;
 export interface UniversalAdapterOptions {
   /** The function that will actually persist the data (e.g. result of an ORM call) */
   executor: UniversalExecutor;
+  /** Optional: called when executor fails. If not set, errors are logged to console.error. */
+  onError?: (error: unknown) => void;
 }
 
 /**
@@ -18,25 +20,44 @@ export interface UniversalAdapterOptions {
  */
 export class UniversalAdapter implements ILogTransportAdapter {
   private readonly executor: UniversalExecutor;
+  private readonly onError?: (error: unknown) => void;
 
   constructor(options: UniversalAdapterOptions) {
     if (typeof options.executor !== 'function') {
       throw new Error('UniversalAdapter requires an executor function.');
     }
     this.executor = options.executor;
+    this.onError = options.onError;
   }
 
   /**
-   * Receives formatted data and passes it to the executor.
+   * Receives the entry and passes it to the executor. Fire-and-forget (does not return a Promise) to avoid GC pressure.
+   * If it receives a string (native path), parses it so the executor always receives an object.
    */
-  public async log(data: unknown): Promise<void> {
+  public log(entry: unknown): void {
     try {
-      await this.executor(data);
+      const data =
+        typeof entry === 'string' ? (JSON.parse(entry) as unknown) : entry;
+      const result = this.executor(data);
+      // Fire-and-forget: no devolvemos Promise, pero capturamos rechazos para Silent Observer
+      if (
+        result != null &&
+        typeof (result as Promise<unknown>).then === 'function'
+      ) {
+        (result as Promise<void>).catch((err: unknown) => {
+          if (this.onError) this.onError(err);
+          else
+            console.error(
+              `UniversalAdapter execution failed: ${err instanceof Error ? err.message : String(err)}`
+            );
+        });
+      }
     } catch (error) {
-      // In a "Silent Observer" way, we log but don't break the app
-      console.error(
-        `UniversalAdapter execution failed: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (this.onError) this.onError(error);
+      else
+        console.error(
+          `UniversalAdapter execution failed: ${error instanceof Error ? error.message : String(error)}`
+        );
     }
   }
 }

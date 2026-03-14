@@ -4,6 +4,7 @@
  */
 
 import { SerializableData, SanitizationConfig } from '../../types';
+import { DEFAULT_VALUES } from '../../constants';
 
 export interface SanitizationContext {
   sensitiveFields?: string[];
@@ -34,7 +35,7 @@ export class DataSanitizer {
     'sessionid',
   ];
 
-  private defaultMaxDepth = 10;
+  private defaultMaxDepth = DEFAULT_VALUES.maxDepth;
 
   sanitize(
     data: SerializableData,

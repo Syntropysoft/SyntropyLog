@@ -23,12 +23,14 @@ export class SpyTransport extends Transport {
   }
 
   /**
-   * Stores the log entry in an in-memory array.
-   * @param {LogEntry} entry - The log entry to capture.
+   * Stores the log entry in an in-memory array. If it receives a string (native path), parses it to LogEntry.
+   * @param entry - Log entry object or pre-serialized JSON string.
    * @returns {Promise<void>}
    */
-  public async log(entry: LogEntry): Promise<void> {
-    this.entries.push(entry);
+  public log(entry: LogEntry | string): void {
+    this.entries.push(
+      typeof entry === 'string' ? (JSON.parse(entry) as LogEntry) : entry
+    );
   }
 
   /**

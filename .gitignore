@@ -674,3 +674,4 @@ modules/
 dist/
 
 docs/
+.cursor/

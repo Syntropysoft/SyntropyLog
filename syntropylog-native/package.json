@@ -1,0 +1,40 @@
+{
+  "name": "syntropylog-native",
+  "version": "0.1.0",
+  "description": "Native Rust addon for SyntropyLog (fast serialization + masking)",
+  "main": "index.js",
+  "module": "index.mjs",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.js",
+      "types": "./index.d.ts"
+    }
+  },
+  "napi": {
+    "name": "syntropylog_native",
+    "targets": [
+      "x86_64-pc-windows-msvc",
+      "x86_64-apple-darwin",
+      "x86_64-unknown-linux-gnu",
+      "aarch64-apple-darwin",
+      "aarch64-pc-windows-msvc"
+    ]
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build",
+    "test": "node test-node.mjs"
+  },
+  "devDependencies": {},
+  "files": [
+    "index.js",
+    "index.mjs",
+    "index.d.ts",
+    "*.node"
+  ]
+}

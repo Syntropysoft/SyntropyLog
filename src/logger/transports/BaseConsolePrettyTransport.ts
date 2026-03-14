@@ -25,11 +25,14 @@ export abstract class BaseConsolePrettyTransport extends Transport {
 
   /**
    * The core log method. It handles common logic and delegates specific
-   * formatting to the subclass.
-   * @param {LogEntry} entry - The log entry to process.
-   * @returns {Promise<void>}
+   * formatting to the subclass. When entry is a pre-serialized string (native path), it is written as-is.
+   * @param entry - Log entry object or pre-serialized JSON string.
    */
-  public async log(entry: LogEntry): Promise<void> {
+  public log(entry: LogEntry | string): void {
+    if (typeof entry === 'string') {
+      console.log(entry);
+      return;
+    }
     if (!this.isLevelEnabled(entry.level)) {
       return;
     }

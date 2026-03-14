@@ -111,6 +111,7 @@ const validateMasking = object({
   preserveLength: optional(isBoolean),
   enableDefaultRules: optional(isBoolean),
   regexTimeoutMs: optional(isPositiveInt),
+  onMaskingError: optional(isFunction),
 });
 
 const validateLoggingMatrix = object({
@@ -136,6 +137,10 @@ const validateSyntropyLogConfig = object({
   masking: optional(validateMasking),
   context: optional(validateContext),
   shutdownTimeout: optional(isPositiveInt),
+  onLogFailure: optional(isFunction),
+  onTransportError: optional(isFunction),
+  onStepError: optional(isFunction),
+  onSerializationFallback: optional(isFunction),
 });
 
 // ─── Public API ───────────────────────────────────────────────────────────────

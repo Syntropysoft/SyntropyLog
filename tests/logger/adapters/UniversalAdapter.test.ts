@@ -20,7 +20,7 @@ describe('UniversalAdapter', () => {
     ).toThrow('UniversalAdapter requires an executor function.');
   });
 
-  it('should accept a valid executor and call it with data on log()', async () => {
+  it('should accept a valid executor and call it with data on log()', () => {
     const adapter = new UniversalAdapter({ executor });
     const data = {
       level: 'info',
@@ -28,18 +28,18 @@ describe('UniversalAdapter', () => {
       timestamp: new Date().toISOString(),
     };
 
-    await adapter.log(data);
+    adapter.log(data);
 
     expect(executor).toHaveBeenCalledTimes(1);
     expect(executor).toHaveBeenCalledWith(data);
   });
 
-  it('should support sync executor', async () => {
+  it('should support sync executor', () => {
     const syncExecutor = vi.fn();
     const adapter = new UniversalAdapter({ executor: syncExecutor });
     const data = { msg: 'sync' };
 
-    await adapter.log(data);
+    adapter.log(data);
 
     expect(syncExecutor).toHaveBeenCalledWith(data);
   });
@@ -52,7 +52,9 @@ describe('UniversalAdapter', () => {
 
     const adapter = new UniversalAdapter({ executor });
 
-    await expect(adapter.log({})).resolves.not.toThrow();
+    adapter.log({});
+    await Promise.resolve(); // deja que el .catch del executor se ejecute
+
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining(
         'UniversalAdapter execution failed: Executor failed'
@@ -70,12 +72,41 @@ describe('UniversalAdapter', () => {
 
     const adapter = new UniversalAdapter({ executor });
 
-    await adapter.log({});
+    adapter.log({});
+    await Promise.resolve(); // deja que el .catch del executor se ejecute
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining('UniversalAdapter execution failed: string error')
     );
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it('should call onError when provided instead of console.error (sync throw)', () => {
+    const onError = vi.fn();
+    executor = vi.fn().mockImplementation(() => {
+      throw new Error('sync throw');
+    });
+
+    const adapter = new UniversalAdapter({ executor, onError });
+
+    adapter.log({});
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+    expect((onError.mock.calls[0][0] as Error).message).toBe('sync throw');
+  });
+
+  it('should call onError when provided instead of console.error (async reject)', async () => {
+    const onError = vi.fn();
+    executor = vi.fn().mockRejectedValue(new Error('async reject'));
+
+    const adapter = new UniversalAdapter({ executor, onError });
+
+    adapter.log({});
+    await Promise.resolve();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
 });

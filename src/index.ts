@@ -25,6 +25,10 @@ export { AdapterTransport } from './logger/transports/AdapterTransport';
 export { UniversalAdapter } from './logger/adapters/UniversalAdapter';
 export { UniversalLogFormatter } from './logger/formatters/UniversalLogFormatter';
 
+// --- Default values (single source of truth; avoid magic numbers) ---
+export { DEFAULT_VALUES } from './constants';
+export type { DefaultValues } from './constants';
+
 // --- Core Types for External Use ---
 export type { LogLevel, LogEntry } from './types';
 

@@ -1,0 +1,23 @@
+{
+    "name": "syntropylog-benchmarks",
+    "version": "1.0.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "bench": "npx tsx index.bench.ts",
+        "bench:memory": "npx cross-env NODE_OPTIONS=--expose-gc npx tsx index.bench.ts"
+    },
+    "dependencies": {
+        "mitata": "^0.1.11",
+        "pino": "^9.0.0",
+        "syntropylog": "file:..",
+        "winston": "^3.11.0"
+    },
+    "optionalDependencies": {
+        "syntropylog-native": "file:../syntropylog-native"
+    },
+    "devDependencies": {
+        "cross-env": "^7.0.3",
+        "tsx": "^4.21.0"
+    }
+}

@@ -1,3 +1,5 @@
+# Release to npm. Only runs on push to main (not on feature/auxiliary branches).
+# Builds native addon on all platforms; changesets/action handles version PR or publish.
 name: Release
 
 on:
@@ -8,20 +10,80 @@ on:
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
+  build-addon:
+    name: Build addon (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          cache: cargo
+          cache-target: syntropylog-native/target
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build addon (current platform)
+        run: cd syntropylog-native && pnpm exec napi build --platform --release
+        shell: bash
+
+      - name: Upload addon artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: addon-${{ matrix.os }}
+          path: |
+            syntropylog-native/*.node
+            syntropylog-native/index.js
+            syntropylog-native/index.mjs
+            syntropylog-native/index.d.ts
+
   release:
     name: Release
+    needs: build-addon
     runs-on: ubuntu-latest
-    # Permisos mínimos para GITHUB_TOKEN (ver https://docs.github.com/es/actions/tutorials/authenticate-with-github_token#modifying-the-permissions-for-the-github_token).
-    # Para que el action pueda crear el PR "Version Packages", en el repo debe estar activada la opción
-    # Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
     permissions:
-      contents: write      # push a ramas y crear release (changesets/action)
-      pull-requests: write # crear y actualizar el PR "Version Packages" (changesets/action)
-      id-token: write      # OIDC para npm provenance
+      contents: write
+      pull-requests: write
+      id-token: write
 
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
+
+      - name: Download addon artifacts (all platforms)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: addon-*
+          path: addon-artifacts
+          merge-multiple: true
+
+      - name: Merge addon into syntropylog-native
+        run: |
+          set -e
+          for f in addon-artifacts/*.node; do [ -f "$f" ] && cp "$f" syntropylog-native/; done
+          cp addon-artifacts/index.js addon-artifacts/index.d.ts syntropylog-native/
+          [ -f addon-artifacts/index.mjs ] && cp addon-artifacts/index.mjs syntropylog-native/
+          echo "syntropylog-native contents (with prebuilt .node for all platforms):"
+          ls -la syntropylog-native/
 
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -37,10 +99,6 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      # Flujo: push a main con changesets → crea PR "Version Packages" (version bump en esa rama)
-      # y publica a npm desde el runner (por eso npm puede tener 0.9.13 y main seguir en 0.9.12).
-      # IMPORTANTE: después de cada release, mergear el PR "Version Packages" para que main
-      # tenga la misma versión que npm (package.json + CHANGELOG).
       - name: Create Release Pull Request or Publish to npm
         id: changesets
         uses: changesets/action@v1

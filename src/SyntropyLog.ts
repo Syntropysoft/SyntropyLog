@@ -128,6 +128,12 @@ export class SyntropyLog extends EventEmitter {
     return this.lifecycleManager.serializationManager;
   }
 
+  /** True if the Rust native addon is loaded and used for log serialization. Call after init() for a reliable result. */
+  public isNativeAddonInUse(): boolean {
+    this.lifecycleManager.ensureReady();
+    return this.getSerializer().isNativeAddonInUse();
+  }
+
   public _resetForTesting(): void {
     // This needs to re-create the lifecycle manager to properly reset state
     this.lifecycleManager.removeAllListeners();

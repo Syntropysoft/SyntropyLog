@@ -6,6 +6,7 @@
  * applies masking rules, and then reconstructs the original structure.
  * This approach provides extreme processing speed for any object depth.
  */
+import { DEFAULT_VALUES } from '../constants';
 
 /**
  * @enum MaskingStrategy
@@ -60,6 +61,8 @@ export interface MaskingEngineOptions {
   enableDefaultRules?: boolean;
   /** Max ms per custom rule regex evaluation; on timeout a warning is logged and the rule is skipped. */
   regexTimeoutMs?: number;
+  /** Called when masking fails (timeout or error). Never receives raw payload. */
+  onMaskingError?: (error: unknown) => void;
 }
 
 /**
@@ -81,11 +84,15 @@ export class MaskingEngine {
   private initialized: boolean = false;
   /** @private Max ms per custom rule regex; on timeout we warn and skip the rule */
   private readonly regexTimeoutMs: number;
+  /** @private Optional callback when masking fails; never receives payload. */
+  private readonly onMaskingError?: (error: unknown) => void;
 
   constructor(options?: MaskingEngineOptions) {
     this.maskChar = options?.maskChar || '*';
     this.preserveLength = options?.preserveLength ?? true; // Default to true for security
-    this.regexTimeoutMs = options?.regexTimeoutMs ?? 100;
+    this.regexTimeoutMs =
+      options?.regexTimeoutMs ?? DEFAULT_VALUES.regexTimeoutMs;
+    this.onMaskingError = options?.onMaskingError;
 
     // Add default rules if enabled
     if (options?.enableDefaultRules !== false) {
@@ -181,10 +188,10 @@ export class MaskingEngine {
   /**
    * Processes a metadata object and applies the configured masking rules.
    * Uses JSON flattening strategy for extreme performance.
-   * On failure (timeout, rule error, etc.) returns a safe redacted object with an explicit message
-   * instead of the original data, to avoid leaking sensitive content.
+   * On failure (timeout, rule error, etc.) does not return any user data (could be sensitive);
+   * only reports the error via onMaskingError and returns a fixed redaction marker.
    * @param meta - The metadata object to process
-   * @returns A new object with the masked data, or a safe fallback object if masking fails
+   * @returns A new object with the masked data, or a fixed redaction marker if masking fails (no meta-derived fields).
    */
   /**
    * Synchronous masking: pure CPU (regexes), no I/O. Avoids Promise/timer pressure per log.
@@ -197,30 +204,13 @@ export class MaskingEngine {
     try {
       const visited = new WeakSet<object>();
       return this.applyMaskingRules(meta, visited) as Record<string, unknown>;
-    } catch {
+    } catch (err) {
+      this.onMaskingError?.(err);
       return {
-        ...MaskingEngine.buildSafeFallbackFromMeta(meta),
         _maskingFailed: true,
         _maskingFailedMessage: MaskingEngine.MASKING_FAILED_MESSAGE,
       };
     }
-  }
-
-  /**
-   * Builds a minimal safe object from meta (level, timestamp, message, service) for fallback.
-   * Avoids leaking any arbitrary keys/values when masking fails.
-   */
-  private static buildSafeFallbackFromMeta(
-    meta: Record<string, unknown>
-  ): Record<string, unknown> {
-    const safe: Record<string, unknown> = {};
-    const allowedKeys = ['level', 'timestamp', 'message', 'service'] as const;
-    for (const key of allowedKeys) {
-      if (key in meta && meta[key] !== undefined) {
-        safe[key] = meta[key];
-      }
-    }
-    return safe;
   }
 
   /**
@@ -427,7 +417,7 @@ export class MaskingEngine {
         value.substring(value.length - 5)
       );
     } else {
-      if (value.length > 8) {
+      if (value.length > DEFAULT_VALUES.maskDefaultCapLength) {
         return (
           value.substring(0, 4) + '...' + value.substring(value.length - 5)
         );
@@ -447,7 +437,9 @@ export class MaskingEngine {
     if (rule.preserveLength) {
       return rule.maskChar!.repeat(value.length);
     } else {
-      return rule.maskChar!.repeat(Math.min(value.length, 8));
+      return rule.maskChar!.repeat(
+        Math.min(value.length, DEFAULT_VALUES.maskDefaultCapLength)
+      );
     }
   }
 
@@ -490,7 +482,7 @@ export class MaskingEngine {
     // cannot be caught by a try/catch block if it hangs the thread.
     // Since we only test the regex against object *keys* (not values), we enforce a strict
     // length limit. Keys excessively long are skipped to prevent ReDoS vectors.
-    if (key.length > 256) {
+    if (key.length > DEFAULT_VALUES.maxKeyLengthForRegex) {
       return false;
     }
 

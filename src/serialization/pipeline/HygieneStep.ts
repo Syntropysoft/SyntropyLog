@@ -83,6 +83,7 @@ export class HygieneStep implements PipelineStep<SerializableData> {
         try {
           cleaned = safeDecycle(data, new WeakSet()) as SerializableData;
         } catch (e: unknown) {
+          _context.onStepError?.('hygiene', e);
           let msg: string;
           try {
             msg = e instanceof Error ? e.message : String(e);
@@ -94,6 +95,7 @@ export class HygieneStep implements PipelineStep<SerializableData> {
         return cleaned;
       }
     } catch (error: unknown) {
+      _context.onStepError?.('hygiene', error);
       let msg: string;
       try {
         msg = error instanceof Error ? error.message : String(error);

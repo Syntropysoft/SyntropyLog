@@ -26,13 +26,11 @@ export class SanitizationEngine {
   }
 
   /**
-   * Processes a log metadata object, sanitizing all its string values.
-   * @param {Record<string, unknown>} meta - The metadata object to sanitize.
-   * @returns {Record<string, unknown>} A new, sanitized metadata object.
+   * Processes a metadata object, sanitizing its strings. Synchronous to avoid creating Promises in the GC.
+   * @param meta - The metadata object to sanitize.
+   * @returns A new, sanitized metadata object.
    */
-  public async process(
-    meta: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
+  public process(meta: Record<string, unknown>): Record<string, unknown> {
     let sanitized = this.sanitizeRecursively(meta) as Record<string, unknown>;
     if (this.maskingEngine) {
       sanitized = this.maskingEngine.process(sanitized);
@@ -55,7 +53,7 @@ export class SanitizationEngine {
       return data.map((item) => this.sanitizeRecursively(item));
     }
 
-    // Clave: Solo procesar objetos planos para no corromper instancias de clases.
+    // Key: only process plain objects so we do not corrupt class instances.
     if (
       typeof data === 'object' &&
       data !== null &&

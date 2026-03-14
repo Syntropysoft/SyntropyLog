@@ -1,5 +1,6 @@
 import { SyntropyLog } from '../SyntropyLog';
 import { SyntropyLogConfig } from '../config';
+import { DEFAULT_VALUES } from '../constants';
 import { Logger, LoggerDependencies } from './Logger';
 import { ILogger } from './ILogger';
 import { IContextManager } from '../context/IContextManager';
@@ -173,11 +174,17 @@ export class LoggerFactory {
   private readonly serializationManager: SerializationManager;
   /** @private The engine responsible for masking sensitive data. */
   private readonly maskingEngine: MaskingEngine;
+  /** @private Optional hooks from config for observability. */
+  private readonly onLogFailure?: (error: unknown, entry?: unknown) => void;
+  private readonly onTransportError?: (
+    error: unknown,
+    context?: string
+  ) => void;
 
   /** @private A pool to cache logger instances by name for performance. */
   private readonly loggerPool: Map<string, ILogger> = new Map();
   /** @private Maximum size of the logger pool to prevent memory leaks. */
-  private readonly MAX_POOL_SIZE = 1000;
+  private readonly MAX_POOL_SIZE = DEFAULT_VALUES.maxLoggerPoolSize;
 
   /**
    * @constructor
@@ -215,6 +222,8 @@ export class LoggerFactory {
     this.serializationManager = new SerializationManager({
       timeoutMs: config.logger?.serializerTimeoutMs,
       sanitizeSensitiveData: config.masking?.enableDefaultRules !== false,
+      onStepError: config.onStepError,
+      onSerializationFallback: config.onSerializationFallback,
     });
     this.maskingEngine = new MaskingEngine({
       rules: config.masking?.rules,
@@ -222,7 +231,10 @@ export class LoggerFactory {
       preserveLength: config.masking?.preserveLength,
       enableDefaultRules: config.masking?.enableDefaultRules !== false,
       regexTimeoutMs: config.masking?.regexTimeoutMs,
+      onMaskingError: config.masking?.onMaskingError,
     });
+    this.onLogFailure = config.onLogFailure;
+    this.onTransportError = config.onTransportError;
   }
 
   /**
@@ -255,6 +267,8 @@ export class LoggerFactory {
       maskingEngine: this.maskingEngine,
       syntropyLogInstance: this.syntropyLogInstance,
       transportPool: this.transportPool,
+      onLogFailure: this.onLogFailure,
+      onTransportError: this.onTransportError,
     };
 
     // Retrieve transports for this specific logger name, or fall back to 'default'
@@ -285,12 +299,15 @@ export class LoggerFactory {
     const allTransports = Object.values(this.transports).flat();
     const uniqueTransports = Array.from(new Set(allTransports));
 
+    const onTransportError = this.onTransportError;
     const flushPromises = uniqueTransports.map((transport) =>
       transport.flush().catch((err) => {
-        console.error(
-          `Error flushing transport ${transport.constructor.name}:`,
-          err
-        );
+        if (onTransportError) onTransportError(err, 'flush');
+        else
+          console.error(
+            `Error flushing transport ${transport.constructor.name}:`,
+            err
+          );
       })
     );
     await Promise.allSettled(flushPromises);
@@ -320,10 +337,12 @@ export class LoggerFactory {
           return (transport as unknown as { shutdown: () => Promise<void> })
             .shutdown()
             .catch((err: unknown) => {
-              console.error(
-                `Error shutting down transport ${transport.constructor.name}:`,
-                err
-              );
+              if (this.onTransportError) this.onTransportError(err, 'shutdown');
+              else
+                console.error(
+                  `Error shutting down transport ${transport.constructor.name}:`,
+                  err
+                );
             });
         }
         return Promise.resolve();
@@ -331,7 +350,8 @@ export class LoggerFactory {
 
       await Promise.allSettled(shutdownPromises);
     } catch (error) {
-      console.error('Error during LoggerFactory shutdown:', error);
+      if (this.onTransportError) this.onTransportError(error, 'shutdown');
+      else console.error('Error during LoggerFactory shutdown:', error);
     }
   }
 }

@@ -80,18 +80,30 @@ const createMockTransport = (options: {
   return t;
 };
 
-const createMockPipelineComponents = () => ({
-  mockMasker: {
-    process: vi.fn().mockImplementation((entry: any) => entry),
-  },
-  mockSerializationManager: {
+const createMockPipelineComponents = () => {
+  const mockSerializationManager = {
     serialize: vi.fn().mockImplementation((data: any) => ({
       success: true,
       data,
       metadata: { serializer: 'test', stepDurations: {} },
     })),
-  },
-});
+    serializeDirect: vi.fn(),
+  };
+
+  mockSerializationManager.serializeDirect.mockImplementation(
+    (level, message, timestamp, service, metadata) => {
+      const data = { level, message, timestamp, service, ...metadata };
+      return mockSerializationManager.serialize(data);
+    }
+  );
+
+  return {
+    mockMasker: {
+      process: vi.fn().mockImplementation((entry: any) => entry),
+    },
+    mockSerializationManager,
+  };
+};
 
 describe('Logger', () => {
   let mockMasker: Mocked<MaskingEngine>;
@@ -136,8 +148,8 @@ describe('Logger', () => {
       expect(logger.level).toBe('info');
     });
 
-    it('should format a basic log entry and pass it to the transport', async () => {
-      await logger.info('hello world');
+    it('should format a basic log entry and pass it to the transport', () => {
+      logger.info('hello world');
 
       expect(transports[0].log).toHaveBeenCalledOnce();
       expect(mockContextManager.getFilteredContext).toHaveBeenCalledWith(
@@ -151,8 +163,8 @@ describe('Logger', () => {
       });
     });
 
-    it('should correctly merge a metadata object with a log message', async () => {
-      await logger.info({ userId: 123, component: 'auth' }, 'user logged in');
+    it('should correctly merge a metadata object with a log message', () => {
+      logger.info({ userId: 123, component: 'auth' }, 'user logged in');
 
       expect(transports[0].log).toHaveBeenCalledOnce();
       const logEntry = (transports[0].log as any).mock.calls[0][0];
@@ -166,9 +178,9 @@ describe('Logger', () => {
   });
 
   describe('Processing Pipeline', () => {
-    it('should call the serializer and masker in the correct order', async () => {
+    it('should call the serializer and masker in the correct order', () => {
       const logData = { user: { id: 1, password: 'password123' } };
-      await logger.info(logData);
+      logger.info(logData);
 
       expect(mockSerializationManager.serialize).toHaveBeenCalledOnce();
       expect(mockMasker.process).toHaveBeenCalledOnce();
@@ -186,13 +198,13 @@ describe('Logger', () => {
   });
 
   describe('Log Level Filtering', () => {
-    it('should not log messages below the current level', async () => {
+    it('should not log messages below the current level', () => {
       logger.level = 'warn';
-      await logger.info('should be ignored');
+      logger.info('should be ignored');
       expect(transports[0].log).not.toHaveBeenCalled();
     });
 
-    it('should respect the log level of individual transports', async () => {
+    it('should respect the log level of individual transports', () => {
       const infoTransport = createMockTransport({
         level: 'info',
         name: 'info-only',
@@ -209,14 +221,14 @@ describe('Logger', () => {
       );
       localLogger.level = 'info';
 
-      await localLogger.info('test info message');
+      localLogger.info('test info message');
 
       expect(infoTransport.log).toHaveBeenCalledOnce();
       expect(errorTransport.log).not.toHaveBeenCalled();
 
       vi.clearAllMocks();
 
-      await localLogger.error('test error message');
+      localLogger.error('test error message');
 
       expect(infoTransport.log).toHaveBeenCalledOnce();
       expect(errorTransport.log).toHaveBeenCalledOnce();
@@ -230,7 +242,7 @@ describe('Logger', () => {
       expect(child.level).toBe(logger.level);
     });
 
-    it('child logger should include parent context', async () => {
+    it('child logger should include parent context', () => {
       const parentLogger = new Logger(
         'parent-logger',
         transports,
@@ -246,7 +258,7 @@ describe('Logger', () => {
       });
 
       const child = parentLogger.child({ component: 'database' });
-      await child.info({ query: 'SELECT *' }, 'Query executed');
+      child.info({ query: 'SELECT *' }, 'Query executed');
 
       expect(transports[0].log).toHaveBeenCalledOnce();
       const logEntry = (transports[0].log as any).mock.calls[0][0];
@@ -260,8 +272,8 @@ describe('Logger', () => {
   });
 
   describe('Additional Methods', () => {
-    it('should log fatal messages', async () => {
-      await logger.fatal('system crash');
+    it('should log fatal messages', () => {
+      logger.fatal('system crash');
       expect(transports[0].log).toHaveBeenCalledOnce();
       const logEntry = (transports[0].log as any).mock.calls[0][0];
       expect(logEntry.level).toBe('fatal');
@@ -285,6 +297,26 @@ describe('Logger', () => {
       expect((loggerWithRetention as any).bindings.retention).toEqual(rules);
     });
 
+    it('should store retention by reference (no deep clone)', () => {
+      const rules = { ttl: 3600 };
+      const transport = createMockTransport({ level: 'info', name: 't1' });
+      const log = new Logger('ref-test', [transport], dependencies);
+      log.level = 'info';
+      const child = log.withRetention(rules as any);
+      child.info('first');
+      rules.ttl = 7200;
+      child.info('second');
+      expect(transport.log).toHaveBeenCalledTimes(2);
+      const secondCall = (transport.log as any).mock.calls[1][0];
+      const entry =
+        typeof secondCall === 'string' ? JSON.parse(secondCall) : secondCall;
+      const retention =
+        typeof entry?.retention === 'string'
+          ? JSON.parse(entry.retention)
+          : entry?.retention;
+      expect(retention?.ttl).toBe(7200);
+    });
+
     it('should support withTransactionId fluent method', () => {
       const loggerWithTxId = logger.withTransactionId('tx-123');
       expect(loggerWithTxId).toBeInstanceOf(Logger);
@@ -293,7 +325,7 @@ describe('Logger', () => {
   });
 
   describe('override / add / remove (per-call routing)', () => {
-    it('should send log only to overridden transport when override() is used', async () => {
+    it('should send log only to overridden transport when override() is used', () => {
       const t1 = createMockTransport({ level: 'info', name: 't1' });
       const t2 = createMockTransport({ level: 'info', name: 't2' });
       const pool = new Map<string, Transport>([
@@ -304,13 +336,13 @@ describe('Logger', () => {
       const loggerWithPool = new Logger('test', [t1, t2], depsWithPool);
       loggerWithPool.level = 'info';
 
-      await loggerWithPool.override('t2').info('only to t2');
+      loggerWithPool.override('t2').info('only to t2');
 
       expect(t2.log).toHaveBeenCalledOnce();
       expect(t1.log).not.toHaveBeenCalled();
     });
 
-    it('should add and remove transports for next call only', async () => {
+    it('should add and remove transports for next call only', () => {
       const t1 = createMockTransport({ level: 'info', name: 't1' });
       const t2 = createMockTransport({ level: 'info', name: 't2' });
       const pool = new Map<string, Transport>([
@@ -321,21 +353,21 @@ describe('Logger', () => {
       const loggerWithPool = new Logger('test', [t1, t2], depsWithPool);
       loggerWithPool.level = 'info';
 
-      await loggerWithPool.add('t2').info('first');
+      loggerWithPool.add('t2').info('first');
       expect(t1.log).toHaveBeenCalled();
       expect(t2.log).toHaveBeenCalled();
       vi.clearAllMocks();
 
-      await loggerWithPool.remove('t1').info('second');
+      loggerWithPool.remove('t1').info('second');
       expect(t1.log).not.toHaveBeenCalled();
       expect(t2.log).toHaveBeenCalled();
     });
   });
 
   describe('audit and level bypass', () => {
-    it('should log audit even when level is error (audit bypasses level filter)', async () => {
+    it('should log audit even when level is error (audit bypasses level filter)', () => {
       logger.level = 'error';
-      await logger.audit('audit event');
+      logger.audit('audit event');
 
       expect(transports[0].log).toHaveBeenCalledOnce();
       const logEntry = (transports[0].log as any).mock.calls[0][0];
@@ -344,16 +376,16 @@ describe('Logger', () => {
   });
 
   describe('format args (util.format)', () => {
-    it('should format message with format args (message, ...args)', async () => {
-      await logger.info('hello %s', 'world');
+    it('should format message with format args (message, ...args)', () => {
+      logger.info('hello %s', 'world');
 
       expect(transports[0].log).toHaveBeenCalledOnce();
       const logEntry = (transports[0].log as any).mock.calls[0][0];
       expect(logEntry.message).toBe('hello world');
     });
 
-    it('should format message when first arg is metadata (metadata, message, ...args)', async () => {
-      await logger.info({ reqId: 1 }, 'status %s', 'ok');
+    it('should format message when first arg is metadata (metadata, message, ...args)', () => {
+      logger.info({ reqId: 1 }, 'status %s', 'ok');
 
       expect(transports[0].log).toHaveBeenCalledOnce();
       const logEntry = (transports[0].log as any).mock.calls[0][0];
@@ -363,7 +395,7 @@ describe('Logger', () => {
   });
 
   describe('trace level', () => {
-    it('should log trace when level allows', async () => {
+    it('should log trace when level allows', () => {
       const traceTransport = createMockTransport({
         level: 'trace',
         name: 'trace-transport',
@@ -371,11 +403,101 @@ describe('Logger', () => {
       const traceLogger = new Logger('test', [traceTransport], dependencies);
       traceLogger.level = 'trace';
 
-      await traceLogger.trace('trace message');
+      traceLogger.trace('trace message');
 
       expect(traceTransport.log).toHaveBeenCalledOnce();
       const logEntry = (traceTransport.log as any).mock.calls[0][0];
       expect(logEntry.level).toBe('trace');
+    });
+  });
+
+  describe('error hooks (onLogFailure, onTransportError)', () => {
+    it('should call onLogFailure when serialization fails', () => {
+      const onLogFailure = vi.fn();
+      (mockSerializationManager.serializeDirect as any).mockImplementationOnce(
+        () => {
+          throw new Error('serialize failed');
+        }
+      );
+      const loggerWithHook = new Logger('test', transports, {
+        ...dependencies,
+        onLogFailure,
+      });
+      loggerWithHook.level = 'info';
+
+      loggerWithHook.info('msg');
+
+      expect(onLogFailure).toHaveBeenCalledTimes(1);
+      expect(onLogFailure).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({
+          level: 'error',
+          message: expect.stringContaining('logging failed'),
+          service: 'test',
+        })
+      );
+    });
+
+    it('should call onTransportError when transport.log throws while writing error entry', () => {
+      const onTransportError = vi.fn();
+      (mockSerializationManager.serializeDirect as any).mockImplementationOnce(
+        () => {
+          throw new Error('serialize failed');
+        }
+      );
+      const failingTransport = createMockTransport({
+        level: 'error',
+        name: 'failing',
+      });
+      (failingTransport.log as any).mockImplementationOnce(() => {
+        throw new Error('transport write failed');
+      });
+      const loggerWithHook = new Logger('test', [failingTransport], {
+        ...dependencies,
+        onTransportError,
+      });
+      loggerWithHook.level = 'info';
+
+      loggerWithHook.info('msg');
+
+      expect(onTransportError).toHaveBeenCalledWith(expect.any(Error), 'log');
+    });
+
+    it('should skip transports that do not have error level enabled when logging error entry after failure', () => {
+      const onLogFailure = vi.fn();
+      (mockSerializationManager.serializeDirect as any).mockImplementationOnce(
+        () => {
+          throw new Error('serialize failed');
+        }
+      );
+      const errorOnlyTransport = createMockTransport({
+        level: 'error',
+        name: 'error-only',
+      });
+      const infoOnlyTransport = createMockTransport({
+        level: 'info',
+        name: 'info-only',
+      });
+      (infoOnlyTransport.isLevelEnabled as any).mockImplementation(
+        (level: LogLevel) => level !== 'error'
+      );
+      const loggerWithHook = new Logger(
+        'test',
+        [infoOnlyTransport, errorOnlyTransport],
+        { ...dependencies, onLogFailure }
+      );
+      loggerWithHook.level = 'info';
+
+      loggerWithHook.info('msg');
+
+      expect(onLogFailure).toHaveBeenCalledTimes(1);
+      expect(errorOnlyTransport.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          level: 'error',
+          message: expect.stringContaining('logging failed'),
+        })
+      );
+      expect(infoOnlyTransport.log).not.toHaveBeenCalled();
     });
   });
 });

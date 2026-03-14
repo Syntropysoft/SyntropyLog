@@ -1,9 +1,12 @@
 /**
  * Internal Types for SyntropyLog Framework
  *
+ * Single source of truth for framework types. types.ts re-exports the public API from here.
  * These types and utilities are for advanced usage and internal framework operations.
  * Use with caution - they may change between versions.
  */
+
+import type { LogLevel } from './logger/levels';
 
 /**
  * Represents any value that can be safely serialized to JSON.
@@ -45,7 +48,9 @@ export type LogMetadata = Record<string, JsonValue>;
 export type LogBindings = Record<string, JsonValue>;
 
 /**
- * Type for retention rules that can be attached to loggers
+ * Type for retention rules that can be attached to loggers via the fluent API (e.g. withRetention).
+ * Supports both flat fields (ttl, maxSize, …) and arbitrary complex JSON (nested objects, arrays).
+ * The full object is serialized with the log entry (shallow in native path: nested values as JSON string).
  */
 export type LogRetentionRules = {
   ttl?: number;
@@ -188,6 +193,8 @@ export type SerializationPipelineContext = {
   sanitizeSensitiveData: boolean;
   sanitizationContext: SanitizationConfig;
   enableMetrics: boolean;
+  /** Optional: called when a pipeline step fails (e.g. hygiene). For observability. */
+  onStepError?: (step: string, error: unknown) => void;
 };
 
 /**
@@ -221,8 +228,10 @@ export type SerializationResult = {
   complexity: string;
   sanitized: boolean;
   success: boolean;
-  metadata: SerializationMetadata;
+  metadata: SerializationMetadata | null;
   error?: string;
+  /** When set, the line is already serialized and masked from the native addon; the Logger must pass it as-is to transports. */
+  serializedNative?: string;
 };
 
 /**
@@ -271,11 +280,11 @@ export type LoggerDependencies = {
 };
 
 /**
- * Type for log entry
+ * Type for log entry (single source of truth; re-exported by types.ts).
  */
 export type LogEntry = {
   /** The severity level of the log. */
-  level: string;
+  level: LogLevel;
   /** The main log message, formatted from the arguments. */
   message: string;
   /** The ISO 8601 timestamp of when the log was created. */
@@ -285,10 +294,10 @@ export type LogEntry = {
 };
 
 /**
- * Type for logger options
+ * Type for logger options (single source of truth; re-exported by types.ts).
  */
 export type LoggerOptions = {
-  level?: string;
+  level?: LogLevel;
   serviceName?: string;
   transports?: unknown[];
   bindings?: Record<string, unknown>;
