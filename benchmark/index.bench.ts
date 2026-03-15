@@ -48,7 +48,7 @@ console.log(
 );
 if (!nativeAddonInUse) {
   console.log(
-    'Tip: build addon (cd syntropylog-native && pnpm run build). To force JS-only (e.g. for comparison): SYNTROPYLOG_NATIVE_DISABLE=1'
+    'Tip: build addon (cd syntropylog-native && pnpm run build). To force JS-only (e.g. for comparison): logger.disableNativeAddon: true in init()'
   );
 }
 

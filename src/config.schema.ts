@@ -35,6 +35,8 @@ export interface LoggerOptions {
   transports?: TransportEntry[] | Record<string, TransportEntry[]>;
   serializerTimeoutMs?: number;
   prettyPrint?: { enabled?: boolean };
+  /** When true, the native addon is not loaded (pure JS serialization). Use for debugging or when the addon is not built. */
+  disableNativeAddon?: boolean;
 }
 
 export interface MaskingConfig {

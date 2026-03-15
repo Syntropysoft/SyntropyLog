@@ -31,6 +31,11 @@ export interface TransportOptions {
    * An optional name for the transport, useful for debugging.
    */
   name?: string;
+  /**
+   * When true, disables ANSI colors in console output (e.g. for CI or NO_COLOR).
+   * For NO_COLOR use: disableColors: process.env.NO_COLOR != null && process.env.NO_COLOR !== '' && process.env.NO_COLOR !== '0'
+   */
+  disableColors?: boolean;
 }
 
 /**

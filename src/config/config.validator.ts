@@ -103,6 +103,7 @@ const validateLoggerOptions = object({
       enabled: optional(isBoolean),
     })
   ),
+  disableNativeAddon: optional(isBoolean),
 });
 
 const validateMasking = object({

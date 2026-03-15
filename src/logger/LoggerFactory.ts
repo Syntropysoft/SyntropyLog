@@ -253,6 +253,7 @@ export class LoggerFactory {
     this.serializationManager = new SerializationManager({
       timeoutMs: config.logger?.serializerTimeoutMs,
       sanitizeSensitiveData: config.masking?.enableDefaultRules !== false,
+      disableNativeAddon: config.logger?.disableNativeAddon ?? false,
       onStepError: config.onStepError,
       onSerializationFallback: config.onSerializationFallback,
     });

@@ -16,6 +16,12 @@ First release after 0.11.3. Includes all framework refinements validated end-to-
 - **Lint:** SerializationManager: replaced `(logEntry as any)` with `Record<string, unknown>`; removed unused destructuring variables in native serialize path (use copy + delete for metadata).
 - **Examples repo:** Full refresh: main set 01–17 only, updated README and test script, self-contained benchmark (17-benchmark), removed obsolete scripts and optional folders.
 
+## 0.12.1
+
+### Patch Changes
+
+- **Security / env:** The package no longer reads any environment variables (addresses tooling such as Socket.dev). Use config/options instead: `logger.disableNativeAddon: true` in `init()` to disable the native addon (replaces `SYNTROPYLOG_NATIVE_DISABLE=1`). For console transports, pass `disableColors: true` or derive from `NO_COLOR` in your app to disable ANSI colors. See SECURITY.md.
+
 ## 0.11.3
 
 ### Patch Changes
