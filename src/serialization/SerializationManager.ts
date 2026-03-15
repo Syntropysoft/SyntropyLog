@@ -74,6 +74,8 @@ export interface SerializationManagerConfig {
   sanitizationContext?: SanitizationConfig;
   /** If true, Pino-style: only first level; nested objects are stringified in Node (one stringify per value). Faster for entries with complex objects; output will have nested values as JSON string. */
   nativeShallow?: boolean;
+  /** When true, the native addon is not loaded (pure JS path). Set via logger.disableNativeAddon in init(). */
+  disableNativeAddon?: boolean;
   /** Optional: called when a pipeline step fails (e.g. hygiene). For observability. */
   onStepError?: (step: string, error: unknown) => void;
   /** Optional: called when native addon fails and we fall back to JS pipeline. For observability. */
@@ -134,6 +136,7 @@ export class SerializationManager {
       enableMetrics: config.enableMetrics ?? true,
       sanitizeSensitiveData: config.sanitizeSensitiveData ?? true,
       nativeShallow: config.nativeShallow ?? false,
+      disableNativeAddon: config.disableNativeAddon ?? false,
       sanitizationContext: {
         sensitiveFields:
           config.sanitizationContext?.sensitiveFields ||
@@ -187,7 +190,7 @@ export class SerializationManager {
   private getNativeAddon(): NativeAddon | null {
     if (this.nativeChecked) return this.nativeAddon;
     this.nativeChecked = true;
-    if (process.env.SYNTROPYLOG_NATIVE_DISABLE === '1') {
+    if (this.config.disableNativeAddon) {
       this.nativeAddon = null;
       return null;
     }

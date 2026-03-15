@@ -1,7 +1,7 @@
 /**
  * @file src/logger/transports/BaseConsolePrettyTransport.ts
  * @description An abstract base class for console transports that provide colored, human-readable output.
- * Colors use built-in ANSI (no chalk dependency). Disabled when NO_COLOR is set or stdout is not a TTY.
+ * Colors use built-in ANSI (no chalk dependency). Disabled when options.disableColors is true or stdout is not a TTY.
  */
 import { LogEntry } from '../../types';
 import { LogLevel } from '../levels';
@@ -20,7 +20,7 @@ export abstract class BaseConsolePrettyTransport extends Transport {
 
   constructor(options?: TransportOptions) {
     super(options);
-    this.chalk = getOptionalChalk();
+    this.chalk = getOptionalChalk(options?.disableColors ?? false);
   }
 
   /**

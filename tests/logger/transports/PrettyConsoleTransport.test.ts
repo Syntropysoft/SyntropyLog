@@ -7,7 +7,7 @@ import {
 import { getOptionalChalk } from '../../../src/logger/transports/optionalChalk';
 import { LogEntry } from '../../../src/types';
 
-const chalk = getOptionalChalk();
+const chalk = getOptionalChalk(false);
 
 describe('PrettyConsoleTransport Pure Functions', () => {
   describe('createLevelColorMap', () => {

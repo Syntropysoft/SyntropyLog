@@ -107,6 +107,7 @@ export class LifecycleManager extends EventEmitter {
         timeoutMs: this.config.logger?.serializerTimeoutMs,
         sanitizeSensitiveData:
           this.config.masking?.enableDefaultRules !== false,
+        disableNativeAddon: this.config.logger?.disableNativeAddon ?? false,
         onStepError: this.config.onStepError,
         onSerializationFallback: this.config.onSerializationFallback,
       });

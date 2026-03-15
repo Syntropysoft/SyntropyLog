@@ -2,6 +2,8 @@
  * @file src/logger/transports/optionalChalk.ts
  * @description Built-in chalk-like API using ANSI escape codes. No chalk dependency.
  * Used by ClassicConsoleTransport, PrettyConsoleTransport, CompactConsoleTransport, ColorfulConsoleTransport.
+ * Does not read process.env; pass disableColors from transport options (e.g. for NO_COLOR use
+ * disableColors: process.env.NO_COLOR != null && process.env.NO_COLOR !== '' && process.env.NO_COLOR !== '0').
  */
 
 /** Chalk-like API: chainable style that returns wrapped string when called. */
@@ -53,39 +55,43 @@ function createChain(codes: number[]): ChalkLike {
   return fn;
 }
 
-let cached: ChalkLike | null = null;
+function createIdentityChalk(): ChalkLike {
+  const identity = ((s: string) => s) as ChalkLike;
+  identity.white = identity;
+  identity.bold = identity;
+  identity.red = identity;
+  identity.bgRed = identity;
+  identity.yellow = identity;
+  identity.cyan = identity;
+  identity.green = identity;
+  identity.gray = identity;
+  identity.magenta = identity;
+  identity.blue = identity;
+  identity.bgWhite = identity;
+  identity.dim = identity;
+  return identity;
+}
+
+let cachedWithColors: ChalkLike | null = null;
+let cachedNoColors: ChalkLike | null = null;
 
 /**
  * Returns a chalk-like instance using built-in ANSI colors. No external chalk dependency.
- * Respects NO_COLOR and disables colors when stdout is not a TTY (e.g. pipes, CI).
+ * Does not read process.env. Pass disableColors from transport options; when true, output has no colors.
+ * When false, colors are used only if stdout is a TTY. To respect NO_COLOR, pass
+ * disableColors: process.env.NO_COLOR != null && process.env.NO_COLOR !== '' && process.env.NO_COLOR !== '0'.
  */
-export function getOptionalChalk(): ChalkLike {
-  if (cached !== null) {
-    return cached;
+export function getOptionalChalk(disableColors: boolean): ChalkLike {
+  if (disableColors) {
+    if (cachedNoColors === null) cachedNoColors = createIdentityChalk();
+    return cachedNoColors;
   }
-  const noColor =
-    process.env.NO_COLOR !== undefined &&
-    process.env.NO_COLOR !== '' &&
-    process.env.NO_COLOR !== '0';
   const isTTY =
     typeof process.stdout?.isTTY === 'boolean' && process.stdout.isTTY;
-  if (noColor || !isTTY) {
-    const identity = ((s: string) => s) as ChalkLike;
-    identity.white = identity;
-    identity.bold = identity;
-    identity.red = identity;
-    identity.bgRed = identity;
-    identity.yellow = identity;
-    identity.cyan = identity;
-    identity.green = identity;
-    identity.gray = identity;
-    identity.magenta = identity;
-    identity.blue = identity;
-    identity.bgWhite = identity;
-    identity.dim = identity;
-    cached = identity;
-  } else {
-    cached = createChain([]);
+  if (!isTTY) {
+    if (cachedNoColors === null) cachedNoColors = createIdentityChalk();
+    return cachedNoColors;
   }
-  return cached;
+  if (cachedWithColors === null) cachedWithColors = createChain([]);
+  return cachedWithColors;
 }
