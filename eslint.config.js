@@ -24,6 +24,7 @@ module.exports = tseslint.config(
             '*.mjs',
             '*.js',
             'scripts/**/*',
+            'syntropylog-native/scripts/**/*',
             'src/services/**',
         ],
     },
