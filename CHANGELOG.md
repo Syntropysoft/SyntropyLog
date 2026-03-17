@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.2
+
+### Patch Changes
+
+- **Socket / security:** Addressed Socket.dev alerts and clarified behavior in docs. Native addon no longer uses shell (`execSync`): resolves `ldd` path via `PATH` and `fs.existsSync` only. Documented filesystem access (native loader + `loadLoggerConfig`), environment variables (only `PATH` in optional native addon), dynamic require (static paths only), and URL/network (no runtime URLs). SECURITY.md now lists the single env var read (`PATH`) and README Security & Compliance section covers network, env, dynamic require, and filesystem.
+
+  **Docs - Universal Adapter:** README section 3 reworked: mapping is defined once with `UniversalLogFormatter` (outside the executor); executor receives the mapped object and can send it to multiple backends (e.g. Prisma, TypeORM, Mongoose) in one block. Single example shows one mapping → one object → three destinations with `Promise.all`.
+
 ## 0.12.0
 
 First release after 0.11.3. Includes all framework refinements validated end-to-end with the examples repo (0.11.4 was never published to npm).

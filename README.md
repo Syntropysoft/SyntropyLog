@@ -160,33 +160,86 @@ await syntropyLog.init({
 
 ## 3. Universal Adapter — log to any backend
 
-**What:** Send each log to PostgreSQL, MongoDB, Elasticsearch, S3, etc. by implementing a single `executor`. No vendor lock-in; you receive one structured object per log (already masked).
+**What:** Send each log to PostgreSQL, MongoDB, Elasticsearch, S3, etc. by implementing a single `executor`. No vendor lock-in. You define **once** how the log entry maps to your schema; the executor only receives that mapped object and persists it (ORM, raw client, HTTP). If `executor` throws, SyntropyLog logs the error and continues (Silent Observer).
 
-**How:** Use `AdapterTransport` + `UniversalAdapter`:
+**How:** Use `AdapterTransport` + `UniversalAdapter` + `UniversalLogFormatter`. Three steps:
+
+---
+
+### 1. Define the mapping (outside the executor)
+
+Define how each log entry field maps to your persistence shape. One place, no repetition in code. Use `UniversalLogFormatter` with a `mapping` object: keys = your schema (e.g. DB columns), values = path in the log entry.
+
+| Log entry path | Meaning |
+|----------------|--------|
+| `level` | Log level |
+| `message` | Message string |
+| `serviceName` | From init config |
+| `correlationId` | From context |
+| `timestamp` | ISO string |
+| `meta` | Merged metadata (use as payload/JSON column) |
+
+Example: map to a table with columns `level`, `message`, `serviceName`, `correlationId`, `payload`, `timestamp`.
+
+```typescript
+import { UniversalLogFormatter } from 'syntropylog';
+
+const logToDbMapping = {
+  level:         'level',
+  message:       'message',
+  serviceName:   'serviceName',
+  correlationId: 'correlationId',
+  payload:       'meta',
+  timestamp:     'timestamp',
+};
+
+const formatter = new UniversalLogFormatter({ mapping: logToDbMapping });
+```
+
+The formatter turns every log entry into an object with exactly those keys. Change the mapping here when your schema changes; the executor stays the same.
+
+---
+
+### 2. The object the executor receives
+
+When you attach this formatter to the transport, the `executor` receives **that mapped object** (not the raw log entry). So the executor only sees something like `{ level, message, serviceName, correlationId, payload, timestamp }`. Your only job in the executor is to **persist** that object.
+
+---
+
+### 3. Sending that object to your backend
+
+One mapping produces one object shape. You can send **that same object** to as many backends as you want in a single executor: same `data`, different destinations (e.g. Prisma, TypeORM, Mongoose, Elasticsearch, S3). No field list — the shape comes from the mapping.
+
+**Example: one mapped object → three destinations**
 
 ```typescript
 import { AdapterTransport, UniversalAdapter } from 'syntropylog';
+import { prisma } from './prisma';
+import { getRepository } from 'typeorm';
+import { SystemLog as TypeOrmSystemLog } from './entities/SystemLog';
+import { SystemLogModel } from './models/SystemLog';
 
 const dbTransport = new AdapterTransport({
   name: 'db',
+  formatter,
   adapter: new UniversalAdapter({
-    executor: async (logEntry) => {
-      await prisma.systemLog.create({
-        data: {
-          level:         logEntry.level,
-          message:       logEntry.message,
-          serviceName:   logEntry.serviceName,
-          correlationId: logEntry.correlationId,
-          payload:       logEntry.meta,
-          timestamp:     new Date(logEntry.timestamp),
-        },
-      });
+    executor: async (data) => {
+      const row = {
+        ...data,
+        timestamp: new Date(data.timestamp as string),
+      };
+      // Same object, three destinations (e.g. Postgres + TypeORM DB + MongoDB)
+      await Promise.all([
+        prisma.systemLog.create({ data: row }),
+        getRepository(TypeOrmSystemLog).save(row),
+        SystemLogModel.create(row),
+      ]);
     },
   }),
 });
 ```
 
-`logEntry` has: `level`, `message`, `serviceName`, `correlationId`, `timestamp`, `meta`. If `executor` throws, SyntropyLog logs the error and continues (Silent Observer).
+Use one transport and one executor; add or remove destinations in that same block. Use this transport in your `init()` (e.g. in `logger.transports` or `logger.transportList` + `logger.env`).
 
 ---
 
@@ -568,6 +621,17 @@ Secure this route (e.g. auth, internal only). When debugging in a POD is finishe
 ---
 
 ## Security & Compliance
+
+**Network & URLs:** This package does not contact any external URLs or IPs at runtime. The only network I/O is what you configure (e.g. your `executor` sending logs to your PostgreSQL, Elasticsearch, or API). URLs in this README and in `package.json` are documentation and metadata only (badges, repository links); they are not used for outbound connections.
+
+**Environment variables:** The main package does not read any. The optional native addon (`syntropylog-native`) reads only `PATH` on Linux to locate the `ldd` binary for musl/glibc detection. No credentials or other env vars are read. See [SECURITY.md](./SECURITY.md) for the full list.
+
+**Dynamic require:** The package does not use dynamic `require(variable)` or user-controlled paths. Module paths are static string literals (e.g. `require('syntropylog-native')`, `require('./index.js')`). The native addon loader chooses one of several fixed `.node` paths based on platform/arch; no user input is used to build require paths.
+
+**Filesystem access:** The package only reads the files described below; it does not scan or read arbitrary paths.
+
+- **Native addon loader** (`syntropylog-native`): Reads only (1) the presence of native `.node` binaries inside the package’s own directory (`__dirname`) to choose the correct build for the current OS/arch, and (2) on Linux only, the system `ldd` binary (e.g. `/usr/bin/ldd`) to detect musl vs glibc. No user or application files are read.
+- **Config loader** (`loadLoggerConfig`): Reads only paths you control. If you use it, it reads at most one file: either the path you pass in `opts.configPath`, or a file under `opts.configDir` with a name derived from `opts.defaultBase` and `opts.environment` (default: `./config/logger.yaml` or `./config/logger-{env}.yaml`). You can avoid filesystem access entirely by not calling `loadLoggerConfig` and passing config directly to `init()`.
 
 | Dynamically configurable | Fixed at init |
 |--------------------------|---------------|

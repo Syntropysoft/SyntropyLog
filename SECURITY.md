@@ -2,9 +2,15 @@
 
 ## Environment Variables
 
-**This package does not read any environment variables.** No credentials, secrets, or data are read from the environment.
+**List of variables this package reads (and only these):**
 
-- **Colors:** To respect [NO_COLOR](https://no-color.org/), pass `disableColors: true` (or `disableColors: process.env.NO_COLOR != null && process.env.NO_COLOR !== '' && process.env.NO_COLOR !== '0'`) when creating console transports (e.g. `new CompactConsoleTransport({ disableColors: true })`).
+| Variable | Where | Purpose |
+|----------|--------|--------|
+| `PATH` | Optional dependency `syntropylog-native` only | Used on Linux to locate the system `ldd` binary (e.g. `/usr/bin/ldd` or in PATH) for musl vs glibc detection when loading the native addon. No credentials or other data are read. |
+
+The main package (`syntropylog`) does not read any environment variables. Environment names (e.g. `development`, `production`) and transport selection come from the config you pass to `init()`, not from `process.env`.
+
+- **Colors:** To respect [NO_COLOR](https://no-color.org/), pass `disableColors: true` (or `disableColors: process.env.NO_COLOR != null && process.env.NO_COLOR !== '' && process.env.NO_COLOR !== '0'`) when creating console transports (e.g. `new CompactConsoleTransport({ disableColors: true })`). The library does not read `NO_COLOR`; you pass the value in.
 - **Native addon:** To run in pure JS (no native addon), set `logger.disableNativeAddon: true` in `syntropyLog.init({ logger: { disableNativeAddon: true, ... } })`.
 
 ## Supported Versions
