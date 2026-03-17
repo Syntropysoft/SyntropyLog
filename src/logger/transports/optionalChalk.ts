@@ -2,8 +2,8 @@
  * @file src/logger/transports/optionalChalk.ts
  * @description Built-in chalk-like API using ANSI escape codes. No chalk dependency.
  * Used by ClassicConsoleTransport, PrettyConsoleTransport, CompactConsoleTransport, ColorfulConsoleTransport.
- * Does not read process.env; pass disableColors from transport options (e.g. for NO_COLOR use
- * disableColors: process.env.NO_COLOR != null && process.env.NO_COLOR !== '' && process.env.NO_COLOR !== '0').
+ * This module does not read environment variables. Pass disableColors from transport options;
+ * to respect the NO_COLOR convention, set disableColors from your app (e.g. from the NO_COLOR env var). See SECURITY.md.
  */
 
 /** Chalk-like API: chainable style that returns wrapped string when called. */
@@ -77,9 +77,8 @@ let cachedNoColors: ChalkLike | null = null;
 
 /**
  * Returns a chalk-like instance using built-in ANSI colors. No external chalk dependency.
- * Does not read process.env. Pass disableColors from transport options; when true, output has no colors.
- * When false, colors are used only if stdout is a TTY. To respect NO_COLOR, pass
- * disableColors: process.env.NO_COLOR != null && process.env.NO_COLOR !== '' && process.env.NO_COLOR !== '0'.
+ * Does not read environment variables. Pass disableColors from transport options; when true, output has no colors.
+ * When false, colors are used only if stdout is a TTY. To respect NO_COLOR, derive disableColors in your app and pass it here. See SECURITY.md.
  */
 export function getOptionalChalk(disableColors: boolean): ChalkLike {
   if (disableColors) {

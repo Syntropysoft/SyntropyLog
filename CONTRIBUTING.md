@@ -88,27 +88,47 @@ We welcome code contributions! To contribute code, please follow these steps:
 
 ## Release process (maintainers)
 
-Guía detallada: [docs/PREPARAR_PUBLICACION.md](docs/PREPARAR_PUBLICACION.md).
+Detailed guide: [docs/PREPARAR_PUBLICACION.md](docs/PREPARAR_PUBLICACION.md) (Spanish).
 
-**Ramas auxiliares (feature, develop, etc.):** en cada push y en los PRs se ejecuta solo el workflow **CI** (lint, build, tests, benchmark con addon nativo). No se publica nada en npm. Así puedes validar que todo pase antes de integrar a `main`.
+**Feature and develop branches:** On every push and on PRs, only the **CI** workflow runs (lint, build, tests, benchmark with native addon). Nothing is published to npm. This lets you validate everything before merging into `main`.
 
-**Solo al hacer push a `main`** se ejecuta el workflow **Release** (build del addon en todas las plataformas y, si hay changesets, versionado/publicación en npm).
+**Only when pushing to `main`** does the **Release** workflow run (build the addon on all platforms and, if there are changesets, versioning/publishing to npm).
 
-Releases use [Changesets](https://github.com/changesets/changesets) and GitHub Actions. **Para que la versión suba en npm, siempre tienes que hacer una de estas dos cosas:**
+Releases use [Changesets](https://github.com/changesets/changesets) and GitHub Actions. **To have a new version published to npm, you must do one of the following:**
 
-### Opción A: Usar el PR que crea el action
+### Option A: Use the PR created by the action
 
-1. **Añade un changeset** al cambiar la librería: `pnpm changeset` (elige tipo de versión y describe el cambio).
-2. **Push a `main`**. El workflow crea un PR **"Version Packages"** con el bump (ej. 0.9.12 → 0.9.13) y el CHANGELOG actualizado. **Todavía no publica en npm.**
-3. **Mergea ese PR** en `main`. Ese merge vuelve a disparar el workflow y **ahí sí** se ejecuta `publish` y la nueva versión aparece en npm.
+1. **Add a changeset** when changing the library: `pnpm changeset` (choose version bump type and describe the change).
+2. **Push to `main`**. The workflow creates a **"Version Packages"** PR with the version bump (e.g. 0.9.12 → 0.9.13) and updated CHANGELOG. **Nothing is published to npm yet.**
+3. **Merge that PR** into `main`. That merge triggers the workflow again and **then** `publish` runs and the new version appears on npm.
 
-### Opción B: Subir la versión a mano (sin PR)
+### Option B: Bump the version manually (no PR)
 
-1. Con changesets ya en el repo, en local: `pnpm run version-packages`. Eso actualiza `package.json`, CHANGELOG y borra los changesets.
-2. **Commit** (package.json, CHANGELOG.md, y los .changeset/*.md borrados) y **push a `main`**.
-3. El workflow corre, no hay changesets que aplicar, y ejecuta **publish** → la versión sube a npm.
+1. With changesets already in the repo, run locally: `pnpm run version-packages`. This updates `package.json`, CHANGELOG, and removes the consumed changesets.
+2. **Commit** (package.json, CHANGELOG.md, and the removed .changeset/*.md files) and **push to `main`**.
+3. The workflow runs, there are no changesets to apply, and it runs **publish** → the new version is published to npm.
 
-En ambos casos, **main** y **npm** quedan con la misma versión.
+In both cases, **main** and **npm** end up with the same version.
+
+## Repository size and what not to commit
+
+The repo should stay small so clones are fast. The following are in `.gitignore` and **must not** be committed:
+
+- `node_modules/`, `dist/`, `coverage/`
+- `assets/` (images; the README uses an external logo URL)
+- `docs/`, `.cursor/`, `.turbo`
+
+**If `assets/` or `coverage/` are already tracked**, remove them from Git (files stay on disk, only tracking is removed). Check first with `git ls-files assets/ coverage/`; if that lists files, run:
+
+```bash
+git rm -r --cached assets/
+git rm -r --cached coverage/
+git commit -m "chore: stop tracking assets and coverage"
+```
+
+If the path is not tracked, `git rm --cached` will report "did not match any file(s)" — that’s expected; nothing to do.
+
+The clone size (~36 MB) is mostly **Git history** (old copies of heavy files). To reduce it you would need to rewrite history (e.g. `git filter-repo` or BFG to remove `assets/` from the past). That changes commit hashes and requires a force-push; only do it if the team agrees.
 
 ## Getting Help
 

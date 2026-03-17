@@ -1,6 +1,6 @@
 import fs from 'fs';
-import yaml from 'js-yaml';
 import path from 'path';
+import { parse as parseYaml } from 'yaml';
 import { LoggerOptions } from '../types';
 
 /**
@@ -40,7 +40,7 @@ export interface LoggerConfigLoaderOptions {
  * It does NOT read environment variables directly; all state must be passed via `opts`.
  * If no file is found, it returns an empty object, making the config file optional.
  *
- * **Security:** A restricted schema (JSON_SCHEMA) is used to avoid prototype pollution
+ * **Security:** A restricted schema (`json`) is used to avoid prototype pollution
  * and dangerous types. Only use with configuration files under deployment team
  * control (controlled paths and permissions). This function reads only the paths
  * derived from opts (configPath, configDir, defaultBase, environment); no other
@@ -93,8 +93,8 @@ export function loadLoggerConfig(
   try {
     // Load and parse the YAML file with restricted schema (avoids prototype pollution / unsafe types).
     const fileContents = fs.readFileSync(configPath, 'utf8');
-    const yamlConfig = yaml.load(fileContents, {
-      schema: yaml.JSON_SCHEMA,
+    const yamlConfig = parseYaml(fileContents, {
+      schema: 'json',
     }) as Record<string, unknown> | null;
 
     // If the YAML has the config under a 'logger' key, extract it.

@@ -26,8 +26,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "napi build --platform --release",
-    "build:debug": "napi build",
+    "build": "napi build --platform --release && node scripts/patch-index-no-shell.js",
+    "build:debug": "napi build && node scripts/patch-index-no-shell.js",
     "test": "node test-node.mjs"
   },
   "devDependencies": {},
