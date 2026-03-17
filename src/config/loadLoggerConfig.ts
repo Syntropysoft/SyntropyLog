@@ -42,7 +42,9 @@ export interface LoggerConfigLoaderOptions {
  *
  * **Security:** A restricted schema (JSON_SCHEMA) is used to avoid prototype pollution
  * and dangerous types. Only use with configuration files under deployment team
- * control (controlled paths and permissions).
+ * control (controlled paths and permissions). This function reads only the paths
+ * derived from opts (configPath, configDir, defaultBase, environment); no other
+ * filesystem access is performed.
  *
  * @param opts - Options to customize the loading behavior.
  * @returns A partial `LoggerOptions` object, or an empty object if no file is found.
