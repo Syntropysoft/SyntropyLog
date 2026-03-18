@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.12.4",
+  "version": "0.12.5",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -172,9 +172,7 @@
     "access": "public",
     "provenance": true
   },
-  "dependencies": {
-    "yaml": "^2.8.2"
-  },
+  "dependencies": {},
   "optionalDependencies": {
     "syntropylog-native": "workspace:*"
   },

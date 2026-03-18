@@ -631,7 +631,7 @@ Secure this route (e.g. auth, internal only). When debugging in a POD is finishe
 **Filesystem access:** The package only reads the files described below; it does not scan or read arbitrary paths.
 
 - **Native addon loader** (`syntropylog-native`): Reads only (1) the presence of native `.node` binaries inside the package’s own directory (`__dirname`) to choose the correct build for the current OS/arch, and (2) on Linux only, the system `ldd` binary (e.g. `/usr/bin/ldd`) to detect musl vs glibc. No user or application files are read.
-- **Config loader** (`loadLoggerConfig`): Reads only paths you control. If you use it, it reads at most one file: either the path you pass in `opts.configPath`, or a file under `opts.configDir` with a name derived from `opts.defaultBase` and `opts.environment` (default: `./config/logger.yaml` or `./config/logger-{env}.yaml`). You can avoid filesystem access entirely by not calling `loadLoggerConfig` and passing config directly to `init()`.
+Configuration is passed to `init()` only; the package does not load config from files.
 
 | Dynamically configurable | Fixed at init |
 |--------------------------|---------------|
