@@ -25,9 +25,40 @@
 
 ## What is SyntropyLog?
 
-SyntropyLog is a **structured observability framework** for Node.js. You declare what your logs should carry (context, level-based fields, retention, masking), and SyntropyLog makes it happen everywhere—automatically. No manual plumbing, no hidden behavior.
+SyntropyLog is a **structured observability framework** designed specifically for **Node.js** applications. Its primary goal is to let you declare what information your logs should carry automatically, guaranteeing performance and regulatory compliance at all times.
 
-It is built for **high demand** and **regulated environments** (banking, healthcare, financial services): HIPAA-style field control via the Logging Matrix, SOX-style audit trails via `withRetention`, and a pipeline that never lets logging crash your app.
+It is purpose-built for **high-demand** and **highly regulated** environments (such as banking, healthcare, or fintech), where data control and system resilience are critical.
+
+---
+
+### What is it for?
+
+In traditional applications, logs can be heavy, hard to trace, or contain sensitive information (like passwords or personal data) that violates regulations like GDPR or HIPAA.
+
+SyntropyLog solves this by allowing you to:
+1.  **Control what is shown:** Define what context fields are included at each log level.
+2.  **Protect sensitive data:** Redact passwords, emails, etc., before the log leaves the system.
+3.  **Prevent application crashes:** Fail-safe processing pipeline (circular refs, depth limits, Rust addon).
+
+---
+
+### Key Concepts
+
+| Concept | What it does |
+| :--- | :--- |
+| **Native Addon (Rust)** | Optional Rust module that processes logs at maximum speed (serialize + mask + sanitize). |
+| **Logging Matrix** | Declarative config defining context field visibility per log level. <br/>**Important:** Only fields/headers declared in the initial context configuration are processed. |
+| **MaskingEngine** | Real-time redaction of sensitive fields with rules/regex. <br/>**Config:** Enable default rules or define custom replacement patterns. |
+| **Universal Adapter** | Send logs to any backend with a single `executor`, avoiding vendor lock-in. |
+
+---
+
+### Main Benefits
+
+*   **Extreme Performance:** Rust addon makes logging light on Node.js CPU.
+*   **Direct Compliance:** Facilitates audits (SOX, GDPR, PCI-DSS) with `audit` level and retention policies.
+*   **Active Security:** Sanitizes strings to prevent Log Injection attacks.
+*   **Traceability:** Manages `Correlation ID` and `Transaction ID` automatically.
 
 ---
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.7
+
+### Patch Changes
+
+- Updated documentation: added `doc-es/EXPLICACION_GENERAL.md` and updated `README.md` with structured explanations of the framework.
+
 ## 0.12.6
 
 ## 0.12.5
