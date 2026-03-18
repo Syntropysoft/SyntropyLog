@@ -199,7 +199,7 @@ const auditLogger = log
   .withSource('PaymentService')
   .withRetention({ policy: 'SOX_AUDIT_TRAIL', years: 5 });
 
-auditLogger.info({ userId: 123, action: 'payment' }, 'Payment processed');
+auditLogger.audit({ userId: 123, action: 'payment' }, 'Payment processed');
 // El entry incluye source: 'PaymentService' y retention: { policy: 'SOX_AUDIT_TRAIL', years: 5 }
 ```
 

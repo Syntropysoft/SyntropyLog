@@ -31,7 +31,7 @@ SyntropyLog resuelve esto permitiéndote:
 ## Beneficios Principales
 
 *   **Rendimiento Extremo:** Gracias al addon en Rust, el procesamiento visual de los logs es sumamente liviano para la CPU de Node.js.
-*   **Cumplimiento Normativo Directo:** Facilita el cumplimiento de auditorías (SOX, GDPR, PCI-DSS) mediante niveles dedicados de `audit` y políticas de retención.
+*   **Cumplimiento Normativo Directo:** Facilita el cumplimiento de auditorías (SOX, GDPR, PCI-DSS) mediante niveles dedicados de `audit` (**inmune a los filtros de nivel de log, siempre se escribe**) y políticas de retención.
 *   **Seguridad Activa:** Sanitiza strings para evitar ataques de *Log Injection*.
 *   **Trazabilidad:** Gestiona automáticamente el `Correlation ID` y `Transaction ID` que viajan a lo largo de toda una petición o ciclo de vida.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.8
+
+### Patch Changes
+
+- Updated documentation: clarified that the `audit` log level is immune to log level filtering and is always written.
+
 ## 0.12.7
 
 ### Patch Changes

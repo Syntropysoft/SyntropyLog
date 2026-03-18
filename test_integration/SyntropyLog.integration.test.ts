@@ -369,7 +369,7 @@ describe('SyntropyLog Integration Tests', () => {
         // Ensure base logger is unaffected
         await baseLogger.info('Standard log');
         // Use child logger
-        await auditLogger.info('Audit event log');
+        await auditLogger.audit('Audit event log');
 
         const ourLogs = captured.filter((c) => c.service === 'base-service');
         expect(ourLogs.length).toBe(2);
