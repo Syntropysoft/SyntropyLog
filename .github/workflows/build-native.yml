@@ -1,5 +1,5 @@
-# Compila el addon Rust (syntropylog-native) en Windows, Linux y macOS.
-# Cada runner produce el .node para su plataforma; un job final junta todos los artefactos.
+# Build the Rust addon (syntropylog-native) on Windows, Linux, and macOS.
+# Each runner produces the .node for its platform; a final job merges all artifacts.
 name: Build native addon
 
 on:

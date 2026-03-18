@@ -1,39 +1,39 @@
 # Release checklist — v0.12.4 → main
 
-Versión actualizada por changeset (package.json 0.12.4, CHANGELOG). Pasos para integrar a `main` y publicar.
+Version updated via changeset (package.json 0.12.4, CHANGELOG). Steps to integrate into `main` and publish.
 
-## Antes de pushear a main
+## Before pushing to main
 
-- [ ] **Tests unitarios:** `pnpm test -- --run`
-- [ ] **Tests de integración:** `pnpm run test:integration`
+- [ ] **Unit tests:** `pnpm test -- --run`
+- [ ] **Integration tests:** `pnpm run test:integration`
 - [ ] **Build:** `pnpm run build`
-- [ ] Revisar que no queden cambios sin commitear en archivos que no deben subirse (`.gitignore`)
+- [ ] Ensure there are no uncommitted changes in files that should not be committed (`.gitignore`)
 
-## Archivos de la versión 0.12.4
+## Files for version 0.12.4
 
 - `package.json` — `"version": "0.12.4"`
-- `CHANGELOG.md` — entrada 0.12.4 (CI + native patch index.js/index.mjs, SECURITY.md fs/ESM, ESLint ignore scripts)
+- `CHANGELOG.md` — 0.12.4 entry (CI + native patch index.js/index.mjs, SECURITY.md fs/ESM, ESLint ignore scripts)
 - `SECURITY.md` — fs module, native ESM index.mjs
-- `.github/workflows/*.yml` — build addon con `pnpm run build` (patch corre siempre)
-- `syntropylog-native/scripts/patch-index-no-shell.js` — parche de index.mjs (static require)
+- `.github/workflows/*.yml` — addon build with `pnpm run build` (patch always runs)
+- `syntropylog-native/scripts/patch-index-no-shell.js` — index.mjs patch (static require)
 - `eslint.config.js` — ignore syntropylog-native/scripts
 
-## Integrar a main
+## Integrate into main
 
-1. **Push** (tras este commit):
+1. **Push** (after this commit):
    ```bash
-   git push origin <tu-rama>
+   git push origin <your-branch>
    ```
-   Luego merge a main y push, o push directo a main.
+   Then merge into main and push, or push directly to main.
 
-2. **CI:** Release workflow hará build del addon (con patch) y publicará a npm según configuración.
+2. **CI:** The Release workflow will build the addon (with patch) and publish to npm according to your configuration.
 
-3. **Tag opcional:**
+3. **Optional tag:**
    ```bash
    git tag -a v0.12.4 -m "Release 0.12.4"
    git push origin v0.12.4
    ```
 
-## Después de publicar
+## After publishing
 
-- [ ] Comprobar en npm que `syntropylog@0.12.4` existe.
+- [ ] Verify on npm that `syntropylog@0.12.4` exists.

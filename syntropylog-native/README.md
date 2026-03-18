@@ -1,41 +1,41 @@
 # syntropylog-native
 
-Addon nativo en Rust para SyntropyLog (serialización rápida + masking). Fase 0: validación de compilación y enlace Node↔Rust.
+Native Rust addon for SyntropyLog (fast serialization + masking). Phase 0: build and Node↔Rust linking validation.
 
-**Runtime:** No subprocess or shell execution. The loader only uses `fs.existsSync` / `fs.readFileSync` and `process.env.PATH` (Linux musl detection). See main package SECURITY.md. After `napi build`, `scripts/patch-index-no-shell.js` runs to replace the default NAPI-RS template’s `execSync('which ldd')` with a safe `resolveLddPath()` so the published `index.js` never uses the shell.
+**Runtime:** No subprocess or shell execution. The loader only uses `fs.existsSync` / `fs.readFileSync` and `process.env.PATH` (Linux musl detection). See main package SECURITY.md. After `napi build`, `scripts/patch-index-no-shell.js` runs to replace the default NAPI-RS template’s `execSync('which ldd')` with a safe `resolveLddPathWithoutShell()` so the published `index.js` never uses the shell.
 
-## Requisitos
+## Requirements
 
 - Node ≥18
-- Rust (rustup) y target para tu plataforma (p. ej. `x86_64-pc-windows-msvc` en Windows)
+- Rust (rustup) and target for your platform (e.g. `x86_64-pc-windows-msvc` on Windows)
 
-## Build (desde esta carpeta)
+## Build (from this folder)
 
 ```bash
-pnpm exec napi build --platform --release
+pnpm run build
 ```
 
-Desde la raíz del repo (con `@napi-rs/cli` en devDependencies):
+This runs `napi build --platform --release` and then the post-build patch (index.js + index.mjs). From the repo root (with `@napi-rs/cli` in devDependencies):
 
 ```bash
-cd syntropylog-native && pnpm exec napi build --platform --release
+cd syntropylog-native && pnpm run build
 ```
 
 ## Test
 
-Tras el build:
+After building:
 
 ```bash
 node test-node.mjs
 ```
 
-Debe imprimir: `OK syntropylog-native: pong`.
+Expected output: `OK syntropylog-native: pong`.
 
-## Build en CI (Windows, Linux, macOS)
+## Build in CI (Windows, Linux, macOS)
 
-El workflow [../.github/workflows/build-native.yml](../.github/workflows/build-native.yml) compila el addon en los tres sistemas. Cada push/PR a `main` o `develop` ejecuta la matriz; el job **Merge platform artifacts** deja un artefacto `syntropylog-native-all-platforms` con todos los `.node` + `index.js` + `index.d.ts` listos para publicar o empaquetar.
+The workflow [../.github/workflows/build-native.yml](../.github/workflows/build-native.yml) builds the addon on all three systems. Each push/PR to `main` or `develop` runs the matrix; the **Merge platform artifacts** job produces a `syntropylog-native-all-platforms` artifact with all `.node` files plus `index.js` and `index.d.ts` ready to publish or package.
 
-## Fase actual
+## Current phase
 
-- **Fase 0**: `ping()` — compilación y enlace validados en Windows.
-- **Fase 1**: implementar `fast_serialize(entry, config)` según [../docs/rust_phase0_design.md](../docs/rust_phase0_design.md).
+- **Phase 0**: `ping()` — build and linking validated on Windows.
+- **Phase 1**: implement `fast_serialize(entry, config)` per [../docs/rust_phase0_design.md](../docs/rust_phase0_design.md).
