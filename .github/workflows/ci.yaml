@@ -85,9 +85,9 @@ jobs:
         run: pnpm run build
 
       - name: Run tests
-        run: pnpm run test # No necesitamos cobertura aquí, solo confirmar que pasan
+        run: pnpm run test # No coverage needed here, only confirm tests pass
 
-  # Fase 5.1: optional job — build addon, run benchmark, assert native addon is used
+  # Optional job: build addon, run benchmark, assert native addon is used
   benchmark-native-addon:
     name: "Benchmark (native addon)"
     needs: primary-build
@@ -119,7 +119,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build native addon
-        run: cd syntropylog-native && pnpm exec napi build --platform --release
+        run: cd syntropylog-native && pnpm run build
         shell: bash
 
       - name: List built addon artifacts (for debugging)

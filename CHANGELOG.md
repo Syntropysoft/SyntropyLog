@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.4
+
+### Patch Changes
+
+- **CI & native addon:** GitHub Actions (build-native, release, ci) now run `pnpm run build` in syntropylog-native so the post-build patch always runs: index.js (no execSync, resolveLddPathWithoutShell) and index.mjs (static require('./index.js'), no join/path/url). SECURITY.md documents fs module usage and native ESM entry; patch script also patches index.mjs when NAPI-RS generates dynamic require. ESLint: ignore syntropylog-native/scripts for Node CommonJS scripts.
+
 ## 0.12.3
 
 ### Patch Changes

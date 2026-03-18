@@ -1,49 +1,49 @@
 # Release checklist — v0.12.3 → main
 
-Versión ya actualizada en el repo (package.json y CHANGELOG). Pasos para integrar a `main` y publicar.
+Version already updated in the repo (package.json and CHANGELOG). Steps to integrate into `main` and publish.
 
-## Antes de pushear a main
+## Before pushing to main
 
-- [ ] **Tests unitarios:** `pnpm test -- --run`
-- [ ] **Tests de integración:** `pnpm run test:integration`
+- [ ] **Unit tests:** `pnpm test -- --run`
+- [ ] **Integration tests:** `pnpm run test:integration`
 - [ ] **Build:** `pnpm run build`
-- [ ] Revisar que no queden cambios sin commitear en archivos que no deben subirse (`.gitignore`)
+- [ ] Ensure there are no uncommitted changes in files that should not be committed (`.gitignore`)
 
-## Archivos de la versión 0.12.3
+## Files for version 0.12.3
 
 - `package.json` — `"version": "0.12.3"`
-- `CHANGELOG.md` — entrada 0.12.3 (SECURITY.md doc para alertas del paquete yaml)
-- `SECURITY.md` — Supported Versions actualizado (0.12.x), párrafos sobre yaml (URLs, behavioral)
+- `CHANGELOG.md` — 0.12.3 entry (SECURITY.md doc for yaml package alerts)
+- `SECURITY.md` — Supported Versions updated (0.12.x), paragraphs on yaml (URLs, behavioral)
 
-## Integrar a main
+## Integrate into main
 
-1. **Commit** de todos los cambios de la release:
+1. **Commit** all release changes:
    ```bash
    git add package.json CHANGELOG.md SECURITY.md
    git status
    git commit -m "chore(release): 0.12.3 — SECURITY.md doc for yaml package alerts"
    ```
-   Opcional: incluir `RELEASE_0.12.3.md` si quieres dejarlo en el repo.
+   Optional: include `RELEASE_0.12.3.md` if you want to keep it in the repo.
 
-2. **Push a main** (o mergear tu rama a main y luego push):
+2. **Push to main** (or merge your branch into main and then push):
    ```bash
    git push origin main
    ```
-   Si usas rama de release:
+   If you use a release branch:
    ```bash
    git checkout main
    git merge your-release-branch
    git push origin main
    ```
 
-3. **CI:** El workflow de Release (en push a main) hará build del addon y publicará a npm según tu configuración.
+3. **CI:** The Release workflow (on push to main) will build the addon and publish to npm according to your configuration.
 
-4. **Tag opcional:**
+4. **Optional tag:**
    ```bash
    git tag -a v0.12.3 -m "Release 0.12.3"
    git push origin v0.12.3
    ```
 
-## Después de publicar
+## After publishing
 
-- [ ] Comprobar en npm que `syntropylog@0.12.3` existe.
+- [ ] Verify on npm that `syntropylog@0.12.3` exists.
