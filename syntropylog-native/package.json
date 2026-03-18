@@ -1,6 +1,6 @@
 {
   "name": "syntropylog-native",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Native Rust addon for SyntropyLog (fast serialization + masking)",
   "main": "index.js",
   "module": "index.mjs",
