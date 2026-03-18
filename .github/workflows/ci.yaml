@@ -119,7 +119,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build native addon
-        run: cd syntropylog-native && pnpm exec napi build --platform --release
+        run: cd syntropylog-native && pnpm run build
         shell: bash
 
       - name: List built addon artifacts (for debugging)

@@ -17,6 +17,10 @@ The main package (`syntropylog`) does not read any environment variables. Enviro
 
 SyntropyLog uses only **parse** with schema **json** in `loadLoggerConfig`; it does not use stringify or other APIs.
 
+- **Module `fs`:** Scanners may report filesystem access. The **yaml** package’s source includes `fs`-related code; we only call `parse()` and do not trigger that. The optional **syntropylog-native** addon uses `fs` in `index.js` only: `existsSync` for the `.node` binary and, on Linux, `readFileSync(lddPath, 'utf8')` for musl detection (paths from `__dirname` or `resolveLddPathWithoutShell()`; no user-controlled paths). See “Environment Variables” above for `PATH`.
+
+- **Native addon ESM (`index.mjs`):** The ESM entry uses `createRequire(import.meta.url)` and a **static** path `require('./index.js')` to load the CJS bundle. No dynamic paths or user input; the same process then loads the platform-specific `.node` binary as documented.
+
 **Passing config directly to `init()` (no YAML file, no `loadLoggerConfig`):**
 
 ```typescript
