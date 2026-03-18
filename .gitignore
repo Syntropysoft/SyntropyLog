@@ -672,6 +672,13 @@ modules/
 !modules/@syntropylog/
 
 dist/
+coverage/
+
+# Assets: images add weight to the repo; README uses external logo URL. Host images elsewhere if needed.
+assets/
+
+# Turborepo / cache
+.turbo
 
 docs/
 .cursor/

@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "0.12.2",
+  "version": "0.12.3",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -173,7 +173,7 @@
     "provenance": true
   },
   "dependencies": {
-    "js-yaml": "^4.1.1"
+    "yaml": "^2.8.2"
   },
   "optionalDependencies": {
     "syntropylog-native": "workspace:*"
@@ -186,7 +186,6 @@
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-typescript": "^12.1.2",
-    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.13.5",
     "@typescript-eslint/eslint-plugin": "8.56.1",
     "@typescript-eslint/parser": "8.56.1",

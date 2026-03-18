@@ -2,6 +2,8 @@
 
 Addon nativo en Rust para SyntropyLog (serialización rápida + masking). Fase 0: validación de compilación y enlace Node↔Rust.
 
+**Runtime:** No subprocess or shell execution. The loader only uses `fs.existsSync` / `fs.readFileSync` and `process.env.PATH` (Linux musl detection). See main package SECURITY.md. After `napi build`, `scripts/patch-index-no-shell.js` runs to replace the default NAPI-RS template’s `execSync('which ldd')` with a safe `resolveLddPath()` so the published `index.js` never uses the shell.
+
 ## Requisitos
 
 - Node ≥18

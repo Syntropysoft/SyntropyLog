@@ -5,19 +5,18 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
-import yaml from 'js-yaml';
 import path from 'path';
+import * as yamlModule from 'yaml';
 import { loadLoggerConfig } from '../../src/config/loadLoggerConfig';
 
 // Mock the 'fs' module to control file system interactions
 vi.mock('fs');
-// Mock 'js-yaml' to prevent mock pollution from other test files (e.g., doctor.test.ts)
-// and to gain explicit control over its behavior for our test cases.
-vi.mock('js-yaml');
+// Mock 'yaml' so parse is a controllable vi.fn().
+vi.mock('yaml', () => ({ parse: vi.fn() }));
 
 const mockExistsSync = vi.mocked(fs.existsSync);
 const mockReadFileSync = vi.mocked(fs.readFileSync);
-const mockYamlLoad = vi.mocked(yaml.load);
+const mockYamlParse = vi.mocked(yamlModule.parse);
 
 describe('loadLoggerConfig', () => {
   // Store original environment variables to restore after each test
@@ -56,7 +55,7 @@ describe('loadLoggerConfig', () => {
     // Mock only the specific path that should be checked
     mockExistsSync.mockImplementation((p) => p === customPath);
     mockReadFileSync.mockReturnValue(yamlContent);
-    mockYamlLoad.mockReturnValue(expectedConfig);
+    mockYamlParse.mockReturnValue(expectedConfig);
 
     const config = loadLoggerConfig({ configPath: customPath });
 
@@ -73,7 +72,7 @@ describe('loadLoggerConfig', () => {
 
     mockExistsSync.mockImplementation((p) => p === expectedPath);
     mockReadFileSync.mockReturnValue(yamlContent);
-    mockYamlLoad.mockReturnValue(expectedConfig);
+    mockYamlParse.mockReturnValue(expectedConfig);
 
     const config = loadLoggerConfig({ environment });
 
@@ -89,7 +88,7 @@ describe('loadLoggerConfig', () => {
 
     mockExistsSync.mockImplementation((p) => p === expectedPath);
     mockReadFileSync.mockReturnValue(yamlContent);
-    mockYamlLoad.mockReturnValue(expectedConfig);
+    mockYamlParse.mockReturnValue(expectedConfig);
 
     const config = loadLoggerConfig();
 
@@ -110,7 +109,7 @@ describe('loadLoggerConfig', () => {
 
     mockExistsSync.mockImplementation((p) => p === expectedPath);
     mockReadFileSync.mockReturnValue(yamlContent);
-    mockYamlLoad.mockReturnValue(expectedConfig);
+    mockYamlParse.mockReturnValue(expectedConfig);
 
     const config = loadLoggerConfig(opts);
 
@@ -127,7 +126,7 @@ describe('loadLoggerConfig', () => {
 
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(yamlContent);
-    mockYamlLoad.mockReturnValue(yamlObject);
+    mockYamlParse.mockReturnValue(yamlObject);
 
     const config = loadLoggerConfig();
 
@@ -141,7 +140,7 @@ describe('loadLoggerConfig', () => {
 
     mockExistsSync.mockReturnValue(true);
     mockReadFileSync.mockReturnValue(yamlContent);
-    mockYamlLoad.mockReturnValue(rootSettings);
+    mockYamlParse.mockReturnValue(rootSettings);
 
     const config = loadLoggerConfig();
 
@@ -158,8 +157,8 @@ describe('loadLoggerConfig', () => {
     mockExistsSync.mockImplementation((p) => p === expectedPath);
     mockReadFileSync.mockReturnValue(invalidYaml);
 
-    // Simulate the behavior of the real js-yaml library, which throws on parse error.
-    mockYamlLoad.mockImplementation(() => {
+    // Simulate the behavior of the real yaml library, which throws on parse error.
+    mockYamlParse.mockImplementation(() => {
       throw new Error('Simulated YAML Parse Error');
     });
 

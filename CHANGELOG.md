@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.3
+
+### Patch Changes
+
+- **SECURITY.md:** Document supply-chain alerts that may appear on the **yaml** package: (1) **URLs** — documentation links only (caniuse, MDN), no runtime network requests; (2) **Behavioral (medium)** — stringify/serialization analysis, vendor states no malicious activity. Clarifies that SyntropyLog uses only `parse` with schema `json`.
+
 ## 0.12.2
 
 ### Patch Changes
@@ -7,6 +13,8 @@
 - **Socket / security:** Addressed Socket.dev alerts and clarified behavior in docs. Native addon no longer uses shell (`execSync`): resolves `ldd` path via `PATH` and `fs.existsSync` only. Documented filesystem access (native loader + `loadLoggerConfig`), environment variables (only `PATH` in optional native addon), dynamic require (static paths only), and URL/network (no runtime URLs). SECURITY.md now lists the single env var read (`PATH`) and README Security & Compliance section covers network, env, dynamic require, and filesystem.
 
   **Docs - Universal Adapter:** README section 3 reworked: mapping is defined once with `UniversalLogFormatter` (outside the executor); executor receives the mapped object and can send it to multiple backends (e.g. Prisma, TypeORM, Mongoose) in one block. Single example shows one mapping → one object → three destinations with `Promise.all`.
+
+- **YAML / supply chain:** Replaced **js-yaml** with **yaml** (eemeli/yaml). The new dependency has no external packages (no argparse), removing the transitive alerts for URLs, filesystem, and env vars that came from js-yaml’s CLI helper. `loadLoggerConfig` now uses `parse(..., { schema: 'json' })` for safe parsing.
 
 ## 0.12.0
 
@@ -159,7 +167,7 @@ _Nothing at the moment._
 
 ### Security
 
-- **loadLoggerConfig**: Use js-yaml's `JSON_SCHEMA` when parsing YAML files to avoid prototype pollution and dangerous types. Use only with configuration files under deployment team control.
+- **loadLoggerConfig**: Use the **yaml** package (eemeli/yaml) with schema `json` when parsing YAML files to avoid prototype pollution and dangerous types; **yaml** has no external dependencies (no argparse). Use only with configuration files under deployment team control.
 
 ### Fixed
 
