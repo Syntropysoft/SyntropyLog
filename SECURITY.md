@@ -10,18 +10,11 @@
 
 The main package (`syntropylog`) does not read any environment variables. Environment names (e.g. `development`, `production`) and transport selection come from the config you pass to `init()`, not from `process.env`.
 
-**YAML config:** Optional file-based config uses the **yaml** package ([eemeli/yaml](https://github.com/eemeli/yaml)), which has **no external dependencies** (no argparse or similar). Some tools may still report:
-
-- **URLs:** The package source contains documentation links (e.g. [caniuse.com](https://caniuse.com/js-regexp-lookbehind), [MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse#using_the_reviver_parameter)). These are comments/docs only; the library does **not** contact any URL at runtime.
-- **Behavioral (medium):** Analysis of stringify/serialization code; the vendor states no malicious activity and conservative, typical serialization-library posture.
-
-SyntropyLog uses only **parse** with schema **json** in `loadLoggerConfig`; it does not use stringify or other APIs.
-
-- **Module `fs`:** Scanners may report filesystem access. The **yaml** package’s source includes `fs`-related code; we only call `parse()` and do not trigger that. The optional **syntropylog-native** addon uses `fs` in `index.js` only: `existsSync` for the `.node` binary and, on Linux, `readFileSync(lddPath, 'utf8')` for musl detection (paths from `__dirname` or `resolveLddPathWithoutShell()`; no user-controlled paths). See “Environment Variables” above for `PATH`.
+- **Module `fs`:** The main package has no file-based config. The optional **syntropylog-native** addon uses `fs` in `index.js` only: `existsSync` for the `.node` binary and, on Linux, `readFileSync(lddPath, 'utf8')` for musl detection (paths from `__dirname` or `resolveLddPathWithoutShell()`; no user-controlled paths). See “Environment Variables” above for `PATH`.
 
 - **Native addon ESM (`index.mjs`):** The ESM entry uses `createRequire(import.meta.url)` and a **static** path `require('./index.js')` to load the CJS bundle. No dynamic paths or user input; the same process then loads the platform-specific `.node` binary as documented.
 
-**Passing config directly to `init()` (no YAML file, no `loadLoggerConfig`):**
+**Config:** Pass options to `init()`; the package does not load config from files.
 
 ```typescript
 import { syntropyLog } from 'syntropylog';
@@ -34,8 +27,6 @@ syntropyLog.init({
   // ... any other options from the README
 });
 ```
-
-If you never call `loadLoggerConfig()` and never import it, the only remaining use of the `yaml` package in your app would be if another dependency pulls it in; SyntropyLog lists `yaml` as a dependency for optional file-based config.
 
 - **Colors:** To respect [NO_COLOR](https://no-color.org/), pass `disableColors: true` (or `disableColors: process.env.NO_COLOR != null && process.env.NO_COLOR !== '' && process.env.NO_COLOR !== '0'`) when creating console transports (e.g. `new CompactConsoleTransport({ disableColors: true })`). The library does not read `NO_COLOR`; you pass the value in.
 - **Native addon:** To run in pure JS (no native addon), set `logger.disableNativeAddon: true` in `syntropyLog.init({ logger: { disableNativeAddon: true, ... } })`.

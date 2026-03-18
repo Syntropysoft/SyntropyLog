@@ -11,10 +11,6 @@ overrides:
 importers:
 
   .:
-    dependencies:
-      yaml:
-        specifier: ^2.8.2
-        version: 2.8.2
     devDependencies:
       '@changesets/cli':
         specifier: ^2.27.1
@@ -4076,8 +4072,6 @@ snapshots:
       '@pkgr/core': 0.2.9
 
   'syntropylog@file:':
-    dependencies:
-      yaml: 2.8.2
     optionalDependencies:
       syntropylog-native: link:syntropylog-native
 

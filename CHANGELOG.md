@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.5
+
+### Patch Changes
+
+- Remove **yaml** dependency and `loadLoggerConfig`; config is passed to `init()` only. Reduces supply-chain surface and aligns with Socket/security tooling. SECURITY.md and README updated (no file-based config).
+
+  **Breaking:** If you used `loadLoggerConfig()` or loaded config from YAML/JSON files, migrate to passing options directly to `syntropyLog.init({ ... })`. The package no longer exports `loadLoggerConfig` or depends on `yaml`.
+
 ## 0.12.4
 
 ### Patch Changes
