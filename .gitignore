@@ -680,5 +680,5 @@ assets/
 # Turborepo / cache
 .turbo
 
-docs/
 .cursor/
+doc-es/contexto-general-claude.md

@@ -17,7 +17,7 @@
   <a href="https://github.com/Syntropysoft/SyntropyLog/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/syntropylog.svg" alt="License"></a>
   <a href="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml"><img src="https://github.com/Syntropysoft/SyntropyLog/actions/workflows/ci.yaml/badge.svg" alt="CI Status"></a>
   <a href="#"><img src="https://img.shields.io/badge/coverage-95.13%25-brightgreen" alt="Test Coverage"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-v0.11.4-brightgreen.svg" alt="Version 0.11.4"></a>
+  <a href="#"><img src="https://img.shields.io/badge/status-v0.12.9-brightgreen.svg" alt="Version 0.12.9"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
@@ -42,23 +42,19 @@ SyntropyLog solves this by allowing you to:
 
 ---
 
-### Key Concepts
+### Core design
 
 | Concept | What it does |
 | :--- | :--- |
-| **Native Addon (Rust)** | Optional Rust module that processes logs at maximum speed (serialize + mask + sanitize). |
-| **Logging Matrix** | Declarative config defining context field visibility per log level. <br/>**Important:** Only fields/headers declared in the initial context configuration are processed. |
-| **MaskingEngine** | Real-time redaction of sensitive fields with rules/regex. <br/>**Config:** Enable default rules or define custom replacement patterns. |
-| **Universal Adapter** | Send logs to any backend with a single `executor`, avoiding vendor lock-in. |
+| **Native Addon (Rust)** | Single-pass serialize + mask + sanitize at maximum speed. No CPU overhead on Node.js. |
+| **Logging Matrix** | Declarative contract: which context fields appear per log level. Only declared fields are processed. |
+| **MaskingEngine** | Real-time redaction of sensitive fields before any transport; built-in + custom rules. |
+| **Universal Adapter** | One `executor` function → any backend (DB, Elasticsearch, S3, OTel). No vendor lock-in. |
 
----
-
-### Main Benefits
-
-*   **Extreme Performance:** Rust addon makes logging light on Node.js CPU.
-*   **Direct Compliance:** Facilitates audits (SOX, GDPR, PCI-DSS) with `audit` level and retention policies.
-*   **Active Security:** Sanitizes strings to prevent Log Injection attacks.
-*   **Traceability:** Manages `Correlation ID` and `Transaction ID` automatically.
+*   **Performance:** Rust addon keeps logging lightweight on Node.js CPU.
+*   **Compliance:** `audit` level + retention policies facilitate SOX, GDPR, PCI-DSS audits.
+*   **Security:** Masking + sanitization prevent data leakage and log injection.
+*   **Traceability:** Correlation ID and Transaction ID propagate automatically across all logs.
 
 ---
 
@@ -70,20 +66,21 @@ Everything below is part of the same stack (benchmarks use this full stack). Eac
 |---|--------|---------------|
 | 1 | **Native addon (Rust)** | Single-pass serialize + mask + sanitize; ANSI strip. Falls back to JS if unavailable. |
 | 2 | **Logging Matrix** | Declarative control of which context fields appear per level (lean on `info`, full on `error`). |
-| 3 | **Universal Adapter** | Send logs to any backend (PostgreSQL, MongoDB, Elasticsearch, S3) via one `executor` function. |
+| 3 | **Matrix in runtime** | `reconfigureLoggingMatrix()` without restart; only field visibility, not security. |
 | 4 | **MaskingEngine** | Redact sensitive fields before any transport; built-in + custom rules. |
-| 5 | **Serialization pipeline** | Circular refs, depth limit, timeout; logging never blocks the event loop. |
-| 6 | **SanitizationEngine** | Strip control characters; log injection resistant. |
+| 5 | **SanitizationEngine** | Strip control characters; log injection resistant. |
+| 6 | **Serialization pipeline** | Circular refs, depth limit, timeout; logging never blocks the event loop. |
 | 7 | **Context / headers** | Correlation ID and transaction ID from config; single source of truth. |
-| 8 | **Fluent API** | `withRetention`, `withSource`, `withTransactionId` — bind once, carry on every log. |
+| 8 | **Universal Adapter** | Send logs to any backend (PostgreSQL, MongoDB, Elasticsearch, S3) via one `executor` function. |
 | 9 | **Per-call transport control** | `.override()`, `.add()`, `.remove()` for one log call without new logger instances. |
-| 10 | **Audit & retention** | `audit` level (always logged); `withRetention(anyJson)` for compliance routing. |
-| 11 | **Lifecycle** | `init()` / `shutdown()`; graceful flush on SIGTERM/SIGINT. |
-| 12 | **Observability hooks** | `onLogFailure`, `onTransportError`, `onSerializationFallback`, etc.; `isNativeAddonInUse()`. |
-| 13 | **Matrix in runtime** | `reconfigureLoggingMatrix()` without restart; only field visibility, not security. |
-| 14 | **Tree-shaking** | `sideEffects: false` + ESM; bundle only what you import. |
+| 10 | **Fluent API** | `withRetention`, `withSource`, `withTransactionId` — bind once, carry on every log. |
+| 11 | **Audit & retention** | `audit` level (always logged); `withRetention(anyJson)` for compliance routing. |
+| 12 | **Lifecycle** | `init()` / `shutdown()`; graceful flush on SIGTERM/SIGINT. |
+| 13 | **Observability hooks** | `onLogFailure`, `onTransportError`, `onSerializationFallback`, etc.; `isNativeAddonInUse()`. |
+| 14 | **OpenTelemetry integration** | `UniversalAdapter` + `UniversalLogFormatter` → send logs to any OTel collector; no library changes needed. |
+| 15 | **Hot reconfiguration (per POD)** | Change log level, add masking rules, or add a debug transport per POD at runtime via your own HTTP endpoint; no restart needed. |
 
-**More detail and examples:** this README (English). [Also in Spanish (ES): features and examples](doc-es/caracteristicas-y-ejemplos.md).
+**More detail and examples:** this README (English). See also [docs/features-and-examples.md](docs/features-and-examples.md). [También en español (ES)](doc-es/caracteristicas-y-ejemplos.md).
 
 ---
 
@@ -145,6 +142,33 @@ process.on('SIGINT', async () => {
 
 ---
 
+## Console transports (default and pretty)
+
+By default the library outputs **plain JSON** to the console. For colored, human-readable output in development, use a pretty transport:
+
+| Transport | Style |
+|-----------|--------|
+| *(default)* | Plain JSON |
+| `ClassicConsoleTransport` | Single-line, colored |
+| `PrettyConsoleTransport` | Pretty-printed, colored |
+| `CompactConsoleTransport` | Compact one-liner, colored |
+| `ColorfulConsoleTransport` | Full-line colored |
+
+Colors use built-in ANSI; no chalk. Disabled when stdout is not a TTY or when `NO_COLOR` is set.
+
+```typescript
+import { ClassicConsoleTransport } from 'syntropylog';
+syntropyLog.init({
+  logger: {
+    level: 'info',
+    serviceName: 'my-app',
+    transports: [new ClassicConsoleTransport()],
+  },
+});
+```
+
+---
+
 ## 1. Native addon (Rust)
 
 **What:** Optional Rust addon does serialize + mask + sanitize in one pass. Used automatically when available; no config. Disable with `SYNTROPYLOG_NATIVE_DISABLE=1` (e.g. debugging).
@@ -157,13 +181,13 @@ if (syntropyLog.isNativeAddonInUse()) {
 }
 ```
 
-To build the native addon from source, see [doc-es/building-native-addon.es.md](doc-es/building-native-addon.es.md) (Spanish).
+To build the native addon from source, see [docs/building-native-addon.md](docs/building-native-addon.md).
 
 ---
 
 ## 2. Logging Matrix
 
-**What:** A JSON contract that defines exactly which context fields appear at each log level. If a field isn’t in the matrix for that level, it never appears in the output.
+**What:** A JSON contract that defines exactly which context fields appear at each log level. If a field isn't in the matrix for that level, it never appears in the output.
 
 **How:** Set `loggingMatrix` in `init()`:
 
@@ -189,7 +213,163 @@ await syntropyLog.init({
 
 ---
 
-## 3. Universal Adapter — log to any backend
+## 3. Matrix in runtime
+
+**What:** Change which context fields are visible per level without restart. Security boundary: only field visibility changes; masking and transports stay as set at `init()`.
+
+**How:**
+
+```typescript
+syntropyLog.reconfigureLoggingMatrix({
+  default: ['correlationId'],
+  info:    ['correlationId', 'userId', 'operation'],
+  error:   ['*'],
+});
+// Restore later with original matrix
+```
+
+---
+
+## 4. MaskingEngine
+
+**What:** Redacts sensitive fields before logs reach any transport. Built-in rules (password, email, token, card, SSN, phone) plus custom rules by name/regex.
+
+**How:** Configure `masking` in `init()`:
+
+```typescript
+import { MaskingStrategy } from 'syntropylog';
+
+await syntropyLog.init({
+  logger: { ... },
+  masking: {
+    enableDefaultRules: true,
+    maskChar: '*',
+    preserveLength: true,
+    rules: [
+      {
+        pattern: /cuit|cuil/i,
+        strategy: MaskingStrategy.CUSTOM,
+        customMask: (value) => value.replace(/\d(?=\d{4})/g, '*'),
+      },
+    ],
+  },
+});
+```
+
+### Spread default rules and add your own
+
+You can use the default rules and add more in one go: pass `getDefaultMaskingRules({ maskChar: '*', preserveLength: true })` and spread your custom rules. Set `enableDefaultRules: false` when you provide the full list yourself.
+
+```typescript
+import { getDefaultMaskingRules, MaskingStrategy } from 'syntropylog';
+
+masking: {
+  enableDefaultRules: false,
+  maskChar: '*',
+  rules: [
+    ...getDefaultMaskingRules({ maskChar: '*' }),
+    { pattern: /myCustomKey|internalSecret/i, strategy: MaskingStrategy.PASSWORD },
+  ],
+}
+```
+
+### Sensitive key aliases: use `maskEnum`
+
+The library exports a **single object `maskEnum`** with all sensitive key aliases and grouped arrays. Import it once and pick or spread what you need—no string literals (Sonar-safe), and no listing every constant.
+
+```typescript
+import { maskEnum, MaskingStrategy, getDefaultMaskingRules } from 'syntropylog';
+
+masking: {
+  enableDefaultRules: false,
+  maskChar: '*',
+  rules: [
+    ...getDefaultMaskingRules({ maskChar: '*' }),
+    // One pattern for all token-like keys (access_token, refresh_token, api_key, jwt, …)
+    { pattern: new RegExp(maskEnum.MASK_KEYS_TOKEN.join('|'), 'i'), strategy: MaskingStrategy.TOKEN },
+    // Or pick a few
+    { pattern: new RegExp([maskEnum.MASK_KEY_ACCESS_TOKEN, maskEnum.MASK_KEY_REFRESH_TOKEN].join('|'), 'i'), strategy: MaskingStrategy.TOKEN },
+  ],
+}
+```
+
+`maskEnum` includes every `MASK_KEY_*` (e.g. `MASK_KEY_PWD`, `MASK_KEY_ACCESS_TOKEN`) plus `MASK_KEYS_PASSWORD`, `MASK_KEYS_TOKEN`, and `MASK_KEYS_ALL`. Full list and alternatives: [docs/SENSITIVE_KEY_ALIASES.md](docs/SENSITIVE_KEY_ALIASES.md).
+
+### Sonar exception for a file with your own words
+
+If you have a file in your project where you define **your own** sensitive words or aliases (e.g. `mySensitiveKeys.ts`), Sonar may report secrets (e.g. S2068) there. You can add an exception so that file does not block the deploy:
+
+- **Exclude the file from analysis:** in your `sonar-project.properties`, add it to `sonar.exclusions` (e.g. `sonar.exclusions=**/mySensitiveKeys.ts`).
+- **Or ignore only rule S2068 on that file:** use `sonar.issue.ignore.multicriteria` with `ruleKey=typescript:S2068` and `resourceKey` set to that file's path.
+
+Full steps and examples: [docs/SONAR_FILE_EXCEPTION.md](docs/SONAR_FILE_EXCEPTION.md).
+
+| Strategy | Example output |
+|----------|----------------|
+| PASSWORD | `********` |
+| EMAIL | `j***@example.com` |
+| TOKEN | `eyJh...a1B9c` |
+| CREDIT_CARD | `****-****-****-1234` |
+
+If masking fails, the pipeline does not throw (Silent Observer). Custom rules: use ReDoS-safe regex; keys longer than 256 chars are skipped.
+
+---
+
+## 5. SanitizationEngine
+
+**What:** Strips control characters and ANSI from string values before any transport writes. Reduces log injection risk.
+
+**How:** No configuration; it runs inside the pipeline. Together with the Logging Matrix (whitelist), it forms the safety boundary for log content.
+
+---
+
+## 6. Serialization pipeline (resilience)
+
+**What:** Prevents "death by log": circular refs are neutralized, depth is limited (default 10 → `[MAX_DEPTH_REACHED]`), and a configurable timeout via `serializerTimeoutMs` aborts long serialization so the event loop keeps running. For most apps 50–100ms is enough; the library default is higher.
+
+**How:** Set timeout in logger config (e.g. 50–100ms):
+
+```typescript
+logger: {
+  serviceName: 'my-app',
+  serializerTimeoutMs: 100,  // optional; e.g. 50–100ms for most apps
+}
+```
+
+Logging never throws; failures are reported inside the log payload.
+
+---
+
+## 7. Context — correlation ID and transaction ID
+
+**What:** One config defines header names; correlation and transaction IDs propagate to all logs and operations inside the same context (e.g. one request).
+
+**How:** Set `context` in `init()` and use a small middleware:
+
+```typescript
+await syntropyLog.init({
+  context: {
+    correlationIdHeader: 'X-Correlation-ID',
+    transactionIdHeader: 'X-Transaction-ID',
+  },
+});
+
+// Express/Fastify middleware (once per app)
+const { contextManager } = syntropyLog;
+app.use(async (req, res, next) => {
+  await contextManager.run(async () => {
+    const correlationId = contextManager.getCorrelationId();
+    contextManager.set(contextManager.getCorrelationIdHeaderName(), correlationId);
+    next();
+  });
+});
+```
+
+After that, every `logger.info(...)` inside the request carries the same `correlationId` without passing it manually.
+
+---
+
+## 8. Universal Adapter — log to any backend
 
 **What:** Send each log to PostgreSQL, MongoDB, Elasticsearch, S3, etc. by implementing a single `executor`. No vendor lock-in. You define **once** how the log entry maps to your schema; the executor only receives that mapped object and persists it (ORM, raw client, HTTP). If `executor` throws, SyntropyLog logs the error and continues (Silent Observer).
 
@@ -274,171 +454,6 @@ Use one transport and one executor; add or remove destinations in that same bloc
 
 ---
 
-## 4. MaskingEngine
-
-**What:** Redacts sensitive fields before logs reach any transport. Built-in rules (password, email, token, card, SSN, phone) plus custom rules by name/regex.
-
-**How:** Configure `masking` in `init()`:
-
-```typescript
-import { MaskingStrategy } from 'syntropylog';
-
-await syntropyLog.init({
-  logger: { ... },
-  masking: {
-    enableDefaultRules: true,
-    maskChar: '*',
-    preserveLength: true,
-    rules: [
-      {
-        pattern: /cuit|cuil/i,
-        strategy: MaskingStrategy.CUSTOM,
-        customMask: (value) => value.replace(/\d(?=\d{4})/g, '*'),
-      },
-    ],
-  },
-});
-```
-
-### Spread default rules and add your own
-
-You can use the default rules and add more in one go: pass `getDefaultMaskingRules({ maskChar: '*', preserveLength: true })` and spread your custom rules. Set `enableDefaultRules: false` when you provide the full list yourself.
-
-```typescript
-import { getDefaultMaskingRules, MaskingStrategy } from 'syntropylog';
-
-masking: {
-  enableDefaultRules: false,
-  maskChar: '*',
-  rules: [
-    ...getDefaultMaskingRules({ maskChar: '*' }),
-    { pattern: /myCustomKey|internalSecret/i, strategy: MaskingStrategy.PASSWORD },
-  ],
-}
-```
-
-### Sensitive key aliases: use `maskEnum`
-
-The library exports a **single object `maskEnum`** with all sensitive key aliases and grouped arrays. Import it once and pick or spread what you need—no string literals (Sonar-safe), and no listing every constant.
-
-```typescript
-import { maskEnum, MaskingStrategy, getDefaultMaskingRules } from 'syntropylog';
-
-masking: {
-  enableDefaultRules: false,
-  maskChar: '*',
-  rules: [
-    ...getDefaultMaskingRules({ maskChar: '*' }),
-    // One pattern for all token-like keys (access_token, refresh_token, api_key, jwt, …)
-    { pattern: new RegExp(maskEnum.MASK_KEYS_TOKEN.join('|'), 'i'), strategy: MaskingStrategy.TOKEN },
-    // Or pick a few
-    { pattern: new RegExp([maskEnum.MASK_KEY_ACCESS_TOKEN, maskEnum.MASK_KEY_REFRESH_TOKEN].join('|'), 'i'), strategy: MaskingStrategy.TOKEN },
-  ],
-}
-```
-
-`maskEnum` includes every `MASK_KEY_*` (e.g. `MASK_KEY_PWD`, `MASK_KEY_ACCESS_TOKEN`) plus `MASK_KEYS_PASSWORD`, `MASK_KEYS_TOKEN`, and `MASK_KEYS_ALL`. Full list and alternatives: [docs/SENSITIVE_KEY_ALIASES.md](docs/SENSITIVE_KEY_ALIASES.md).
-
-### Sonar exception for a file with your own words
-
-If you have a file in your project where you define **your own** sensitive words or aliases (e.g. `mySensitiveKeys.ts`), Sonar may report secrets (e.g. S2068) there. You can add an exception so that file does not block the deploy:
-
-- **Exclude the file from analysis:** in your `sonar-project.properties`, add it to `sonar.exclusions` (e.g. `sonar.exclusions=**/mySensitiveKeys.ts`).
-- **Or ignore only rule S2068 on that file:** use `sonar.issue.ignore.multicriteria` with `ruleKey=typescript:S2068` and `resourceKey` set to that file’s path.
-
-Full steps and examples: [docs/SONAR_FILE_EXCEPTION.md](docs/SONAR_FILE_EXCEPTION.md).
-
-| Strategy | Example output |
-|----------|----------------|
-| PASSWORD | `********` |
-| EMAIL | `j***@example.com` |
-| TOKEN | `eyJh...a1B9c` |
-| CREDIT_CARD | `****-****-****-1234` |
-
-If masking fails, the pipeline does not throw (Silent Observer). Custom rules: use ReDoS-safe regex; keys longer than 256 chars are skipped.
-
----
-
-## 5. Serialization pipeline (resilience)
-
-**What:** Prevents "death by log": circular refs are neutralized, depth is limited (default 10 → `[MAX_DEPTH_REACHED]`), and a configurable timeout via `serializerTimeoutMs` aborts long serialization so the event loop keeps running. For most apps 50–100ms is enough; the library default is higher.
-
-**How:** Set timeout in logger config (e.g. 50–100ms):
-
-```typescript
-logger: {
-  serviceName: 'my-app',
-  serializerTimeoutMs: 100,  // optional; e.g. 50–100ms for most apps
-}
-```
-
-Logging never throws; failures are reported inside the log payload.
-
----
-
-## 6. SanitizationEngine
-
-**What:** Strips control characters and ANSI from string values before any transport writes. Reduces log injection risk.
-
-**How:** No configuration; it runs inside the pipeline. Together with the Logging Matrix (whitelist), it forms the safety boundary for log content.
-
----
-
-## 7. Context — correlation ID and transaction ID
-
-**What:** One config defines header names; correlation and transaction IDs propagate to all logs and operations inside the same context (e.g. one request).
-
-**How:** Set `context` in `init()` and use a small middleware:
-
-```typescript
-await syntropyLog.init({
-  context: {
-    correlationIdHeader: 'X-Correlation-ID',
-    transactionIdHeader: 'X-Transaction-ID',
-  },
-});
-
-// Express/Fastify middleware (once per app)
-const { contextManager } = syntropyLog;
-app.use(async (req, res, next) => {
-  await contextManager.run(async () => {
-    const correlationId = contextManager.getCorrelationId();
-    contextManager.set(contextManager.getCorrelationIdHeaderName(), correlationId);
-    next();
-  });
-});
-```
-
-After that, every `logger.info(...)` inside the request carries the same `correlationId` without passing it manually.
-
----
-
-## 8. Fluent API — withRetention, withSource, withTransactionId
-
-**What:** Builders that return new loggers with bound metadata: `withSource('ModuleName')`, `withTransactionId('txn-123')`, `withRetention({ policy: 'SOX', years: 5 })`. Every log from that logger carries that data.
-
-**How:**
-
-```typescript
-const log = syntropyLog.getLogger();
-
-const auditLogger = log
-  .withSource('PaymentService')
-  .withRetention({ policy: 'SOX_AUDIT_TRAIL', years: 5 });
-
-auditLogger.audit({ userId: 123, action: 'payment' }, 'Payment processed');
-// Entry includes source and retention; your executor can route by retention.policy
-```
-
-| Builder | Binds |
-|---------|--------|
-| `withSource('X')` | `source: 'X'` |
-| `withTransactionId('id')` | `transactionId: 'id'` |
-| `withRetention({ ... })` | `retention: { ... }` (any JSON) |
-| `child({ k: v })` | arbitrary key-value |
-
----
-
 ## 9. Per-call transport control
 
 **What:** For a single log call you can send only to specific transports (`.override()`), add destinations (`.add()`), or remove one (`.remove()`), without creating new logger instances.
@@ -477,7 +492,33 @@ See [examples/TRANSPORT_POOL_AND_ENV.md](examples/TRANSPORT_POOL_AND_ENV.md) and
 
 ---
 
-## 10. Audit and retention
+## 10. Fluent API — withRetention, withSource, withTransactionId
+
+**What:** Builders that return new loggers with bound metadata: `withSource('ModuleName')`, `withTransactionId('txn-123')`, `withRetention({ policy: 'SOX', years: 5 })`. Every log from that logger carries that data.
+
+**How:**
+
+```typescript
+const log = syntropyLog.getLogger();
+
+const auditLogger = log
+  .withSource('PaymentService')
+  .withRetention({ policy: 'SOX_AUDIT_TRAIL', years: 5 });
+
+auditLogger.audit({ userId: 123, action: 'payment' }, 'Payment processed');
+// Entry includes source and retention; your executor can route by retention.policy
+```
+
+| Builder | Binds |
+|---------|--------|
+| `withSource('X')` | `source: 'X'` |
+| `withTransactionId('id')` | `transactionId: 'id'` |
+| `withRetention({ ... })` | `retention: { ... }` (any JSON) |
+| `child({ k: v })` | arbitrary key-value |
+
+---
+
+## 11. Audit and retention
 
 **What:** The `audit` level is always logged regardless of the configured level. `withRetention(anyJson)` attaches policy metadata (e.g. GDPR, SOX, PCI-DSS) so your `executor` can route to different tables or buckets.
 
@@ -493,9 +534,9 @@ Your `executor` can read `logEntry.retention?.policy` and persist to the right s
 
 ---
 
-## 11. Lifecycle — init / shutdown
+## 12. Lifecycle — init / shutdown
 
-**What:** `init()` starts the pipeline and emits `ready` when safe to use. `shutdown()` flushes in-flight logs and closes resources; hook it to SIGTERM/SIGINT so you don’t lose logs on exit.
+**What:** `init()` starts the pipeline and emits `ready` when safe to use. `shutdown()` flushes in-flight logs and closes resources; hook it to SIGTERM/SIGINT so you don't lose logs on exit.
 
 **How:** Init is shown in Quick Start. Shutdown:
 
@@ -508,7 +549,7 @@ process.on('SIGTERM', async () => {
 
 ---
 
-## 12. Observability hooks
+## 13. Observability hooks
 
 **What:** Optional callbacks to observe failures without logging throwing: `onLogFailure`, `onTransportError`, `onSerializationFallback`, `onStepError`, `masking.onMaskingError`. Plus `isNativeAddonInUse()` at runtime.
 
@@ -534,59 +575,93 @@ await syntropyLog.init({
 
 ---
 
-## 13. Matrix in runtime
+## 14. OpenTelemetry integration
 
-**What:** Change which context fields are visible per level without restart. Security boundary: only field visibility changes; masking and transports stay as set at `init()`.
+**What:** SyntropyLog requires no changes to integrate with OpenTelemetry. Define a formatter, write an executor that calls `otelLogger.emit()`, register it as a transport, and you're done.
 
 **How:**
 
 ```typescript
-syntropyLog.reconfigureLoggingMatrix({
-  default: ['correlationId'],
-  info:    ['correlationId', 'userId', 'operation'],
-  error:   ['*'],
+import { syntropyLog, AdapterTransport, UniversalAdapter, UniversalLogFormatter } from 'syntropylog';
+import { logs, SeverityNumber } from '@opentelemetry/api-logs';
+
+// 1. Formatter — maps SyntropyLog fields to OTel shape
+const otelFormatter = new UniversalLogFormatter({
+  mapping: { body: 'message', severityText: 'level', timestamp: 'timestamp' },
+  includeAllIn: 'attributes',
 });
-// Restore later with original matrix
+
+// 2. Severity table
+const SEVERITY_NUMBER: Record<string, number> = {
+  trace: 1, debug: 5, info: 9, audit: 9, warn: 13, error: 17, fatal: 21, silent: 0,
+};
+
+// 3. Executor — the bridge to OTel
+function buildOtelExecutor(scopeName: string) {
+  return function executor(data: unknown): void {
+    const entry = data as { body: string; severityText: string; timestamp: string; attributes?: Record<string, unknown> };
+    const otelLogger = logs.getLogger(scopeName);
+    const ms = new Date(entry.timestamp).getTime();
+    const attrs = entry.attributes ?? {};
+    otelLogger.emit({
+      timestamp:      [Math.floor(ms / 1000), (ms % 1000) * 1_000_000],
+      severityNumber: SEVERITY_NUMBER[entry.severityText] ?? SeverityNumber.UNSPECIFIED,
+      severityText:   entry.severityText.toUpperCase(),
+      body:           entry.body,
+      attributes:     attrs,
+      traceId:        typeof attrs.traceId    === 'string' ? attrs.traceId    : undefined,
+      spanId:         typeof attrs.spanId     === 'string' ? attrs.spanId     : undefined,
+      traceFlags:     typeof attrs.traceFlags === 'number' ? attrs.traceFlags : 1,
+    });
+  };
+}
+
+// 4. Transport
+const otelTransport = new AdapterTransport({
+  name:      'otel',
+  adapter:   new UniversalAdapter({ executor: buildOtelExecutor('my-service') }),
+  formatter: otelFormatter,
+});
+
+// 5. Init — wait for ready before logging
+async function initializeSyntropyLog() {
+  return new Promise<void>((resolve, reject) => {
+    syntropyLog.on('ready', () => resolve());
+    syntropyLog.on('error', (err) => reject(err));
+    syntropyLog.init({
+      logger: {
+        serviceName: 'my-service',
+        level: 'info',
+        transportList: { otel: otelTransport },
+      },
+      loggingMatrix: {
+        info:  ['correlationId', 'traceId', 'spanId'],
+        error: ['*'],
+        audit: ['*'],
+      },
+    });
+  });
+}
+
+// 6. Graceful shutdown
+process.on('SIGTERM', async () => { await syntropyLog.shutdown(); process.exit(0); });
+process.on('SIGINT',  async () => { await syntropyLog.shutdown(); process.exit(0); });
+
+async function main() {
+  await initializeSyntropyLog();
+  const log = syntropyLog.getLogger();
+  log.info({ traceId: 'abc123', spanId: 'def456' }, 'Payment processed');
+}
+main();
 ```
 
----
+Per-call routing works the same as any other transport: `.override('otel')`, `.remove('otel')`, `.add('otel')`.
 
-## 14. Tree-shaking
-
-**What:** Package is published with `sideEffects: false` and ESM so bundlers include only what you import.
-
-**How:** Import only what you use; unused transports and adapters are dropped from the bundle.
+For the full guide (formatter options, severity table, middleware injection, per-call routing): [docs/opentelemetry-integration.md](docs/opentelemetry-integration.md). [También en español](doc-es/integracion-opentelemetry.md).
 
 ---
 
-## Console transports (default and pretty)
-
-By default the library outputs **plain JSON** to the console. For colored, human-readable output in development, use a pretty transport:
-
-| Transport | Style |
-|-----------|--------|
-| *(default)* | Plain JSON |
-| `ClassicConsoleTransport` | Single-line, colored |
-| `PrettyConsoleTransport` | Pretty-printed, colored |
-| `CompactConsoleTransport` | Compact one-liner, colored |
-| `ColorfulConsoleTransport` | Full-line colored |
-
-Colors use built-in ANSI; no chalk. Disabled when stdout is not a TTY or when `NO_COLOR` is set.
-
-```typescript
-import { ClassicConsoleTransport } from 'syntropylog';
-syntropyLog.init({
-  logger: {
-    level: 'info',
-    serviceName: 'my-app',
-    transports: [new ClassicConsoleTransport()],
-  },
-});
-```
-
----
-
-## Reconfiguration in runtime (hot)
+## 15. Reconfiguration in runtime (hot)
 
 **The only things you can reconfigure without restart are:**
 
@@ -661,7 +736,7 @@ Secure this route (e.g. auth, internal only). When debugging in a POD is finishe
 
 **Filesystem access:** The package only reads the files described below; it does not scan or read arbitrary paths.
 
-- **Native addon loader** (`syntropylog-native`): Reads only (1) the presence of native `.node` binaries inside the package’s own directory (`__dirname`) to choose the correct build for the current OS/arch, and (2) on Linux only, the system `ldd` binary (e.g. `/usr/bin/ldd`) to detect musl vs glibc. No user or application files are read.
+- **Native addon loader** (`syntropylog-native`): Reads only (1) the presence of native `.node` binaries inside the package's own directory (`__dirname`) to choose the correct build for the current OS/arch, and (2) on Linux only, the system `ldd` binary (e.g. `/usr/bin/ldd`) to detect musl vs glibc. No user or application files are read.
 Configuration is passed to `init()` only; the package does not load config from files.
 
 | Dynamically configurable | Fixed at init |
@@ -674,21 +749,30 @@ Configuration is passed to `init()` only; the package does not load config from 
 
 **English (primary)**
 
-- **This README** — Full picture, Quick Start, and a “How” section per feature (above).
+- **This README** — Full picture, Quick Start, and a "How" section per feature (above).
 - **[Examples repository](https://github.com/Syntropysoft/syntropylog-examples)** — Runnable examples 01–17: setup, context, transports, HTTP correlation, testing, benchmark.
 - **[Transport pool and per-environment routing](examples/TRANSPORT_POOL_AND_ENV.md)** — `transportList`, `env`, override/add/remove; runnable [TransportPoolExample.ts](examples/TransportPoolExample.ts).
+- **[Features and examples](docs/features-and-examples.md)** — Canonical stack list with explanations and code examples; aligned with the benchmark report.
+- **[Benchmark report (throughput + memory)](docs/benchmark-report.md)** — Run `pnpm run bench` or `pnpm run bench:memory` from repo root.
+- **[Benchmark memory run](docs/benchmark-memory-run.md)** — Detailed memory figures; compare native vs JS: `pnpm run bench` vs `SYNTROPYLOG_NATIVE_DISABLE=1 pnpm run bench`.
 - **[Sensitive key aliases](docs/SENSITIVE_KEY_ALIASES.md)** — Recommended use of `maskEnum` (single object, declarative); full list of `MASK_KEY_*` and grouped arrays.
 - **[Sonar: exception for a specific file](docs/SONAR_FILE_EXCEPTION.md)** — How to add a Sonar exception when you have your own file with sensitive words or aliases (so it does not block deploy).
+- **[OpenTelemetry integration](docs/opentelemetry-integration.md)** — How to send logs to OTel using `UniversalAdapter` + `UniversalLogFormatter`; no library changes needed.
+- **[Rust addon — build from source](docs/building-native-addon.md)** — Build instructions for macOS, Windows, Linux.
+- **[Improvement plan & roadmap](docs/code-improvement-analysis-and-plan.md)** — Backlog and phased plan.
+- **[Rust implementation plan](docs/rust-implementation-plan.md)** — Native addon checklist; links to [rust-pipeline-optimization.md](docs/rust-pipeline-optimization.md).
+- **[Testing mocks](docs/testing-mocks.md)** — Public testing API: `SyntropyLogMock`, `createTestHelper`, etc.
 - **[CONTRIBUTING.md](./CONTRIBUTING.md)** — How to contribute.
 - **[SECURITY.md](./SECURITY.md)** — Security policy and environment variables.
 
 **Spanish (ES)**
 
-- **[Features and examples](doc-es/caracteristicas-y-ejemplos.md)** — Canonical stack list with explanations and code examples; aligned with the benchmark report.
-- **[Benchmark report (throughput + memory)](doc-es/benchmark-memory-run.md)** — Run `pnpm run bench` or `pnpm run bench:memory` from repo root. Compare native vs JS: `pnpm run bench` vs `SYNTROPYLOG_NATIVE_DISABLE=1 pnpm run bench`.
-- **[Rust addon — build from source](doc-es/building-native-addon.es.md)**.
-- **[Improvement plan & roadmap](doc-es/code-improvement-analysis-and-plan.md)** — Backlog and phased plan.
-- **[Rust implementation plan](doc-es/rust-implementation-plan.md)** — Native addon checklist; links to [rust-pipeline-optimization.md](doc-es/rust-pipeline-optimization.md).
+- **[Características y ejemplos](doc-es/caracteristicas-y-ejemplos.md)** — Lista canónica del stack con explicaciones y ejemplos de código.
+- **[Informe de benchmarks (throughput + memoria)](doc-es/benchmark-memory-run.md)** — `pnpm run bench` o `pnpm run bench:memory` desde la raíz del repo.
+- **[Addon Rust — compilar desde fuente](doc-es/building-native-addon.es.md)**.
+- **[Plan de mejoras y roadmap](doc-es/code-improvement-analysis-and-plan.md)** — Backlog y plan por fases.
+- **[Plan de implementación Rust](doc-es/rust-implementation-plan.md)** — Checklist del addon nativo.
+- **[Integración OpenTelemetry](doc-es/integracion-opentelemetry.md)** — Cómo enviar logs a OTel con `UniversalAdapter` + `UniversalLogFormatter`.
 
 ---
 
