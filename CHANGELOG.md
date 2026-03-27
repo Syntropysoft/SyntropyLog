@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.0.0-rc.1
+
+### Release Candidate
+
+This release candidate marks the stabilization of the public API and the declarative observability philosophy. No breaking changes from 0.12.x.
+
+### New Features
+
+- **`withMeta(payload)`** — general-purpose structured metadata carrier. Attach any JSON payload to a logger instance; it travels sanitized through the pipeline and is available in the executor as `logEntry.retention`. Use for compliance policies, business context, routing hints, or any domain-specific metadata.
+- **`child(bindings)`** now prominently documented as the foundation of the fluent API — bind context once, carried on every log from that instance.
+- Named loggers (`getLogger(name)`) documented as first-class pattern for multi-service architectures.
+
+### Deprecated
+
+- **`withRetention()`** — delegates to `withMeta()` and will be removed in a future major release. Migrate by replacing `withRetention({ ... })` with `withMeta({ ... })`.
+
+### Documentation
+
+- README rewritten around the declarative philosophy: *you declare intent, the framework executes it consistently*.
+- New "See it all together" example showing the full composition chain and what the framework handles automatically.
+- "The declarative shift" table contrasting imperative logging (Pino/Winston) with declarative observability (SyntropyLog).
+- "Built for teams, not individuals" — articulates the team-scale problem SyntropyLog solves.
+- All code examples unified to canonical `await syntropyLog.init()` pattern — event-based wrappers removed.
+- Console transports table expanded with "Typical use" column.
+- Section 12 (Lifecycle) corrected: `init()` is a `Promise<void>`, not event-based.
+
+### Internal
+
+- `withRetention()` now delegates to `withMeta()` — zero code duplication.
+
 ## 0.12.9
 
 ### Patch Changes

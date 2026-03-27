@@ -412,12 +412,17 @@ export class Logger {
   }
 
   /**
-   * Creates a new logger instance with a `retention` field bound to it.
-   * @param {LogRetentionRules} rules - A JSON object containing the retention rules.
-   * @returns {ILogger} A new logger instance with the `retention` binding.
+   * Attaches arbitrary structured metadata to every log emitted by this logger instance.
+   * Any JSON — retention policies, compliance tags, routing hints, business context.
+   * Sanitized before reaching any transport. The executor receives it as `logEntry.retention`.
    */
+  withMeta(payload: LogRetentionRules): ILogger {
+    return this.child({ retention: payload } as LogBindings);
+  }
+
+  /** @deprecated Use `withMeta()` instead. Kept for backward compatibility. */
   withRetention(rules: LogRetentionRules): ILogger {
-    return this.child({ retention: rules } as LogBindings);
+    return this.withMeta(rules);
   }
 
   /**
