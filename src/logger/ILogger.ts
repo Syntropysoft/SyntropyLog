@@ -87,11 +87,27 @@ export interface ILogger {
   withSource(source: string): ILogger;
 
   /**
-   * Creates a new logger instance with a `retention` field bound to it.
+   * Attaches arbitrary structured metadata to every log emitted by this logger instance.
+   * The payload is any JSON object — retention policies, compliance tags, routing hints,
+   * business context, or anything your executor needs to route or persist the entry.
+   * Sanitized before reaching any transport. The executor receives it as `logEntry.retention`.
+   *
    * The rules object is stored by reference; do not mutate it after passing if you need consistent logs.
    * Supports complex JSON (nested objects, arrays); serialized with the entry (shallow in native path).
-   * @param {LogRetentionRules} rules - A JSON object containing the retention rules.
+   *
+   * @param {LogRetentionRules} payload - Any JSON object to carry on every log from this instance.
    * @returns {ILogger} A new `ILogger` instance with the `retention` binding.
+   *
+   * @example
+   * log.withMeta({ policy: 'GDPR', years: 7 })           // compliance
+   * log.withMeta({ tenant: 'acme', region: 'eu-west' })   // business context
+   * log.withMeta({ destination: 's3-cold', encrypt: true }) // routing hints
+   */
+  withMeta(payload: LogRetentionRules): ILogger;
+
+  /**
+   * @deprecated Use `withMeta()` instead. Kept for backward compatibility.
+   * Attaches structured metadata to every log from this instance under the `retention` field.
    */
   withRetention(rules: LogRetentionRules): ILogger;
 
