@@ -35,6 +35,8 @@ export class ContextManager implements IContextManager {
   private correlationIdHeader = 'x-correlation-id';
   private transactionIdHeader = 'x-trace-id';
   private loggingMatrix: LoggingMatrix | undefined;
+  private inbound: Record<string, Record<string, string>> = {};
+  private outbound: Record<string, Record<string, string>> = {};
 
   constructor(loggingMatrix?: LoggingMatrix) {
     this.storage = new AsyncLocalStorage();
@@ -47,6 +49,12 @@ export class ContextManager implements IContextManager {
     }
     if (options.transactionIdHeader) {
       this.transactionIdHeader = options.transactionIdHeader;
+    }
+    if (options.inbound) {
+      this.inbound = options.inbound;
+    }
+    if (options.outbound) {
+      this.outbound = options.outbound;
     }
   }
 
@@ -121,9 +129,8 @@ export class ContextManager implements IContextManager {
    */
   public set(key: string, value: ContextValue): void {
     const store = this.storage.getStore();
-    if (store) {
-      store.data.set(key, value);
-    }
+    if (!store) return;
+    store.data.set(key, value);
   }
 
   /**
@@ -204,6 +211,32 @@ export class ContextManager implements IContextManager {
       headers[this.getTransactionIdHeaderName()] = transactionId;
     }
     return headers;
+  }
+
+  public getPropagationHeaders(target?: string): ContextHeaders {
+    const store = this.storage.getStore();
+    if (!store) return {};
+
+    const targetKey = target ?? 'http';
+    const targetMap = this.outbound[targetKey];
+    if (!targetMap) return {};
+
+    const result: ContextHeaders = {};
+    for (const [field, wireName] of Object.entries(targetMap)) {
+      const value = store.data.get(field);
+      if (value !== undefined && value !== null) {
+        result[wireName] = String(value);
+      }
+    }
+    return result;
+  }
+
+  public getOutboundHeaderName(
+    field: string,
+    target?: string
+  ): string | undefined {
+    const targetKey = target ?? 'http';
+    return this.outbound[targetKey]?.[field];
   }
 
   public getFilteredContext(level: LogLevel): FilteredContext {

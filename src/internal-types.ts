@@ -98,7 +98,9 @@ export type ContextData = Record<string, ContextValue>;
 export type ContextConfig = {
   correlationIdHeader?: string;
   transactionIdHeader?: string;
-  [key: string]: ContextValue;
+  inbound?: Record<string, Record<string, string>>;
+  outbound?: Record<string, Record<string, string>>;
+  customHeaders?: string[];
 };
 
 /**

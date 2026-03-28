@@ -21,6 +21,7 @@ export type { LogFormatter } from './logger/transports/formatters/LogFormatter';
 
 // --- Main Framework Exports ---
 export { SyntropyLog, syntropyLog } from './SyntropyLog';
+export { extractInboundContext } from './context/extractInboundContext';
 
 // --- Transport Classes ---
 export { Transport } from './logger/transports/Transport';
