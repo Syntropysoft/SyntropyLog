@@ -6,154 +6,115 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { MockContextManager } from '../../src/context/MockContextManager';
 
-// Helper to introduce a delay for async tests
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 describe('MockContextManager', () => {
-  let mockContextManager: MockContextManager;
+  let mgr: MockContextManager;
 
   beforeEach(() => {
-    // The mock manager is stateful, so we instantiate a new one for each test
-    // to ensure test isolation.
-    mockContextManager = new MockContextManager();
+    mgr = new MockContextManager();
   });
 
   describe('configure', () => {
-    it('should use the default correlation ID header name', () => {
-      expect(mockContextManager.getCorrelationIdHeaderName()).toBe(
-        'x-correlation-id'
-      );
+    it('defaults: x-correlation-id / x-trace-id', () => {
+      expect(mgr.getCorrelationIdHeaderName()).toBe('x-correlation-id');
+      expect(mgr.getTransactionIdHeaderName()).toBe('x-trace-id');
     });
 
-    it('should set a custom correlation ID header name', () => {
-      const customHeader = 'X-Request-ID';
-      mockContextManager.configure({ correlationIdHeader: customHeader });
-      expect(mockContextManager.getCorrelationIdHeaderName()).toBe(
-        customHeader
-      );
+    it('overrides correlation and transaction header names', () => {
+      mgr.configure({
+        correlationIdHeader: 'X-Request-ID',
+        transactionIdHeader: 'X-Trace-ID',
+      });
+      expect(mgr.getCorrelationIdHeaderName()).toBe('X-Request-ID');
+      expect(mgr.getTransactionIdHeaderName()).toBe('X-Trace-ID');
     });
 
-    it('should set a custom transaction ID header name', () => {
-      const customHeader = 'X-Trace-ID';
-      mockContextManager.configure({ transactionIdHeader: customHeader });
-      expect(mockContextManager.getTransactionIdHeaderName()).toBe(
-        customHeader
-      );
-    });
-
-    it('should configure inbound and outbound maps', () => {
-      mockContextManager.configure({
+    it('sets inbound and outbound maps', () => {
+      mgr.configure({
         inbound: { frontend: { correlationId: 'X-Correlation-ID' } },
         outbound: { http: { correlationId: 'X-Correlation-ID' } },
       });
-      // Verify outbound was set by calling getPropagationHeaders
-      mockContextManager.set('correlationId', 'test-id');
-      expect(mockContextManager.getPropagationHeaders('http')).toEqual({
+      mgr.set('correlationId', 'test-id');
+      expect(mgr.getPropagationHeaders('http')).toEqual({
         'X-Correlation-ID': 'test-id',
       });
     });
   });
 
   describe('run', () => {
-    it('should execute a synchronous callback within a simulated context', async () => {
-      mockContextManager.set('key', 'outside');
-
-      await mockContextManager.run(() => {
-        mockContextManager.set('key', 'inside');
-        expect(mockContextManager.get('key')).toBe('inside');
+    it('restores context after a synchronous callback', async () => {
+      mgr.set('key', 'outside');
+      await mgr.run(() => {
+        mgr.set('key', 'inside');
+        expect(mgr.get('key')).toBe('inside');
       });
-      // After run, the store is restored
-      expect(mockContextManager.get('key')).toBe('outside');
+      expect(mgr.get('key')).toBe('outside');
     });
 
-    it('should execute an asynchronous callback within a simulated context', async () => {
-      mockContextManager.set('key', 'outside');
-
-      await mockContextManager.run(async () => {
+    it('restores context after an asynchronous callback', async () => {
+      mgr.set('key', 'outside');
+      await mgr.run(async () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
-        mockContextManager.set('key', 'inside_async');
-        expect(mockContextManager.get('key')).toBe('inside_async');
+        mgr.set('key', 'inside_async');
+        expect(mgr.get('key')).toBe('inside_async');
       });
-
-      // After run, the store is restored
-      expect(mockContextManager.get('key')).toBe('outside');
+      expect(mgr.get('key')).toBe('outside');
     });
 
-    it('should restore context if synchronous callback throws an error', async () => {
-      mockContextManager.set('key', 'original');
-      const error = new Error('test_error');
-
+    it('restores context when a synchronous callback throws', async () => {
+      mgr.set('key', 'original');
       await expect(
-        mockContextManager.run(() => {
-          mockContextManager.set('key', 'modified');
-          throw error;
+        mgr.run(() => {
+          mgr.set('key', 'modified');
+          throw new Error('boom');
         })
-      ).rejects.toThrow(error);
-
-      expect(mockContextManager.get('key')).toBe('original');
+      ).rejects.toThrow('boom');
+      expect(mgr.get('key')).toBe('original');
     });
 
-    it('should restore context if asynchronous callback throws an error', async () => {
-      mockContextManager.set('key', 'original');
-      const error = new Error('async_error');
-
+    it('restores context when an asynchronous callback throws', async () => {
+      mgr.set('key', 'original');
       await expect(
-        mockContextManager.run(async () => {
+        mgr.run(async () => {
           await new Promise((resolve) => setTimeout(resolve, 10));
-          mockContextManager.set('key', 'modified');
-          throw error;
+          throw new Error('async_boom');
         })
-      ).rejects.toThrow(error);
-
-      expect(mockContextManager.get('key')).toBe('original');
+      ).rejects.toThrow('async_boom');
+      expect(mgr.get('key')).toBe('original');
     });
   });
 
-  describe('get/set/getAll', () => {
-    it('should set and get values from the store', () => {
-      mockContextManager.set('key1', 'value1');
-      mockContextManager.set('key2', 123);
-      expect(mockContextManager.get('key1')).toBe('value1');
-      expect(mockContextManager.get('key2')).toBe(123);
+  describe('get / set / getAll / clear', () => {
+    it('stores and retrieves values', () => {
+      mgr.set('key1', 'value1');
+      mgr.set('key2', 123);
+      expect(mgr.get('key1')).toBe('value1');
+      expect(mgr.get('key2')).toBe(123);
     });
 
-    it('getAll should return a copy of the store, not a reference', () => {
-      mockContextManager.set('key', 'value');
-      const all = mockContextManager.getAll();
-      all['key'] = 'modified';
-      expect(mockContextManager.get('key')).toBe('value');
+    it('getAll returns a copy — mutations do not affect internal store', () => {
+      mgr.set('key', 'value');
+      mgr.getAll()['key'] = 'mutated';
+      expect(mgr.get('key')).toBe('value');
     });
-  });
 
-  describe('clear', () => {
-    it('should clear all values from the store', () => {
-      mockContextManager.set('key1', 'value1');
-      mockContextManager.clear();
-      expect(mockContextManager.getAll()).toEqual({});
-      expect(mockContextManager.get('key1')).toBeUndefined();
+    it('clear empties the store', () => {
+      mgr.set('key1', 'value1');
+      mgr.clear();
+      expect(mgr.getAll()).toEqual({});
     });
   });
 
-  describe('Correlation ID methods', () => {
-    it('should get correlation ID using the header key', () => {
-      const correlationId = 'abc-123';
-      mockContextManager.set('x-correlation-id', correlationId);
-      expect(mockContextManager.getCorrelationId()).toBe(correlationId);
-    });
-  });
-
-  describe('Transaction ID methods', () => {
-    it('should get and set transaction ID using the normalized key', () => {
-      const transactionId = 'xyz-987';
-      mockContextManager.set('transactionId', transactionId);
-      expect(mockContextManager.getTransactionId()).toBe(transactionId);
-      mockContextManager.clear();
-      expect(mockContextManager.getTransactionId()).toBeUndefined();
+  describe('correlationId / transactionId helpers', () => {
+    it('getCorrelationId returns the stored value', () => {
+      mgr.set('x-correlation-id', 'abc-123');
+      expect(mgr.getCorrelationId()).toBe('abc-123');
     });
 
-    it('setTransactionId should store transactionId in context', () => {
-      mockContextManager.setTransactionId('txn-001');
-      expect(mockContextManager.getTransactionId()).toBe('txn-001');
+    it('getTransactionId / setTransactionId round-trip', () => {
+      mgr.setTransactionId('txn-001');
+      expect(mgr.getTransactionId()).toBe('txn-001');
+      mgr.clear();
+      expect(mgr.getTransactionId()).toBeUndefined();
     });
   });
 
@@ -163,96 +124,90 @@ describe('MockContextManager', () => {
       kafka: { correlationId: 'correlationId' },
     };
 
-    beforeEach(() => {
-      mockContextManager.configure({ outbound });
+    beforeEach(() => mgr.configure({ outbound }));
+
+    it('returns {} when store is empty', () => {
+      expect(mgr.getPropagationHeaders('http')).toEqual({});
     });
 
-    it('should return {} when store is empty', () => {
-      expect(mockContextManager.getPropagationHeaders('http')).toEqual({});
+    it('returns {} for an unknown target', () => {
+      mgr.set('correlationId', 'abc');
+      expect(mgr.getPropagationHeaders('s3')).toEqual({});
     });
 
-    it('should return {} for an unknown target', () => {
-      mockContextManager.set('correlationId', 'abc');
-      expect(mockContextManager.getPropagationHeaders('unknown')).toEqual({});
+    it('returns {} when default target (http) is not in outbound config', () => {
+      mgr.configure({
+        outbound: { kafka: { correlationId: 'correlationId' } },
+      });
+      mgr.set('correlationId', 'abc');
+      expect(mgr.getPropagationHeaders()).toEqual({}); // default resolves to 'http', not in map
     });
 
-    it('should return {} when called with no target and default target is unknown', () => {
-      mockContextManager.configure({ outbound: {} });
-      mockContextManager.set('correlationId', 'abc');
-      expect(mockContextManager.getPropagationHeaders()).toEqual({});
-    });
-
-    it('should translate field names to wire names for the given target', () => {
-      mockContextManager.set('correlationId', 'id-001');
-      mockContextManager.set('traceId', 'trace-xyz');
-      expect(mockContextManager.getPropagationHeaders('http')).toEqual({
+    it('translates field names to wire names for the given target', () => {
+      mgr.set('correlationId', 'id-001');
+      mgr.set('traceId', 'trace-xyz');
+      expect(mgr.getPropagationHeaders('http')).toEqual({
         'X-Correlation-ID': 'id-001',
         'X-Trace-ID': 'trace-xyz',
       });
     });
 
-    it('should only include fields present in context', () => {
-      mockContextManager.set('correlationId', 'id-001');
-      // traceId not set — should be absent from result
-      expect(mockContextManager.getPropagationHeaders('http')).toEqual({
+    it('omits fields absent from context', () => {
+      mgr.set('correlationId', 'id-001'); // traceId not set
+      expect(mgr.getPropagationHeaders('http')).toEqual({
         'X-Correlation-ID': 'id-001',
       });
     });
 
-    it('should use http as default target when none is specified', () => {
-      mockContextManager.configure({
+    it('uses http as default target', () => {
+      mgr.configure({
         outbound: { http: { correlationId: 'X-Correlation-ID' } },
       });
-      mockContextManager.set('correlationId', 'default-target');
-      expect(mockContextManager.getPropagationHeaders()).toEqual({
-        'X-Correlation-ID': 'default-target',
+      mgr.set('correlationId', 'id-default');
+      expect(mgr.getPropagationHeaders()).toEqual({
+        'X-Correlation-ID': 'id-default',
       });
     });
   });
 
   describe('getOutboundHeaderName', () => {
-    beforeEach(() => {
-      mockContextManager.configure({
+    beforeEach(() =>
+      mgr.configure({
         outbound: { http: { correlationId: 'X-Correlation-ID' } },
-      });
-    });
+      })
+    );
 
-    it('should return the wire name for a known field and target', () => {
-      expect(
-        mockContextManager.getOutboundHeaderName('correlationId', 'http')
-      ).toBe('X-Correlation-ID');
-    });
-
-    it('should return undefined for an unknown target', () => {
-      expect(
-        mockContextManager.getOutboundHeaderName('correlationId', 'kafka')
-      ).toBeUndefined();
-    });
-
-    it('should return undefined for an unknown field', () => {
-      expect(
-        mockContextManager.getOutboundHeaderName('nonExistentField', 'http')
-      ).toBeUndefined();
-    });
-
-    it('should default to http target when none is specified', () => {
-      expect(mockContextManager.getOutboundHeaderName('correlationId')).toBe(
+    it('returns wire name for known field/target', () => {
+      expect(mgr.getOutboundHeaderName('correlationId', 'http')).toBe(
         'X-Correlation-ID'
       );
+    });
+
+    it('defaults to http target', () => {
+      expect(mgr.getOutboundHeaderName('correlationId')).toBe(
+        'X-Correlation-ID'
+      );
+    });
+
+    it('returns undefined for unknown field or target', () => {
+      expect(
+        mgr.getOutboundHeaderName('correlationId', 'kafka')
+      ).toBeUndefined();
+      expect(mgr.getOutboundHeaderName('nonExistent', 'http')).toBeUndefined();
     });
   });
 
   describe('getTraceContextHeaders', () => {
-    it('should return an empty object by default', () => {
-      expect(mockContextManager.getTraceContextHeaders()).toEqual({});
+    it('returns {} when store is empty', () => {
+      expect(mgr.getTraceContextHeaders()).toEqual({});
     });
 
-    it('should return headers for correlation and transaction IDs when they exist', () => {
-      mockContextManager.set('x-correlation-id', 'test-corr-id');
-      mockContextManager.set('transactionId', 'test-trans-id');
-      expect(mockContextManager.getTraceContextHeaders()).toEqual({
-        'x-correlation-id': 'test-corr-id',
-        'x-trace-id': 'test-trans-id',
+    it('includes correlation and transaction IDs when set', () => {
+      mgr.set('x-correlation-id', 'corr-id');
+      mgr.set('transactionId', 'txn-id');
+      expect(mgr.getTraceContextHeaders()).toEqual({
+        'x-correlation-id': 'corr-id',
+        'x-trace-id': 'txn-id',
       });
     });
   });

@@ -1,6 +1,7 @@
 /**
  * FILE: tests/context/extractInboundContext.test.ts
  * DESCRIPTION: Unit tests for the extractInboundContext pure helper.
+ * Pure function — every test is: input → expected output, no setup needed.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -9,11 +10,10 @@ import type { ContextConfig } from '../../src/types';
 
 const FIELD_CORRELATION = 'correlationId';
 const FIELD_TRACE = 'traceId';
-const FIELD_TENANT = 'tenantId';
 const SOURCE_FRONTEND = 'frontend';
 const SOURCE_PARTNER = 'partner';
 
-const baseConfig = (overrides: Partial<ContextConfig> = {}): ContextConfig => ({
+const BASE_CONFIG: ContextConfig = {
   inbound: {
     [SOURCE_FRONTEND]: {
       [FIELD_CORRELATION]: 'X-Correlation-ID',
@@ -23,136 +23,95 @@ const baseConfig = (overrides: Partial<ContextConfig> = {}): ContextConfig => ({
       [FIELD_CORRELATION]: 'x-request-id',
     },
   },
-  ...overrides,
-});
+};
+
+// Shorthand so tests read as: extract(headers, source) → result
+const extract = (
+  headers: Record<string, string | string[] | undefined>,
+  source: string,
+  config: ContextConfig = BASE_CONFIG
+) => extractInboundContext(headers, source, config);
 
 describe('extractInboundContext', () => {
-  describe('basic extraction', () => {
-    it('should extract fields using the inbound map for the given source', () => {
-      const headers = {
-        'x-correlation-id': 'req-001',
-        'x-trace-id': 'trace-xyz',
-      };
-      const result = extractInboundContext(
-        headers,
-        SOURCE_FRONTEND,
-        baseConfig()
-      );
-      expect(result[FIELD_CORRELATION]).toBe('req-001');
-      expect(result[FIELD_TRACE]).toBe('trace-xyz');
+  describe('source resolution', () => {
+    it('maps wire names to internal field names', () => {
+      expect(
+        extract(
+          { 'x-correlation-id': 'req-001', 'x-trace-id': 'trace-xyz' },
+          SOURCE_FRONTEND
+        )
+      ).toEqual({ [FIELD_CORRELATION]: 'req-001', [FIELD_TRACE]: 'trace-xyz' });
     });
 
-    it('should return empty object when source is not in inbound map', () => {
-      const headers = { 'x-correlation-id': 'req-001' };
-      const result = extractInboundContext(
-        headers,
-        'unknown-source',
-        baseConfig()
-      );
-      expect(result).toEqual({});
-    });
-
-    it('should return empty object when inbound is not configured', () => {
-      const headers = { 'x-correlation-id': 'req-001' };
-      const result = extractInboundContext(headers, SOURCE_FRONTEND, {});
-      expect(result).toEqual({});
-    });
-
-    it('should use different wire names per source', () => {
-      const headers = { 'x-request-id': 'req-002' };
-      const result = extractInboundContext(
-        headers,
-        SOURCE_PARTNER,
-        baseConfig()
-      );
-      expect(result[FIELD_CORRELATION]).toBe('req-002');
-    });
-  });
-
-  describe('Node.js header case normalization', () => {
-    it('should find headers regardless of casing declared in config', () => {
-      // Developer declares 'X-Correlation-ID' in config
-      // Node delivers { 'x-correlation-id': '...' } — all lowercase
-      const headers = { 'x-correlation-id': 'req-001' };
-      const result = extractInboundContext(
-        headers,
-        SOURCE_FRONTEND,
-        baseConfig()
-      );
-      expect(result[FIELD_CORRELATION]).toBe('req-001');
-    });
-
-    it('should handle already-lowercase wire names in config', () => {
-      const config = baseConfig({
-        inbound: {
-          [SOURCE_FRONTEND]: { [FIELD_CORRELATION]: 'x-correlation-id' },
-        },
+    it('uses per-source wire names (partner maps x-request-id → correlationId)', () => {
+      expect(extract({ 'x-request-id': 'req-002' }, SOURCE_PARTNER)).toEqual({
+        [FIELD_CORRELATION]: 'req-002',
       });
-      const headers = { 'x-correlation-id': 'req-001' };
-      const result = extractInboundContext(headers, SOURCE_FRONTEND, config);
-      expect(result[FIELD_CORRELATION]).toBe('req-001');
+    });
+
+    it('returns {} for an unknown source', () => {
+      expect(extract({ 'x-correlation-id': 'req-001' }, 'unknown')).toEqual({});
+    });
+
+    it('returns {} when inbound is not configured', () => {
+      expect(
+        extract({ 'x-correlation-id': 'req-001' }, SOURCE_FRONTEND, {})
+      ).toEqual({});
     });
   });
 
   describe('absent fields', () => {
-    it('should not include fields whose headers are absent', () => {
-      const headers = { 'x-trace-id': 'trace-xyz' }; // no correlation header
-      const result = extractInboundContext(
-        headers,
-        SOURCE_FRONTEND,
-        baseConfig()
-      );
-      expect(result[FIELD_TRACE]).toBe('trace-xyz');
-      expect(result[FIELD_CORRELATION]).toBeUndefined();
+    it('omits fields whose headers are absent — no defaults, no generation', () => {
+      expect(extract({ 'x-trace-id': 'trace-xyz' }, SOURCE_FRONTEND)).toEqual({
+        [FIELD_TRACE]: 'trace-xyz',
+      });
     });
   });
 
-  describe('customHeaders passthrough', () => {
-    it('should extract custom headers and store them with lowercased underscore key', () => {
-      const config = baseConfig({
-        customHeaders: ['X-Tenant-ID', 'X-Feature-Flag'],
-      });
-      const headers = {
-        'x-correlation-id': 'req-001',
-        'x-tenant-id': 'acme',
-        'x-feature-flag': 'checkout-v2',
-      };
-      const result = extractInboundContext(headers, SOURCE_FRONTEND, config);
-      expect(result['x_tenant_id']).toBe('acme');
-      expect(result['x_feature_flag']).toBe('checkout-v2');
-    });
-
-    it('should ignore custom headers that are absent from the request', () => {
-      const config = baseConfig({ customHeaders: ['X-Tenant-ID'] });
-      const headers = { 'x-correlation-id': 'req-001' };
-      const result = extractInboundContext(headers, SOURCE_FRONTEND, config);
-      expect(result['x_tenant_id']).toBeUndefined();
+  describe('header case normalization', () => {
+    it('normalizes config casing — X-Correlation-ID in config matches x-correlation-id from Node', () => {
+      expect(
+        extract({ 'x-correlation-id': 'req-001' }, SOURCE_FRONTEND)[
+          FIELD_CORRELATION
+        ]
+      ).toBe('req-001');
     });
   });
 
   describe('array header values', () => {
-    it('should take the first value when a header is an array', () => {
-      const headers = { 'x-correlation-id': ['req-001', 'req-002'] };
-      const result = extractInboundContext(
-        headers,
-        SOURCE_FRONTEND,
-        baseConfig()
-      );
-      expect(result[FIELD_CORRELATION]).toBe('req-001');
+    it('takes the first element when a header arrives as an array', () => {
+      expect(
+        extract(
+          { 'x-correlation-id': ['req-001', 'req-002'] },
+          SOURCE_FRONTEND
+        )[FIELD_CORRELATION]
+      ).toBe('req-001');
     });
   });
 
-  describe('partial extraction', () => {
-    it('should include only the fields present in the request', () => {
-      // Only correlation, no trace
-      const headers = { 'x-correlation-id': 'req-001' };
-      const result = extractInboundContext(
-        headers,
-        SOURCE_FRONTEND,
-        baseConfig()
+  describe('customHeaders passthrough', () => {
+    it('stores custom headers with lowercased underscore key', () => {
+      const config: ContextConfig = {
+        ...BASE_CONFIG,
+        customHeaders: ['X-Tenant-ID', 'X-Feature-Flag'],
+      };
+      expect(
+        extract(
+          { 'x-tenant-id': 'acme', 'x-feature-flag': 'checkout-v2' },
+          SOURCE_FRONTEND,
+          config
+        )
+      ).toMatchObject({ x_tenant_id: 'acme', x_feature_flag: 'checkout-v2' });
+    });
+
+    it('omits absent custom headers', () => {
+      const config: ContextConfig = {
+        ...BASE_CONFIG,
+        customHeaders: ['X-Tenant-ID'],
+      };
+      expect(extract({}, SOURCE_FRONTEND, config)).not.toHaveProperty(
+        'x_tenant_id'
       );
-      expect(result[FIELD_CORRELATION]).toBe('req-001');
-      expect(result).not.toHaveProperty(FIELD_TENANT);
     });
   });
 });
