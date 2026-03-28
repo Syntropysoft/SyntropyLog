@@ -129,9 +129,8 @@ export class ContextManager implements IContextManager {
    */
   public set(key: string, value: ContextValue): void {
     const store = this.storage.getStore();
-    if (store) {
-      store.data.set(key, value);
-    }
+    if (!store) return;
+    store.data.set(key, value);
   }
 
   /**

@@ -9,6 +9,17 @@
 
 import type { ContextConfig } from '../types';
 
+/** Resolves a single header value from a Node.js headers object.
+ *  Node lowercases all incoming header names — normalize wireName before lookup.
+ *  Returns the first element when the value is an array (multi-value headers). */
+const resolveHeaderValue = (
+  headers: Record<string, string | string[] | undefined>,
+  wireName: string
+): string | undefined => {
+  const raw = headers[wireName.toLowerCase()];
+  return Array.isArray(raw) ? raw[0] : raw;
+};
+
 /**
  * Extracts context fields from inbound HTTP headers using the configured source map.
  *
@@ -40,27 +51,21 @@ export function extractInboundContext(
   const result: Record<string, string> = {};
 
   const inboundMap = config.inbound?.[source];
+  if (!inboundMap && !config.customHeaders?.length) return result;
 
   if (inboundMap) {
     for (const [field, wireName] of Object.entries(inboundMap)) {
-      // Node.js lowercases all incoming headers — normalize before lookup
-      const rawValue = headers[wireName.toLowerCase()];
-      const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
-      if (value !== undefined) {
-        result[field] = value;
-      }
+      const value = resolveHeaderValue(headers, wireName);
+      if (value !== undefined) result[field] = value;
     }
   }
 
   // Passthrough custom headers — stored with lowercased key (hyphens → underscores)
   if (config.customHeaders) {
     for (const headerName of config.customHeaders) {
-      const rawValue = headers[headerName.toLowerCase()];
-      const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
-      if (value !== undefined) {
-        const key = headerName.toLowerCase().replace(/-/g, '_');
-        result[key] = value;
-      }
+      const value = resolveHeaderValue(headers, headerName);
+      if (value !== undefined)
+        result[headerName.toLowerCase().replace(/-/g, '_')] = value;
     }
   }
 

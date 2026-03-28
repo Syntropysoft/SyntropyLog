@@ -187,11 +187,9 @@ export class MockContextManager implements IContextManager {
    * @returns `undefined` as this mock does not implement tracing.
    */
   public getTraceContextHeaders(): ContextHeaders {
+    if (Object.keys(this.store).length === 0) return {};
+
     const headers: ContextHeaders = {};
-    // Only include headers if we have an active context (store is not empty)
-    if (Object.keys(this.store).length === 0) {
-      return headers; // Return empty object if no context is active
-    }
     const correlationId = this.getCorrelationId();
     const transactionId = this.getTransactionId();
     if (correlationId) {
