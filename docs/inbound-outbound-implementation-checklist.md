@@ -148,90 +148,90 @@ Keep both consistent — `options: ContextConfig` required.
 
 ### Phase 1 — Types
 
-- [ ] **`src/internal-types.ts`**
-  - [ ] Remove `[key: string]: ContextValue` index signature from `ContextConfig`
-  - [ ] Add `inbound?: Record<string, Record<string, string>>`
-  - [ ] Add `outbound?: Record<string, Record<string, string>>`
-  - [ ] Add `correlationField?: string`
-  - [ ] Add `customHeaders?: string[]`
+- [x] **`src/internal-types.ts`**
+  - [x] Remove `[key: string]: ContextValue` index signature from `ContextConfig`
+  - [x] Add `inbound?: Record<string, Record<string, string>>`
+  - [x] Add `outbound?: Record<string, Record<string, string>>`
+  - [x] Add `correlationField?: string`
+  - [x] Add `customHeaders?: string[]`
 
-- [ ] **`src/config.schema.ts`**
-  - [ ] Remove `[key: string]: string | undefined` index signature from `ContextConfig`
-  - [ ] Add same four fields as above
+- [x] **`src/config.schema.ts`**
+  - [x] Remove `[key: string]: string | undefined` index signature from `ContextConfig`
+  - [x] Add same four fields as above
 
 ### Phase 2 — Validation
 
-- [ ] **`src/config/config.validator.ts`**
-  - [ ] Add `inbound: optional(recordOf(recordOf(isString)))` to `validateContext`
-  - [ ] Add `outbound: optional(recordOf(recordOf(isString)))` to `validateContext`
-  - [ ] Add `correlationField: optional(isString)` to `validateContext`
-  - [ ] Add `customHeaders: optional(arrayOf(isString))` to `validateContext`
+- [x] **`src/config/config.validator.ts`**
+  - [x] Add `inbound: optional(recordOf(recordOf(isString)))` to `validateContext`
+  - [x] Add `outbound: optional(recordOf(recordOf(isString)))` to `validateContext`
+  - [x] Add `correlationField: optional(isString)` to `validateContext`
+  - [x] Add `customHeaders: optional(arrayOf(isString))` to `validateContext`
 
 ### Phase 3 — Interface
 
-- [ ] **`src/context/IContextManager.ts`**
-  - [ ] Add `getPropagationHeaders(target?: string): ContextHeaders`
-  - [ ] Add `getOutboundHeaderName(field: string, target?: string): string | undefined`
+- [x] **`src/context/IContextManager.ts`**
+  - [x] Add `getPropagationHeaders(target?: string): ContextHeaders`
+  - [x] Add `getOutboundHeaderName(field: string, target?: string): string | undefined`
 
 ### Phase 4 — Core implementation
 
-- [ ] **`src/context/ContextManager.ts`**
-  - [ ] Add private fields: `inbound`, `outbound`, `correlationField`
-  - [ ] Update `configure()` to read `inbound`, `outbound`, `correlationField`
-  - [ ] Implement `getPropagationHeaders(target?)`
-  - [ ] Implement `getOutboundHeaderName(field, target?)`
+- [x] **`src/context/ContextManager.ts`**
+  - [x] Add private fields: `inbound`, `outbound`, `correlationField`
+  - [x] Update `configure()` to read `inbound`, `outbound`, `correlationField`
+  - [x] Implement `getPropagationHeaders(target?)`
+  - [x] Implement `getOutboundHeaderName(field, target?)`
 
 ### Phase 5 — Mock
 
-- [ ] **`src/context/MockContextManager.ts`**
-  - [ ] Add private fields: `inbound`, `outbound`, `correlationField`
-  - [ ] Update `configure()` to read new fields
-  - [ ] Implement `getPropagationHeaders(target?)`
-  - [ ] Implement `getOutboundHeaderName(field, target?)`
+- [x] **`src/context/MockContextManager.ts`**
+  - [x] Add private fields: `inbound`, `outbound`, `correlationField`
+  - [x] Update `configure()` to read new fields
+  - [x] Implement `getPropagationHeaders(target?)`
+  - [x] Implement `getOutboundHeaderName(field, target?)`
 
 ### Phase 6 — Helper function
 
-- [ ] **`src/context/extractInboundContext.ts`** ← new file
-  - [ ] Pure function signature: `extractInboundContext(headers, source, config): Record<string, string>`
-  - [ ] `.toLowerCase()` on wire name when reading headers
-  - [ ] Auto-generate UUID for `correlationField` when absent
-  - [ ] Return empty object if source not found in inbound map
+- [x] **`src/context/extractInboundContext.ts`** ← new file
+  - [x] Pure function signature: `extractInboundContext(headers, source, config): Record<string, string>`
+  - [x] `.toLowerCase()` on wire name when reading headers
+  - [x] Auto-generate UUID for `correlationField` when absent
+  - [x] Return empty object if source not found in inbound map
 
 ### Phase 7 — Exports
 
-- [ ] **`src/SyntropyLog.ts`** (or `src/index.ts`)
-  - [ ] Export `extractInboundContext`
-  - [ ] Verify `getPropagationHeaders` is accessible via `syntropyLog.contextManager`
+- [x] **`src/SyntropyLog.ts`** (or `src/index.ts`)
+  - [x] Export `extractInboundContext`
+  - [x] Verify `getPropagationHeaders` is accessible via `syntropyLog.contextManager`
 
 ### Phase 8 — Tests
 
-- [ ] **`tests/context/ContextManager.test.ts`**
-  - [ ] `configure()` — accepts new fields without breaking old tests
-  - [ ] `getPropagationHeaders()` — no arg uses 'http' target
-  - [ ] `getPropagationHeaders('kafka')` — uses kafka target
-  - [ ] `getPropagationHeaders('unknown')` — returns `{}`
-  - [ ] `getPropagationHeaders()` — only includes fields present in context
-  - [ ] `getPropagationHeaders()` — returns `{}` when outside context
-  - [ ] `getPropagationHeaders()` — returns `{}` when outbound not configured (legacy mode)
-  - [ ] `getOutboundHeaderName(field)` — returns http wire name
-  - [ ] `getOutboundHeaderName(field, 'kafka')` — returns kafka wire name
-  - [ ] `getOutboundHeaderName(field, 'unknown')` — returns `undefined`
-  - [ ] All existing tests still pass (no regressions)
+- [x] **`tests/context/ContextManager.test.ts`**
+  - [x] `configure()` — accepts new fields without breaking old tests
+  - [x] `getPropagationHeaders()` — no arg uses 'http' target
+  - [x] `getPropagationHeaders('kafka')` — uses kafka target
+  - [x] `getPropagationHeaders('unknown')` — returns `{}`
+  - [x] `getPropagationHeaders()` — only includes fields present in context
+  - [x] `getPropagationHeaders()` — returns `{}` when outside context
+  - [x] `getPropagationHeaders()` — returns `{}` when outbound not configured (legacy mode)
+  - [x] `getOutboundHeaderName(field)` — returns http wire name
+  - [x] `getOutboundHeaderName(field, 'kafka')` — returns kafka wire name
+  - [x] `getOutboundHeaderName(field, 'unknown')` — returns `undefined`
+  - [x] All existing tests still pass (no regressions)
 
-- [ ] **`tests/context/extractInboundContext.test.ts`** ← new file
-  - [ ] Extracts fields using inbound map for the given source
-  - [ ] Lowercases wire names when reading headers
-  - [ ] Auto-generates UUID for correlationField when header absent
-  - [ ] Does NOT auto-generate for other fields
-  - [ ] Returns `{}` when source not in inbound map
-  - [ ] Handles `customHeaders` passthrough (lowercase key)
+- [x] **`tests/context/extractInboundContext.test.ts`** ← new file
+  - [x] Extracts fields using inbound map for the given source
+  - [x] Lowercases wire names when reading headers
+  - [x] Auto-generates UUID for correlationField when header absent
+  - [x] Does NOT auto-generate for other fields
+  - [x] Returns `{}` when source not in inbound map
+  - [x] Handles `customHeaders` passthrough (lowercase key)
 
 ### Phase 9 — Release
 
-- [ ] All existing tests pass (`npm test`)
-- [ ] TypeScript compiles without errors (`npm run build`)
-- [ ] Bump version to `1.0.0-rc.2` in `package.json`
-- [ ] Update CHANGELOG
+- [x] All existing tests pass (`npm test`)
+- [x] TypeScript compiles without errors (`npm run build`)
+- [x] Bump version to `1.0.0-rc.2` in `package.json`
+- [x] Update CHANGELOG
 
 ---
 

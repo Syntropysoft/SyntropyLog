@@ -7,7 +7,6 @@
  * Does NOT mutate the context — call contextManager.set(field, value) with the result.
  */
 
-import { randomUUID } from 'crypto';
 import type { ContextConfig } from '../types';
 
 /**
@@ -20,7 +19,7 @@ import type { ContextConfig } from '../types';
  * @param headers  The incoming headers object (e.g. req.headers). Keys must be lowercase (Node default).
  * @param source   The source name to look up in context.inbound (e.g. 'frontend', 'partner').
  * @param config   The ContextConfig from syntropyLog init (pass syntropyLog.config.context).
- * @returns        A plain { field: value } object. Empty object if source is not configured.
+ * @returns        A plain { field: value } object. Empty object if source is not configured or no headers matched.
  *
  * @example
  * app.use(async (req, res, next) => {
@@ -38,22 +37,18 @@ export function extractInboundContext(
   source: string,
   config: ContextConfig
 ): Record<string, string> {
-  const inboundMap = config.inbound?.[source];
-  if (!inboundMap) return {};
-
-  const correlationField = config.correlationField ?? 'correlationId';
   const result: Record<string, string> = {};
 
-  for (const [field, wireName] of Object.entries(inboundMap)) {
-    // Node.js lowercases all incoming headers — normalize before lookup
-    const rawValue = headers[wireName.toLowerCase()];
-    const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+  const inboundMap = config.inbound?.[source];
 
-    if (value !== undefined) {
-      result[field] = value;
-    } else if (field === correlationField) {
-      // Auto-generate correlation ID when absent — the only field with this behaviour
-      result[field] = randomUUID();
+  if (inboundMap) {
+    for (const [field, wireName] of Object.entries(inboundMap)) {
+      // Node.js lowercases all incoming headers — normalize before lookup
+      const rawValue = headers[wireName.toLowerCase()];
+      const value = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+      if (value !== undefined) {
+        result[field] = value;
+      }
     }
   }
 

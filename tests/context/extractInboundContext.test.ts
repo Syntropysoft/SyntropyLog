@@ -94,60 +94,16 @@ describe('extractInboundContext', () => {
     });
   });
 
-  describe('auto-generation of correlationField', () => {
-    it('should auto-generate a UUID for correlationField when header is absent', () => {
+  describe('absent fields', () => {
+    it('should not include fields whose headers are absent', () => {
       const headers = { 'x-trace-id': 'trace-xyz' }; // no correlation header
       const result = extractInboundContext(
         headers,
         SOURCE_FRONTEND,
         baseConfig()
       );
-      expect(result[FIELD_CORRELATION]).toBeDefined();
-      expect(result[FIELD_CORRELATION]).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-      );
-    });
-
-    it('should NOT auto-generate for fields other than correlationField', () => {
-      const headers = { 'x-correlation-id': 'req-001' }; // no trace header
-      const result = extractInboundContext(
-        headers,
-        SOURCE_FRONTEND,
-        baseConfig()
-      );
-      expect(result[FIELD_TRACE]).toBeUndefined();
-    });
-
-    it('should respect a custom correlationField name', () => {
-      const config: ContextConfig = {
-        correlationField: 'requestId',
-        inbound: {
-          [SOURCE_FRONTEND]: {
-            requestId: 'X-Request-ID',
-            [FIELD_TRACE]: 'X-Trace-ID',
-          },
-        },
-      };
-      const headers = { 'x-trace-id': 'trace-xyz' }; // no X-Request-ID
-      const result = extractInboundContext(headers, SOURCE_FRONTEND, config);
-      // requestId should be auto-generated
-      expect(result['requestId']).toBeDefined();
-      expect(result['requestId']).toHaveLength(36);
-      // traceId absent without auto-gen
       expect(result[FIELD_TRACE]).toBe('trace-xyz');
-    });
-
-    it('should default correlationField to "correlationId" when not configured', () => {
-      const config: ContextConfig = {
-        inbound: {
-          [SOURCE_FRONTEND]: { [FIELD_CORRELATION]: 'X-Correlation-ID' },
-        },
-        // correlationField not set — defaults to 'correlationId'
-      };
-      const headers = {}; // no headers at all
-      const result = extractInboundContext(headers, SOURCE_FRONTEND, config);
-      expect(result[FIELD_CORRELATION]).toBeDefined();
-      expect(result[FIELD_CORRELATION]).toHaveLength(36);
+      expect(result[FIELD_CORRELATION]).toBeUndefined();
     });
   });
 

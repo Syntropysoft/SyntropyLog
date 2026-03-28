@@ -32,7 +32,6 @@ export class MockContextManager implements IContextManager {
   private transactionIdHeader = 'x-trace-id';
   private inbound: Record<string, Record<string, string>> = {};
   private outbound: Record<string, Record<string, string>> = {};
-  private correlationField = 'correlationId';
 
   /**
    * Configures the mock context manager.
@@ -52,9 +51,6 @@ export class MockContextManager implements IContextManager {
     }
     if (options?.outbound) {
       this.outbound = options.outbound;
-    }
-    if (options?.correlationField) {
-      this.correlationField = options.correlationField;
     }
   }
 

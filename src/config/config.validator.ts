@@ -130,7 +130,6 @@ const validateContext = object({
   transactionIdHeader: optional(isString),
   inbound: optional(recordOf(recordOf(isString))),
   outbound: optional(recordOf(recordOf(isString))),
-  correlationField: optional(isString),
   customHeaders: optional(arrayOf(isString)),
 });
 

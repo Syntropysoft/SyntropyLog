@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.0.0-rc.2
+
+### New Features
+
+- **Inbound / outbound context propagation** — symmetric, multi-source, multi-target.
+  - `ContextConfig` gains `inbound`, `outbound`, and `customHeaders` fields.
+  - `extractInboundContext(headers, source, config)` — exported pure function. Translates incoming wire names (e.g. `X-Correlation-ID`) to internal field names (e.g. `correlationId`) for a named source. Fields absent from the request are absent from the result — no defaults, no generation.
+  - `IContextManager.getPropagationHeaders(target?)` — translates internal context fields to the correct wire names for a named outbound target. Returns `{}` for unknown targets or when called outside a context.
+  - `IContextManager.getOutboundHeaderName(field, target?)` — returns the wire name for a single field on a given target.
+  - Both `ContextManager` and `MockContextManager` implement all new methods.
+  - Validator updated: `inbound` and `outbound` validated as `Record<string, Record<string, string>>`.
+  - `customHeaders` validated as `string[]`; forwarded verbatim using lowercase-underscore keys.
+
+### Breaking Changes
+
+- **`correlationField` removed from `ContextConfig`** — the framework no longer accepts or processes a `correlationField` option. This config key has been removed from `ContextConfig`, the validator, `ContextManager`, and `MockContextManager`. UUID / ID generation belongs in user-land middleware:
+  ```typescript
+  const fields = extractInboundContext(req.headers, 'frontend', config.context);
+  contextManager.set('correlationId', fields['correlationId'] ?? randomUUID());
+  ```
+
+### Architecture
+
+The propagation pipeline (`extractInboundContext` → `contextManager.set()` → `getPropagationHeaders()`) is a **pure wire-name translator**. It never modifies, generates, or defaults values. `inbound[source]` → internal context → `outbound[target]`. Declare topology once in `init()`; the framework handles translation for every request.
+
+Two entirely separate concerns:
+
+| Concern | Responsibility | Location |
+|---------|---------------|----------|
+| **Log pipeline** | Masking, sanitization, serialization | `log.info(...)` path |
+| **Propagation pipeline** | Wire name translation only | `extractInboundContext` + `getPropagationHeaders` |
+
+Propagation headers travel exactly as they arrived. Log entries go through the masking engine. These two pipelines never mix.
+
+**Why `correlationField` was removed:** the framework must not know what a "correlation ID" is. A developer using Twitter Snowflake IDs, W3C trace IDs, or any custom scheme should never need to configure the framework to opt out of UUID generation. All fields are equal — none are semantically special.
+
+### Documentation
+
+- README completely rewritten in concept-driven style: opens with a working example showing real JSON output inline, followed by sections that explain the *why* behind each capability. Covers: declarative shift, context propagation, data masking (inline output + default rules table), audit/withMeta, middleware integration, propagation headers (ASCII topology diagram), logging matrix, transports, hot reconfiguration, OTel, and observability hooks.
+
+### Tests
+
+- 496 tests passing.
+- Removed 6 UUID auto-generation tests (behavior no longer exists).
+- Added `absent fields` describe block: verifies that fields whose headers are not present in the request are absent (not `undefined`, not `null` — absent) from the result.
+
+---
+
 ## 1.0.0-rc.1
 
 ### Release Candidate

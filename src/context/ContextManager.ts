@@ -37,7 +37,6 @@ export class ContextManager implements IContextManager {
   private loggingMatrix: LoggingMatrix | undefined;
   private inbound: Record<string, Record<string, string>> = {};
   private outbound: Record<string, Record<string, string>> = {};
-  private correlationField = 'correlationId';
 
   constructor(loggingMatrix?: LoggingMatrix) {
     this.storage = new AsyncLocalStorage();
@@ -56,9 +55,6 @@ export class ContextManager implements IContextManager {
     }
     if (options.outbound) {
       this.outbound = options.outbound;
-    }
-    if (options.correlationField) {
-      this.correlationField = options.correlationField;
     }
   }
 

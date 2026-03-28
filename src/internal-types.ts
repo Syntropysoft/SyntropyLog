@@ -100,7 +100,6 @@ export type ContextConfig = {
   transactionIdHeader?: string;
   inbound?: Record<string, Record<string, string>>;
   outbound?: Record<string, Record<string, string>>;
-  correlationField?: string;
   customHeaders?: string[];
 };
 
