@@ -30,6 +30,9 @@ export class MockContextManager implements IContextManager {
   private correlationIdHeader = 'x-correlation-id';
   /** @private The HTTP header name used for the transaction ID. */
   private transactionIdHeader = 'x-trace-id';
+  private inbound: Record<string, Record<string, string>> = {};
+  private outbound: Record<string, Record<string, string>> = {};
+  private correlationField = 'correlationId';
 
   /**
    * Configures the mock context manager.
@@ -43,6 +46,15 @@ export class MockContextManager implements IContextManager {
     }
     if (options?.transactionIdHeader) {
       this.transactionIdHeader = options.transactionIdHeader;
+    }
+    if (options?.inbound) {
+      this.inbound = options.inbound;
+    }
+    if (options?.outbound) {
+      this.outbound = options.outbound;
+    }
+    if (options?.correlationField) {
+      this.correlationField = options.correlationField;
     }
   }
 
@@ -193,6 +205,31 @@ export class MockContextManager implements IContextManager {
       headers[this.getTransactionIdHeaderName()] = transactionId;
     }
     return headers;
+  }
+
+  public getPropagationHeaders(target?: string): ContextHeaders {
+    if (Object.keys(this.store).length === 0) return {};
+
+    const targetKey = target ?? 'http';
+    const targetMap = this.outbound[targetKey];
+    if (!targetMap) return {};
+
+    const result: ContextHeaders = {};
+    for (const [field, wireName] of Object.entries(targetMap)) {
+      const value = this.store[field];
+      if (value !== undefined && value !== null) {
+        result[wireName] = String(value);
+      }
+    }
+    return result;
+  }
+
+  public getOutboundHeaderName(
+    field: string,
+    target?: string
+  ): string | undefined {
+    const targetKey = target ?? 'http';
+    return this.outbound[targetKey]?.[field];
   }
 
   public getFilteredContext(): FilteredContext {

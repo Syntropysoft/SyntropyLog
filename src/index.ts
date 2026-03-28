@@ -6,6 +6,7 @@
 
 // --- Main Framework Class ---
 export { syntropyLog, SyntropyLog } from './SyntropyLog';
+export { extractInboundContext } from './context/extractInboundContext';
 
 // --- Utility Classes for Advanced Configuration ---
 export { SerializationManager } from './serialization/SerializationManager';

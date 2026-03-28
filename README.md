@@ -848,6 +848,12 @@ Secure this route (e.g. auth, internal only). When debugging in a POD is finishe
 
 **Environment variables:** The main package does not read any. The optional native addon (`syntropylog-native`) reads only `PATH` on Linux to locate the `ldd` binary for musl/glibc detection. No credentials or other env vars are read. See [SECURITY.md](./SECURITY.md) for the full list.
 
+**socket.dev AI warning (medium risk):** socket.dev flags two behaviors as potential risks. Both are intentional by design.
+
+1. **Native addon execution** — The optional `syntropylog-native` addon is built from source in the same repository (`syntropylog-native/`). No precompiled opaque binaries are distributed; the build is reproducible from auditable Rust source using `@napi-rs/cli`. If the addon is unavailable, the JS pipeline takes over transparently. The supply-chain risk identified by socket.dev applies to packages that ship pre-built `.node` binaries with no source — that is not the case here.
+
+2. **Custom masking function execution** — The `MaskingEngine` accepts an optional consumer-supplied `customMask: (value: string) => string` function in masking rules. This function is part of the application's own configuration, not externally influenced input. If an attacker can modify your SyntropyLog configuration at runtime, they already have write access to your process — the threat boundary was crossed before SyntropyLog is involved. If you construct masking config dynamically from user-supplied HTTP input, that is an application-level risk, not a framework risk.
+
 **Dynamic require:** The package does not use dynamic `require(variable)` or user-controlled paths. Module paths are static string literals (e.g. `require('syntropylog-native')`, `require('./index.js')`). The native addon loader chooses one of several fixed `.node` paths based on platform/arch; no user input is used to build require paths.
 
 **Filesystem access:** The package only reads the files described below; it does not scan or read arbitrary paths.

@@ -63,7 +63,10 @@ export interface LoggingMatrixConfig {
 export interface ContextConfig {
   correlationIdHeader?: string;
   transactionIdHeader?: string;
-  [key: string]: string | undefined;
+  inbound?: Record<string, Record<string, string>>;
+  outbound?: Record<string, Record<string, string>>;
+  correlationField?: string;
+  customHeaders?: string[];
 }
 
 // ─── Root config ──────────────────────────────────────────────────────────────

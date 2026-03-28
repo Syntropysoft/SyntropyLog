@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ContextManager } from '../../src/context/ContextManager';
 
 // Helper to introduce a delay for async tests
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('ContextManager', () => {
   let contextManager: ContextManager;
@@ -18,7 +18,9 @@ describe('ContextManager', () => {
 
   describe('configure', () => {
     it('should use the default correlation ID header name', () => {
-      expect(contextManager.getCorrelationIdHeaderName()).toBe('x-correlation-id');
+      expect(contextManager.getCorrelationIdHeaderName()).toBe(
+        'x-correlation-id'
+      );
     });
 
     it('should set a custom correlation ID header name', () => {
@@ -164,18 +166,22 @@ describe('ContextManager', () => {
     it('should include correlationId when specified in loggingMatrix', async () => {
       const loggingMatrix = {
         default: ['correlationId'],
-        error: ['*']
+        error: ['*'],
       };
-      
+
       const contextManagerWithMatrix = new ContextManager(loggingMatrix);
-      
+
       await contextManagerWithMatrix.run(async () => {
         // Establecer correlationId usando el header configurado
-        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set(
+          'x-correlation-id',
+          'test-correlation-123'
+        );
         contextManagerWithMatrix.set('userId', 'user-456');
-        
-        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
-        
+
+        const filteredContext =
+          contextManagerWithMatrix.getFilteredContext('info');
+
         expect(filteredContext).toHaveProperty('correlationId');
         expect(filteredContext.correlationId).toBe('test-correlation-123');
         expect(filteredContext).not.toHaveProperty('userId'); // No debe incluir userId en default
@@ -185,18 +191,22 @@ describe('ContextManager', () => {
     it('should include correlationId when stored as internal key', async () => {
       const loggingMatrix = {
         default: ['correlationId'],
-        error: ['*']
+        error: ['*'],
       };
-      
+
       const contextManagerWithMatrix = new ContextManager(loggingMatrix);
-      
+
       await contextManagerWithMatrix.run(async () => {
         // Establecer correlationId usando la clave interna
-        contextManagerWithMatrix.set('correlationId', 'internal-correlation-789');
+        contextManagerWithMatrix.set(
+          'correlationId',
+          'internal-correlation-789'
+        );
         contextManagerWithMatrix.set('userId', 'user-456');
-        
-        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
-        
+
+        const filteredContext =
+          contextManagerWithMatrix.getFilteredContext('info');
+
         expect(filteredContext).toHaveProperty('correlationId');
         expect(filteredContext.correlationId).toBe('internal-correlation-789');
         expect(filteredContext).not.toHaveProperty('userId');
@@ -206,18 +216,22 @@ describe('ContextManager', () => {
     it('should include all fields when using wildcard (*)', async () => {
       const loggingMatrix = {
         default: ['correlationId'],
-        error: ['*']
+        error: ['*'],
       };
-      
+
       const contextManagerWithMatrix = new ContextManager(loggingMatrix);
-      
+
       await contextManagerWithMatrix.run(async () => {
-        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set(
+          'x-correlation-id',
+          'test-correlation-123'
+        );
         contextManagerWithMatrix.set('userId', 'user-456');
         contextManagerWithMatrix.set('operation', 'test-operation');
-        
-        const filteredContext = contextManagerWithMatrix.getFilteredContext('error');
-        
+
+        const filteredContext =
+          contextManagerWithMatrix.getFilteredContext('error');
+
         expect(filteredContext).toHaveProperty('correlationId');
         expect(filteredContext).toHaveProperty('userId');
         expect(filteredContext).toHaveProperty('operation');
@@ -230,19 +244,25 @@ describe('ContextManager', () => {
     it('should handle custom correlationId header name', async () => {
       const loggingMatrix = {
         default: ['correlationId'],
-        error: ['*']
+        error: ['*'],
       };
-      
+
       const contextManagerWithMatrix = new ContextManager(loggingMatrix);
-      contextManagerWithMatrix.configure({ correlationIdHeader: 'X-Custom-Correlation-ID' });
-      
+      contextManagerWithMatrix.configure({
+        correlationIdHeader: 'X-Custom-Correlation-ID',
+      });
+
       await contextManagerWithMatrix.run(async () => {
         // Establecer correlationId usando el header personalizado
-        contextManagerWithMatrix.set('X-Custom-Correlation-ID', 'custom-correlation-456');
+        contextManagerWithMatrix.set(
+          'X-Custom-Correlation-ID',
+          'custom-correlation-456'
+        );
         contextManagerWithMatrix.set('userId', 'user-789');
-        
-        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
-        
+
+        const filteredContext =
+          contextManagerWithMatrix.getFilteredContext('info');
+
         expect(filteredContext).toHaveProperty('correlationId');
         expect(filteredContext.correlationId).toBe('custom-correlation-456');
         expect(filteredContext).not.toHaveProperty('userId');
@@ -252,17 +272,21 @@ describe('ContextManager', () => {
     it('should return empty object when no fields are configured for level', async () => {
       const loggingMatrix = {
         default: ['correlationId'],
-        info: [] // Sin campos para info
+        info: [], // Sin campos para info
       };
-      
+
       const contextManagerWithMatrix = new ContextManager(loggingMatrix);
-      
+
       await contextManagerWithMatrix.run(async () => {
-        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set(
+          'x-correlation-id',
+          'test-correlation-123'
+        );
         contextManagerWithMatrix.set('userId', 'user-456');
-        
-        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
-        
+
+        const filteredContext =
+          contextManagerWithMatrix.getFilteredContext('info');
+
         expect(filteredContext).toEqual({});
       });
     });
@@ -270,17 +294,21 @@ describe('ContextManager', () => {
     it('should handle unknown fields gracefully', async () => {
       const loggingMatrix = {
         default: ['correlationId', 'unknownField'],
-        error: ['*']
+        error: ['*'],
       };
-      
+
       const contextManagerWithMatrix = new ContextManager(loggingMatrix);
-      
+
       await contextManagerWithMatrix.run(async () => {
-        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set(
+          'x-correlation-id',
+          'test-correlation-123'
+        );
         contextManagerWithMatrix.set('knownField', 'known-value');
-        
-        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
-        
+
+        const filteredContext =
+          contextManagerWithMatrix.getFilteredContext('info');
+
         expect(filteredContext).toHaveProperty('correlationId');
         expect(filteredContext.correlationId).toBe('test-correlation-123');
         expect(filteredContext).not.toHaveProperty('unknownField');
@@ -293,35 +321,39 @@ describe('ContextManager', () => {
     it('should reconfigure logging matrix dynamically', async () => {
       const initialMatrix = {
         default: ['correlationId'],
-        error: ['*']
+        error: ['*'],
       };
-      
+
       const contextManagerWithMatrix = new ContextManager(initialMatrix);
-      
+
       await contextManagerWithMatrix.run(async () => {
-        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set(
+          'x-correlation-id',
+          'test-correlation-123'
+        );
         contextManagerWithMatrix.set('userId', 'user-456');
         contextManagerWithMatrix.set('operation', 'test-operation');
-        
+
         // Test initial configuration
-        let filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        let filteredContext =
+          contextManagerWithMatrix.getFilteredContext('info');
         expect(filteredContext).toHaveProperty('correlationId');
         expect(filteredContext).not.toHaveProperty('userId');
-        
+
         // Reconfigure logging matrix
         const newMatrix = {
           default: ['correlationId', 'userId'],
-          error: ['correlationId', 'userId', 'operation']
+          error: ['correlationId', 'userId', 'operation'],
         };
-        
+
         contextManagerWithMatrix.reconfigureLoggingMatrix(newMatrix);
-        
+
         // Test new configuration
         filteredContext = contextManagerWithMatrix.getFilteredContext('info');
         expect(filteredContext).toHaveProperty('correlationId');
         expect(filteredContext).toHaveProperty('userId');
         expect(filteredContext).not.toHaveProperty('operation');
-        
+
         filteredContext = contextManagerWithMatrix.getFilteredContext('error');
         expect(filteredContext).toHaveProperty('correlationId');
         expect(filteredContext).toHaveProperty('userId');
@@ -332,22 +364,26 @@ describe('ContextManager', () => {
     it('should handle empty logging matrix reconfiguration', async () => {
       const initialMatrix = {
         default: ['correlationId'],
-        error: ['*']
+        error: ['*'],
       };
-      
+
       const contextManagerWithMatrix = new ContextManager(initialMatrix);
-      
+
       await contextManagerWithMatrix.run(async () => {
-        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set(
+          'x-correlation-id',
+          'test-correlation-123'
+        );
         contextManagerWithMatrix.set('userId', 'user-456');
-        
+
         // Test initial configuration
-        let filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        let filteredContext =
+          contextManagerWithMatrix.getFilteredContext('info');
         expect(filteredContext).toHaveProperty('correlationId');
-        
+
         // Reconfigure with undefined to remove matrix (return all context)
         contextManagerWithMatrix.reconfigureLoggingMatrix(undefined as any);
-        
+
         // Test new configuration (should return all context when no matrix)
         filteredContext = contextManagerWithMatrix.getFilteredContext('info');
         expect(filteredContext).toHaveProperty('x-correlation-id');
@@ -357,40 +393,194 @@ describe('ContextManager', () => {
 
     it('should preserve context data during reconfiguration', async () => {
       const initialMatrix = {
-        default: ['correlationId']
+        default: ['correlationId'],
       };
-      
+
       const contextManagerWithMatrix = new ContextManager(initialMatrix);
-      
+
       await contextManagerWithMatrix.run(async () => {
         // Set context data
-        contextManagerWithMatrix.set('x-correlation-id', 'test-correlation-123');
+        contextManagerWithMatrix.set(
+          'x-correlation-id',
+          'test-correlation-123'
+        );
         contextManagerWithMatrix.set('userId', 'user-456');
         contextManagerWithMatrix.set('operation', 'test-operation');
-        
+
         // Verify initial data is set
-        expect(contextManagerWithMatrix.get('x-correlation-id')).toBe('test-correlation-123');
+        expect(contextManagerWithMatrix.get('x-correlation-id')).toBe(
+          'test-correlation-123'
+        );
         expect(contextManagerWithMatrix.get('userId')).toBe('user-456');
-        expect(contextManagerWithMatrix.get('operation')).toBe('test-operation');
-        
+        expect(contextManagerWithMatrix.get('operation')).toBe(
+          'test-operation'
+        );
+
         // Reconfigure matrix
         const newMatrix = {
-          default: ['correlationId', 'userId', 'operation']
+          default: ['correlationId', 'userId', 'operation'],
         };
-        
+
         contextManagerWithMatrix.reconfigureLoggingMatrix(newMatrix);
-        
+
         // Verify context data is still available
-        expect(contextManagerWithMatrix.get('x-correlation-id')).toBe('test-correlation-123');
+        expect(contextManagerWithMatrix.get('x-correlation-id')).toBe(
+          'test-correlation-123'
+        );
         expect(contextManagerWithMatrix.get('userId')).toBe('user-456');
-        expect(contextManagerWithMatrix.get('operation')).toBe('test-operation');
-        
+        expect(contextManagerWithMatrix.get('operation')).toBe(
+          'test-operation'
+        );
+
         // Verify new matrix is applied
-        const filteredContext = contextManagerWithMatrix.getFilteredContext('info');
+        const filteredContext =
+          contextManagerWithMatrix.getFilteredContext('info');
         expect(filteredContext).toHaveProperty('correlationId');
         expect(filteredContext).toHaveProperty('userId');
         expect(filteredContext).toHaveProperty('operation');
       });
+    });
+  });
+
+  describe('getPropagationHeaders', () => {
+    const FIELD_CORRELATION = 'correlationId';
+    const FIELD_TRACE = 'traceId';
+    const TARGET_HTTP = 'http';
+    const TARGET_KAFKA = 'kafka';
+
+    it('should return {} outside of a context', () => {
+      contextManager.configure({
+        outbound: {
+          [TARGET_HTTP]: { [FIELD_CORRELATION]: 'X-Correlation-ID' },
+        },
+      });
+      expect(contextManager.getPropagationHeaders()).toEqual({});
+    });
+
+    it('should return {} when outbound is not configured', async () => {
+      await contextManager.run(async () => {
+        contextManager.set(FIELD_CORRELATION, 'req-001');
+        expect(contextManager.getPropagationHeaders()).toEqual({});
+      });
+    });
+
+    it('should use http target when called with no argument', async () => {
+      contextManager.configure({
+        outbound: {
+          [TARGET_HTTP]: { [FIELD_CORRELATION]: 'X-Correlation-ID' },
+        },
+      });
+      await contextManager.run(async () => {
+        contextManager.set(FIELD_CORRELATION, 'req-001');
+        expect(contextManager.getPropagationHeaders()).toEqual({
+          'X-Correlation-ID': 'req-001',
+        });
+      });
+    });
+
+    it('should use the named target when provided', async () => {
+      contextManager.configure({
+        outbound: {
+          [TARGET_HTTP]: { [FIELD_CORRELATION]: 'X-Correlation-ID' },
+          [TARGET_KAFKA]: { [FIELD_CORRELATION]: 'correlationId' },
+        },
+      });
+      await contextManager.run(async () => {
+        contextManager.set(FIELD_CORRELATION, 'req-001');
+        expect(contextManager.getPropagationHeaders(TARGET_KAFKA)).toEqual({
+          correlationId: 'req-001',
+        });
+      });
+    });
+
+    it('should return {} for an unknown target', async () => {
+      contextManager.configure({
+        outbound: {
+          [TARGET_HTTP]: { [FIELD_CORRELATION]: 'X-Correlation-ID' },
+        },
+      });
+      await contextManager.run(async () => {
+        contextManager.set(FIELD_CORRELATION, 'req-001');
+        expect(contextManager.getPropagationHeaders('unknown')).toEqual({});
+      });
+    });
+
+    it('should only include fields present in the context', async () => {
+      contextManager.configure({
+        outbound: {
+          [TARGET_HTTP]: {
+            [FIELD_CORRELATION]: 'X-Correlation-ID',
+            [FIELD_TRACE]: 'X-Trace-ID',
+          },
+        },
+      });
+      await contextManager.run(async () => {
+        contextManager.set(FIELD_CORRELATION, 'req-001');
+        // traceId not set
+        const headers = contextManager.getPropagationHeaders();
+        expect(headers).toEqual({ 'X-Correlation-ID': 'req-001' });
+        expect(headers).not.toHaveProperty('X-Trace-ID');
+      });
+    });
+
+    it('should support multiple targets simultaneously', async () => {
+      contextManager.configure({
+        outbound: {
+          [TARGET_HTTP]: { [FIELD_CORRELATION]: 'X-Correlation-ID' },
+          [TARGET_KAFKA]: { [FIELD_CORRELATION]: 'correlationId' },
+          s3: { [FIELD_CORRELATION]: 'Correlation_ID' },
+        },
+      });
+      await contextManager.run(async () => {
+        contextManager.set(FIELD_CORRELATION, 'req-001');
+        expect(contextManager.getPropagationHeaders()).toEqual({
+          'X-Correlation-ID': 'req-001',
+        });
+        expect(contextManager.getPropagationHeaders(TARGET_KAFKA)).toEqual({
+          correlationId: 'req-001',
+        });
+        expect(contextManager.getPropagationHeaders('s3')).toEqual({
+          Correlation_ID: 'req-001',
+        });
+      });
+    });
+  });
+
+  describe('getOutboundHeaderName', () => {
+    const FIELD_CORRELATION = 'correlationId';
+
+    it('should return the http wire name by default', () => {
+      contextManager.configure({
+        outbound: { http: { [FIELD_CORRELATION]: 'X-Correlation-ID' } },
+      });
+      expect(contextManager.getOutboundHeaderName(FIELD_CORRELATION)).toBe(
+        'X-Correlation-ID'
+      );
+    });
+
+    it('should return the wire name for the named target', () => {
+      contextManager.configure({
+        outbound: { kafka: { [FIELD_CORRELATION]: 'correlationId' } },
+      });
+      expect(
+        contextManager.getOutboundHeaderName(FIELD_CORRELATION, 'kafka')
+      ).toBe('correlationId');
+    });
+
+    it('should return undefined for an unknown target', () => {
+      contextManager.configure({
+        outbound: { http: { [FIELD_CORRELATION]: 'X-Correlation-ID' } },
+      });
+      expect(
+        contextManager.getOutboundHeaderName(FIELD_CORRELATION, 'unknown')
+      ).toBeUndefined();
+    });
+
+    it('should return undefined for an unconfigured field', () => {
+      contextManager.configure({
+        outbound: { http: { [FIELD_CORRELATION]: 'X-Correlation-ID' } },
+      });
+      expect(contextManager.getOutboundHeaderName('tenantId')).toBeUndefined();
     });
   });
 });

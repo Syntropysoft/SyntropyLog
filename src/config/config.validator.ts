@@ -128,6 +128,10 @@ const validateLoggingMatrix = object({
 const validateContext = object({
   correlationIdHeader: optional(isString),
   transactionIdHeader: optional(isString),
+  inbound: optional(recordOf(recordOf(isString))),
+  outbound: optional(recordOf(recordOf(isString))),
+  correlationField: optional(isString),
+  customHeaders: optional(arrayOf(isString)),
 });
 
 // ─── Root validator ───────────────────────────────────────────────────────────

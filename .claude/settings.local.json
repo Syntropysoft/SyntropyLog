@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell.exe -Command \"[Environment]::GetEnvironmentVariable\\(''PATH'', ''User''\\)\")",
+      "Bash(powershell.exe -Command \"& ''$env:USERPROFILE\\\\.local\\\\bin\\\\claude.exe'' --version\")",
+      "Bash(powershell.exe -Command \"C:\\\\Users\\\\Usuario\\\\.local\\\\bin\\\\claude.exe --version\")",
+      "Bash(xargs grep:*)",
+      "WebFetch(domain:open-telemetry.github.io)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:opentelemetry.io)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Read(//c/source/libs/SyntropyLog/**)",
+      "Bash(done)",
+      "Bash(ls c:sourcelibsSyntropyLogCHANGELOG*)",
+      "Bash(*)",
+      "WebFetch(*)",
+      "Read(*)",
+      "Write(*)"
+    ]
+  }
+}

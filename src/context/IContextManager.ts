@@ -97,6 +97,23 @@ export interface IContextManager {
   getTraceContextHeaders(): ContextHeaders;
 
   /**
+   * Returns a dict of {wireName: value} for the given target, ready to pass to
+   * any outbound call. Only fields that have a value in the current context are included.
+   *
+   * With no argument — uses the 'http' target (outbound['http']).
+   * With a target name — uses outbound[target].
+   * Unknown or unconfigured target — returns {}.
+   */
+  getPropagationHeaders(target?: string): ContextHeaders;
+
+  /**
+   * Returns the configured outbound wire name for a conceptual field.
+   * Defaults to the 'http' target if no target is given.
+   * Returns undefined if the field or target is not configured.
+   */
+  getOutboundHeaderName(field: string, target?: string): string | undefined;
+
+  /**
    * Gets a filtered context based on the specified log level.
    * This is useful for logging purposes to ensure only relevant context is included.
    * @param level The log level to filter by.
