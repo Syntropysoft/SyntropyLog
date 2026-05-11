@@ -179,7 +179,7 @@
     "@changesets/cli": "^2.27.1",
     "@eslint/js": "^9.21.0",
     "@napi-rs/cli": "^2.18.0",
-    "@rollup/plugin-commonjs": "^28.0.2",
+    "@rollup/plugin-commonjs": "^29.0.2",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-typescript": "^12.1.2",
