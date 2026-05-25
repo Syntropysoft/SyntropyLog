@@ -8,7 +8,7 @@
         "bench:memory": "npx cross-env NODE_OPTIONS=--expose-gc npx tsx index.bench.ts"
     },
     "dependencies": {
-        "mitata": "^0.1.11",
+        "mitata": "^1.0.34",
         "pino": "^9.0.0",
         "syntropylog": "file:..",
         "winston": "^3.11.0"
