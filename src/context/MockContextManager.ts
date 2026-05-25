@@ -140,6 +140,14 @@ export class MockContextManager implements IContextManager {
   }
 
   /**
+   * A convenience method to set the correlation ID in the mock context.
+   * @param {string} correlationId The correlation ID to set.
+   */
+  setCorrelationId(correlationId: string): void {
+    this.set(this.correlationIdHeader, correlationId);
+  }
+
+  /**
    * A convenience method to get the transaction ID from the mock context.
    * @returns {string | undefined} The transaction ID, or undefined if not set.
    */

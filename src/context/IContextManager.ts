@@ -70,6 +70,12 @@ export interface IContextManager {
   getCorrelationId(): string;
 
   /**
+   * A convenience method to set the correlation ID in the current context.
+   * @param correlationId The correlation ID to set.
+   */
+  setCorrelationId(correlationId: string): void;
+
+  /**
    * Gets the configured HTTP header name used for the correlation ID.
    * @returns {string} The header name.
    */
