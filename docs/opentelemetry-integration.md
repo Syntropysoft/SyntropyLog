@@ -176,42 +176,35 @@ const otelTransport = new AdapterTransport({
 
 ### 5. Register in SyntropyLog
 
-**`init()` is a Promise.** Until the `ready` event fires, `getLogger()` returns a no-op. Always listen for `ready` and `error` before calling `init()`, and wait for it to resolve before logging.
+`init()` is async and resolves when the framework is ready. `getLogger()` is safe to call after `await init()`.
 
 ```typescript
-async function initializeSyntropyLog() {
-  return new Promise<void>((resolve, reject) => {
-    syntropyLog.on('ready', () => resolve());
-    syntropyLog.on('error', (err) => reject(err));
-    syntropyLog.init({
-      logger: {
-        serviceName: 'my-service',
-        level: 'info',
-        transportList: {
-          otel:    otelTransport,
-          console: consoleTransport,
-        },
-      },
-      loggingMatrix: {
-        info:  ['correlationId', 'traceId', 'spanId', 'userId'],
-        error: ['*'],
-        audit: ['*'],
-      },
-    });
-  });
-}
+await syntropyLog.init({
+  logger: {
+    serviceName: 'my-service',
+    level: 'info',
+    transportList: {
+      otel:    otelTransport,
+      console: consoleTransport,
+    },
+  },
+  loggingMatrix: {
+    info:  ['correlationId', 'traceId', 'spanId', 'userId'],
+    error: ['*'],
+    audit: ['*'],
+  },
+});
 
 process.on('SIGTERM', async () => { await syntropyLog.shutdown(); process.exit(0); });
 process.on('SIGINT',  async () => { await syntropyLog.shutdown(); process.exit(0); });
 
-async function main() {
-  await initializeSyntropyLog();
-  // safe to call getLogger() from here
-}
-main();
+const log = syntropyLog.getLogger('PaymentService');
+log.info('System ready — logs flowing to OTel and console');
 ```
 
-Done. All logs go to OTel and console by default.
+Done. All logs go to OTel and console by default. For graceful shutdown ordering, see the Production Notes at the bottom of this doc.
+
+> **Reading correlation/trace IDs from incoming requests** (HTTP headers, `traceparent`, custom IDs) is handled by the context layer — see [context.md](context.md) for the canonical Express/Fastify/NestJS/Lambda middleware patterns. The OTel transport just emits what the matrix and context already produced.
 
 ---
 
@@ -327,21 +320,17 @@ const otelTransport = new AdapterTransport({
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-await new Promise<void>((resolve, reject) => {
-  syntropyLog.on('ready', resolve);
-  syntropyLog.on('error', reject);
-  syntropyLog.init({
-    logger: {
-      serviceName: 'my-service',
-      level: 'info',
-      transportList: { otel: otelTransport },
-    },
-    loggingMatrix: {
-      info:  ['correlationId', 'traceId', 'spanId', 'userId'],
-      error: ['*'],
-      audit: ['*'],
-    },
-  });
+await syntropyLog.init({
+  logger: {
+    serviceName: 'my-service',
+    level: 'info',
+    transportList: { otel: otelTransport },
+  },
+  loggingMatrix: {
+    info:  ['correlationId', 'traceId', 'spanId', 'userId'],
+    error: ['*'],
+    audit: ['*'],
+  },
 });
 
 // ─── Usage ────────────────────────────────────────────────────────────────────

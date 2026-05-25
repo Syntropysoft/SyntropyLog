@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.0.0
+
+Stable release. Promotes `1.0.0-rc.2` to the first SemVer-stable version of SyntropyLog. From this point on, breaking changes require a major bump.
+
+### New Features
+
+- **`IContextManager.setCorrelationId(id: string): void`** — declared in the public interface (the implementation already existed on `ContextManager`; `MockContextManager` gained the equivalent method for parity with `setTransactionId`). Non-breaking — existing code that called `set(getCorrelationIdHeaderName(), id)` keeps working.
+
+### Documentation
+
+- Comprehensive `docs/` directory expanded with focused per-feature docs: `logging-matrix`, `masking`, `transports`, `context`, `fluent-api`, `lifecycle`, `runtime-reconfiguration`, `native-addon`, `compliance`.
+- README repositioned around regulated-environment use (banking, healthcare, fintech). `await init()` documented as the canonical lifecycle API; the `'ready'` event remains as an internal escape hatch.
+- Cross-links between `context.md` ↔ `opentelemetry-integration.md` and `native-addon.md` ↔ `building-native-addon.md`.
+- `features-and-examples.md` retired in favor of the README's TOC; Sanitization absorbed into `masking.md`, Serialization pipeline absorbed into `lifecycle.md`.
+
+### No Breaking Changes from 1.0.0-rc.2
+
+All changes since rc.2 are additive (interface declaration of a method that already existed) or documentation-only.
+
 ## 1.0.0-rc.2
 
 ### New Features
