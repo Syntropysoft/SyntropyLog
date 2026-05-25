@@ -82,6 +82,8 @@ If your platform team runs an OpenTelemetry collector, incoming requests usually
 
 If you need to **propagate** trace context on outgoing HTTP calls, build the `traceparent` value yourself in your HTTP client (or use the OpenTelemetry SDK alongside SyntropyLog) — the framework intentionally stays out of the wire format.
 
+To **export logs** to an OTLP collector (so traces and logs land in the same backend correlated by `traceId`), see [opentelemetry-integration.md](opentelemetry-integration.md) — it covers the formatter, severity mapping, and the executor that emits `LogRecord` via `@opentelemetry/api-logs`.
+
 ---
 
 ## NestJS

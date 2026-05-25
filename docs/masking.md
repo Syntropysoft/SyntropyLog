@@ -124,6 +124,21 @@ sonar.issue.ignore.multicriteria.e1.resourceKey=**/mySensitiveKeys.ts
 
 ---
 
+## Sanitization — control characters and ANSI
+
+Sanitization runs alongside masking as part of the pipeline's safety boundary. Where masking redacts *sensitive values*, sanitization strips *dangerous characters* from string values before any transport sees them:
+
+- Control characters (e.g. `\x00–\x1F` except whitespace) are removed.
+- ANSI escape sequences are stripped from metadata.
+
+This reduces log-injection risk in terminals and downstream SIEMs that interpret control codes (e.g. a logged user input containing `\e[2J` could clear an operator's screen).
+
+No configuration is required — it runs automatically inside the serialization pipeline. The Rust native addon performs sanitization in the same single pass as serialization and masking ([native-addon.md](native-addon.md)).
+
+Together with the [Logging Matrix](logging-matrix.md) — which whitelists *which keys* are emitted — these three layers (matrix → masking → sanitization) form the content safety boundary.
+
+---
+
 ## Runtime additions
 
 Masking rules can be **added** at runtime — never removed or widened — for incident response (e.g. a leak is discovered and a new field needs immediate redaction across all PODs):

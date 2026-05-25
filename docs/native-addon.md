@@ -71,4 +71,4 @@ See [lifecycle.md](lifecycle.md#observability-hooks).
 
 ## Building from source
 
-The addon lives in `syntropylog-native/` as a workspace package using `napi-rs`. Build instructions for Linux/macOS/Windows are in [doc-es/building-native-addon.es.md](../doc-es/building-native-addon.es.md) (Spanish).
+The addon lives in `syntropylog-native/` as a workspace package using `napi-rs`. Build instructions for Linux/macOS/Windows are in [building-native-addon.md](building-native-addon.md).

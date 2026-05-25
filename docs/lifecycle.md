@@ -83,6 +83,30 @@ See [native-addon.md](native-addon.md).
 
 ---
 
+## Serialization pipeline — keeping logging non-blocking
+
+The serializer is the part of the pipeline that turns the metadata object into something a transport can write. It has three guards designed so that **a misbehaving log call cannot block the event loop or crash the process**:
+
+| Guard | What it does | How to tune |
+|-------|--------------|-------------|
+| **Circular reference detection** | Replaces re-encountered objects with a `[Circular]` marker so `JSON.stringify` never throws | Always on |
+| **Depth limit** | Replaces nodes deeper than the limit with `[MAX_DEPTH_REACHED]` | Default `10`; configurable via the serializer options |
+| **Timeout** | Aborts serialization that takes too long and emits a safe subset; the `onSerializationFallback` hook fires | `logger.serializerTimeoutMs` (default 5000 ms; 50–100 ms is enough for most apps) |
+
+```typescript
+await syntropyLog.init({
+  logger: {
+    serviceName: 'my-app',
+    serializerTimeoutMs: 100,   // abort serialization after 100ms
+  },
+  onSerializationFallback: (reason) => metrics.increment('serialization_fallback'),
+});
+```
+
+The Rust native addon performs serialization in a single pass with masking and sanitization. When the addon cannot process a specific entry, the JS pipeline runs for that call only — see [native-addon.md](native-addon.md).
+
+---
+
 ## Internal lifecycle events (advanced)
 
 The singleton emits `ready`, `error`, `shutting_down`, `shutdown`, and `transports_drained` events. These are **internal coordination signals**, not part of the public contract — prefer `await init()` and `await shutdown()` in application code.
