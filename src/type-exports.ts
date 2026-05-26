@@ -43,6 +43,13 @@ export { ClassicConsoleTransport } from './logger/transports/ClassicConsoleTrans
 export { ColorfulConsoleTransport } from './logger/transports/ColorfulConsoleTransport';
 export { SpyTransport } from './logger/transports/SpyTransport';
 export { AdapterTransport } from './logger/transports/AdapterTransport';
+export { DurableAdapterTransport } from './logger/transports/DurableAdapterTransport';
+export type {
+  DurableAdapterTransportOptions,
+  DurableExecutor,
+  DurableDropReason,
+  DurableDropStrategy,
+} from './logger/transports/DurableAdapterTransport';
 
 // --- Universal Logging Adapters ---
 export { UniversalAdapter } from './logger/adapters/UniversalAdapter';
