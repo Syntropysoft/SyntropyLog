@@ -1,6 +1,7 @@
 import { PipelineStep } from '../SerializationPipeline';
 import { SerializationPipelineContext } from '../../types';
 import { SerializableData } from '../../types';
+import { stripPrototypePolluters } from '../utils/stripPrototypePolluters';
 
 function safeDecycle(data: unknown, seen: WeakSet<object>): unknown {
   if (data === null || typeof data !== 'object') {
@@ -60,6 +61,12 @@ export class HygieneStep implements PipelineStep<SerializableData> {
     if (data === null || typeof data !== 'object') {
       return data;
     }
+
+    // 0. Defense-in-depth: strip any prototype-pollution carrier keys
+    //    (`__proto__`, `constructor`, `prototype`) before the rest of the
+    //    pipeline touches the value. Zero allocation when the safe path is
+    //    taken (no polluter keys present). See utils/stripPrototypePolluters.
+    data = stripPrototypePolluters(data) as SerializableData;
 
     try {
       // 1. Handle special objects like Errors (they don't stringify well)

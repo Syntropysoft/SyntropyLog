@@ -2,12 +2,13 @@
 
 SyntropyLog is designed around the assumption that **compliance reviews configuration, not code**. This document maps the framework's primitives to the four regulatory regimes most teams ask about.
 
-The four primitives that do the work:
+The five primitives that do the work:
 
 - **[Logging Matrix](logging-matrix.md)** — declarative whitelist of which context fields appear at which log level.
 - **[MaskingEngine](masking.md)** — redaction of sensitive fields before any transport.
 - **`audit` level + `withRetention`** — see [fluent-api.md](fluent-api.md).
 - **[Universal Adapter](transports.md)** — routes entries by metadata to the right backing store.
+- **`DurableAdapterTransport`** — opt-in delivery guarantees for retention-tagged entries: in-memory buffer + exponential-backoff retry + DLQ. The compliance-grade alternative to fire-and-forget. See the section below.
 
 ---
 
@@ -125,6 +126,74 @@ Combine `audit` + `withRetention` to ship a PCI audit stream to a dedicated stor
 const pciLog = log.withRetention({ policy: 'PCI_DSS_REQ_10', years: 1 });
 pciLog.audit({ userId, action: 'card.tokenize' }, 'PAN tokenized');
 ```
+
+---
+
+## `DurableAdapterTransport` — delivery guarantees for audit-tagged logs
+
+Compliance-grade frameworks have a problem the headline pitch tends to hide: **fire-and-forget audit logs**. A SOX or HIPAA auditor doesn't accept "the log probably arrived". `AdapterTransport`'s Silent-Observer semantics (drop the entry, fire `onError`) is the correct default for `info`/`warn` traffic — and exactly wrong for entries marked with `withRetention(...)`.
+
+`DurableAdapterTransport` is the opt-in transport for retention-tagged entries. Same `executor` signature as `UniversalAdapter`, plus:
+
+- **In-memory buffer** with a configurable cap (`bufferSize`, default 1000).
+- **Exponential backoff retry** with configurable budget (`maxRetries` default 5, `initialBackoffMs` default 100, `maxBackoffMs` default 30s).
+- **Dead-letter hook** (`onDrop(entry, reason, cause?)`) that fires when the buffer overflows or an entry exhausts its retry budget. **Operators must handle this hook** — a no-op `onDrop` defeats the compliance purpose of the transport.
+- **Drop strategy** (`'oldest'` default, `'newest'`, `'reject'`) chooses which entry leaves the queue when the buffer is full.
+- **Selective by default** — only entries with `retention` metadata go through the durable path. Plain `info`/`warn` logs stay fire-and-forget, matching `AdapterTransport`. Set `durableOnlyForRetention: false` to make every entry durable (pay attention to memory).
+- **Shutdown drain** — `flush()` and `shutdown()` wait up to `flushTimeoutMs` (default 5s) for the buffer to empty, then DLQ the rest.
+
+```typescript
+import {
+  AdapterTransport,
+  DurableAdapterTransport,
+  syntropyLog,
+} from 'syntropylog';
+import fs from 'node:fs';
+
+const auditDlq = fs.createWriteStream('/var/log/audit-dlq.ndjson', { flags: 'a' });
+
+const auditTransport = new DurableAdapterTransport({
+  name: 'audit',
+  executor: async (entry) => {
+    await auditDb.insert(entry);   // your real audit store
+  },
+  bufferSize: 5000,
+  maxRetries: 10,
+  initialBackoffMs: 200,
+  maxBackoffMs: 60_000,
+  dropStrategy: 'oldest',
+  onDrop: (entry, reason, cause) => {
+    // Last-resort persistence. The auditor sees this file, not lost data.
+    auditDlq.write(JSON.stringify({ entry, reason, cause: String(cause) }) + '\n');
+  },
+});
+
+await syntropyLog.init({
+  logger: {
+    serviceName: 'payments-api',
+    transports: [
+      new AdapterTransport({ name: 'app', adapter: appAdapter }),  // fire-and-forget for info/warn/error
+      auditTransport,                                                // durable for audit
+    ],
+  },
+});
+
+// Now audit calls get durability:
+const audit = syntropyLog.getLogger().withRetention({ policy: 'SOX_AUDIT_TRAIL', years: 7 });
+audit.audit({ userId, action: 'manager.override' }, 'Approval');
+```
+
+**Out of scope for v1:** disk and Redis spillover, persistent recovery on restart. Phase 3B will add `@syntropylog/adapter-postgres` (UPSERT-on-conflict with durable integration) and `@syntropylog/adapter-s3` (NDJSON batch, hourly rotation). For now, the `onDrop` hook + a local file is the durable boundary.
+
+---
+
+## Prototype pollution defense
+
+`__proto__`, `constructor`, and `prototype` own-keys are stripped from log metadata at the entry to the serialization pipeline — defense-in-depth against payloads like `{ user: { __proto__: { isAdmin: true } } }` that downstream consumers might pass to `Object.assign` or similar.
+
+This runs in the JS pipeline's `HygieneStep` with zero allocation on the safe path (no polluter keys present). The native (Rust) pipeline performs its own bounded property walk and is not vulnerable to the same vector.
+
+If you have a *legitimate* use for a `constructor` field in your logs (rare), the framework can't tell the difference — the key gets stripped. Rename it (`ctor`, `className`) to keep it.
 
 ---
 

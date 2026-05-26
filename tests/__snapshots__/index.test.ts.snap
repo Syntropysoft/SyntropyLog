@@ -10,6 +10,7 @@ exports[`Main entry point (src/index.ts) > should match the public API snapshot 
   "DEFAULT_INCOMING_HEADERS",
   "DEFAULT_RESPONSE_HEADERS",
   "DEFAULT_VALUES",
+  "DurableAdapterTransport",
   "MASK_KEYS_ALL",
   "MASK_KEYS_PASSWORD",
   "MASK_KEYS_TOKEN",
