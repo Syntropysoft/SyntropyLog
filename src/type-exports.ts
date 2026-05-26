@@ -64,6 +64,29 @@ export { SanitizationEngine } from './sanitization/SanitizationEngine';
 // --- Sensitive key aliases (for custom rules without writing literals) ---
 export * from './sensitiveKeys';
 
+// --- Correlation middlewares ---
+export {
+  resolveCorrelationId,
+  traceIdFromTraceparent,
+  DEFAULT_INCOMING_HEADERS,
+  DEFAULT_RESPONSE_HEADERS,
+  correlationIdMiddleware,
+  fastifyCorrelationHook,
+} from './middleware';
+export type {
+  CorrelationResolveOptions,
+  HeadersRecord,
+  IncomingHeaderValue,
+  ExpressCorrelationOptions,
+  ExpressRequestLike,
+  ExpressResponseLike,
+  ExpressNextLike,
+  FastifyCorrelationOptions,
+  FastifyRequestLike,
+  FastifyReplyLike,
+  FastifyDoneLike,
+} from './middleware';
+
 // --- Default values (constants) ---
 export { DEFAULT_VALUES } from './constants';
 export type { DefaultValues } from './constants';

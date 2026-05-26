@@ -19,6 +19,29 @@ export type { MatrixLevel, MatrixFor } from './logger/defineMatrix';
 export { defineRetentionPolicies } from './logger/defineRetentionPolicies';
 export { RetentionPolicyNotFoundError } from './logger/Logger';
 
+// --- Correlation middlewares (Express, Fastify) and shared resolver ---
+export {
+  resolveCorrelationId,
+  traceIdFromTraceparent,
+  DEFAULT_INCOMING_HEADERS,
+  DEFAULT_RESPONSE_HEADERS,
+  correlationIdMiddleware,
+  fastifyCorrelationHook,
+} from './middleware';
+export type {
+  CorrelationResolveOptions,
+  HeadersRecord,
+  IncomingHeaderValue,
+  ExpressCorrelationOptions,
+  ExpressRequestLike,
+  ExpressResponseLike,
+  ExpressNextLike,
+  FastifyCorrelationOptions,
+  FastifyRequestLike,
+  FastifyReplyLike,
+  FastifyDoneLike,
+} from './middleware';
+
 // --- Utility Classes for Advanced Configuration ---
 export { SerializationManager } from './serialization/SerializationManager';
 export { SanitizationEngine } from './sanitization/SanitizationEngine';
