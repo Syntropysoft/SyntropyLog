@@ -83,6 +83,35 @@ See [native-addon.md](native-addon.md).
 
 ---
 
+## Health snapshot — `syntropyLog.getStats()`
+
+`getStats()` returns a read-only snapshot of the framework's health. It's a one-call alternative to wiring all the observability hooks just to know "is logging behaving":
+
+```typescript
+const stats = syntropyLog.getStats();
+// {
+//   state: 'READY',
+//   initializedAt: 1779784932000,
+//   uptimeMs: 482_000,
+//   nativeAddonActive: true,
+//   failures: {
+//     log: 0,
+//     transport: 2,
+//     serializationFallback: 0,
+//     masking: 0,
+//     step: { hygiene: 1 },
+//   },
+// }
+```
+
+The counters are populated by the framework internally — **the hooks you configured (`onLogFailure`, `onTransportError`, `onSerializationFallback`, `onStepError`, `masking.onMaskingError`) still fire unchanged.** `getStats()` does not replace them; it observes the same paths.
+
+Safe to call before `init()` resolves: counters are zero, `state` reflects the lifecycle position, `nativeAddonActive` is `false` until READY.
+
+Use case: a `/health/logging` endpoint in your service, or a periodic metric scrape. Counter values are monotonic since `init()` succeeded; they reset only if you `await shutdown()` and re-init (or call `_resetForTesting()`).
+
+---
+
 ## Serialization pipeline — keeping logging non-blocking
 
 The serializer is the part of the pipeline that turns the metadata object into something a transport can write. It has three guards designed so that **a misbehaving log call cannot block the event loop or crash the process**:

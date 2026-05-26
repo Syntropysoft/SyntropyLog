@@ -21,7 +21,18 @@ export type { LogFormatter } from './logger/transports/formatters/LogFormatter';
 
 // --- Main Framework Exports ---
 export { SyntropyLog, syntropyLog } from './SyntropyLog';
+export type { SyntropyLogStats } from './SyntropyLog';
+export type {
+  StatsSnapshot,
+  StatsFailureCounts,
+} from './observability/StatsCollector';
 export { extractInboundContext } from './context/extractInboundContext';
+
+// --- Typed helpers for declarative config ---
+export { defineMatrix } from './logger/defineMatrix';
+export type { MatrixLevel, MatrixFor } from './logger/defineMatrix';
+export { defineRetentionPolicies } from './logger/defineRetentionPolicies';
+export { RetentionPolicyNotFoundError } from './logger/Logger';
 
 // --- Transport Classes ---
 export { Transport } from './logger/transports/Transport';

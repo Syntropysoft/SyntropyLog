@@ -13,6 +13,18 @@ import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
 import { LogLevel } from './logger/levels';
 import { LoggingMatrix, JsonValue } from './types';
 import type { ReconfigureTransportsForDebugOptions } from './logger/LoggerFactory';
+import type { StatsSnapshot } from './observability/StatsCollector';
+
+/**
+ * Full health snapshot returned by {@link SyntropyLog.getStats}.
+ * Combines the failure counters owned by the StatsCollector with current state
+ * and the native-addon flag, which only the LifecycleManager / serializer can answer.
+ */
+export interface SyntropyLogStats extends StatsSnapshot {
+  state: SyntropyLogState;
+  /** True if the Rust native addon is loaded and used for serialization. */
+  nativeAddonActive: boolean;
+}
 
 /** Pure: throws if value is null/undefined; returns value otherwise. Use for guard clauses. */
 function requireDefined<T>(
@@ -152,6 +164,28 @@ export class SyntropyLog extends EventEmitter {
   public isNativeAddonInUse(): boolean {
     this.lifecycleManager.ensureReady();
     return this.getSerializer().isNativeAddonInUse();
+  }
+
+  /**
+   * Returns a snapshot of the framework's health — current state, uptime, and
+   * counters for every failure path the framework already reports via hooks.
+   *
+   * Safe to call before `init()` resolves: counters will be zero and `state`
+   * will reflect where the framework is in its lifecycle. User-provided hooks
+   * (`onLogFailure`, `onTransportError`, etc.) continue to fire unchanged —
+   * `getStats()` just observes what the framework already counts internally.
+   */
+  public getStats(): SyntropyLogStats {
+    const state = this.lifecycleManager.getState();
+    const nativeAddonActive =
+      state === 'READY'
+        ? this.lifecycleManager.serializationManager.isNativeAddonInUse()
+        : false;
+    return {
+      state,
+      nativeAddonActive,
+      ...this.lifecycleManager.statsCollector.snapshot(),
+    };
   }
 
   public _resetForTesting(): void {

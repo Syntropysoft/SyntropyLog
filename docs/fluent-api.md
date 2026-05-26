@@ -31,15 +31,58 @@ paymentsLog.info({ userId: 123, operation: 'charge' }, 'Payment processed');
 
 ## Compliance-aware loggers
 
+`withRetention` accepts either a **registered policy name** (recommended) or an **inline rules object** (escape hatch).
+
+### Registered policy — typo-safe, audit-reviewable
+
+Declare your retention policies once at `init()`, then refer to them by name. Misses throw `RetentionPolicyNotFoundError` with a listing of what *is* registered, so a typo fails loudly the first time you run it — not silently in production.
+
 ```typescript
-const auditLogger = baseLog
+import {
+  syntropyLog,
+  defineRetentionPolicies,
+  RetentionPolicyNotFoundError,
+} from 'syntropylog';
+
+const retentionPolicies = defineRetentionPolicies({
+  SOX_AUDIT_TRAIL: { years: 5, region: 'us-east-1' },
+  GDPR_ARTICLE_17: { years: 7, subjectIdField: 'userId' },
+  PCI_DSS_REQ_10:  { years: 1, immediate: true },
+});
+
+await syntropyLog.init({
+  logger: { level: 'info', serviceName: 'payments-api' },
+  retentionPolicies,
+});
+
+const auditLogger = syntropyLog.getLogger()
   .withSource('PaymentService')
-  .withRetention({ policy: 'SOX_AUDIT_TRAIL', years: 5 });
+  .withRetention('SOX_AUDIT_TRAIL');
 
 auditLogger.audit({ userId: 123, action: 'manager.override' }, 'Approval');
 ```
 
-Inside your transport's `executor`, route by `entry.retention?.policy`:
+For full compile-time autocomplete on the policy name, derive a string union from the helper's return value:
+
+```typescript
+type PolicyName = keyof typeof retentionPolicies;
+
+const log = syntropyLog.getLogger()
+  .withRetention('SOX_AUDIT_TRAIL' satisfies PolicyName);
+//                  ^^^ typo here = compile error
+```
+
+### Inline rules — when the policy is ad-hoc
+
+```typescript
+const oneOffLogger = baseLog.withRetention({
+  policy: 'temporary-export',
+  ttl: 86_400,
+  archiveAfter: 3_600,
+});
+```
+
+Inside your transport's `executor`, route by `entry.retention?.policy` (or any other field you put in the rules):
 
 ```typescript
 async executor(entry) {
