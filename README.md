@@ -166,6 +166,7 @@ Full middleware examples and correlation propagation: [docs/context.md](docs/con
 - **[Native addon (Rust)](docs/native-addon.md)** — concepts and runtime checks
 - **[Building the native addon from source](docs/building-native-addon.md)** — macOS / Windows / Linux
 - **[OpenTelemetry integration](docs/opentelemetry-integration.md)** — exporting logs to an OTLP collector
+- **[NestJS integration](docs/context.md#nestjs)** — `syntropylog/nestjs` module, `SyntropyNestLoggerService`, `@InjectLogger()`
 - **[Migrating from Pino](docs/migration-from-pino.md)** — practical side-by-side guide for teams switching
 - **[Benchmark report (throughput + memory)](docs/benchmark-memory-run.md)**
 - **[Examples repository](https://github.com/Syntropysoft/syntropylog-examples)** — runnable examples 01–17
