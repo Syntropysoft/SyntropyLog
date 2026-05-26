@@ -127,25 +127,55 @@ describe('correlationIdMiddleware (Express)', () => {
     expect(capturedId).toBe('my-uuid');
   });
 
-  it('keeps the ALS scope alive for both finish and close events', async () => {
-    const middlewareFinish = correlationIdMiddleware({ syntropyLog: sl });
-    const middlewareClose = correlationIdMiddleware({ syntropyLog: sl });
+  it('the correlation ID is readable from the context during the next() callback (finish path)', async () => {
+    // What the user actually depends on: code running inside the request scope
+    // — i.e. between next() being called and the response closing — sees the
+    // correct correlation ID via the contextManager. Regression: if the ALS
+    // scope is set up incorrectly, getCorrelationId() returns a fresh
+    // (different) generated value here.
+    const middleware = correlationIdMiddleware({ syntropyLog: sl });
+    const req: ExpressRequestLike = {
+      headers: { 'x-trace-id': 'trc-finish-path' },
+    };
+    const res = mockResponse();
 
-    const reqA: ExpressRequestLike = { headers: { 'x-trace-id': 'trc-a' } };
-    const reqB: ExpressRequestLike = { headers: { 'x-trace-id': 'trc-b' } };
-    const resA = mockResponse();
-    const resB = mockResponse();
-
-    const promA = middlewareFinish(reqA, resA, () => undefined);
-    const promB = middlewareClose(reqB, resB, () => undefined);
-
-    setImmediate(() => {
-      resA.emit('finish');
-      resB.emit('close');
+    const observed: string[] = [];
+    const next = vi.fn(() => {
+      // Multiple sync reads from inside the scope, then a deferred read on the
+      // next microtask to confirm the scope survives await/microtask boundaries.
+      observed.push(sl.getContextManager().getCorrelationId());
+      queueMicrotask(() => {
+        observed.push(sl.getContextManager().getCorrelationId());
+      });
     });
 
-    await Promise.all([promA, promB]);
-    // No assertion needed — the test passes if both promises resolve.
+    const done = middleware(req, res, next);
+    setImmediate(() => res.emit('finish'));
+    await done;
+
+    expect(observed).toEqual(['trc-finish-path', 'trc-finish-path']);
+  });
+
+  it('the close event tears down the scope just like finish does', async () => {
+    // Same observable behavior as the finish path — and importantly, the
+    // middleware promise must still resolve so Express does not leak a
+    // dangling handler. Regression: if 'close' is not wired, this would hang.
+    const middleware = correlationIdMiddleware({ syntropyLog: sl });
+    const req: ExpressRequestLike = {
+      headers: { 'x-trace-id': 'trc-close-path' },
+    };
+    const res = mockResponse();
+
+    let inScopeId: string | undefined;
+    const next = vi.fn(() => {
+      inScopeId = sl.getContextManager().getCorrelationId();
+    });
+
+    const done = middleware(req, res, next);
+    setImmediate(() => res.emit('close'));
+    await done;
+
+    expect(inScopeId).toBe('trc-close-path');
   });
 
   it('forwards errors thrown inside the scope to Express next()', async () => {

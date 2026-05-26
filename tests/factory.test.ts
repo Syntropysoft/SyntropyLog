@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   createSyntropyLog,
   SyntropyLog,
+  SpyTransport,
   syntropyLog as globalSyntropyLog,
 } from '../src/index';
 import type { ISyntropyLog } from '../src/index';
@@ -34,19 +35,6 @@ describe('createSyntropyLog factory', () => {
   });
 
   describe('basic shape', () => {
-    it('returns an object that satisfies the ISyntropyLog interface', () => {
-      const sl: ISyntropyLog = createSyntropyLog();
-      expect(typeof sl.init).toBe('function');
-      expect(typeof sl.shutdown).toBe('function');
-      expect(typeof sl.getLogger).toBe('function');
-      expect(typeof sl.getStats).toBe('function');
-      expect(typeof sl.getState).toBe('function');
-      // EventEmitter contract
-      expect(typeof sl.on).toBe('function');
-      expect(typeof sl.emit).toBe('function');
-      expect(typeof sl.removeAllListeners).toBe('function');
-    });
-
     it('starts in NOT_INITIALIZED state', () => {
       const sl = createSyntropyLog();
       expect(sl.getState()).toBe('NOT_INITIALIZED');
@@ -59,6 +47,38 @@ describe('createSyntropyLog factory', () => {
       expect(stats.initializedAt).toBeNull();
       expect(stats.uptimeMs).toBe(0);
       expect(stats.failures.log).toBe(0);
+    });
+
+    it('end-to-end: init → getLogger → log emits with the configured service name and metadata', async () => {
+      // Proves a freshly created factory instance produces real log output —
+      // not just that the methods exist on the type. If init() or the pipeline
+      // regressed to a no-op for non-singleton instances, this test fails.
+      const spy = new SpyTransport();
+      const sl: ISyntropyLog = createSyntropyLog();
+
+      await sl.init({
+        logger: {
+          serviceName: 'factory-e2e',
+          level: 'info',
+          transports: [spy],
+        },
+      });
+
+      // Discard the framework's own init banner so we assert against our log.
+      spy.clear();
+
+      sl.getLogger().info({ userId: 42 }, 'hello from factory');
+
+      const entry = spy.getFirstEntry();
+      expect(entry).toBeDefined();
+      expect(entry!.level).toBe('info');
+      expect(entry!.message).toBe('hello from factory');
+      expect((entry as unknown as { service: string }).service).toBe(
+        'factory-e2e'
+      );
+      expect((entry as unknown as { userId: number }).userId).toBe(42);
+
+      await sl.shutdown();
     });
   });
 
