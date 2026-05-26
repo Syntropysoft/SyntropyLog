@@ -51,6 +51,7 @@ exports[`Main entry point (src/index.ts) > should match the public API snapshot 
   "Transport",
   "UniversalAdapter",
   "UniversalLogFormatter",
+  "createSyntropyLog",
   "defineMatrix",
   "defineRetentionPolicies",
   "extractInboundContext",

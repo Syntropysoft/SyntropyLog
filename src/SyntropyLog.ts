@@ -1,9 +1,23 @@
 /**
  * @file src/SyntropyLog.ts
- * @description The main public-facing singleton class for the SyntropyLog framework.
- * This class acts as a Facade, providing a simple and clean API surface
- * while delegating all complex lifecycle and orchestration work to the internal
- * LifecycleManager.
+ * @description The main public-facing class for the SyntropyLog framework.
+ *
+ * Two ways to obtain an instance:
+ *
+ * 1. **Global singleton** — `import { syntropyLog } from 'syntropylog'`.
+ *    Most apps want one shared logger; this is the default and matches the
+ *    behavior the framework has always had.
+ *
+ * 2. **Factory** — `import { createSyntropyLog } from 'syntropylog'`.
+ *    Returns an `ISyntropyLog` instance that is fully independent of the
+ *    singleton and of any other factory-produced instances. Use for
+ *    multi-tenant apps, parallel tests that need isolation, micro-frontends,
+ *    or any scenario where "two SyntropyLogs in one process" is real.
+ *
+ * Both paths return objects that implement `ISyntropyLog` — the same method
+ * surface, the same EventEmitter contract, the same lifecycle. Pick whichever
+ * fits the call site; the rest of the codebase can type against `ISyntropyLog`
+ * to stay agnostic.
  */
 import { EventEmitter } from 'events';
 import { SyntropyLogConfig } from './config';
@@ -13,18 +27,11 @@ import { LifecycleManager, SyntropyLogState } from './core/LifecycleManager';
 import { LogLevel } from './logger/levels';
 import { LoggingMatrix, JsonValue } from './types';
 import type { ReconfigureTransportsForDebugOptions } from './logger/LoggerFactory';
-import type { StatsSnapshot } from './observability/StatsCollector';
+import type { ISyntropyLog, SyntropyLogStats } from './ISyntropyLog';
 
-/**
- * Full health snapshot returned by {@link SyntropyLog.getStats}.
- * Combines the failure counters owned by the StatsCollector with current state
- * and the native-addon flag, which only the LifecycleManager / serializer can answer.
- */
-export interface SyntropyLogStats extends StatsSnapshot {
-  state: SyntropyLogState;
-  /** True if the Rust native addon is loaded and used for serialization. */
-  nativeAddonActive: boolean;
-}
+// Re-export so existing `import { SyntropyLogStats } from 'syntropylog'` paths keep working.
+export type { SyntropyLogStats } from './ISyntropyLog';
+export type { ISyntropyLog } from './ISyntropyLog';
 
 /** Pure: throws if value is null/undefined; returns value otherwise. Use for guard clauses. */
 function requireDefined<T>(
@@ -38,14 +45,21 @@ function requireDefined<T>(
 
 /**
  * @class SyntropyLog
- * @description The main public entry point for the framework. It follows the
- * Singleton pattern and acts as an EventEmitter to report on its lifecycle,
- * proxying events from its internal LifecycleManager.
+ * @description The main framework class. Acts as a Facade over `LifecycleManager`,
+ * exposing the public surface declared by {@link ISyntropyLog} and proxying lifecycle
+ * events. Instances are obtained via the global singleton (`syntropyLog`) or via
+ * the {@link createSyntropyLog} factory.
  */
-export class SyntropyLog extends EventEmitter {
+export class SyntropyLog extends EventEmitter implements ISyntropyLog {
   private static instance: SyntropyLog;
   private readonly lifecycleManager: LifecycleManager;
 
+  /**
+   * Private to keep `new SyntropyLog()` out of the public surface — pick one
+   * of the supported entry points instead:
+   * - {@link SyntropyLog.getInstance} for the singleton (default for app code).
+   * - {@link createSyntropyLog} for a fresh, independent instance.
+   */
   private constructor() {
     super();
     this.lifecycleManager = new LifecycleManager(this);
@@ -60,6 +74,12 @@ export class SyntropyLog extends EventEmitter {
     this.lifecycleManager.on('shutdown', () => this.emit('shutdown'));
   }
 
+  /**
+   * Returns the process-wide singleton instance, creating it on first call.
+   * Recommended for app-level usage where one logger config serves the whole
+   * process. For multi-tenant, parallel tests, or any scenario that needs
+   * isolation, use {@link createSyntropyLog} instead.
+   */
   public static getInstance(): SyntropyLog {
     if (!SyntropyLog.instance) {
       SyntropyLog.instance = new SyntropyLog();
@@ -68,8 +88,19 @@ export class SyntropyLog extends EventEmitter {
   }
 
   /**
+   * Creates a brand-new instance that does not share state with the singleton
+   * or any other instance. Each instance has its own EventEmitter,
+   * LifecycleManager, StatsCollector, and registered hooks. Backing the
+   * {@link createSyntropyLog} factory.
+   */
+  public static create(): SyntropyLog {
+    return new SyntropyLog();
+  }
+
+  /**
    * Internal test helper to reset the singleton instance.
-   * DO NOT USE in production code.
+   * Prefer `createSyntropyLog()` for new test code — it gives genuine
+   * isolation without touching global state.
    */
   public static resetInstance(): void {
     // Intentional reset for tests; instance is private
@@ -199,6 +230,36 @@ export class SyntropyLog extends EventEmitter {
     this.lifecycleManager.on('shutting_down', () => this.emit('shutting_down'));
     this.lifecycleManager.on('shutdown', () => this.emit('shutdown'));
   }
+}
+
+/**
+ * Returns a fresh, fully-independent SyntropyLog instance.
+ *
+ * The returned object implements {@link ISyntropyLog} and shares no state
+ * (config, lifecycle, stats, hooks, EventEmitter listeners) with the global
+ * `syntropyLog` singleton or with any other factory-produced instance.
+ *
+ * Typical scenarios:
+ *
+ * - **Multi-tenant** apps where two tenants need different log routing.
+ * - **Parallel tests** that need isolated frameworks without touching
+ *   `SyntropyLog.resetInstance()` or `_resetForTesting()`.
+ * - **Micro-frontends** or other architectures that load SyntropyLog from
+ *   more than one module-graph root.
+ *
+ * Each instance must be initialized independently:
+ *
+ * ```typescript
+ * import { createSyntropyLog } from 'syntropylog';
+ *
+ * const sl = createSyntropyLog();
+ * await sl.init({ logger: { serviceName: 'tenant-acme' } });
+ * sl.getLogger().info('hello from acme');
+ * await sl.shutdown();
+ * ```
+ */
+export function createSyntropyLog(): ISyntropyLog {
+  return SyntropyLog.create();
 }
 
 /** The singleton instance of the SyntropyLog framework. */
