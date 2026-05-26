@@ -681,4 +681,5 @@ assets/
 .turbo
 
 .cursor/
+.claude/
 doc-es/contexto-general-claude.md

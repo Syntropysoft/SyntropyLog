@@ -1,0 +1,7 @@
+# Ephemeral benchmark output captures.
+# Keep results in source control only when they're a curated snapshot
+# (in that case, name them explicitly and add them as exceptions below).
+bench_output*.txt
+output*.txt
+results.txt
+truth_output*.txt
