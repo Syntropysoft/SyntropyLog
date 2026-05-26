@@ -4,6 +4,53 @@ SyntropyLog runs a small state machine: `INITIALIZING → READY → SHUTTING_DOW
 
 ---
 
+## Getting a SyntropyLog instance
+
+Two equivalent entry points — pick the one that fits the call site:
+
+| Entry point | What you get | When to use |
+|---|---|---|
+| `import { syntropyLog }` | The process-wide singleton (created on first import) | App-level code where one logger config serves the whole process. **Default for most apps.** |
+| `createSyntropyLog()` | A fresh, fully-independent instance (an `ISyntropyLog`) | Multi-tenant scenarios, parallel tests that need isolation, micro-frontends, anywhere "two SyntropyLogs in one process" is real |
+
+Both objects implement the same `ISyntropyLog` interface — the rest of your code can type against the interface and stay agnostic about how the instance was obtained:
+
+```typescript
+import type { ISyntropyLog } from 'syntropylog';
+
+function buildAuditLogger(sl: ISyntropyLog) {
+  return sl.getLogger('audit').withRetention('SOX_AUDIT_TRAIL');
+}
+```
+
+### Factory example — isolated instances
+
+```typescript
+import { createSyntropyLog } from 'syntropylog';
+
+const acmeLogging = createSyntropyLog();
+await acmeLogging.init({
+  logger: { serviceName: 'tenant-acme', level: 'info' },
+  retentionPolicies: { ACME_AUDIT: { years: 5 } },
+});
+
+const initechLogging = createSyntropyLog();
+await initechLogging.init({
+  logger: { serviceName: 'tenant-initech', level: 'warn' },
+});
+
+// Independent EventEmitters, configs, hooks, and stats.
+acmeLogging.getLogger().info('hello from acme');
+initechLogging.getLogger().warn('hello from initech');
+
+await acmeLogging.shutdown();
+await initechLogging.shutdown();
+```
+
+The factory does not touch the singleton — calling `createSyntropyLog()` never affects `syntropyLog` and vice versa. Factory instances also bypass `SyntropyLog.resetInstance()` / `_resetForTesting()`, so parallel tests get genuine isolation by construction.
+
+---
+
 ## `init` and `shutdown`
 
 `init()` returns a `Promise<void>` that resolves when the framework is fully ready. Until it resolves, `getLogger()` returns a no-op logger that drops messages.

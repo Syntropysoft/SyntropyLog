@@ -5,8 +5,8 @@
  */
 
 // --- Main Framework Class ---
-export { syntropyLog, SyntropyLog } from './SyntropyLog';
-export type { SyntropyLogStats } from './SyntropyLog';
+export { syntropyLog, SyntropyLog, createSyntropyLog } from './SyntropyLog';
+export type { ISyntropyLog, SyntropyLogStats } from './ISyntropyLog';
 export type {
   StatsSnapshot,
   StatsFailureCounts,

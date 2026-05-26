@@ -20,8 +20,8 @@ export type { LogLevel } from './logger/levels';
 export type { LogFormatter } from './logger/transports/formatters/LogFormatter';
 
 // --- Main Framework Exports ---
-export { SyntropyLog, syntropyLog } from './SyntropyLog';
-export type { SyntropyLogStats } from './SyntropyLog';
+export { SyntropyLog, syntropyLog, createSyntropyLog } from './SyntropyLog';
+export type { ISyntropyLog, SyntropyLogStats } from './ISyntropyLog';
 export type {
   StatsSnapshot,
   StatsFailureCounts,
