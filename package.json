@@ -125,7 +125,6 @@
   "workspaces": [
     ".",
     "examples/*",
-    "modules/@syntropylog/types",
     "syntropylog-native"
   ],
   "scripts": {

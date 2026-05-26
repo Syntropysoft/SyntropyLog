@@ -211,6 +211,10 @@ export class LoggerFactory {
     error: unknown,
     context?: string
   ) => void;
+  /** @private Frozen registry of retention policies — used by Logger.withRetention(name). */
+  private readonly retentionPolicies?: Readonly<
+    Record<string, Record<string, unknown>>
+  >;
 
   /** @private A pool to cache logger instances by name for performance. */
   private readonly loggerPool: Map<string, ILogger> = new Map();
@@ -267,6 +271,9 @@ export class LoggerFactory {
     });
     this.onLogFailure = config.onLogFailure;
     this.onTransportError = config.onTransportError;
+    this.retentionPolicies = config.retentionPolicies
+      ? Object.freeze({ ...config.retentionPolicies })
+      : undefined;
   }
 
   /**
@@ -301,6 +308,7 @@ export class LoggerFactory {
       transportPool: this.transportPool,
       onLogFailure: this.onLogFailure,
       onTransportError: this.onTransportError,
+      retentionPolicies: this.retentionPolicies,
     };
 
     // Retrieve transports for this specific logger name, or fall back to 'default'

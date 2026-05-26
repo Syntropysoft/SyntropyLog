@@ -106,10 +106,26 @@ export interface ILogger {
   withMeta(payload: LogRetentionRules): ILogger;
 
   /**
-   * @deprecated Use `withMeta()` instead. Kept for backward compatibility.
-   * Attaches structured metadata to every log from this instance under the `retention` field.
+   * Attaches a retention policy to every log from this instance under the `retention` field.
+   *
+   * Two forms:
+   *
+   * 1. **Registered policy name** — `withRetention('SOX_AUDIT_TRAIL')` looks the name up in the
+   *    `retentionPolicies` registry declared at `init()`, throws `RetentionPolicyNotFoundError`
+   *    if not found. Recommended for compliance routing: the executor matches `entry.retention`
+   *    against the registry entries to route to the right backing store.
+   *
+   * 2. **Inline rules object** — `withRetention({ years: 5, policy: 'custom' })` binds the
+   *    object as-is. Use when the metadata is ad-hoc and not part of a managed policy set.
+   *
+   * @example
+   * // Recommended: registered policy
+   * const auditLog = log.withRetention('SOX_AUDIT_TRAIL');
+   *
+   * // Or inline:
+   * const otherLog = log.withRetention({ ttl: 86400, archiveAfter: 3600 });
    */
-  withRetention(rules: LogRetentionRules): ILogger;
+  withRetention(input: string | LogRetentionRules): ILogger;
 
   /**
    * Creates a new logger instance with a `transactionId` field bound to it.

@@ -8,6 +8,7 @@ import { LoggerFactory } from '../logger/LoggerFactory';
 import { sanitizeConfig } from '../utils/sanitizeConfig';
 import { SerializationManager } from '../serialization/SerializationManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
+import { StatsCollector } from '../observability/StatsCollector';
 import { SyntropyLog } from '../SyntropyLog';
 import { errorToJsonValue } from '../types';
 import { DEFAULT_VALUES } from '../constants';
@@ -66,6 +67,7 @@ export class LifecycleManager extends EventEmitter {
   public loggerFactory: LoggerFactory | undefined;
   public serializationManager: SerializationManager;
   public maskingEngine: MaskingEngine;
+  public readonly statsCollector: StatsCollector;
   private logger: ILogger | null = null;
   private syntropyFacade: SyntropyLog;
   private trackedProcesses = new Set<ChildProcess>();
@@ -77,6 +79,7 @@ export class LifecycleManager extends EventEmitter {
     this.config = {};
     this.serializationManager = new SerializationManager({});
     this.maskingEngine = new MaskingEngine({});
+    this.statsCollector = new StatsCollector();
   }
 
   public getState(): SyntropyLogState {
@@ -96,7 +99,7 @@ export class LifecycleManager extends EventEmitter {
     try {
       const parsedConfig = parseConfig(config);
       const sanitizedConfig = sanitizeConfig(parsedConfig);
-      this.config = sanitizedConfig;
+      this.config = this.wrapHooksForStats(sanitizedConfig);
 
       this.contextManager = new ContextManager(this.config.loggingMatrix);
       if (this.config.context) {
@@ -130,6 +133,7 @@ export class LifecycleManager extends EventEmitter {
       this.logger = logger;
 
       logger.info('SyntropyLog framework initialized successfully.');
+      this.statsCollector.markInitialized();
       this.state = 'READY';
       this.emit('ready');
     } catch (error) {
@@ -256,5 +260,45 @@ export class LifecycleManager extends EventEmitter {
         `SyntropyLog is not ready. Current state: '${this.state}'. Ensure init() has completed successfully by listening for the 'ready' event.`
       );
     }
+  }
+
+  /**
+   * Returns a config whose failure hooks are wrapped to increment the StatsCollector
+   * before delegating to the user-provided callback. User callbacks fire unchanged.
+   */
+  private wrapHooksForStats(config: SyntropyLogConfig): SyntropyLogConfig {
+    const stats = this.statsCollector;
+    const userOnLogFailure = config.onLogFailure;
+    const userOnTransportError = config.onTransportError;
+    const userOnSerializationFallback = config.onSerializationFallback;
+    const userOnStepError = config.onStepError;
+    const userOnMaskingError = config.masking?.onMaskingError;
+
+    return {
+      ...config,
+      onLogFailure: (error, entry) => {
+        stats.recordLogFailure();
+        userOnLogFailure?.(error, entry);
+      },
+      onTransportError: (error, context) => {
+        stats.recordTransportError();
+        userOnTransportError?.(error, context);
+      },
+      onSerializationFallback: (reason) => {
+        stats.recordSerializationFallback();
+        userOnSerializationFallback?.(reason);
+      },
+      onStepError: (step, error) => {
+        stats.recordStepError(step);
+        userOnStepError?.(step, error);
+      },
+      masking: {
+        ...config.masking,
+        onMaskingError: (error) => {
+          stats.recordMaskingError();
+          userOnMaskingError?.(error);
+        },
+      },
+    };
   }
 }
