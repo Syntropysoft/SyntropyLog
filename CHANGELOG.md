@@ -1,23 +1,53 @@
 # Changelog
 
-## 1.0.0
+## 1.0.0-rc.3
 
-Stable release. Promotes `1.0.0-rc.2` to the first SemVer-stable version of SyntropyLog. From this point on, breaking changes require a major bump.
+Release candidate published under the `next` dist-tag for validation in production before promotion to `1.0.0` stable. Bundles every change accumulated since `1.0.0-rc.2`: the public-API additions previously slated for the 1.0.0 promotion, plus five rounds of additive scope that turn the framework into a compliance-grade release. No breaking changes from `1.0.0-rc.2`.
 
-### New Features
+### Observability
 
-- **`IContextManager.setCorrelationId(id: string): void`** — declared in the public interface (the implementation already existed on `ContextManager`; `MockContextManager` gained the equivalent method for parity with `setTransactionId`). Non-breaking — existing code that called `set(getCorrelationIdHeaderName(), id)` keeps working.
+- **`syntropyLog.getStats(): SyntropyLogStats`** — aggregated counters reported off the existing hooks. Returns `{ state, initializedAt, uptimeMs, nativeAddonActive, failures: { log, transport, serializationFallback, masking, step } }`. Wraps user hooks transparently; user callbacks still fire unchanged.
+
+### Type safety
+
+- **`defineMatrix(validKeys, matrix)`** — typed helper for `LoggingMatrix`. Takes a `readonly` tuple of valid context keys and constrains each per-level array to `K[number] | '*'`. Typos in matrix keys become compile-time errors.
+- **Retention policy registry** — `retentionPolicies?: Readonly<Record<string, Record<string, unknown>>>` on `SyntropyLogConfig`. `withRetention('NAME' | rules)` overload; lookup misses throw `RetentionPolicyNotFoundError` listing the registered names. Companion `defineRetentionPolicies()` preserves literal types for `satisfies` checks. `withRetention` no longer carries the `@deprecated` JSDoc; it has a distinct role from `withMeta` (registry lookup vs freeform).
+
+### Public API
+
+- **`createSyntropyLog(config): ISyntropyLog`** — top-level factory returning a fresh, independent instance (own LifecycleManager, EventEmitter, StatsCollector, hooks, config). Unblocks multi-tenant, parallel-test, and micro-frontend scenarios. Singleton `syntropyLog` and `SyntropyLog.getInstance()` remain for backward compatibility.
+- **`ISyntropyLog`** — new interface declaring the 14 public methods, extends `EventEmitter`. `SyntropyLogStats` co-located, re-exported from `SyntropyLog.ts` for import-path stability.
+- **`IContextManager.setCorrelationId(id: string): void`** — declared in the public interface (the implementation already existed on `ContextManager`; `MockContextManager` gained the equivalent method for parity with `setTransactionId`).
+
+### Sub-packages (new subpath exports)
+
+- **`syntropylog/nestjs`** — `SyntropyNestLoggerService` (Nest `LoggerService` implementation), `SyntropyLogModule.forRoot(...)` global module, `@InjectLogger()` parameter decorator (uses Nest's `INQUIRER` to bind `.withSource(className)` per consumer). `@nestjs/common`, `@nestjs/core`, `reflect-metadata`, `rxjs` declared as **optional peer dependencies** — non-Nest users see no warnings.
+- **`syntropylog/middleware`** — framework-agnostic correlation resolver (`resolveCorrelationId`, `traceIdFromTraceparent`, `DEFAULT_INCOMING_HEADERS`, `DEFAULT_RESPONSE_HEADERS`), plus drop-in `correlationIdMiddleware()` (Express) and `fastifyCorrelationHook()` (Fastify). Multi-header → traceparent → generate; echoes onto response; holds ALS scope until `res.finish` / `close`.
+
+### Compliance
+
+- **`DurableAdapterTransport`** — opt-in transport that turns audit-flagged log entries into delivery-guaranteed writes. In-memory buffer (default cap 1000), exponential-backoff retry (5 retries, 100ms → 30s, configurable), DLQ via `onDrop(entry, reason, cause?)` for both `'buffer-full'` and `'retries-exhausted'`, drop strategies `'oldest' | 'newest' | 'reject'`. Selective by default: only entries with `retention` metadata go through the durable path; `info`/`warn` keep Silent Observer semantics. `flush()` and `shutdown()` drain with `flushTimeoutMs` (default 5s) then DLQ the remainder. Closes the audit-log-loss gap that previously left compliance-grade adoption to user code.
+- **Prototype-pollution guard** — `__proto__`, `constructor`, `prototype` own-keys stripped at every depth as step 0 of `HygieneStep`. Zero allocation on the safe path; only the affected subtree is rebuilt. Cycle-safe (WeakSet). Throws from hostile Proxy traps or getters are caught and the value passes through unchanged.
+- **`docs/compliance.md`** — control-by-control mapping added for HIPAA §164.312(b), SOX §404, GDPR Article 30, and PCI-DSS Requirement 10. Each section lists what the framework provides vs what stays organizational (storage-tier retention, SIEM examination, BAAs, daily review, etc.). Trailing note rewritten to state explicitly that the framework deliberately does not ship concrete backend adapters — the `executor` is the integration point.
+
+### Supply chain hardening
+
+- **All 30 devDependencies pinned to exact versions** — every `^` removed from `devDependencies`. Lockfile remains aligned with the previously resolved snapshot; no functional change. Runtime deps were already empty (`dependencies: {}`); `peerDependencies` and `optionalDependencies` keep their declared ranges since they're part of the public consumer contract.
+- **`pnpm.overrides`** verified — `lodash`, `brace-expansion`, `picomatch`, `yaml`, `vite`, `postcss`, `flatted`, `serialize-javascript` all override to the current `latest` of their respective packages. `pnpm audit` reports 0 vulnerabilities across 538 total dependencies.
+- Rollup pinned at `4.59.0` — first patched version for CVE-2026-27606 (path traversal, CVSS 8.8).
 
 ### Documentation
 
 - Comprehensive `docs/` directory expanded with focused per-feature docs: `logging-matrix`, `masking`, `transports`, `context`, `fluent-api`, `lifecycle`, `runtime-reconfiguration`, `native-addon`, `compliance`.
 - README repositioned around regulated-environment use (banking, healthcare, fintech). `await init()` documented as the canonical lifecycle API; the `'ready'` event remains as an internal escape hatch.
+- `docs/migration-from-pino.md` — onboarding aid covering what Pino does and SyntropyLog explicitly does not (worker-thread transports, pino-pretty CLI ecosystem). Side-by-side rather than competitive.
+- `docs/context.md` Express and Fastify sections rewritten to use the shipped middleware helpers.
 - Cross-links between `context.md` ↔ `opentelemetry-integration.md` and `native-addon.md` ↔ `building-native-addon.md`.
 - `features-and-examples.md` retired in favor of the README's TOC; Sanitization absorbed into `masking.md`, Serialization pipeline absorbed into `lifecycle.md`.
 
 ### No Breaking Changes from 1.0.0-rc.2
 
-All changes since rc.2 are additive (interface declaration of a method that already existed) or documentation-only.
+All changes are additive (new APIs, new sub-packages, new helpers, new transport, new docs, exact pinning of devDeps). No public API was removed or renamed. No runtime behavior changed for existing code paths.
 
 ## 1.0.0-rc.2
 
