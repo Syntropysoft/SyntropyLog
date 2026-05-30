@@ -683,3 +683,7 @@ assets/
 .cursor/
 .claude/
 doc-es/contexto-general-claude.md
+
+# Native addon binaries (prebuilt per-platform, should not be committed)
+*.node
+addon-artifacts/*.node
