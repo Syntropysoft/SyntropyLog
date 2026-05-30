@@ -11,6 +11,7 @@ import {
   isPositiveInt,
   isFunction,
   isStringOrRegExp,
+  isRecord,
   recordOf,
   oneOf,
 } from './validators';
@@ -141,6 +142,7 @@ const validateSyntropyLogConfig = object({
   masking: optional(validateMasking),
   context: optional(validateContext),
   shutdownTimeout: optional(isPositiveInt),
+  retentionPolicies: optional(recordOf(isRecord)),
   onLogFailure: optional(isFunction),
   onTransportError: optional(isFunction),
   onStepError: optional(isFunction),

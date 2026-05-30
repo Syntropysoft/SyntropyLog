@@ -29,6 +29,41 @@ await syntropyLog.init({
 
 ---
 
+## Catching typos at compile time — `defineMatrix`
+
+The matrix above is `Partial<Record<string, string[]>>` — stringly-typed end to end. A typo in a key name (`userld` instead of `userId`) compiles fine and silently drops that field from output forever.
+
+`defineMatrix` flips that: you declare which context keys are valid once, and the compiler refuses any matrix that references something else.
+
+```typescript
+import { defineMatrix, syntropyLog } from 'syntropylog';
+
+const matrix = defineMatrix(
+  ['correlationId', 'userId', 'tenantId', 'operation', 'errorCode'] as const,
+  {
+    default: ['correlationId'],
+    info:    ['correlationId', 'userId', 'operation'],
+    error:   ['correlationId', 'userId', 'operation', 'errorCode', 'tenantId'],
+    fatal:   ['*'],
+    // info: ['correlationId', 'userld'] // ❌ ts(2322) — 'userld' not in valid keys
+    // critical: ['correlationId']       // ❌ ts(2322) — 'critical' is not a LogLevel
+  },
+);
+
+await syntropyLog.init({
+  logger: { level: 'info', serviceName: 'my-app' },
+  loggingMatrix: matrix,
+});
+```
+
+- The runtime payload is identical to writing the matrix inline. The compiler is the only thing that gains.
+- `'*'` is always permitted regardless of the declared key set.
+- The list of valid keys is *not* read at runtime — it exists purely to anchor the generic.
+
+For multi-team codebases, the typical pattern is to export the valid-keys tuple from a shared module so every service uses the same context vocabulary.
+
+---
+
 ## Field name resolution
 
 The matrix keys are resolved against the context using these aliases:

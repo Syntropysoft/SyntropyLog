@@ -23,58 +23,90 @@ These header names are the **single source of truth**. They are used to:
 
 ---
 
-## Express / Fastify middleware
+## Express middleware
 
-A production-grade middleware does five things: accept any of the common ID headers, fall back to W3C `traceparent`, generate one if none arrive, echo it back on the response, and keep the AsyncLocalStorage scope alive until the response is closed.
+The framework ships a production-grade middleware as `correlationIdMiddleware()` — accepting any of the common ID headers, falling back to W3C `traceparent`, generating one if none arrive, echoing it onto the response, and keeping the AsyncLocalStorage scope alive until the response closes.
 
 ```typescript
-import { syntropyLog } from 'syntropylog';
+import express from 'express';
+import { syntropyLog, correlationIdMiddleware } from 'syntropylog';
 
-const HEADERS = ['x-trace-id', 'x-correlation-id', 'x-request-id', 'request-id'] as const;
+await syntropyLog.init({ /* … */ });
 
-/** W3C Trace Context: `{version}-{trace-id}-{parent-id}-{flags}` → returns the 32-hex trace-id or null. */
-function traceIdFromTraceparent(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const m = /^[\da-f]{2}-([\da-f]{32})-[\da-f]{16}-[\da-f]{2}$/i.exec(value.trim());
-  if (!m || /^0{32}$/.test(m[1])) return null;
-  return m[1].toLowerCase();
-}
-
-function resolveCorrelationId(req: import('express').Request): string {
-  const fromHeader = HEADERS.find((h) => req.headers[h]);
-  if (fromHeader) return req.headers[fromHeader] as string;
-
-  const tp = req.headers.traceparent;
-  const fromTraceparent = traceIdFromTraceparent(Array.isArray(tp) ? tp[0] : tp);
-  if (fromTraceparent) return fromTraceparent;
-
-  return `trc_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-}
-
-app.use(async (req, res, next) => {
-  const { contextManager } = syntropyLog;
-
-  await contextManager.run(async () => {
-    const correlationId = resolveCorrelationId(req);
-
-    contextManager.setCorrelationId(correlationId);
-
-    // Echo on response so clients can trace the call end-to-end
-    res.setHeader('X-Trace-Id', correlationId);
-    res.setHeader('X-Correlation-ID', correlationId);
-    res.setHeader('X-Request-ID', correlationId);
-
-    // Keep the AsyncLocalStorage scope alive until the response is finished or closed
-    await new Promise<void>((resolve) => {
-      res.once('finish', resolve);
-      res.once('close', resolve);
-      next();
-    });
-  });
-});
+const app = express();
+app.use(correlationIdMiddleware());
 ```
 
 After this, every `logger.info(...)` inside the request carries the same `correlationId` without passing it manually.
+
+### Configuration
+
+All options have sensible defaults; pass any subset to override.
+
+```typescript
+import { correlationIdMiddleware, createSyntropyLog } from 'syntropylog';
+
+const tenantLogging = createSyntropyLog();
+await tenantLogging.init({ /* … */ });
+
+app.use(correlationIdMiddleware({
+  // Target a specific instance instead of the global singleton.
+  syntropyLog: tenantLogging,
+
+  // Customize incoming headers (first non-empty wins).
+  // Default: ['x-trace-id', 'x-correlation-id', 'x-request-id', 'request-id'].
+  incomingHeaders: ['x-acme-trace-id', 'x-correlation-id'],
+
+  // Customize response headers echoed with the resolved ID. Pass [] to skip.
+  // Default: ['X-Trace-Id', 'X-Correlation-ID', 'X-Request-ID'].
+  responseHeaders: ['X-Acme-Trace-Id'],
+
+  // W3C traceparent fallback (default: true).
+  parseTraceparent: true,
+
+  // Custom ID generator (default: `trc_${epoch}_${random9}`).
+  generateCorrelationId: () => crypto.randomUUID(),
+}));
+```
+
+## Fastify hook
+
+Same option surface, same defaults, registered as an `onRequest` hook:
+
+```typescript
+import Fastify from 'fastify';
+import { syntropyLog, fastifyCorrelationHook } from 'syntropylog';
+
+await syntropyLog.init({ /* … */ });
+
+const app = Fastify();
+app.addHook('onRequest', fastifyCorrelationHook());
+
+// Same per-tenant / custom-header configuration applies:
+app.addHook('onRequest', fastifyCorrelationHook({
+  syntropyLog: tenantLogging,
+  incomingHeaders: ['x-acme-trace-id'],
+  parseTraceparent: true,
+}));
+```
+
+The hook uses the `done`-callback form intentionally — calling `done()` synchronously inside the context scope schedules Fastify's next step while the scope is still active, so every subsequent hook, validator, and handler observes the same correlation context.
+
+## Custom integrations
+
+If you're not using Express or Fastify, the same resolver is exported on its own:
+
+```typescript
+import { resolveCorrelationId, traceIdFromTraceparent } from 'syntropylog';
+
+// Resolve from any headers record (Koa, Hono, custom server, etc.):
+const id = resolveCorrelationId(ctx.request.headers, {
+  incomingHeaders: ['x-trace-id', 'x-correlation-id'],
+  parseTraceparent: true,
+});
+```
+
+`resolveCorrelationId` is pure: it walks the headers in order, falls back to `traceparent`, and generates an ID if nothing matches. No side effects, no I/O.
 
 ### W3C Trace Context (OpenTelemetry interop)
 
@@ -88,63 +120,95 @@ To **export logs** to an OTLP collector (so traces and logs land in the same bac
 
 ## NestJS
 
-NestJS routes through Express by default, so **use the same middleware pattern via `app.use(...)` in `bootstrap()` — not a NestJS `Interceptor`**. An interceptor runs *after* guards and pipes have already executed, which is too late for context to be available everywhere.
+The framework ships a NestJS sub-package — `syntropylog/nestjs` — that provides three things:
+
+- **`SyntropyLogModule`** — global Nest module wired to a SyntropyLog instance (singleton by default, override via `forRoot({ syntropyLog })`).
+- **`SyntropyNestLoggerService`** — `LoggerService` implementation that routes Nest's internal logs and every `new Logger('Foo').log(...)` call through SyntropyLog.
+- **`@InjectLogger()`** — parameter decorator that injects an `ILogger` pre-bound with the consumer's class name as `source` (uses Nest's `INQUIRER` + `Scope.TRANSIENT`).
+
+`@nestjs/common`, `@nestjs/core`, `reflect-metadata`, and `rxjs` are declared as **optional peer dependencies** — install them only if you import from `syntropylog/nestjs`.
+
+### Setup
 
 ```typescript
 // src/main.ts
 import { NestFactory } from '@nestjs/core';
+import { Module } from '@nestjs/common';
+import { syntropyLog, correlationIdMiddleware } from 'syntropylog';
+import {
+  SyntropyLogModule,
+  SyntropyNestLoggerService,
+} from 'syntropylog/nestjs';
 import { AppModule } from './app.module';
-import { syntropyLog } from 'syntropylog';
 
 async function bootstrap() {
   await syntropyLog.init({ /* … */ });
 
-  const app = await NestFactory.create(AppModule);
-  const { contextManager } = syntropyLog;
-
-  // AsyncLocalStorage scope wraps the whole request, including guards and pipes
-  app.use((req, res, next) => {
-    contextManager.run(async () => {
-      const cid =
-        (req.headers[contextManager.getCorrelationIdHeaderName().toLowerCase()] as string) ??
-        contextManager.getCorrelationId();
-      contextManager.set(contextManager.getCorrelationIdHeaderName(), cid);
-
-      // Wait until response is finished/closed before releasing the context
-      await new Promise<void>((resolve) => {
-        res.once('finish', resolve);
-        res.once('close', resolve);
-        next();
-      });
-    });
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    logger: new SyntropyNestLoggerService(syntropyLog),
   });
+
+  // Express middleware (Nest routes through Express by default).
+  // Mount this BEFORE any controllers so guards/pipes observe the context.
+  app.use(correlationIdMiddleware());
 
   await app.listen(3000);
 }
 ```
 
-> **Tip — replace NestJS's built-in Logger with SyntropyLog.** Implement `LoggerService` once and pass it to `NestFactory.create`. Every `new Logger('Foo').log(...)` call in the codebase then routes through SyntropyLog without any other change.
->
-> ```typescript
-> import { LoggerService } from '@nestjs/common';
-> import { syntropyLog } from 'syntropylog';
->
-> class SyntropyNestLoggerService implements LoggerService {
->   private log = syntropyLog.getLogger('nest');
->   log(message: unknown, ctx?: string) { this.log.info({ nestContext: ctx }, String(message)); }
->   error(message: unknown, ctx?: string) { this.log.error({ nestContext: ctx }, String(message)); }
->   warn(message: unknown, ctx?: string) { this.log.warn({ nestContext: ctx }, String(message)); }
->   debug(message: unknown, ctx?: string) { this.log.debug({ nestContext: ctx }, String(message)); }
->   verbose(message: unknown, ctx?: string) { this.log.trace({ nestContext: ctx }, String(message)); }
->   fatal(message: unknown, ctx?: string) { this.log.fatal({ nestContext: ctx }, String(message)); }
-> }
->
-> const app = await NestFactory.create(AppModule, {
->   bufferLogs: true,
->   logger: new SyntropyNestLoggerService(),
-> });
-> ```
->
+The application module:
+
+```typescript
+// src/app.module.ts
+@Module({
+  imports: [SyntropyLogModule.forRoot()],
+  controllers: [/* … */],
+  providers: [/* … */],
+})
+export class AppModule {}
+```
+
+For multi-tenant apps, pass a factory-produced instance into `forRoot({ syntropyLog })` and into `SyntropyNestLoggerService(syntropyLog)`.
+
+### Using `@InjectLogger()` in services
+
+Each `@InjectLogger()` injection returns a fresh `ILogger` pre-bound with `.withSource(ConsumerClassName)`. The source name is read from NestJS's `INQUIRER` at injection time — no decorator argument required.
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import type { ILogger } from 'syntropylog';
+import { InjectLogger } from 'syntropylog/nestjs';
+
+@Injectable()
+export class PaymentService {
+  constructor(@InjectLogger() private readonly log: ILogger) {}
+
+  async charge(amount: number, userId: string) {
+    this.log.info({ amount, userId }, 'Charging card');
+    // → entry includes source: 'PaymentService' automatically.
+  }
+}
+```
+
+If you need a custom source name (e.g. a service whose class name doesn't match the desired log source), inject SyntropyLog itself and bind manually:
+
+```typescript
+import { Inject } from '@nestjs/common';
+import {
+  SYNTROPYLOG_INSTANCE_TOKEN,
+} from 'syntropylog/nestjs';
+import type { ISyntropyLog } from 'syntropylog';
+
+@Injectable()
+export class PaymentService {
+  private readonly log;
+  constructor(@Inject(SYNTROPYLOG_INSTANCE_TOKEN) sl: ISyntropyLog) {
+    this.log = sl.getLogger('payments').withSource('Stripe');
+  }
+}
+```
+
 > `bufferLogs: true` ensures startup logs are buffered until your custom logger is wired.
 
 ---

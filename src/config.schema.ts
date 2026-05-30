@@ -76,6 +76,14 @@ export interface SyntropyLogConfig {
   masking?: MaskingConfig;
   context?: ContextConfig;
   shutdownTimeout?: number;
+  /**
+   * Optional registry of named retention policies. When set, `logger.withRetention('NAME')`
+   * looks up the entry and binds it as the `retention` payload on every log.
+   * `withRetention({ ... })` with an object literal remains supported and bypasses the registry.
+   * Keys should be stable identifiers your transports can route on (e.g. 'SOX_AUDIT_TRAIL',
+   * 'GDPR_ARTICLE_17', 'PCI_DSS_REQ_10').
+   */
+  retentionPolicies?: Readonly<Record<string, Record<string, unknown>>>;
   /** Called when logging fails (serialization or transport). Optional; for observability. */
   onLogFailure?: (error: unknown, entry?: unknown) => void;
   /** Called when a transport fails (flush, shutdown, or log write). Optional; single handler from config. */

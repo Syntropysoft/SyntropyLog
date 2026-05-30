@@ -24,9 +24,9 @@ A logging framework built specifically for regulated environments (banking, heal
 Four pillars:
 
 - **Logging Matrix** — a declarative whitelist of context fields per log level. If a field isn't in the matrix for that level, it never reaches a transport. Field control by config, not by code review.
-- **Retention-aware audit trail** — `withRetention({ policy: 'SOX', years: 5 })` travels with each entry so your transport can route to the right table / bucket / cold store.
-- **Universal Adapter** — one `executor` function sends logs to Postgres, Mongo, Elasticsearch, S3, anything. No vendor lock-in.
-- **Silent Observer pipeline** — masking, sanitization, serialization with timeout and depth limits. Logging cannot crash your app; failures surface through hooks.
+- **Retention-aware audit trail with delivery guarantees** — `withRetention({ policy: 'SOX', years: 5 })` travels with each entry so your transport routes it to the right table / bucket / cold store. `DurableAdapterTransport` adds buffer + exponential-backoff retry + dead-letter queue so audit-tagged entries survive transient backend outages — the headline compliance gap that fire-and-forget loggers leave open.
+- **Universal Adapter** — one `executor` function sends logs to Postgres, Mongo, Elasticsearch, S3, anything. You write the executor; the framework stays agnostic of client libraries.
+- **Silent Observer pipeline** — masking, sanitization, serialization with timeout and depth limits, prototype-pollution defense. Logging cannot crash your app; failures surface through hooks and counters (`getStats()`).
 
 Optional Rust native addon does serialize + mask + sanitize in a single pass when available, transparent JS fallback when not.
 
@@ -108,17 +108,24 @@ The `audit` level is always written regardless of the configured log level.
 
 | Feature | One-liner | Docs |
 |---------|-----------|------|
-| **Logging Matrix** | Whitelist of context fields per level | [docs/logging-matrix.md](docs/logging-matrix.md) |
-| **MaskingEngine** | Redact passwords, tokens, PII before transport | [docs/masking.md](docs/masking.md) |
-| **Universal Adapter** | One `executor` → any backend | [docs/transports.md](docs/transports.md) |
+| **Logging Matrix** | Declarative whitelist of context fields per level; `defineMatrix()` for typed keys | [docs/logging-matrix.md](docs/logging-matrix.md) |
+| **MaskingEngine** | Redact passwords, tokens, PII before transport; `maskEnum` for typed alias sets | [docs/masking.md](docs/masking.md) |
+| **Universal Adapter** | One `executor` → any backend; framework stays agnostic of client libraries | [docs/transports.md](docs/transports.md) |
+| **DurableAdapterTransport** | Buffer + exponential-backoff retry + DLQ; delivery guarantees for `withRetention`-tagged audit entries | [docs/compliance.md](docs/compliance.md) |
 | **Transport pool & per-env routing** | `override` / `add` / `remove` per call | [docs/transports.md](docs/transports.md) |
-| **Fluent API** | `withSource`, `withTransactionId`, `withRetention`, `child` | [docs/fluent-api.md](docs/fluent-api.md) |
-| **Context propagation** | Correlation + transaction IDs across a request | [docs/context.md](docs/context.md) |
-| **Lifecycle, hooks & serialization** | `init` / `shutdown`, `onLogFailure`, timeout/depth limits | [docs/lifecycle.md](docs/lifecycle.md) |
+| **Fluent API** | `withSource`, `withTransactionId`, `withRetention`, `child`; `defineRetentionPolicies()` registry for typed policies | [docs/fluent-api.md](docs/fluent-api.md) |
+| **Context propagation** | Correlation + transaction IDs across a request via `AsyncLocalStorage` | [docs/context.md](docs/context.md) |
+| **Express middleware** | `correlationIdMiddleware()` — multi-header + W3C `traceparent` + response echo + ALS scope to `res.finish` | [docs/context.md](docs/context.md) |
+| **Fastify hook** | `fastifyCorrelationHook()` for `onRequest`; same resolution + propagation semantics | [docs/context.md](docs/context.md) |
+| **NestJS module** | `syntropylog/nestjs`: `SyntropyLogModule`, `SyntropyNestLoggerService`, `@InjectLogger()` | [docs/context.md#nestjs](docs/context.md#nestjs) |
+| **Lifecycle, hooks & serialization** | `init` / `shutdown`, `onLogFailure`, `onTransportError`, timeout/depth limits | [docs/lifecycle.md](docs/lifecycle.md) |
+| **Self-observability** | `getStats()` — counters for log failures, transport errors, fallbacks, masking errors, uptime | [docs/lifecycle.md](docs/lifecycle.md) |
+| **Multi-instance factory** | `createSyntropyLog()` returns independent `ISyntropyLog` instances (tests, multi-tenant, micro-frontends) | [docs/lifecycle.md](docs/lifecycle.md) |
 | **Runtime reconfiguration** | Hot-change level / matrix / debug transport | [docs/runtime-reconfiguration.md](docs/runtime-reconfiguration.md) |
-| **Native addon (Rust)** | Single-pass pipeline, JS fallback | [docs/native-addon.md](docs/native-addon.md) |
-| **OpenTelemetry export** | Emit to an OTLP collector via UniversalAdapter | [docs/opentelemetry-integration.md](docs/opentelemetry-integration.md) |
-| **Audit & retention routing** | Compliance-grade logging | [docs/compliance.md](docs/compliance.md) |
+| **Native addon (Rust)** | Single-pass serialize + mask + sanitize; transparent JS fallback | [docs/native-addon.md](docs/native-addon.md) |
+| **OpenTelemetry export** | Emit to an OTLP collector via `UniversalAdapter` + `UniversalLogFormatter` | [docs/opentelemetry-integration.md](docs/opentelemetry-integration.md) |
+| **Audit & retention routing** | Always-on `audit` level + `withRetention` payload routed by executor; compliance-grade logging | [docs/compliance.md](docs/compliance.md) |
+| **Prototype-pollution defense** | `__proto__` / `constructor` / `prototype` stripped from metadata at the pipeline boundary | [docs/compliance.md](docs/compliance.md) |
 | **Tree-shaking** | `sideEffects: false` + ESM | — |
 
 ---
@@ -143,11 +150,12 @@ Variants: `Classic`, `Pretty`, `Compact`, `Colorful`. ANSI built-in, no `chalk` 
 
 ## Framework integration
 
-| Framework | Where to `await init` |
-|----------|-----------------------|
-| Express / Fastify | Before `app.listen()` |
-| NestJS | `AppModule.onModuleInit()` or `bootstrap()` |
-| Lambda / Serverless | Module-level singleton outside the handler |
+| Framework | What to import | Where to wire it |
+|---|---|---|
+| Express | `correlationIdMiddleware` from `syntropylog` | `app.use(correlationIdMiddleware())` before routes; `await syntropyLog.init(...)` before `app.listen()` |
+| Fastify | `fastifyCorrelationHook` from `syntropylog` | `fastify.addHook('onRequest', fastifyCorrelationHook())`; `await syntropyLog.init(...)` before `listen()` |
+| NestJS | `SyntropyLogModule` from `syntropylog/nestjs` | `imports: [SyntropyLogModule.forRoot()]` in your root module; `await syntropyLog.init(...)` in `bootstrap()`; inject loggers with `@InjectLogger()` |
+| Lambda / Serverless | (no helper) | Module-level singleton outside the handler; `await syntropyLog.init(...)` once, reused across invocations |
 
 Full middleware examples and correlation propagation: [docs/context.md](docs/context.md).
 
@@ -166,6 +174,8 @@ Full middleware examples and correlation propagation: [docs/context.md](docs/con
 - **[Native addon (Rust)](docs/native-addon.md)** — concepts and runtime checks
 - **[Building the native addon from source](docs/building-native-addon.md)** — macOS / Windows / Linux
 - **[OpenTelemetry integration](docs/opentelemetry-integration.md)** — exporting logs to an OTLP collector
+- **[NestJS integration](docs/context.md#nestjs)** — `syntropylog/nestjs` module, `SyntropyNestLoggerService`, `@InjectLogger()`
+- **[Migrating from Pino](docs/migration-from-pino.md)** — practical side-by-side guide for teams switching
 - **[Benchmark report (throughput + memory)](docs/benchmark-memory-run.md)**
 - **[Examples repository](https://github.com/Syntropysoft/syntropylog-examples)** — runnable examples 01–17
 - **[Documentación en Español](doc-es/caracteristicas-y-ejemplos.md)**

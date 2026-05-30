@@ -27,6 +27,32 @@ type PendingRouting =
   | { add: string[]; remove?: string[] }
   | { add?: string[]; remove: string[] };
 
+/**
+ * Thrown when `logger.withRetention(name)` is called with a string that isn't in the
+ * configured `retentionPolicies` registry. The error message lists what is registered,
+ * so the developer can immediately spot a typo or a missing entry.
+ */
+export class RetentionPolicyNotFoundError extends Error {
+  public readonly policy: string;
+  public readonly available: readonly string[];
+
+  constructor(
+    policy: string,
+    registry: Readonly<Record<string, unknown>> | undefined
+  ) {
+    const available = registry ? Object.keys(registry).sort() : [];
+    const hint = available.length
+      ? `Registered policies: [${available.join(', ')}].`
+      : `No retention policies are registered. Set 'retentionPolicies' in init() or pass an inline rules object instead of a string.`;
+    super(
+      `[SyntropyLog] Retention policy '${policy}' is not registered. ${hint}`
+    );
+    this.name = 'RetentionPolicyNotFoundError';
+    this.policy = policy;
+    this.available = available;
+  }
+}
+
 // --- Pure helpers (same inputs → same outputs, no side effects) ---
 
 /** Pure: should this level be logged given the minimum level? Audit always passes. */
@@ -123,6 +149,8 @@ export interface LoggerDependencies {
   onLogFailure?: (error: unknown, entry?: LogEntry) => void;
   /** Optional: called when a transport fails (e.g. log write). Single handler from config. */
   onTransportError?: (error: unknown, context?: string) => void;
+  /** Optional: registry of retention policies — keys are looked up by `withRetention(name)`. */
+  retentionPolicies?: Readonly<Record<string, Record<string, unknown>>>;
 }
 
 /**
@@ -420,9 +448,25 @@ export class Logger {
     return this.child({ retention: payload } as LogBindings);
   }
 
-  /** @deprecated Use `withMeta()` instead. Kept for backward compatibility. */
-  withRetention(rules: LogRetentionRules): ILogger {
-    return this.withMeta(rules);
+  /**
+   * Attaches a retention policy under the `retention` field on every log from this instance.
+   * Accepts a registered policy name (looked up in `init({ retentionPolicies: ... })`) or an
+   * inline `LogRetentionRules` object. See the {@link ILogger.withRetention} JSDoc for details.
+   *
+   * @throws {RetentionPolicyNotFoundError} if `input` is a string and no policy with that name
+   *   was registered. Misses are loud by design — compliance routing should never silently
+   *   fall back to an unknown bucket.
+   */
+  withRetention(input: string | LogRetentionRules): ILogger {
+    if (typeof input === 'string') {
+      const registry = this.dependencies.retentionPolicies;
+      const rules = registry?.[input];
+      if (!rules) {
+        throw new RetentionPolicyNotFoundError(input, registry);
+      }
+      return this.withMeta(rules as LogRetentionRules);
+    }
+    return this.withMeta(input);
   }
 
   /**

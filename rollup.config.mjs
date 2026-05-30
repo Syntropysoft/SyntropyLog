@@ -114,10 +114,25 @@ export default [
     external: [...external, 'vitest'],
   }),
 
+  // NestJS sub-package — Nest deps stay external (peer-dep, optional).
+  createEntryConfig('src/nestjs/index.ts', './dist/nestjs/index', {
+    external: [
+      ...external,
+      '@nestjs/common',
+      '@nestjs/core',
+      'reflect-metadata',
+      'rxjs',
+    ],
+  }),
+
   // --- Type Declaration Bundles (.d.ts) ---
   createDtsConfig('dist/types/type-exports.d.ts', 'dist/index.d.ts'),
   createDtsConfig(
     'dist/types/testing/index.d.ts',
     'dist/testing/index.d.ts',
+  ),
+  createDtsConfig(
+    'dist/types/nestjs/index.d.ts',
+    'dist/nestjs/index.d.ts',
   ),
 ];

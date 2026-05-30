@@ -20,8 +20,19 @@ export type { LogLevel } from './logger/levels';
 export type { LogFormatter } from './logger/transports/formatters/LogFormatter';
 
 // --- Main Framework Exports ---
-export { SyntropyLog, syntropyLog } from './SyntropyLog';
+export { SyntropyLog, syntropyLog, createSyntropyLog } from './SyntropyLog';
+export type { ISyntropyLog, SyntropyLogStats } from './ISyntropyLog';
+export type {
+  StatsSnapshot,
+  StatsFailureCounts,
+} from './observability/StatsCollector';
 export { extractInboundContext } from './context/extractInboundContext';
+
+// --- Typed helpers for declarative config ---
+export { defineMatrix } from './logger/defineMatrix';
+export type { MatrixLevel, MatrixFor } from './logger/defineMatrix';
+export { defineRetentionPolicies } from './logger/defineRetentionPolicies';
+export { RetentionPolicyNotFoundError } from './logger/Logger';
 
 // --- Transport Classes ---
 export { Transport } from './logger/transports/Transport';
@@ -32,6 +43,13 @@ export { ClassicConsoleTransport } from './logger/transports/ClassicConsoleTrans
 export { ColorfulConsoleTransport } from './logger/transports/ColorfulConsoleTransport';
 export { SpyTransport } from './logger/transports/SpyTransport';
 export { AdapterTransport } from './logger/transports/AdapterTransport';
+export { DurableAdapterTransport } from './logger/transports/DurableAdapterTransport';
+export type {
+  DurableAdapterTransportOptions,
+  DurableExecutor,
+  DurableDropReason,
+  DurableDropStrategy,
+} from './logger/transports/DurableAdapterTransport';
 
 // --- Universal Logging Adapters ---
 export { UniversalAdapter } from './logger/adapters/UniversalAdapter';
@@ -52,6 +70,29 @@ export { SanitizationEngine } from './sanitization/SanitizationEngine';
 
 // --- Sensitive key aliases (for custom rules without writing literals) ---
 export * from './sensitiveKeys';
+
+// --- Correlation middlewares ---
+export {
+  resolveCorrelationId,
+  traceIdFromTraceparent,
+  DEFAULT_INCOMING_HEADERS,
+  DEFAULT_RESPONSE_HEADERS,
+  correlationIdMiddleware,
+  fastifyCorrelationHook,
+} from './middleware';
+export type {
+  CorrelationResolveOptions,
+  HeadersRecord,
+  IncomingHeaderValue,
+  ExpressCorrelationOptions,
+  ExpressRequestLike,
+  ExpressResponseLike,
+  ExpressNextLike,
+  FastifyCorrelationOptions,
+  FastifyRequestLike,
+  FastifyReplyLike,
+  FastifyDoneLike,
+} from './middleware';
 
 // --- Default values (constants) ---
 export { DEFAULT_VALUES } from './constants';

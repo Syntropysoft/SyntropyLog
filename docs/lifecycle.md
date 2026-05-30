@@ -4,6 +4,53 @@ SyntropyLog runs a small state machine: `INITIALIZING → READY → SHUTTING_DOW
 
 ---
 
+## Getting a SyntropyLog instance
+
+Two equivalent entry points — pick the one that fits the call site:
+
+| Entry point | What you get | When to use |
+|---|---|---|
+| `import { syntropyLog }` | The process-wide singleton (created on first import) | App-level code where one logger config serves the whole process. **Default for most apps.** |
+| `createSyntropyLog()` | A fresh, fully-independent instance (an `ISyntropyLog`) | Multi-tenant scenarios, parallel tests that need isolation, micro-frontends, anywhere "two SyntropyLogs in one process" is real |
+
+Both objects implement the same `ISyntropyLog` interface — the rest of your code can type against the interface and stay agnostic about how the instance was obtained:
+
+```typescript
+import type { ISyntropyLog } from 'syntropylog';
+
+function buildAuditLogger(sl: ISyntropyLog) {
+  return sl.getLogger('audit').withRetention('SOX_AUDIT_TRAIL');
+}
+```
+
+### Factory example — isolated instances
+
+```typescript
+import { createSyntropyLog } from 'syntropylog';
+
+const acmeLogging = createSyntropyLog();
+await acmeLogging.init({
+  logger: { serviceName: 'tenant-acme', level: 'info' },
+  retentionPolicies: { ACME_AUDIT: { years: 5 } },
+});
+
+const initechLogging = createSyntropyLog();
+await initechLogging.init({
+  logger: { serviceName: 'tenant-initech', level: 'warn' },
+});
+
+// Independent EventEmitters, configs, hooks, and stats.
+acmeLogging.getLogger().info('hello from acme');
+initechLogging.getLogger().warn('hello from initech');
+
+await acmeLogging.shutdown();
+await initechLogging.shutdown();
+```
+
+The factory does not touch the singleton — calling `createSyntropyLog()` never affects `syntropyLog` and vice versa. Factory instances also bypass `SyntropyLog.resetInstance()` / `_resetForTesting()`, so parallel tests get genuine isolation by construction.
+
+---
+
 ## `init` and `shutdown`
 
 `init()` returns a `Promise<void>` that resolves when the framework is fully ready. Until it resolves, `getLogger()` returns a no-op logger that drops messages.
@@ -80,6 +127,35 @@ if (syntropyLog.isNativeAddonInUse()) {
 ```
 
 See [native-addon.md](native-addon.md).
+
+---
+
+## Health snapshot — `syntropyLog.getStats()`
+
+`getStats()` returns a read-only snapshot of the framework's health. It's a one-call alternative to wiring all the observability hooks just to know "is logging behaving":
+
+```typescript
+const stats = syntropyLog.getStats();
+// {
+//   state: 'READY',
+//   initializedAt: 1779784932000,
+//   uptimeMs: 482_000,
+//   nativeAddonActive: true,
+//   failures: {
+//     log: 0,
+//     transport: 2,
+//     serializationFallback: 0,
+//     masking: 0,
+//     step: { hygiene: 1 },
+//   },
+// }
+```
+
+The counters are populated by the framework internally — **the hooks you configured (`onLogFailure`, `onTransportError`, `onSerializationFallback`, `onStepError`, `masking.onMaskingError`) still fire unchanged.** `getStats()` does not replace them; it observes the same paths.
+
+Safe to call before `init()` resolves: counters are zero, `state` reflects the lifecycle position, `nativeAddonActive` is `false` until READY.
+
+Use case: a `/health/logging` endpoint in your service, or a periodic metric scrape. Counter values are monotonic since `init()` succeeded; they reset only if you `await shutdown()` and re-init (or call `_resetForTesting()`).
 
 ---
 

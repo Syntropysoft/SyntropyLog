@@ -5,8 +5,42 @@
  */
 
 // --- Main Framework Class ---
-export { syntropyLog, SyntropyLog } from './SyntropyLog';
+export { syntropyLog, SyntropyLog, createSyntropyLog } from './SyntropyLog';
+export type { ISyntropyLog, SyntropyLogStats } from './ISyntropyLog';
+export type {
+  StatsSnapshot,
+  StatsFailureCounts,
+} from './observability/StatsCollector';
 export { extractInboundContext } from './context/extractInboundContext';
+
+// --- Typed helpers for declarative config ---
+export { defineMatrix } from './logger/defineMatrix';
+export type { MatrixLevel, MatrixFor } from './logger/defineMatrix';
+export { defineRetentionPolicies } from './logger/defineRetentionPolicies';
+export { RetentionPolicyNotFoundError } from './logger/Logger';
+
+// --- Correlation middlewares (Express, Fastify) and shared resolver ---
+export {
+  resolveCorrelationId,
+  traceIdFromTraceparent,
+  DEFAULT_INCOMING_HEADERS,
+  DEFAULT_RESPONSE_HEADERS,
+  correlationIdMiddleware,
+  fastifyCorrelationHook,
+} from './middleware';
+export type {
+  CorrelationResolveOptions,
+  HeadersRecord,
+  IncomingHeaderValue,
+  ExpressCorrelationOptions,
+  ExpressRequestLike,
+  ExpressResponseLike,
+  ExpressNextLike,
+  FastifyCorrelationOptions,
+  FastifyRequestLike,
+  FastifyReplyLike,
+  FastifyDoneLike,
+} from './middleware';
 
 // --- Utility Classes for Advanced Configuration ---
 export { SerializationManager } from './serialization/SerializationManager';
@@ -21,6 +55,13 @@ export { ClassicConsoleTransport } from './logger/transports/ClassicConsoleTrans
 export { ColorfulConsoleTransport } from './logger/transports/ColorfulConsoleTransport';
 export { SpyTransport } from './logger/transports/SpyTransport';
 export { AdapterTransport } from './logger/transports/AdapterTransport';
+export { DurableAdapterTransport } from './logger/transports/DurableAdapterTransport';
+export type {
+  DurableAdapterTransportOptions,
+  DurableExecutor,
+  DurableDropReason,
+  DurableDropStrategy,
+} from './logger/transports/DurableAdapterTransport';
 
 // --- Universal Logging Adapters (Agnostic Persistence) ---
 export { UniversalAdapter } from './logger/adapters/UniversalAdapter';
