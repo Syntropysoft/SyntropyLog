@@ -31,6 +31,23 @@ loggingMatrix: {
 
 The matrix is a single JSON object — reviewable by a compliance officer without reading TypeScript.
 
+### §164.312(b) — audit controls
+
+The Security Rule requires "hardware, software, and/or procedural mechanisms that record and examine activity in information systems that contain or use electronic protected health information."
+
+**What the framework gives you:**
+
+- **Recording:** `log.audit(...)` always emits regardless of the configured level threshold. The `DurableAdapterTransport` (see below) guarantees delivery for retention-tagged entries — the §164.312(b) auditor's worst case ("the record should exist but it doesn't") is closed by buffer + retry + DLQ.
+- **Minimum necessary (45 CFR §164.502(b)):** the Logging Matrix excludes PHI from `info`/`warn` while keeping it available on `error` for diagnosis. PHI does not leak into operational logs by accident.
+- **Routing to an HIPAA-segregated store:** `withRetention({ policy: 'HIPAA_AUDIT', years: 6 })` carries the policy with the entry; your executor routes to the BAA-covered backend.
+- **Pseudonymization for non-audit logs:** the MaskingEngine with a `CUSTOM` strategy can hash patient identifiers in operational logs, leaving raw IDs only in the audit stream.
+
+**What you still need to do:**
+
+- The "examine activity" half of §164.312(b) is an *operational process* — log review, anomaly detection, alerting. The framework feeds your SIEM; the SIEM does the examination.
+- BAAs (Business Associate Agreements) with your storage and SIEM vendors are an organizational responsibility.
+- Retention enforcement (typically 6 years under §164.530(j)) is enforced at the storage tier.
+
 ---
 
 ## SOX — audit trails
@@ -62,6 +79,23 @@ async executor(entry) {
 ```
 
 The audit trail is tamper-evident at the storage layer (append-only, WORM bucket, etc.); SyntropyLog's job is to guarantee the entry **arrives** and carries the policy metadata.
+
+### Section 404 — internal controls over financial reporting
+
+§404 requires controls that ensure the integrity of records financial reporting depends on. For a logging framework the relevant claim is: *"we can demonstrate the audit trail is complete, tamper-evident, and reviewable."*
+
+**What the framework gives you:**
+
+- **Always-on `audit` level** — audit calls emit regardless of the configured threshold. An `info`-level production deployment cannot accidentally silence audit events.
+- **Delivery guarantees via `DurableAdapterTransport`** — retention-tagged entries survive transient backend outages via buffer + retry + DLQ. The headline §404 risk ("the auditor asks for the record and we have nothing") is closed by the durable transport.
+- **Routing via `withRetention({ policy: 'SOX_AUDIT_TRAIL', years: 7 })`** — policy metadata travels with the entry; your executor routes to an immutable store. §802 retention windows live at the storage tier.
+- **Reviewable surface** — the Logging Matrix + masking rules + retention registry fit in a single JSON object that an auditor can read end-to-end without touching application code.
+
+**What you still need to do:**
+
+- Tamper-evidence is a *storage* property — use WORM buckets, append-only DBs, or signed/chained checksums. SyntropyLog delivers the record; immutability is on the storage layer.
+- Retention enforcement (typically 7 years under §802) is a storage policy.
+- §404 also requires *periodic management certification* of controls — a process the org owns. The framework supplies evidence, not approval.
 
 ---
 
@@ -102,6 +136,42 @@ masking: {
 }
 ```
 
+### Records of processing activities (Article 30)
+
+Art. 30(1) requires controllers to maintain records of processing activities including the name and contact details, purposes of processing, categories of data subjects and personal data, categories of recipients, transfers to third countries, retention periods, and a general description of technical/organizational measures. Art. 30(4) accepts these records in electronic form.
+
+`withRetention` is a natural carrier for the per-entry portion of this record:
+
+```typescript
+const processingLog = log.withRetention({
+  policy:               'GDPR_ART_30',
+  processingActivity:   'order-fulfillment',
+  purpose:              'contract performance',
+  lawfulBasis:          'GDPR_6_1_b',
+  dataCategory:         'customer-contact',
+  dataSubjectCategory:  'eu-resident',
+  recipientCategory:    'logistics-partner',
+  retentionMonths:      36,
+});
+
+processingLog.audit(
+  { customerId, orderId, action: 'shipped-to-partner' },
+  'Personal data transferred to logistics partner',
+);
+```
+
+**What the framework gives you:**
+
+- Every entry tagged with the `GDPR_ART_30` policy carries the Art. 30 metadata your supervisory authority will ask for.
+- The Logging Matrix ensures `info`/`warn` logs minimize personal data (Art. 5(1)(c)) while keeping the audit trail complete.
+- Your executor can produce the Art. 30 register on demand by aggregating entries by `retention.processingActivity`.
+
+**What you still need to do:**
+
+- Art. 30 also requires the **organizational** parts of the record (DPO contact, transfer mechanisms description, security measures summary). Those live in your privacy notice and DPIA documentation, not in logs.
+- Erasure (Art. 17) is a separate flow — see the Art. 17 subsection above.
+- Lawful basis (Art. 6) is a per-processing decision your privacy team makes; the framework just carries the answer.
+
 ---
 
 ## PCI-DSS
@@ -118,14 +188,35 @@ masking: {
 
 Card number `4111-1111-1111-1234` becomes `****-****-****-1234`.
 
-### Audit logs (Requirement 10)
+### Requirement 10 — track and monitor all access to cardholder data
 
-Combine `audit` + `withRetention` to ship a PCI audit stream to a dedicated store with the required one-year online retention and three-month immediate availability:
+PCI-DSS Req 10 is the most prescriptive of the four regulations covered here. It enumerates which events to log, which fields per event, and how the trail must be protected. The framework supplies primitives for each sub-control:
+
+| Sub-req | What it asks | What the framework gives you |
+|---|---|---|
+| **10.1** Link all access to system components to each individual user | Logs must identify the human actor | Declare `userId` in the matrix for `audit`; combine with `withSource('OrdersService')`. Never log on a shared service identity for cardholder-data-adjacent actions |
+| **10.2** Implement automated audit trails for specific events: user access to CHD, root/admin actions, audit-log access, invalid logical access attempts, identification/authentication mechanism use, initialization of audit logs, creation/deletion of system-level objects | The right events must reach the audit store | Call `log.audit(...)` at each of these points. `DurableAdapterTransport` guarantees delivery; the matrix declares which fields surface |
+| **10.3** Record at minimum: user identification, type of event, date/time, success/failure indication, origination of event, identity/name of affected data | Per-event fields are non-negotiable | Declare them in the Logging Matrix for `audit` — `userId`, `eventType`, `timestamp` (framework-managed), `success`, `sourceIp`, `affectedResource`. Anything not in the matrix doesn't appear |
+| **10.5** Secure audit trails so they cannot be altered (limit viewing, protect from modification, promptly back up to a centralized log server) | Storage-side controls | Out-of-scope for the logger. Your executor + storage backend (WORM bucket, signed log shipper, restricted IAM) implements this. `withRetention({ policy: 'PCI_DSS_REQ_10' })` routes to that backend |
+| **10.6** Review logs and security events at least daily | Operational process | Out-of-scope for the logger. Your SIEM does the review; the framework guarantees the events arrived |
+| **10.7** Retain audit trail history for at least one year, with three months immediately available | Tiered retention | `withRetention({ policy: 'PCI_DSS_REQ_10', years: 1, hotMonths: 3 })` carries the metadata; your storage tier (hot DB → cold archive) enforces the windows |
 
 ```typescript
-const pciLog = log.withRetention({ policy: 'PCI_DSS_REQ_10', years: 1 });
-pciLog.audit({ userId, action: 'card.tokenize' }, 'PAN tokenized');
+const pciLog = log
+  .withSource('PaymentTokenizer')
+  .withRetention({ policy: 'PCI_DSS_REQ_10', years: 1, hotMonths: 3 });
+
+pciLog.audit(
+  { userId, eventType: 'card.tokenize', success: true, sourceIp: req.ip, affectedResource: `pan:****-${last4}` },
+  'PAN tokenized',
+);
 ```
+
+**What you still need to do:**
+
+- 10.5 (secure storage) and 10.6 (daily review) are operational and storage-side controls — the framework cannot satisfy them by itself.
+- Time synchronization (Req 10.4) is a host-level concern (NTP); the framework reads `Date.now()` like everything else.
+- The PCI audit must include physical/network access events that originate outside your Node process — those reach the audit store via other shippers, not via SyntropyLog.
 
 ---
 
@@ -183,7 +274,9 @@ const audit = syntropyLog.getLogger().withRetention({ policy: 'SOX_AUDIT_TRAIL',
 audit.audit({ userId, action: 'manager.override' }, 'Approval');
 ```
 
-**Out of scope for v1:** disk and Redis spillover, persistent recovery on restart. Phase 3B will add `@syntropylog/adapter-postgres` (UPSERT-on-conflict with durable integration) and `@syntropylog/adapter-s3` (NDJSON batch, hourly rotation). For now, the `onDrop` hook + a local file is the durable boundary.
+**Out of scope:** disk and Redis spillover, persistent recovery on restart. The `onDrop` hook + a local file (as above) is the recommended durable boundary.
+
+**Backend adapters:** SyntropyLog deliberately does not ship concrete backend adapters (`pg`, `@aws-sdk/*`, `mongodb`, `@elastic/elasticsearch`, etc.). The `executor` function — typically 10–20 lines — is the integration point. This keeps the framework independent of client-library versions and storage flux. Recipe snippets for common backends may land as docs in the future, but as docs, not as packages. See [transports.md](transports.md) for the executor contract.
 
 ---
 
