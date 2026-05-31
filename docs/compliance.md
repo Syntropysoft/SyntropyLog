@@ -274,7 +274,7 @@ const audit = syntropyLog.getLogger().withRetention({ policy: 'SOX_AUDIT_TRAIL',
 audit.audit({ userId, action: 'manager.override' }, 'Approval');
 ```
 
-**Out of scope:** disk and Redis spillover, persistent recovery on restart. The `onDrop` hook + a local file (as above) is the recommended durable boundary.
+**Out of scope:** disk and external-store spillover, persistent recovery on restart. The `onDrop` hook + a local file (as above) is the recommended durable boundary.
 
 **Backend adapters:** SyntropyLog deliberately does not ship concrete backend adapters (`pg`, `@aws-sdk/*`, `mongodb`, `@elastic/elasticsearch`, etc.). The `executor` function — typically 10–20 lines — is the integration point. This keeps the framework independent of client-library versions and storage flux. Recipe snippets for common backends may land as docs in the future, but as docs, not as packages. See [transports.md](transports.md) for the executor contract.
 

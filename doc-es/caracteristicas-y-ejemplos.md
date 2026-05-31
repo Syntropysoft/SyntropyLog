@@ -1,6 +1,6 @@
 # Características de SyntropyLog — Lista canónica con ejemplos
 
-Este documento toma como **referencia** la lista del stack completo que se describe en [benchmark-memory-run.md](./benchmark-memory-run.md) (sección «Entornos de alta demanda») y expande **cada punto** con una breve explicación y ejemplos de uso. Sirve para revisar que la documentación y el código estén alineados y para que nuevos usuarios vean de un vistazo qué incluye SyntropyLog y cómo usarlo.
+Este documento toma como **referencia** la lista del stack completo que se describe en [benchmark-report.md](./benchmark-report.md) (sección «Entornos de alta demanda») y expande **cada punto** con una breve explicación y ejemplos de uso. Sirve para revisar que la documentación y el código estén alineados y para que nuevos usuarios vean de un vistazo qué incluye SyntropyLog y cómo usarlo.
 
 ---
 
@@ -245,17 +245,13 @@ auditLogger.audit({ userId: 123, action: 'data-export' }, 'GDPR export');
 
 ## 11. Ciclo de vida — init / shutdown
 
-**Qué es:** `init()` arranca el pipeline, conexiones (Redis, etc.) y emite `ready` cuando está listo. **No** se debe usar `getLogger()` antes de que `ready` haya sido emitido. `shutdown()` hace flush graceful (espera a que se escriban los logs en curso) y cierra recursos; conviene engancharlo a SIGTERM/SIGINT.
+**Qué es:** `init()` arranca el pipeline y devuelve una `Promise<void>` que resuelve cuando el framework está listo. Hacé siempre `await syntropyLog.init(...)` antes de llamar a `getLogger()` (hasta que resuelve, `getLogger()` devuelve un no-op que descarta los mensajes). `shutdown()` hace flush graceful (espera a que se escriban los logs en curso) y libera recursos; conviene engancharlo a SIGTERM/SIGINT.
 
 **Ejemplo:**
 
 ```ts
 async function main() {
-  await new Promise<void>((resolve, reject) => {
-    syntropyLog.on('ready', () => resolve());
-    syntropyLog.on('error', reject);
-    syntropyLog.init(config);
-  });
+  await syntropyLog.init(config); // resuelve cuando el framework está listo
   const log = syntropyLog.getLogger();
   log.info('Sistema listo');
 
@@ -317,6 +313,6 @@ syntropyLog.reconfigureLoggingMatrix(originalMatrix);
 
 ## Referencias
 
-- **Lista original (benchmark):** [benchmark-memory-run.md](./benchmark-memory-run.md) — sección «Entornos de alta demanda».
+- **Lista original (benchmark):** [benchmark-report.md](./benchmark-report.md) — sección «Entornos de alta demanda».
 - **README (EN):** [../README.md](../README.md) — Quick Start, Matrix, Masking, Universal Adapter, shutdown, etc.
 - **Transport pool (EN):** [../examples/TRANSPORT_POOL_AND_ENV.md](../examples/TRANSPORT_POOL_AND_ENV.md).
