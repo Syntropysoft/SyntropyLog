@@ -9,7 +9,7 @@
     },
     "dependencies": {
         "mitata": "^0.1.11",
-        "pino": "^9.0.0",
+        "pino": "^10.3.1",
         "syntropylog": "file:..",
         "winston": "^3.11.0"
     },
