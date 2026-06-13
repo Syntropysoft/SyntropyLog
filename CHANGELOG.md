@@ -25,6 +25,7 @@ First stable release. The public API is now covered by [semantic versioning](./d
 ### Housekeeping
 
 - Removed a dead scratch file and superseded per-release notes from the repo root.
+- Cleared dev-tooling security advisories: bumped `vitest` (and `@vitest/coverage-*`) to `4.1.8` and pinned `esbuild >= 0.28.1` via `pnpm.overrides`. These are dev/test dependencies only — the published package has no runtime dependencies, so consumers were never exposed — but `pnpm audit` is now clean across all severities.
 
 ## 1.0.0-rc.3
 
