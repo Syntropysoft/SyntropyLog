@@ -52,11 +52,14 @@ if (!nativeAddonInUse) {
   );
 }
 
-// Pino Setup — force `sync: true` for a fair I/O model. Without it Pino buffers
-// via SonicBoom (async), which inflates its measured memory under high throughput
-// and makes the comparison against SyntropyLog (synchronous writes) unfair. With
-// sync:true both deliver each log to the sink in the same tick. Matches the
-// methodology in examples/17-benchmark.
+// Pino Setup — force `sync: true` so both write to the sink in the same tick
+// (SyntropyLog writes synchronously). Without it Pino buffers via SonicBoom
+// (async), which inflates its measured memory and lets it defer write work,
+// making the throughput comparison unfair to SyntropyLog. Matches the methodology
+// in examples/17-benchmark.
+// HONESTY NOTE: sync:true is NOT Pino's fastest mode — in production Pino runs
+// async and is faster on plain strings, especially on x64. So do NOT read these
+// throughput numbers as "we beat Pino"; they're a same-I/O-model parity check.
 const pinoLogger = pino(
   { level: 'info' },
   pino.destination({
@@ -113,8 +116,13 @@ group('MaskingEngine only (complex object, p99/p999 baseline)', () => {
   });
 });
 
-group('Complex Object (same payload, fair comparison)', () => {
-  // SyntropyLog como baseline para que salga primero en el summary (referencia de comparación)
+// NOT a head-to-head: SyntropyLog masks (email, token), filters by matrix,
+// sanitizes and reads context here; Pino and Winston only serialize. Their
+// numbers are a no-masking REFERENCE to size what the full pipeline costs —
+// not a fair comparison, because they don't do this work. The only legit
+// direct comparison is the minimal-logging group above.
+group('Complex Object — full pipeline cost (Pino/Winston = no-masking reference)', () => {
+  // SyntropyLog as baseline so it prints first in the summary.
   baseline('SyntropyLog (with masking)', () => {
     slLogger.info('User action', complexObj);
   });
