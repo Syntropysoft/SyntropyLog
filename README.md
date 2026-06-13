@@ -113,7 +113,7 @@ syntropyLog.getLogger('billing') === billing; // true — same cached instance
 | NestJS | In `bootstrap()` before `app.listen()` (see [NestJS](#nestjs)) |
 | Lambda / Serverless | Module-level singleton outside the handler; init once, reused across invocations |
 
-**Where to go next:** run [`01-hello-world`](https://github.com/Syntropysoft/syntropylog-examples/tree/main/01-hello-world) (examples `00`–`17`), or jump to [What's in the box](#whats-in-the-box).
+**Where to go next:** run [`01-hello-world`](https://github.com/Syntropysoft/syntropylog-examples/tree/main/01-hello-world) (examples `00`–`21`), or jump to [What's in the box](#whats-in-the-box).
 
 ---
 
@@ -589,10 +589,10 @@ Full details: [SECURITY.md](./SECURITY.md).
 ## Documentation & examples
 
 - **[Logging Matrix](docs/logging-matrix.md)** · **[Compliance routing](docs/compliance.md)** · **[Masking](docs/masking.md)** · **[Transports](docs/transports.md)** · **[Context](docs/context.md)** · **[Fluent API](docs/fluent-api.md)** · **[Lifecycle & hooks](docs/lifecycle.md)** · **[Runtime reconfiguration](docs/runtime-reconfiguration.md)** · **[Testing & mocks](docs/testing-mocks.md)**
-- **[Native addon (Rust)](docs/native-addon.md)** · **[Building it from source](docs/building-native-addon.md)** · **[OpenTelemetry](docs/opentelemetry-integration.md)**
+- **[Native addon (Rust)](docs/native-addon.md)** · **[Building it from source](docs/building-native-addon.md)** · **[OpenTelemetry](docs/opentelemetry-integration.md)** · **[Stability & compatibility](docs/stability.md)**
 - **[Migrating from Pino](docs/migration-from-pino.md)** — practical side-by-side
 - **[Benchmark report (throughput + memory)](docs/benchmark-report.md)** — SyntropyLog vs Pino vs Winston, three machines
-- **[Examples repository](https://github.com/Syntropysoft/syntropylog-examples)** — 18 runnable examples (`00`–`17`): fundamentals (`00`–`09`), integration (`10`–`12`), testing (`13`–`16`), benchmark (`17`)
+- **[Examples repository](https://github.com/Syntropysoft/syntropylog-examples)** — 22 runnable examples (`00`–`21`): fundamentals (`00`–`09`), integration (`10`–`12`), testing (`13`–`16`), benchmark (`17`), compliance & observability (`18` durable transport, `19` retention policies, `20` getStats, `21` correlation middleware)
 - **[Documentación en Español](doc-es/caracteristicas-y-ejemplos.md)**
 
 ```bash
