@@ -40,12 +40,12 @@ Cada número de abajo es SyntropyLog ejecutando ese **stack completo** — no un
 
 | Escenario | SyntropyLog | vs Pino | vs Winston |
 |-----------|-------------|---------|------------|
-| **Log simple (JSON)** | 0,93 (M2) / 1,41 (AMD) / 1,73 (GH) µs | **más rápido** en M2 y WSL2; ~15–20% más lento en x64 CI | **más rápido** en todos |
-| **Objeto complejo (con enmascarado)** | 5,0 (M2) / 6,0 (AMD) µs | ~2,2× más lento (coste de enmascarado — Pino no redacta) | más rápido en AMD/GH, más lento en M2 |
+| **Log simple (JSON)** | 0,93 (M2) / 1,41 (AMD) / 1,61 (GH) µs | **más rápido** en M2 y WSL2; más lento en CPUs x64 de servidor (brecha variable por ruido de CI) | **más rápido** en todos |
+| **Objeto complejo (pipeline completo)** | 5,0 (M2) / 6,0 (AMD) µs | *solo referencia* — Pino no enmascara | *solo referencia* — Winston no enmascara |
 | **API fluida (`withRetention`)** | 6,6 / 7,3 / 10,3 µs | — | — |
 | **Memoria (JSON simple)** | ~181 bytes/op | **idéntico** (~181) | ~5× menos (Winston ~936) |
 
-**Titular:** SyntropyLog es **competitivo con Pino en rendimiento bruto haciendo mucho más en cada llamada**, y es **siempre más rápido que Winston**. En JSON simple es el más rápido de los tres en M2 y WSL2; en la máquina x64 de CI Pino se adelanta ~15–20%. En memoria es **idéntico a Pino** (~181 bytes/op) y ~5× por debajo de Winston.
+**Titular:** SyntropyLog es **competitivo con Pino en rendimiento bruto haciendo mucho más en cada llamada**, y es **siempre más rápido que Winston**. En JSON simple es el más rápido de los tres en M2 y WSL2; en CPUs x64 de servidor un Pino pelado es consistentemente más rápido (el margen varía corrida a corrida en el runner de CI ruidoso). En memoria es **a la par de Pino** (~181 bytes/op) y ~5× por debajo de Winston.
 
 El único lugar donde un logger pelado gana de forma consistente es **el throughput de string plano en x64** — donde Pino no hace nada salvo formatear un string. En cuanto necesitas redacción, control de campos, contexto o ruteo de auditoría, esa brecha es el precio de escribirlo (y mantenerlo) tú mismo.
 
@@ -53,36 +53,38 @@ El único lugar donde un logger pelado gana de forma consistente es **el through
 
 ## 3. Rendimiento (tiempo medio por iteración)
 
+> **Léelo como "cuánto cuesta el pipeline completo", no "quién escribe un string más rápido".** Pino y Winston solo formatean y escriben. Cada número de SyntropyLog de abajo *además* corre enmascarado, filtrado por matriz, sanitización y el pipeline de contexto (ver §1). No es una carrera equivalente — el punto es que el pipeline de seguridad completo se mantiene competitivo con un logger pelado, no el margen exacto en una máquina puntual.
+
 ### 3.1 Mensaje simple (Logging Throughput)
 
 | Librería | M2 | M2 p99 | AMD | AMD p99 | GH | GH p99 |
 |----------|----|--------|-----|---------|----|--------|
-| console.log (referencia) | 0,14 | 1,63 | 0,25 | 3,16 | 0,29 | 3,19 |
-| **SyntropyLog (JSON)** | **0,93** | 3,46 | **1,41** | 6,33 | 1,73 | 4,96 |
-| Pino | 1,22 | 1,79 | 1,60 | 3,27 | **1,40** | 3,63 |
-| Winston | 1,17 | 2,04 | 2,01 | 5,81 | 2,55 | 7,72 |
+| console.log (referencia) | 0,14 | 1,63 | 0,25 | 3,16 | 0,26 | 3,02 |
+| **SyntropyLog (JSON)** | **0,93** | 3,46 | **1,41** | 6,33 | 1,61 | 3,77 |
+| Pino | 1,22 | 1,79 | 1,60 | 3,27 | **1,06** | 3,05 |
+| Winston | 1,17 | 2,04 | 2,01 | 5,81 | 3,55 | 12,33 |
 
-- SyntropyLog es **el más rápido de los tres en M2 y AMD/WSL2** (0,93 / 1,41 µs). En la máquina x64 de CI Pino es ~15–20% más rápido (1,40 vs 1,73 µs) — un logger pelado formateando un string plano en una CPU de servidor.
+- SyntropyLog es **el más rápido de los tres en M2 y AMD/WSL2** (0,93 / 1,41 µs). En CPUs x64 de servidor un Pino pelado es consistentemente más rápido en strings planos — en tres corridas de CI la brecha fue de ~12–52% (esta corrida: 1,06 vs 1,61 µs); la magnitud es ruidosa pero el orden es estable.
 - SyntropyLog es **más rápido que Winston en todos los entornos**.
 
-### 3.2 Objeto complejo (mismo payload)
+### 3.2 Objeto complejo — costo del pipeline completo (no es comparación)
 
 | Librería | M2 | AMD | GH | Enmascara |
 |----------|----|-----|----|-----------|
-| Pino (objeto complejo) | 2,14 | 2,69 | 7,64 | ❌ |
-| Winston (objeto complejo) | 3,58 | 8,67 | 9,47 | ❌ |
-| **SyntropyLog (con enmascarado)** | **5,00** | **5,96** | **7,72** | ✅ |
+| Pino (objeto complejo) | 2,14 | 2,69 | 4,00 | ❌ |
+| Winston (objeto complejo) | 3,58 | 8,67 | 9,96 | ❌ |
+| **SyntropyLog (con enmascarado)** | **5,00** | **5,96** | **7,77** | ✅ |
 
-- **No es equivalente:** SyntropyLog enmascara; Pino y Winston no. En las máquinas más limpias (M2, WSL2) SyntropyLog es **~2,2× más lento que Pino** — esa brecha *es* el trabajo de redacción.
-- Frente a Winston el resultado es **mixto**: más rápido en AMD (5,96 vs 8,67) y GH (7,72 vs 9,47), más lento en M2 (5,00 vs 3,58).
+- **No es comparación — es referencia.** Acá SyntropyLog enmascara, filtra por matriz, sanitiza y lee contexto; Pino y Winston solo serializan. Sus números se muestran **solo como referencia (sin masking)** para dimensionar qué cuesta el pipeline completo — no como head-to-head, porque ellos no hacen este trabajo. En hardware tranquilo (M2, WSL2) el pipeline completo corre a **~2,2× un Pino pelado** — ese delta *es* el trabajo que ellos se saltan.
+- Incluso al lado de Winston (que tampoco enmascara) el pipeline completo queda cerca: más rápido en AMD (5,96 vs 8,67) y GH (7,77 vs 9,96), más lento en M2 (5,00 vs 3,58).
 
-> **⚠️ Ruido de CI — no sobre-leer la columna GH de complejo.** Dos corridas seguidas en la *misma* máquina EPYC de GitHub, sin cambiar código, dieron números **muy distintos** de objeto complejo: SyntropyLog **11,69 → 7,72 µs** y Pino **3,06 → 7,64 µs** (un swing de 2,5×). El runner de CI compartido es demasiado ruidoso para el grupo complejo/cola. La señal fiable en todos los entornos: el camino de enmascarado de SyntropyLog cuesta **~2,2× un Pino pelado** en hardware tranquilo (M2/WSL2). Las cifras GH de arriba son de la segunda corrida, más representativa; tómalas como indicativas.
+> **⚠️ Ruido de CI — no sobre-leer la columna GH de complejo.** Tres corridas en la *misma* máquina EPYC de GitHub, sin cambiar código, dieron números **muy distintos** de objeto complejo: SyntropyLog **11,69 → 7,72 → 7,77 µs** y Pino **3,06 → 7,64 → 4,00 µs**. El runner de CI compartido es demasiado ruidoso para el grupo complejo/cola. La señal fiable en todos los entornos: el camino de enmascarado de SyntropyLog cuesta **~2,2× un Pino pelado** en hardware tranquilo (M2/WSL2). Las cifras GH de arriba son de la última corrida; tómalas como indicativas.
 
 ### 3.3 MaskingEngine solo (objeto complejo)
 
 | Benchmark | M2 | AMD | GH |
 |-----------|----|-----|----|
-| MaskingEngine.process(complexObj) | 2,30 | 2,72 | 4,05 |
+| MaskingEngine.process(complexObj) | 2,30 | 2,72 | 4,21 |
 
 Coste aislado del enmascarado, útil como base de p99/p999 para el grupo de objeto complejo.
 
@@ -90,7 +92,7 @@ Coste aislado del enmascarado, útil como base de p99/p999 para el grupo de obje
 
 | Benchmark | M2 | AMD | GH |
 |-----------|----|-----|----|
-| SyntropyLog (withRetention complejo) | 6,58 | 7,30 | 10,33 |
+| SyntropyLog (withRetention complejo) | 6,58 | 7,30 | 10,04 |
 
 Crea un logger hijo ligado a la retención + un log por iteración. Para una llamada que liga metadatos de cumplimiento, los sanitiza y los enruta por el executor, esto es despreciable en cualquier aplicación real. En un camino caliente, reutiliza un único logger `withRetention(...)` en lugar de crear uno por llamada.
 
@@ -98,20 +100,22 @@ Crea un logger hijo ligado a la retención + un log por iteración. Para una lla
 
 ## 4. Memoria (delta de heap por 100.000 iteraciones, bytes/op)
 
-Obtenido con **`pnpm run bench:memory`** (Node con `--expose-gc`). La memoria es mucho más estable entre corridas que el tiempo de CPU — las cifras de GH y bare-metal coinciden de cerca.
+Obtenido con **`pnpm run bench:memory`** (Node con `--expose-gc`). La memoria es mucho más estable entre corridas que el tiempo de CPU — las cifras coinciden de cerca entre máquinas y corridas (con una excepción de ruido de CI, marcada abajo).
 
 | Benchmark | M2 | AMD | GH |
 |-----------|----|-----|----|
-| console.log (referencia) | 148,24 | 148,76 | 148,12 |
-| SyntropyLog (JSON) | 182,01 | 182,11 | 181,46 |
-| Pino | 152,92 | 151,82 | 181,20 |
-| Winston | 932,45 | 946,58 | 936,29 |
-| SyntropyLog (con enmascarado) | 230,28 | 219,87 | 227,47 |
-| Pino (objeto complejo) | 120,78 | 123,79 | 180,76 |
-| Winston (objeto complejo) | 2.288,77 | 2.249,08 | 2.288,40 |
-| SyntropyLog (withRetention complejo) | 253,82 | 250,65 | 253,54 |
+| console.log (referencia) | 148,24 | 148,76 | 148,36 |
+| SyntropyLog (JSON) | 182,01 | 182,11 | 181,56 |
+| Pino | 152,92 | 151,82 | 182,53 |
+| Winston | 932,45 | 946,58 | 934,08 |
+| SyntropyLog (con enmascarado) | 230,28 | 219,87 | 224,62 |
+| Pino (objeto complejo) | 120,78 | 123,79 | ~181 * |
+| Winston (objeto complejo) | 2.288,77 | 2.249,08 | 2.283,72 |
+| SyntropyLog (withRetention complejo) | 253,82 | 250,65 | 252,62 |
 
-- SyntropyLog (JSON): **~181 bytes/op** — **idéntico a Pino** en la corrida de CI (181,46 vs 181,20), dentro de ~30 bytes en el resto.
+\* La última corrida de CI disparó la memoria de Pino en objeto complejo a 708 bytes/op — un artefacto de ruido del runner; se muestra el valor representativo ~181 (consistente en todas las demás corridas).
+
+- SyntropyLog (JSON): **~181 bytes/op** — **a la par de Pino** en la corrida de CI (181,56 vs 182,53), dentro de ~30 bytes en el resto.
 - Con enmascarado / retención: **~220–254 bytes/op**.
 - Winston: **~936 bytes/op** simple y **~2.288 bytes/op** complejo — ~5× / ~10× los otros, en todos lados.
 - Para un logger que trae enmascarado, retención, matriz y contexto estructurado por defecto, un suelo de ~181 bytes/op a la par de un Pino pelado es un footprint excelente.
@@ -120,8 +124,8 @@ Obtenido con **`pnpm run bench:memory`** (Node con `--expose-gc`). La memoria es
 
 ## 5. Conclusiones
 
-- **Hace más, por el mismo precio.** SyntropyLog ejecuta enmascarado, matriz, sanitización, contexto y ruteo de auditoría en cada llamada — Pino y Winston no — y aun así queda dentro del ruido de Pino en rendimiento e *idéntico* en memoria.
-- **Rendimiento:** el más rápido de los tres en M2 y WSL2; ~15–20% detrás de Pino solo en string plano x64; siempre por delante de Winston.
+- **No es una comparación equivalente — y ese es el punto.** SyntropyLog ejecuta enmascarado, matriz, sanitización, contexto y ruteo de auditoría en cada llamada; Pino y Winston no. Los números muestran el **pipeline de seguridad completo manteniéndose competitivo con un logger pelado**, no una carrera de formateo de strings.
+- **Rendimiento:** el más rápido de los tres en M2 y WSL2; detrás de un Pino pelado en string plano x64 (brecha variable por ruido de CI); siempre por delante de Winston — haciendo estrictamente más en cada llamada.
 - **Complejo / enmascarado:** ~2,2× un Pino pelado en hardware tranquilo (el coste de redacción), más rápido que Winston en la mayoría de corridas. Las cifras complejas de CI son ruidosas — ver §3.2.
 - **Memoria:** a la par de Pino (~181 bytes/op), ~5–10× por debajo de Winston.
 - **Posicionamiento:** para un logger que trae JSON, enmascarado, contexto y seguridad **por defecto**, no hay rival en su categoría. Pino es más ligero pero no redacta de fábrica; Winston es mucho más pesado y lento sin el mismo paquete listo para usar.

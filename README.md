@@ -524,16 +524,18 @@ Build from source: [docs/building-native-addon.md](docs/building-native-addon.md
 
 ## Performance
 
-Honest, cross-platform numbers (full pipeline active, null transport, Node 20). SyntropyLog runs masking + matrix + sanitization + context on **every** call; Pino and Winston do not.
+The only honest head-to-head is **minimal logging** — everyone doing the bare minimum (plain JSON, no masking). Above that, SyntropyLog runs masking, matrix filtering, sanitization and context on every call and Pino/Winston don't, so it's a **different category, not a race**.
 
-| Simple log (JSON), avg µs | M2 | WSL2/AMD | x64 CI |
+**Minimal logging — the apples-to-apples comparison (avg µs):**
+
+| Simple log (JSON) | M2 | WSL2/AMD | x64 CI |
 |---|---|---|---|
-| **SyntropyLog** | **0.93** | **1.41** | 1.73 |
-| Pino | 1.22 | 1.60 | **1.40** |
-| Winston | 1.17 | 2.01 | 2.55 |
+| **SyntropyLog** | **0.93** | **1.41** | 1.61 |
+| Pino | 1.22 | 1.60 | **1.06** |
+| Winston | 1.17 | 2.01 | 3.55 |
 
-- **Competitive with Pino while doing far more** — fastest of the three on M2 and WSL2; ~15–20% behind a bare Pino only on x64 server CPUs. **Always faster than Winston.**
-- **Complex object + masking:** ~2.2× a bare Pino (which redacts nothing) on quiet hardware — that gap *is* the redaction work.
+- Even at the bare minimum, SyntropyLog is **fastest on M2 and WSL2** and **always beats Winston**; a bare Pino is faster on x64 server CPUs (margin varies run-to-run on noisy CI).
+- **Full pipeline (masking + context + matrix):** ~5–8 µs. No fair head-to-head exists here — Pino/Winston don't do this work, so their numbers serve only as a no-masking reference.
 - **Memory:** ~181 bytes/op — on par with Pino, ~5× below Winston (~936) on simple logs.
 
 Full report (three machines, percentiles, CI-noise caveat): [docs/benchmark-report.md](docs/benchmark-report.md). Run: `pnpm run bench:memory`.
