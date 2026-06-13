@@ -319,7 +319,16 @@ export class DurableAdapterTransport extends Transport {
    */
   public override async flush(): Promise<void> {
     const deadline = Date.now() + this.flushTimeoutMs;
-    while (this.queue.length > 0 && Date.now() < deadline) {
+    // Wait for both the queued items AND any in-flight item. The drain loop
+    // removes the item it's working on from the queue (see `drain`), so a
+    // queue length of 0 does NOT mean idle — an entry may still be mid-retry
+    // under backoff. `processing` stays true until the drain loop fully
+    // settles, so without it flush() could return while an audit entry is
+    // still in flight, defeating the delivery guarantee.
+    while (
+      (this.queue.length > 0 || this.processing) &&
+      Date.now() < deadline
+    ) {
       // Yield to the drain loop. Short sleep so we don't burn CPU.
       await sleep(10);
     }

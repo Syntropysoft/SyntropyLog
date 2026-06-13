@@ -18,6 +18,10 @@ First stable release. The public API is now covered by [semantic versioning](./d
 - Benchmark reporting reframed: a direct comparison against Pino/Winston applies **only to minimal logging**; for the full pipeline, their numbers are shown as a no-masking reference, not a head-to-head.
 - **Pipeline decomposition** added — calling the native addon in isolation shows ~87% of the complex-object cost is the Rust engine (serialize + mask + sanitize), ~11% the JS `JSON.stringify`, and ~2% the rest of the JS pipeline. The framework layer is nearly free; the cost is the real masking work.
 
+### Fixes
+
+- **`DurableAdapterTransport.flush()` now waits for the in-flight entry, not just the queue.** The drain loop removes the entry it's delivering from the queue, so during a backoff the queue can be empty while an audit entry is still mid-retry. `flush()` previously returned in that window, which could lose a retention-tagged entry on shutdown — exactly what the transport exists to prevent. It now also waits while the drain loop is active. Found by writing example `18-durable-transport`; covered by a regression test.
+
 ### Housekeeping
 
 - Removed a dead scratch file and superseded per-release notes from the repo root.
