@@ -55,12 +55,17 @@ jobs:
       - name: Setup zig (cross-compile)
         if: ${{ matrix.zig }}
         uses: mlugg/setup-zig@v1
+        with:
+          # Pin a tagged stable release. The action's default tracks the latest
+          # dev version (e.g. 0.16.0), which isn't on ziglang.org/builds or the
+          # mirrors and fails to download (404/503).
+          version: 0.15.1
 
       - name: Install cargo-zigbuild (cross-compile)
         if: ${{ matrix.zig }}
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-zigbuild
+          tool: cargo-zigbuild@0.22.3
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
