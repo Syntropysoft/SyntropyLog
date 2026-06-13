@@ -95,4 +95,40 @@ export type {
   MaskingRule,
   GetDefaultMaskingRulesOptions,
 } from './masking/MaskingEngine';
-export * from './sensitiveKeys';
+
+// --- Sensitive-key aliases (explicit, not `export *`, so the public surface is
+// visible and intentional: adding a new const here does NOT auto-publish it). ---
+export {
+  MASK_KEY_PWD,
+  MASK_KEY_TOK,
+  MASK_KEY_SEC,
+  MASK_KEY_PASS,
+  MASK_KEY_PWD_ALT,
+  MASK_KEY_API_KEY,
+  MASK_KEY_AUTH_TOKEN,
+  MASK_KEY_BEARER,
+  MASK_KEY_JWT,
+  MASK_KEY_KEY,
+  MASK_KEY_AUTH,
+  MASK_KEY_AUTHORIZATION,
+  MASK_KEY_APIKEY,
+  MASK_KEY_CREDENTIAL,
+  MASK_KEY_ACCESSTOKEN,
+  MASK_KEY_REFRESHTOKEN,
+  MASK_KEY_PRIVATE_KEY,
+  MASK_KEY_PRIVATEKEY,
+  MASK_KEY_CONNECTION_STRING,
+  MASK_KEY_WALLET_LOCATION,
+  MASK_KEY_CLIENTSECRET,
+  MASK_KEY_SENTINELPWD,
+  MASK_KEY_CREDENTIAL_ID,
+  MASK_KEY_CREDENTIALID,
+  MASK_KEY_ACCESS_TOKEN,
+  MASK_KEY_REFRESH_TOKEN,
+  MASK_KEY_SESSION_ID,
+  MASK_KEY_SESSIONID,
+  MASK_KEYS_PASSWORD,
+  MASK_KEYS_TOKEN,
+  MASK_KEYS_ALL,
+  maskEnum,
+} from './sensitiveKeys';
