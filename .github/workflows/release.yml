@@ -140,7 +140,7 @@ jobs:
         with:
           title: "Version Packages"
           branch: main
-          publish: npm run release
+          publish: npm run release:stable
           version: npm run version-packages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

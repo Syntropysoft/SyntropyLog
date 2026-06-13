@@ -23,50 +23,37 @@ npm run test:coverage   # thresholds: lines 90 / branches 75
 `npm run check:deps` reports the napi per-platform packages as "missing" and some
 devDeps as "unused" — both are known false positives, not failures.
 
-## Two things to know before publishing 1.0.0
+## How publishing works (automated)
 
-### 1. dist-tag — stable must go to `latest`, not `next`
+The repo is wired for a **hands-off release via changesets** on push to `main`
+(`.github/workflows/release.yml`). Two things are already baked in so you don't
+touch them at release time:
 
-The default `release` script publishes with `--tag next` (correct for RCs, wrong
-for stable). For the stable promotion use **`release:stable`** instead, which
-publishes to `latest`:
+- **dist-tag → `latest`.** The workflow publishes with `npm run release:stable`
+  (`changeset publish`, no `--tag`), so stable releases land on `latest`. (The
+  separate `release` script still uses `--tag next` if you ever cut an RC.)
+- **CHANGELOG is yours.** `.changeset/config.json` sets `"changelog": false`, so
+  the Version PR only bumps versions — it never generates or overwrites a
+  CHANGELOG entry. The hand-written `## 1.0.0` block is authoritative.
 
-```jsonc
-// package.json
-"release":        "npm run build && changeset publish --tag next",  // RC
-"release:stable": "npm run build && changeset publish",             // stable → latest
-```
+**The native addon is published by CI, not a laptop.** `syntropylog-native` ships
+prebuilt `.node` files for all 7 targets, cross-compiled in the `build-addon`
+matrix (zig). A local publish would only include the host's binary.
 
-When releasing 1.0.0 via CI, point the workflow's publish step at it:
+### The flow
 
-```yaml
-# .github/workflows/release.yml → release job → changesets/action
-publish: npm run release:stable
-```
+1. **Merge `develop` → `main`.** `build-addon` cross-compiles all 7 native
+   targets; `changesets/action` sees the pending changeset and opens a **"Version
+   Packages" PR** (bumps `syntropylog` and `syntropylog-native` to `1.0.0`,
+   deletes the changeset). It does **not** publish yet.
+2. **Review + merge the "Version Packages" PR.** This is the only checkpoint —
+   confirm the version bump looks right. Merging it triggers the publish: the
+   `release` job merges the 7 prebuilt `.node` into `syntropylog-native/` and runs
+   `release:stable` → `syntropylog@1.0.0` + `syntropylog-native@1.0.0` to `latest`,
+   with npm provenance.
 
-(Not changed automatically — flip it deliberately when you cut 1.0.0.)
-
-### 2. The native addon must be published by CI
-
-`syntropylog-native` ships prebuilt `.node` files for all 7 targets. Those are
-**cross-compiled in CI** (`release.yml` build-addon matrix → zig). A local
-publish would only include the host's binary. So the native package must go
-through the CI release path, not a laptop.
-
-## Publishing
-
-The repo is wired for **changesets via CI** (`.github/workflows/release.yml`,
-triggered on push to `main`):
-
-1. Merge `develop` → `main`.
-2. `build-addon` cross-compiles all 7 native targets and uploads them; the
-   `release` job merges them into `syntropylog-native/` before publishing.
-3. `changesets/action` runs `version-packages` (`changeset version`) — this bumps
-   the versions and **prepends a generated stub to `CHANGELOG.md`**. Since the
-   `## 1.0.0` entry is already hand-written, **delete the generated stub** so it
-   isn't duplicated (do this in the "Version Packages" PR before merging).
-4. Merging the "Version Packages" PR runs the publish step (`release:stable` per
-   §1) → `syntropylog@1.0.0` and `syntropylog-native@1.0.0` to the `latest` tag.
+So: two merges (your feature/`develop`→`main`, then the auto Version PR). No npm
+commands by hand, correct dist-tag, no CHANGELOG conflicts.
 
 ## Post-release checks
 
