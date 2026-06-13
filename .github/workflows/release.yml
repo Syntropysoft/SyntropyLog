@@ -78,7 +78,11 @@ jobs:
         shell: bash
         run: |
           cd syntropylog-native
-          pnpm exec napi build --platform --release --target ${{ matrix.target }} ${{ matrix.zig && '--zig' || '' }}
+          # Pin the napi CLI to the exact 2.x version via dlx. `pnpm exec napi`
+          # was resolving napi 3.x in CI (which dropped --zig for --cross-compile),
+          # breaking the cross-compile step; dlx@2.18.4 runs the version that has
+          # --zig deterministically, independent of workspace resolution.
+          pnpm dlx @napi-rs/cli@2.18.4 build --platform --release --target ${{ matrix.target }} ${{ matrix.zig && '--zig' || '' }}
           node scripts/patch-index-no-shell.js
 
       - name: Upload addon artifact
