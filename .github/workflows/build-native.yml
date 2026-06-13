@@ -1,5 +1,7 @@
-# Build the Rust addon (syntropylog-native) on Windows, Linux, and macOS.
-# Each runner produces the .node for its platform; a final job merges all artifacts.
+# Build the Rust addon (syntropylog-native) for every supported target.
+# Native targets build on their own runner; Linux server targets (arm64 / musl)
+# are cross-compiled with zig (via cargo-zigbuild, which napi drives with --zig).
+# A final job merges all .node files into one addon package.
 name: Build native addon
 
 on:
@@ -11,12 +13,21 @@ on:
 
 jobs:
   build:
-    name: Build (${{ matrix.os }})
+    name: Build (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          # --- Native (built on a matching runner; binary is runnable → tested) ---
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, test: true }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, test: true }
+          - { os: macos-latest, target: aarch64-apple-darwin, test: true }
+          # --- Cross-compiled (not runnable on the runner → build only) ---
+          - { os: macos-latest, target: x86_64-apple-darwin }
+          - { os: ubuntu-latest, target: aarch64-unknown-linux-gnu, zig: true }
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, zig: true }
+          - { os: ubuntu-latest, target: aarch64-unknown-linux-musl, zig: true }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,24 +48,51 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
+          target: ${{ matrix.target }}
           cache: cargo
           cache-target: syntropylog-native/target
+
+      - name: Setup zig (cross-compile)
+        if: ${{ matrix.zig }}
+        shell: bash
+        run: |
+          # Download the tagged release directly from ziglang.org/download (verified
+          # 200) instead of mlugg/setup-zig: its community mirrors were down (503/404)
+          # and its "official" fallback hits ziglang.org/builds — the DEV build index,
+          # which 404s for tagged releases. Direct download is reliable and under our
+          # control. Every zig matrix entry cross-compiles ON the x64 Ubuntu runner.
+          ZIG_VERSION=0.15.1
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" -o /tmp/zig.tar.xz
+          mkdir -p "$HOME/zig"
+          tar -xJf /tmp/zig.tar.xz -C "$HOME/zig" --strip-components=1
+          echo "$HOME/zig" >> "$GITHUB_PATH"
+          "$HOME/zig/zig" version
+
+      - name: Install cargo-zigbuild (cross-compile)
+        if: ${{ matrix.zig }}
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild@0.22.3
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build addon (current platform)
-        run: cd syntropylog-native && pnpm run build
+      - name: Build addon
         shell: bash
+        run: |
+          cd syntropylog-native
+          pnpm exec napi build --platform --release --target ${{ matrix.target }} ${{ matrix.zig && '--zig' || '' }}
+          node scripts/patch-index-no-shell.js
 
-      - name: Test addon
-        run: cd syntropylog-native && node test-node.mjs
+      - name: Test addon (native targets only)
+        if: ${{ matrix.test }}
         shell: bash
+        run: cd syntropylog-native && node test-node.mjs
 
       - name: Upload addon artifact
         uses: actions/upload-artifact@v4
         with:
-          name: addon-${{ matrix.os }}
+          name: addon-${{ matrix.target }}
           path: |
             syntropylog-native/*.node
             syntropylog-native/index.js

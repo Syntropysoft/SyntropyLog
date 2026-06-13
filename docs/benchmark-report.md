@@ -40,12 +40,12 @@ Every number below is SyntropyLog running that **full stack** — not a trimmed-
 
 | Scenario | SyntropyLog | vs Pino | vs Winston |
 |----------|-------------|---------|------------|
-| **Simple log (JSON)** | 0.93 (M2) / 1.41 (AMD) / 1.73 (GH) µs | **faster** on M2 & WSL2; ~15–20% slower on x64 CI | **faster** everywhere |
-| **Complex object (with masking)** | 5.0 (M2) / 6.0 (AMD) µs | ~2.2× slower (masking cost — Pino redacts nothing) | faster on AMD/GH, slower on M2 |
+| **Simple log (JSON)** | 0.93 (M2) / 1.41 (AMD) / 1.61 (GH) µs | **faster** on M2 & WSL2; slower on x64 server CPUs (gap varies on noisy CI) | **faster** everywhere |
+| **Complex object (full pipeline)** | 5.0 (M2) / 6.0 (AMD) µs | *reference only* — Pino doesn't mask | *reference only* — Winston doesn't mask |
 | **Fluent API (`withRetention`)** | 6.6 / 7.3 / 10.3 µs | — | — |
 | **Memory (simple JSON)** | ~181 bytes/op | **identical** (~181) | ~5× lower (Winston ~936) |
 
-**Headline:** SyntropyLog is **competitive with Pino on raw throughput while doing far more on every call**, and it is **always faster than Winston**. On simple JSON it is fastest of the three on M2 and WSL2; on the x64 CI box Pino edges ahead by ~15–20%. On memory it is **identical to Pino** (~181 bytes/op) and ~5× below Winston.
+**Headline:** SyntropyLog is **competitive with Pino on raw throughput while doing far more on every call**, and it is **always faster than Winston**. On simple JSON it is fastest of the three on M2 and WSL2; on x64 server CPUs a bare Pino is consistently faster (the margin varies run-to-run on the noisy shared CI runner). On memory it is **on par with Pino** (~181 bytes/op) and ~5× below Winston.
 
 The only consistent place a bare logger wins is **plain-string throughput on x64** — where Pino does nothing but format a string. The moment you need redaction, field control, context, or audit routing, that gap is the price of writing it (and maintaining it) yourself.
 
@@ -53,36 +53,60 @@ The only consistent place a bare logger wins is **plain-string throughput on x64
 
 ## 3. Throughput (average time per iteration)
 
+> **Read these as "what the full pipeline costs", not "who logs a string fastest".** Pino and Winston only format and write. Every SyntropyLog number below *also* runs masking, matrix filtering, sanitization, and the context pipeline (see §1). This is not a like-for-like race — the takeaway is that the full safety pipeline stays competitive with a bare logger, not the exact margin on any one box.
+
 ### 3.1 Simple Message (Logging Throughput)
 
 | Library | M2 | M2 p99 | AMD | AMD p99 | GH | GH p99 |
 |---------|----|--------|-----|---------|----|--------|
-| console.log (baseline) | 0.14 | 1.63 | 0.25 | 3.16 | 0.29 | 3.19 |
-| **SyntropyLog (JSON)** | **0.93** | 3.46 | **1.41** | 6.33 | 1.73 | 4.96 |
-| Pino | 1.22 | 1.79 | 1.60 | 3.27 | **1.40** | 3.63 |
-| Winston | 1.17 | 2.04 | 2.01 | 5.81 | 2.55 | 7.72 |
+| console.log (baseline) | 0.14 | 1.63 | 0.25 | 3.16 | 0.26 | 3.02 |
+| **SyntropyLog (JSON)** | **0.93** | 3.46 | **1.41** | 6.33 | 1.61 | 3.77 |
+| Pino | 1.22 | 1.79 | 1.60 | 3.27 | **1.06** | 3.05 |
+| Winston | 1.17 | 2.04 | 2.01 | 5.81 | 3.55 | 12.33 |
 
-- SyntropyLog is **fastest of the three on M2 and AMD/WSL2** (0.93 / 1.41 µs). On the x64 CI box Pino is ~15–20% faster (1.40 vs 1.73 µs) — a bare logger formatting a plain string on a server CPU.
+- SyntropyLog is **fastest of the three on M2 and AMD/WSL2** (0.93 / 1.41 µs). On x64 server CPUs a bare Pino is consistently faster on plain strings — across three CI runs the gap ranged ~12–52% (this run: 1.06 vs 1.61 µs); the magnitude is noisy but the order is stable.
 - SyntropyLog is **faster than Winston in every environment**.
 
-### 3.2 Complex Object (same payload)
+### 3.2 Complex Object — full pipeline cost (not a comparison)
 
 | Library | M2 | AMD | GH | Masking |
 |---------|----|-----|----|---------|
-| Pino (complex object) | 2.14 | 2.69 | 7.64 | ❌ |
-| Winston (complex object) | 3.58 | 8.67 | 9.47 | ❌ |
-| **SyntropyLog (with masking)** | **5.00** | **5.96** | **7.72** | ✅ |
+| Pino (complex object) | 2.14 | 2.69 | 4.00 | ❌ |
+| Winston (complex object) | 3.58 | 8.67 | 9.96 | ❌ |
+| **SyntropyLog (with masking)** | **5.00** | **5.96** | **7.77** | ✅ |
 
-- **Not like-for-like:** SyntropyLog masks; Pino and Winston do not. On the cleaner machines (M2, WSL2) SyntropyLog is **~2.2× slower than Pino** — that gap *is* the redaction work.
-- vs Winston the result is **mixed**: faster on AMD (5.96 vs 8.67) and GH (7.72 vs 9.47), slower on M2 (5.00 vs 3.58).
+- **Not a comparison — a reference.** SyntropyLog masks, filters by matrix, sanitizes and reads context here; Pino and Winston only serialize. Their numbers are shown **only as a no-masking reference** to size what the full pipeline costs — not as a head-to-head, because they don't do this work. On quiet hardware (M2, WSL2) the full pipeline runs at **~2.2× a bare Pino** — that delta *is* the work they skip.
+- Even next to Winston (which also doesn't mask) the full pipeline lands close: faster on AMD (5.96 vs 8.67) and GH (7.77 vs 9.96), slower on M2 (5.00 vs 3.58).
 
-> **⚠️ CI noise — do not over-read the GH complex column.** Two back-to-back runs on the *same* GitHub EPYC box, no code change, gave **wildly different** complex-object numbers: SyntropyLog **11.69 → 7.72 µs** and Pino **3.06 → 7.64 µs** (a 2.5× swing). The shared CI runner is too noisy for the complex/tail group. The reliable signal across all environments: SyntropyLog's complex masking path costs **~2.2× a bare Pino** on quiet hardware (M2/WSL2). The GH figures above are from the second, more representative run; treat them as indicative only.
+> **⚠️ CI noise — do not over-read the GH complex column.** Three runs on the *same* GitHub EPYC box, no code change, gave **wildly different** complex-object numbers: SyntropyLog **11.69 → 7.72 → 7.77 µs** and Pino **3.06 → 7.64 → 4.00 µs**. The shared CI runner is too noisy for the complex/tail group. The reliable signal across all environments: SyntropyLog's complex masking path costs **~2.2× a bare Pino** on quiet hardware (M2/WSL2). The GH figures above are from the latest run; treat them as indicative only.
+
+### 3.2.1 Where that cost goes — Rust vs JS (pipeline decomposition)
+
+The benchmark also calls the native addon **directly**, outside the logger, to decompose the complex-object number: how much is the Rust engine doing real work (serialize + mask + sanitize) vs the JS framework around it. M2, 3-run avg:
+
+| Layer | avg µs | Share of complex |
+|-------|-------:|-----------------:|
+| **Rust engine** (serialize + mask + sanitize, metadata pre-stringified) | ~4.7 | **~87%** |
+| `JSON.stringify(metadata)` in JS before crossing into Rust | ~0.6 | ~11% |
+| Rest of the SyntropyLog JS pipeline (matrix + context + merge + transport) | ~0.1 | ~2% |
+| **Full `logger.info('User action', complexObj)`** | **~5.4** | 100% |
+
+**The SyntropyLog JS layer is nearly free (~0.1 µs).** The complex-object cost is *not* framework overhead — it is the actual masking + serialization work, and that work runs in Rust. This is the honest reading of §3.2: the gap to a bare Pino is the redaction/sanitization the others don't do, not a tax the framework adds on top.
+
+There is a time/memory trade-off between the two native paths:
+
+| Native path | avg µs | bytes/op | Used by |
+|-------------|-------:|---------:|---------|
+| `fastSerializeFromJson` (JS stringifies, Rust parses once) | ~5.3 | ~142 | logger default (fast path) |
+| `fastSerialize` (Rust crosses the JS object field-by-field) | ~7.0 | ~37 | fallback for circular / non-serializable |
+
+The JSON path is faster but allocates the intermediate string in JS; the object path allocates almost nothing but pays per-field N-API crossing. The logger uses the JSON path and falls back to the object path only when `JSON.stringify` can't run.
 
 ### 3.3 MaskingEngine only (complex object)
 
 | Benchmark | M2 | AMD | GH |
 |-----------|----|-----|----|
-| MaskingEngine.process(complexObj) | 2.30 | 2.72 | 4.05 |
+| MaskingEngine.process(complexObj) | 2.30 | 2.72 | 4.21 |
 
 Isolated masking cost, useful as the p99/p999 baseline for the complex-object group.
 
@@ -90,7 +114,7 @@ Isolated masking cost, useful as the p99/p999 baseline for the complex-object gr
 
 | Benchmark | M2 | AMD | GH |
 |-----------|----|-----|----|
-| SyntropyLog (withRetention complex) | 6.58 | 7.30 | 10.33 |
+| SyntropyLog (withRetention complex) | 6.58 | 7.30 | 10.04 |
 
 Creates a retention-bound child logger + one log per iteration. For a call that binds compliance metadata, sanitizes it, and routes it through the executor, this is negligible in any real application. On a hot path, reuse a single `withRetention(...)` logger instead of creating one per call.
 
@@ -98,20 +122,22 @@ Creates a retention-bound child logger + one log per iteration. For a call that 
 
 ## 4. Memory (heap delta per 100,000 iterations, bytes/op)
 
-Obtained with **`pnpm run bench:memory`** (Node with `--expose-gc`). Memory is far more stable across runs than CPU timing — the GH and bare-metal numbers agree closely.
+Obtained with **`pnpm run bench:memory`** (Node with `--expose-gc`). Memory is far more stable across runs than CPU timing — the numbers agree closely across machines and runs (with one CI noise exception, marked below).
 
 | Benchmark | M2 | AMD | GH |
 |-----------|----|-----|----|
-| console.log (baseline) | 148.24 | 148.76 | 148.12 |
-| SyntropyLog (JSON) | 182.01 | 182.11 | 181.46 |
-| Pino | 152.92 | 151.82 | 181.20 |
-| Winston | 932.45 | 946.58 | 936.29 |
-| SyntropyLog (with masking) | 230.28 | 219.87 | 227.47 |
-| Pino (complex object) | 120.78 | 123.79 | 180.76 |
-| Winston (complex object) | 2,288.77 | 2,249.08 | 2,288.40 |
-| SyntropyLog (withRetention complex) | 253.82 | 250.65 | 253.54 |
+| console.log (baseline) | 148.24 | 148.76 | 148.36 |
+| SyntropyLog (JSON) | 182.01 | 182.11 | 181.56 |
+| Pino | 152.92 | 151.82 | 182.53 |
+| Winston | 932.45 | 946.58 | 934.08 |
+| SyntropyLog (with masking) | 230.28 | 219.87 | 224.62 |
+| Pino (complex object) | 120.78 | 123.79 | ~181 * |
+| Winston (complex object) | 2,288.77 | 2,249.08 | 2,283.72 |
+| SyntropyLog (withRetention complex) | 253.82 | 250.65 | 252.62 |
 
-- SyntropyLog (JSON): **~181 bytes/op** — **identical to Pino** on the CI run (181.46 vs 181.20), within ~30 bytes elsewhere.
+\* The latest CI run spiked Pino's complex-object memory to 708 bytes/op — a runner-noise artifact; the representative ~181 (consistent across all other runs) is shown.
+
+- SyntropyLog (JSON): **~181 bytes/op** — **on par with Pino** on the CI run (181.56 vs 182.53), within ~30 bytes elsewhere.
 - With masking / retention: **~220–254 bytes/op**.
 - Winston: **~936 bytes/op** simple and **~2,288 bytes/op** complex — ~5× / ~10× the others, everywhere.
 - For a logger that ships masking, retention, matrix and structured context by default, an ~181 bytes/op floor on par with a bare Pino is an excellent footprint.
@@ -120,8 +146,8 @@ Obtained with **`pnpm run bench:memory`** (Node with `--expose-gc`). Memory is f
 
 ## 5. Conclusions
 
-- **It does more, for the same price.** SyntropyLog runs masking, matrix, sanitization, context and audit routing on every call — Pino and Winston do not — and still lands within noise of Pino on throughput and *identical* on memory.
-- **Throughput:** fastest of the three on M2 and WSL2; ~15–20% behind Pino only on plain-string x64; always ahead of Winston.
+- **Not a like-for-like comparison — and that's the point.** SyntropyLog runs masking, matrix, sanitization, context and audit routing on every call; Pino and Winston do not. The numbers show the **full safety pipeline staying competitive with a bare logger**, not a string-formatting race.
+- **Throughput:** fastest of the three on M2 and WSL2; behind a bare Pino on plain-string x64 (gap varies on noisy CI); always ahead of Winston — while doing strictly more on every call.
 - **Complex / masking:** ~2.2× a bare Pino on quiet hardware (the redaction cost), faster than Winston in most runs. CI complex numbers are noisy — see §3.2.
 - **Memory:** on par with Pino (~181 bytes/op), ~5–10× below Winston.
 - **Positioning:** for a logger that ships JSON, masking, context, and security **by default**, there is no rival in the same category. Pino is leaner but redacts nothing out of the box; Winston is much heavier and slower without the same ready-to-use package.

@@ -52,8 +52,21 @@ if (!nativeAddonInUse) {
   );
 }
 
-// Pino Setup
-const pinoLogger = pino({ level: 'info' }, devNull);
+// Pino Setup — force `sync: true` so both write to the sink in the same tick
+// (SyntropyLog writes synchronously). Without it Pino buffers via SonicBoom
+// (async), which inflates its measured memory and lets it defer write work,
+// making the throughput comparison unfair to SyntropyLog. Matches the methodology
+// in examples/17-benchmark.
+// HONESTY NOTE: sync:true is NOT Pino's fastest mode — in production Pino runs
+// async and is faster on plain strings, especially on x64. So do NOT read these
+// throughput numbers as "we beat Pino"; they're a same-I/O-model parity check.
+const pinoLogger = pino(
+  { level: 'info' },
+  pino.destination({
+    dest: process.platform === 'win32' ? '\\\\.\\nul' : '/dev/null',
+    sync: true,
+  })
+);
 
 // Winston Setup
 const winstonLogger = winston.createLogger({
@@ -103,8 +116,13 @@ group('MaskingEngine only (complex object, p99/p999 baseline)', () => {
   });
 });
 
-group('Complex Object (same payload, fair comparison)', () => {
-  // SyntropyLog como baseline para que salga primero en el summary (referencia de comparación)
+// NOT a head-to-head: SyntropyLog masks (email, token), filters by matrix,
+// sanitizes and reads context here; Pino and Winston only serialize. Their
+// numbers are a no-masking REFERENCE to size what the full pipeline costs —
+// not a fair comparison, because they don't do this work. The only legit
+// direct comparison is the minimal-logging group above.
+group('Complex Object — full pipeline cost (Pino/Winston = no-masking reference)', () => {
+  // SyntropyLog as baseline so it prints first in the summary.
   baseline('SyntropyLog (with masking)', () => {
     slLogger.info('User action', complexObj);
   });
@@ -248,57 +266,56 @@ const memoryTasks: MemoryTask[] = [
 ];
 
 console.log('\n--- Memory consumption ---');
+
+// Memory needs a controlled GC between tasks. Without --expose-gc the heap
+// deltas include the previous task's residual and go negative/noisy — numbers
+// misleading enough that we SKIP the table entirely rather than print figures
+// that look authoritative but aren't. Throughput above is still valid.
 if (!gc) {
   console.log(
-    'Tip: run with node --expose-gc for stable results (negative deltas = GC noise).\n'
-  );
-}
-
-// Without --expose-gc we never call gc() between tasks, so "before" is the heap left by
-// the *previous* task. Low-allocators (e.g. Pino) can then show heapDelta < 0 (GC freed
-// more than this task allocated), which we clamp to 0 — so "0 B" is often measurement
-// noise, not real zero allocation. Use pnpm run bench:memory for reliable numbers.
-const results: {
-  name: string;
-  heapDelta: number;
-  bytesPerOp: number;
-  wasClamped: boolean;
-}[] = [];
-for (const task of memoryTasks) {
-  if (gc) gc();
-  const before = process.memoryUsage().heapUsed;
-  for (let i = 0; i < MEMORY_ITERATIONS; i++) task.fn();
-  const after = process.memoryUsage().heapUsed;
-  const rawDelta = after - before;
-  const wasClamped = rawDelta < 0;
-  const heapDelta = wasClamped ? 0 : rawDelta;
-  results.push({
-    name: task.name,
-    heapDelta,
-    bytesPerOp: heapDelta / MEMORY_ITERATIONS,
-    wasClamped,
-  });
-}
-
-const maxNameLen = Math.max(...results.map((r) => r.name.length));
-console.log(
-  `${'benchmark'.padEnd(maxNameLen)}  heap delta (${MEMORY_ITERATIONS.toLocaleString()} iter)  bytes/op`
-);
-console.log('-'.repeat(maxNameLen + 50));
-for (const r of results) {
-  const deltaStr = r.wasClamped
-    ? `${formatBytes(r.heapDelta)} (noise)`
-    : formatBytes(r.heapDelta);
-  console.log(
-    `${r.name.padEnd(maxNameLen)}  ${deltaStr.padStart(14)}  ${r.bytesPerOp.toFixed(2)}`
-  );
-}
-if (results.some((r) => r.wasClamped)) {
-  console.log(
-    '\n(Some "0 (noise)" = negative delta clamped; run `pnpm run bench:memory` for stable memory results.)'
+    'Skipped — memory measurement needs a controlled GC.\n' +
+      'Run `pnpm run bench:memory` from the repo root (it passes NODE_OPTIONS=--expose-gc).\n' +
+      '(Throughput results above are valid without it.)'
   );
 } else {
+  const results: {
+    name: string;
+    heapDelta: number;
+    bytesPerOp: number;
+    wasClamped: boolean;
+  }[] = [];
+  for (const task of memoryTasks) {
+    gc();
+    const before = process.memoryUsage().heapUsed;
+    for (let i = 0; i < MEMORY_ITERATIONS; i++) task.fn();
+    const after = process.memoryUsage().heapUsed;
+    const rawDelta = after - before;
+    const wasClamped = rawDelta < 0;
+    const heapDelta = wasClamped ? 0 : rawDelta;
+    results.push({
+      name: task.name,
+      heapDelta,
+      bytesPerOp: heapDelta / MEMORY_ITERATIONS,
+      wasClamped,
+    });
+  }
+
+  const maxNameLen = Math.max(...results.map((r) => r.name.length));
   console.log(
-    '\n(Memory: from repo root run `pnpm run bench:memory` for reliable deltas; otherwise values can be noisy.)'
+    `${'benchmark'.padEnd(maxNameLen)}  heap delta (${MEMORY_ITERATIONS.toLocaleString()} iter)  bytes/op`
   );
+  console.log('-'.repeat(maxNameLen + 50));
+  for (const r of results) {
+    const deltaStr = r.wasClamped
+      ? `${formatBytes(r.heapDelta)} (noise)`
+      : formatBytes(r.heapDelta);
+    console.log(
+      `${r.name.padEnd(maxNameLen)}  ${deltaStr.padStart(14)}  ${r.bytesPerOp.toFixed(2)}`
+    );
+  }
+  if (results.some((r) => r.wasClamped)) {
+    console.log(
+      '\n(A "0 (noise)" here means a low-allocator that GC happened to collect mid-loop — re-run for a clean number.)'
+    );
+  }
 }

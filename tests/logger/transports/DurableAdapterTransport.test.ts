@@ -336,6 +336,37 @@ describe('DurableAdapterTransport — shutdown / flush', () => {
     expect(executor).toHaveBeenCalledTimes(5);
   });
 
+  it('flush() waits for an in-flight entry that is mid-retry, not just the queue', async () => {
+    // Regression: the drain loop removes the item it is processing from the
+    // queue, so during a backoff the queue is empty while an entry is still
+    // in flight. flush() must wait for that entry (it is the whole delivery
+    // guarantee) — returning early would let a retrying audit log be lost.
+    let calls = 0;
+    const executor = vi.fn<DurableExecutor>(() => {
+      calls += 1;
+      return calls === 1
+        ? Promise.reject(new Error('transient'))
+        : Promise.resolve();
+    });
+    const onDrop = vi.fn();
+    const t = new DurableAdapterTransport({
+      executor,
+      onDrop,
+      maxRetries: 3,
+      initialBackoffMs: 50,
+      flushTimeoutMs: 5_000,
+      level: 'trace',
+    });
+
+    t.log(entry('audit', { retention: { p: 'X' } } as never));
+    await t.flush();
+
+    // flush() must not resolve until the retry completed successfully.
+    expect(executor).toHaveBeenCalledTimes(2); // initial failure + successful retry
+    expect(onDrop).not.toHaveBeenCalled();
+    expect(t.queueSize).toBe(0);
+  });
+
   it('flush() DLQs remaining entries when the executor refuses to resolve before timeout', async () => {
     // Executor never resolves — pure backpressure scenario.
     const executor = vi.fn<DurableExecutor>(
