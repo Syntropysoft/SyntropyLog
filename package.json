@@ -208,7 +208,7 @@
   "devDependencies": {
     "@changesets/cli": "2.31.0",
     "@eslint/js": "9.39.4",
-    "@napi-rs/cli": "2.18.4",
+    "@napi-rs/cli": "3.7.1",
     "@nestjs/common": "11.1.26",
     "@nestjs/core": "11.1.26",
     "@nestjs/testing": "11.1.26",

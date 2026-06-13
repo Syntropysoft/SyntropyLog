@@ -34,7 +34,7 @@
     "test": "node test-node.mjs"
   },
   "devDependencies": {
-    "@napi-rs/cli": "2.18.4"
+    "@napi-rs/cli": "3.7.1"
   },
   "files": [
     "index.js",
