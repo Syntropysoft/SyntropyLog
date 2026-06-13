@@ -192,10 +192,18 @@
     "rxjs": "^7.0.0"
   },
   "peerDependenciesMeta": {
-    "@nestjs/common": { "optional": true },
-    "@nestjs/core": { "optional": true },
-    "reflect-metadata": { "optional": true },
-    "rxjs": { "optional": true }
+    "@nestjs/common": {
+      "optional": true
+    },
+    "@nestjs/core": {
+      "optional": true
+    },
+    "reflect-metadata": {
+      "optional": true
+    },
+    "rxjs": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@changesets/cli": "2.31.0",
@@ -209,8 +217,8 @@
     "@rollup/plugin-node-resolve": "16.0.3",
     "@rollup/plugin-typescript": "12.3.0",
     "@types/node": "22.19.15",
-    "@typescript-eslint/eslint-plugin": "8.60.0",
-    "@typescript-eslint/parser": "8.60.0",
+    "@typescript-eslint/eslint-plugin": "8.61.0",
+    "@typescript-eslint/parser": "8.61.0",
     "@vitest/coverage-istanbul": "4.1.8",
     "@vitest/coverage-v8": "4.1.8",
     "depcheck": "1.4.7",
@@ -226,7 +234,7 @@
     "rxjs": "7.8.2",
     "tslib": "2.8.1",
     "typescript": "5.9.3",
-    "typescript-eslint": "8.60.0",
+    "typescript-eslint": "8.61.0",
     "vitest": "4.1.8"
   },
   "lint-staged": {
