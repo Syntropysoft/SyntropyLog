@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.0.0
+
+First stable release. The public API is now covered by [semantic versioning](./docs/stability.md): you can upgrade within `1.x` and nothing breaks. **No breaking changes from `1.0.0-rc.3`** — every change accumulated through the rc line (see below) is carried forward unchanged; 1.0.0 is the commitment to keep it stable, plus the hardening and honesty work that makes that commitment credible.
+
+### Stability commitment
+
+- **`docs/stability.md`** (EN + ES) — the contract from 1.0 onward. Defines the public surface (named exports of `syntropylog`, `syntropylog/testing`, `syntropylog/testing/mock`, `syntropylog/nestjs`), the stable log-output fields (`level`, `message`, `timestamp`, `service`), and the native-addon support matrix with the JS-fallback guarantee.
+- **Public API surface locked by tests** — `tests/public-api-surface.test.ts` parses the entry point statically and freezes the exact set of value **and** type exports, failing CI if any export is added/removed or if an `export *` wildcard reappears. `export * from './sensitiveKeys'` was replaced with explicit named re-exports so the surface is intentional, not accidental. Behavior-preserving: no runtime export changed.
+
+### Native addon — broader server coverage
+
+- **Prebuilt binaries expanded from 3 to 7 targets.** Added `aarch64-unknown-linux-gnu` (AWS Graviton and other ARM servers), `x86_64`/`aarch64-unknown-linux-musl` (Alpine and musl-based containers), and `x86_64-apple-darwin` (Intel macOS). Cross-compiled in CI via zig (cargo-zigbuild). Any platform still without a prebuilt continues to use the pure-JS pipeline transparently — identical behavior, no native speedup.
+
+### Benchmarks — honest methodology
+
+- Benchmark reporting reframed: a direct comparison against Pino/Winston applies **only to minimal logging**; for the full pipeline, their numbers are shown as a no-masking reference, not a head-to-head.
+- **Pipeline decomposition** added — calling the native addon in isolation shows ~87% of the complex-object cost is the Rust engine (serialize + mask + sanitize), ~11% the JS `JSON.stringify`, and ~2% the rest of the JS pipeline. The framework layer is nearly free; the cost is the real masking work.
+
+### Housekeeping
+
+- Removed a dead scratch file and superseded per-release notes from the repo root.
+
 ## 1.0.0-rc.3
 
 Release candidate published under the `next` dist-tag for validation in production before promotion to `1.0.0` stable. Bundles every change accumulated since `1.0.0-rc.2`: the public-API additions previously slated for the 1.0.0 promotion, plus five rounds of additive scope that turn the framework into a compliance-grade release. No breaking changes from `1.0.0-rc.2`.
