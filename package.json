@@ -204,7 +204,7 @@
     "@nestjs/common": "11.1.26",
     "@nestjs/core": "11.1.26",
     "@nestjs/testing": "11.1.26",
-    "@rollup/plugin-commonjs": "28.0.9",
+    "@rollup/plugin-commonjs": "29.0.3",
     "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-node-resolve": "16.0.3",
     "@rollup/plugin-typescript": "12.3.0",
