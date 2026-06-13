@@ -66,19 +66,22 @@ El addon nativo acelera serialización + masking + sanitización. Es una
 
 ### Matriz de plataformas precompiladas
 
-| Plataforma | Arq | Precompilado hoy | Si no |
+| Plataforma | Arq | Precompilado | Si no |
 |---|---|:---:|---|
 | Linux (glibc) | x64 | ✅ | — |
+| Linux (glibc) | **arm64 (Graviton, etc.)** | ✅ ¹ | fallback JS |
+| Linux (**musl / Alpine**) | x64 | ✅ ¹ | fallback JS |
+| Linux (**musl / Alpine**) | arm64 | ✅ ¹ | fallback JS |
 | Windows (MSVC) | x64 | ✅ | — |
 | macOS | arm64 (Apple Silicon) | ✅ | — |
-| macOS | x64 (Intel) | ⬜ | fallback JS |
-| Linux (glibc) | **arm64 (Graviton, etc.)** | ⬜ | fallback JS |
-| Linux (**musl / Alpine**) | x64 / arm64 | ⬜ | fallback JS |
+| macOS | x64 (Intel) | ✅ ¹ | fallback JS |
 | Windows | arm64 | ⬜ | fallback JS |
 
-> Si corrés en una plataforma ⬜ (común en contenedores — Alpine — y en
-> servidores ARM — AWS Graviton), obtenés **comportamiento correcto por el path
-> JS**, solo sin el acelerón nativo. Ampliar esta matriz está en el roadmap.
+> ¹ Cross-compilado en CI (vía zig) y shippeado a partir de **v1.0.0**. En
+> versiones anteriores (rc) estas plataformas usan el path JS.
+>
+> En cualquier plataforma ⬜ igual obtenés **comportamiento correcto por el path
+> JS** — solo sin el acelerón nativo.
 
 Para chequear en runtime por qué path vas:
 

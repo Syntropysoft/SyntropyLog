@@ -64,19 +64,22 @@ The native addon accelerates serialization + masking + sanitization. It is a
 
 ### Prebuilt platform matrix
 
-| Platform | Arch | Prebuilt today | Otherwise |
+| Platform | Arch | Prebuilt | Otherwise |
 |---|---|:---:|---|
 | Linux (glibc) | x64 | ✅ | — |
+| Linux (glibc) | **arm64 (Graviton, etc.)** | ✅ ¹ | JS fallback |
+| Linux (**musl / Alpine**) | x64 | ✅ ¹ | JS fallback |
+| Linux (**musl / Alpine**) | arm64 | ✅ ¹ | JS fallback |
 | Windows (MSVC) | x64 | ✅ | — |
 | macOS | arm64 (Apple Silicon) | ✅ | — |
-| macOS | x64 (Intel) | ⬜ | JS fallback |
-| Linux (glibc) | **arm64 (Graviton, etc.)** | ⬜ | JS fallback |
-| Linux (**musl / Alpine**) | x64 / arm64 | ⬜ | JS fallback |
+| macOS | x64 (Intel) | ✅ ¹ | JS fallback |
 | Windows | arm64 | ⬜ | JS fallback |
 
-> If you run on a ⬜ platform (common in containers — Alpine — and on ARM
-> servers — AWS Graviton), you get **correct behavior on the JS path**, just
-> without the native speedup. Expanding this matrix is on the roadmap.
+> ¹ Cross-compiled in CI (via zig) and shipped starting **v1.0.0**. On earlier
+> (rc) versions these platforms use the JS path.
+>
+> On any ⬜ platform you still get **correct behavior on the JS path** — only
+> without the native speedup.
 
 To check which path you're on at runtime:
 
