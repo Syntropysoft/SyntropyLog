@@ -80,6 +80,28 @@ El único lugar donde un logger pelado gana de forma consistente es **el through
 
 > **⚠️ Ruido de CI — no sobre-leer la columna GH de complejo.** Tres corridas en la *misma* máquina EPYC de GitHub, sin cambiar código, dieron números **muy distintos** de objeto complejo: SyntropyLog **11,69 → 7,72 → 7,77 µs** y Pino **3,06 → 7,64 → 4,00 µs**. El runner de CI compartido es demasiado ruidoso para el grupo complejo/cola. La señal fiable en todos los entornos: el camino de enmascarado de SyntropyLog cuesta **~2,2× un Pino pelado** en hardware tranquilo (M2/WSL2). Las cifras GH de arriba son de la última corrida; tómalas como indicativas.
 
+### 3.2.1 Dónde se va ese costo — Rust vs JS (descomposición del pipeline)
+
+El benchmark también llama al addon nativo **directamente**, fuera del logger, para descomponer el número de objeto complejo: cuánto es el motor de Rust haciendo trabajo real (serialize + mask + sanitize) vs el framework JS alrededor. M2, promedio de 3 corridas:
+
+| Capa | µs prom | % del complejo |
+|------|--------:|---------------:|
+| **Motor Rust** (serialize + mask + sanitize, metadata pre-stringificada) | ~4,7 | **~87%** |
+| `JSON.stringify(metadata)` en JS antes de cruzar a Rust | ~0,6 | ~11% |
+| Resto del pipeline JS de SyntropyLog (matriz + contexto + merge + transporte) | ~0,1 | ~2% |
+| **`logger.info('User action', complexObj)` completo** | **~5,4** | 100% |
+
+**La capa JS de SyntropyLog es casi gratis (~0,1 µs).** El costo del objeto complejo *no* es overhead del framework — es el trabajo real de enmascarado + serialización, y ese trabajo corre en Rust. Esta es la lectura honesta del §3.2: la brecha contra un Pino pelado es la redacción/sanitización que los otros no hacen, no un impuesto que el framework agrega encima.
+
+Hay un trade-off tiempo/memoria entre los dos caminos nativos:
+
+| Camino nativo | µs prom | bytes/op | Lo usa |
+|---------------|--------:|---------:|--------|
+| `fastSerializeFromJson` (JS stringifica, Rust parsea una vez) | ~5,3 | ~142 | logger por defecto (camino rápido) |
+| `fastSerialize` (Rust cruza el objeto JS campo por campo) | ~7,0 | ~37 | fallback para circular / no serializable |
+
+El camino JSON es más rápido pero asigna el string intermedio en JS; el camino objeto casi no asigna pero paga el cruce N-API por campo. El logger usa el camino JSON y cae al de objeto solo cuando `JSON.stringify` no puede correr.
+
 ### 3.3 MaskingEngine solo (objeto complejo)
 
 | Benchmark | M2 | AMD | GH |

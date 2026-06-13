@@ -80,6 +80,28 @@ The only consistent place a bare logger wins is **plain-string throughput on x64
 
 > **⚠️ CI noise — do not over-read the GH complex column.** Three runs on the *same* GitHub EPYC box, no code change, gave **wildly different** complex-object numbers: SyntropyLog **11.69 → 7.72 → 7.77 µs** and Pino **3.06 → 7.64 → 4.00 µs**. The shared CI runner is too noisy for the complex/tail group. The reliable signal across all environments: SyntropyLog's complex masking path costs **~2.2× a bare Pino** on quiet hardware (M2/WSL2). The GH figures above are from the latest run; treat them as indicative only.
 
+### 3.2.1 Where that cost goes — Rust vs JS (pipeline decomposition)
+
+The benchmark also calls the native addon **directly**, outside the logger, to decompose the complex-object number: how much is the Rust engine doing real work (serialize + mask + sanitize) vs the JS framework around it. M2, 3-run avg:
+
+| Layer | avg µs | Share of complex |
+|-------|-------:|-----------------:|
+| **Rust engine** (serialize + mask + sanitize, metadata pre-stringified) | ~4.7 | **~87%** |
+| `JSON.stringify(metadata)` in JS before crossing into Rust | ~0.6 | ~11% |
+| Rest of the SyntropyLog JS pipeline (matrix + context + merge + transport) | ~0.1 | ~2% |
+| **Full `logger.info('User action', complexObj)`** | **~5.4** | 100% |
+
+**The SyntropyLog JS layer is nearly free (~0.1 µs).** The complex-object cost is *not* framework overhead — it is the actual masking + serialization work, and that work runs in Rust. This is the honest reading of §3.2: the gap to a bare Pino is the redaction/sanitization the others don't do, not a tax the framework adds on top.
+
+There is a time/memory trade-off between the two native paths:
+
+| Native path | avg µs | bytes/op | Used by |
+|-------------|-------:|---------:|---------|
+| `fastSerializeFromJson` (JS stringifies, Rust parses once) | ~5.3 | ~142 | logger default (fast path) |
+| `fastSerialize` (Rust crosses the JS object field-by-field) | ~7.0 | ~37 | fallback for circular / non-serializable |
+
+The JSON path is faster but allocates the intermediate string in JS; the object path allocates almost nothing but pays per-field N-API crossing. The logger uses the JSON path and falls back to the object path only when `JSON.stringify` can't run.
+
 ### 3.3 MaskingEngine only (complex object)
 
 | Benchmark | M2 | AMD | GH |
