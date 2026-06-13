@@ -54,12 +54,19 @@ jobs:
 
       - name: Setup zig (cross-compile)
         if: ${{ matrix.zig }}
-        uses: mlugg/setup-zig@v1
-        with:
-          # Pin a tagged stable release. The action's default tracks the latest
-          # dev version (e.g. 0.16.0), which isn't on ziglang.org/builds or the
-          # mirrors and fails to download (404/503).
-          version: 0.15.1
+        shell: bash
+        run: |
+          # Download the tagged release directly from ziglang.org/download (verified
+          # 200) instead of mlugg/setup-zig: its community mirrors were down (503/404)
+          # and its "official" fallback hits ziglang.org/builds — the DEV build index,
+          # which 404s for tagged releases. Direct download is reliable and under our
+          # control. Every zig matrix entry cross-compiles ON the x64 Ubuntu runner.
+          ZIG_VERSION=0.15.1
+          curl -fsSL "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz" -o /tmp/zig.tar.xz
+          mkdir -p "$HOME/zig"
+          tar -xJf /tmp/zig.tar.xz -C "$HOME/zig" --strip-components=1
+          echo "$HOME/zig" >> "$GITHUB_PATH"
+          "$HOME/zig/zig" version
 
       - name: Install cargo-zigbuild (cross-compile)
         if: ${{ matrix.zig }}
