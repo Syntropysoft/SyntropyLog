@@ -144,20 +144,29 @@ syntropyLog.getLogger('billing') === billing; // true — same cached instance
 
 ## Logging Matrix — the differentiator
 
-A declarative contract defining exactly which context fields appear at each level. Same call, different output by level:
+A declarative contract for **context fields** — the values you set once per request with `contextManager.set(...)`, which then propagate to *every* log in that async scope. The matrix decides which of them surface at each level.
+
+> **Matrix governs context, not per-call metadata.** Metadata you pass to `.info({ ... })` is always emitted (and masked) — if you don't want a field logged, just don't pass it. The matrix exists for the auto-propagating *context* you **can't** trim at each call site.
 
 ```typescript
 // info  → [correlationId, userId, operation]
-// error → [correlationId, userId, operation, errorCode, tenantId, orderId]
+// error → [correlationId, userId, operation, errorCode, tenantId]
 
-log.info({ userId: 123, tenantId: 'acme', orderId: 'ord_42', operation: 'charge' },
-         'Payment captured');
-// → { correlationId, userId, operation, message: 'Payment captured' }
-//   tenantId and orderId are dropped — not in the info whitelist
+await contextManager.run(async () => {
+  contextManager.set('correlationId', requestId);
+  contextManager.set('userId', 123);
+  contextManager.set('operation', 'charge');
+  contextManager.set('tenantId', 'acme');
+  contextManager.set('errorCode', 'CARD_DECLINED');
 
-log.error({ userId: 123, tenantId: 'acme', orderId: 'ord_42', operation: 'charge', errorCode: 'CARD_DECLINED' },
-          'Payment failed');
-// → full context surfaces only on error
+  log.info('Payment captured');
+  // → { correlationId: 'req-7', userId: 123, operation: 'charge', message: 'Payment captured' }
+  //   tenantId and errorCode are dropped — not in the info whitelist
+
+  log.error('Payment failed');
+  // → { correlationId, userId, operation, errorCode: 'CARD_DECLINED', tenantId: 'acme', message: 'Payment failed' }
+  //   same context — the wider error whitelist lets more through
+});
 ```
 
 You declare the contract once in `init()`. Compliance reviews the matrix, not your codebase.
