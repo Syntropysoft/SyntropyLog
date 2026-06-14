@@ -252,6 +252,8 @@ Full guide: [docs/context.md](docs/context.md).
 
 Masking runs automatically on every entry before it reaches any transport. The engine flattens nested objects, applies rules by field name at any depth, then reconstructs the structure.
 
+> **Masking matches the field _name_, not the content.** It redacts the value of fields whose key matches a rule (`email`, `token`, …); it does **not** scan free-text strings, array elements, or the log message for PII. Put sensitive data in keyed fields — see [Scope & limitations](docs/masking.md#scope--limitations).
+
 ```typescript
 await syntropyLog.init({
   masking: {

@@ -1,6 +1,20 @@
 # Masking & Sensitive Keys
 
-The MaskingEngine redacts sensitive fields **before** any transport sees the log. Built-in rules cover the common cases (password, email, token, card, SSN, phone); custom rules let you add domain-specific aliases.
+The MaskingEngine redacts sensitive fields **by key name**, **before** any transport sees the log: when a field's *key* matches a rule (built-in: `password`, `email`, `token`, `card`, `ssn`, `phone`; plus your custom aliases), that field's *value* is redacted. It matches on the **field name, not the field's content** — see [Scope & limitations](#scope--limitations).
+
+---
+
+## Scope & limitations
+
+Masking is **field-name based**: a rule matches the *key* of a field and redacts that field's *value*. That keeps it fast and declarative, but it deliberately does **not** scan free text for PII. Three things are **not** masked:
+
+1. **Free text under a non-sensitive key.** `{ detail: "call Juan Pérez at 11-5555-1234" }` → the key `detail` matches no rule, so the value passes through untouched. Same for `note`, `description`, `comment`, `error`, etc.
+2. **Bare strings inside arrays.** `{ recipients: ["a@x.com", "b@x.com"] }` → array elements have no key to match, so none are redacted. An email is masked only as `{ email: "a@x.com" }` — a field whose key matches a rule.
+3. **The log message itself.** `log.info(meta, "user john@x.com failed")` → only `meta` runs through masking; the message string is emitted as-is.
+
+> The value-level `redactPatterns` (used by the native path) catch **embedded credentials** like `password=...`, `token=...`, `secret=...` — **not** free-text emails, phones, or names.
+
+**Guidance:** put anything sensitive in a field with a known sensitive key (`{ email, phone, ssn, ... }`) so masking can redact it. Do **not** rely on masking to find PII inside free-text strings, array elements, or the log message — structure it into keyed fields, or mask it in your own code before logging.
 
 ---
 
