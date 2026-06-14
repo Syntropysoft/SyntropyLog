@@ -250,36 +250,39 @@ Full guide: [docs/context.md](docs/context.md).
 
 ## Data masking
 
-Masking runs automatically on every entry before it reaches any transport. The engine flattens nested objects, applies rules by field name at any depth, then reconstructs the structure.
+Masking runs automatically on every entry before it reaches any transport — **identically in the native Rust engine and the JS fallback** (one declarative rule set, asserted byte-for-byte equal by a shared parity test). Rules apply by field name at any depth.
 
 > **Masking matches the field _name_, not the content.** It redacts the value of fields whose key matches a rule (`email`, `token`, …); it does **not** scan free-text strings, array elements, or the log message for PII. Put sensitive data in keyed fields — see [Scope & limitations](docs/masking.md#scope--limitations).
 
 ```typescript
 await syntropyLog.init({
   masking: {
-    enableDefaultRules: true,    // email, password, token, card, SSN, phone
+    enableDefaultRules: true,    // email, phone, credit_card, ssn, password, token + secret families
     regexTimeoutMs: 100,         // ReDoS guard for custom rules (default 100ms)
     rules: [
-      { pattern: /cuit|cuil/i, strategy: MaskingStrategy.CUSTOM,
-        customMask: (v) => v.replace(/\d(?=\d{4})/g, '*') },
+      // Declarative custom mask (a `spec`, not a JS function) → runs in the native engine too.
+      { pattern: /cuit|cuil/i, strategy: MaskingStrategy.CUSTOM, spec: { scope: 'digits', unmaskEnd: 4 } },
     ],
   },
 });
 
-log.info('Payment', { creditCardNumber: '4111-1111-1111-1234', amount: 299.90 });
-// → creditCardNumber: "****-****-****-1234"   amount: 299.9 (not masked)
-log.info('Order', { order: { user: { token: 'abc123', id: 'USR-1' } } });
-// → order.user.token: "******"   order.user.id: "USR-1" (not masked)
+// Metadata goes FIRST (object), message second — only the metadata object is masked.
+log.info({ creditCardNumber: '4111-1111-1111-1234', amount: 299.90 }, 'Payment');
+// → creditCardNumber: "****-****-****-1234"   amount: 299.9 (numbers untouched)
+log.info({ order: { user: { token: 'abc123', id: 'USR-1' } } }, 'Order');
+// → order.user.token: "[REDACTED]"   order.user.id: "USR-1" (not a sensitive key)
 ```
 
-| Field pattern | Strategy | Example |
-|---|---|---|
-| `email`, `mail` | Email | `j***@example.com` |
-| `password`, `pass`, `pwd`, `secret` | Full mask | `************` |
-| `token`, `key`, `auth`, `jwt`, `bearer` | Token | `eyJh…a1B9c` |
-| `creditCard`, `cardNumber` | Last 4 | `****-****-****-1234` |
-| `ssn`, `socialSecurity` | Last 4 | `*****6789` |
-| `phone`, `mobile`, `tel` | Last 4 | `*******4567` |
+**Identifiers keep their last digits (debuggable); credentials are fully redacted:**
+
+| Field key (examples) | Result |
+|---|---|
+| `email`, `mail` | `j***@example.com` |
+| `phone`, `mobile`, `tel` | `***-***-4567` |
+| `creditCard`, `cardNumber`, `credit_card` | `****-****-****-1234` |
+| `ssn`, `social_security` | `***-**-6789` |
+| `password`, `pass`, `pwd`, `secret` | `[REDACTED]` |
+| `token`, `apiKey`, `key`, `auth`, `jwt`, `bearer` | `[REDACTED]` |
 
 Spread the defaults and add your own; use the `maskEnum` aliases instead of string literals (no Sonar S2068 noise):
 

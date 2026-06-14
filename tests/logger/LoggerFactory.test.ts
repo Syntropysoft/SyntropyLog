@@ -24,7 +24,10 @@ const {
   MockLogger: vi.fn(),
   MockConsoleTransport: vi.fn(),
   MockSerializationManager: vi.fn(),
-  MockMaskingEngine: vi.fn(),
+  // The factory now reads getNativeRules() to feed the native engine from the same source.
+  MockMaskingEngine: vi.fn(function () {
+    return { getNativeRules: () => [] };
+  }),
 }));
 
 // Mock all dependencies of LoggerFactory

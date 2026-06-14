@@ -254,13 +254,8 @@ export class LoggerFactory {
     this.globalLogLevel = config.logger?.level ?? 'info';
     this.serviceName = config.logger?.serviceName ?? 'unknown-service';
 
-    this.serializationManager = new SerializationManager({
-      timeoutMs: config.logger?.serializerTimeoutMs,
-      sanitizeSensitiveData: config.masking?.enableDefaultRules !== false,
-      disableNativeAddon: config.logger?.disableNativeAddon ?? false,
-      onStepError: config.onStepError,
-      onSerializationFallback: config.onSerializationFallback,
-    });
+    // MaskingEngine first: single source of masking rules; the native engine is
+    // configured from the same rules (see SerializationManager.maskingRules).
     this.maskingEngine = new MaskingEngine({
       rules: config.masking?.rules,
       maskChar: config.masking?.maskChar,
@@ -268,6 +263,14 @@ export class LoggerFactory {
       enableDefaultRules: config.masking?.enableDefaultRules !== false,
       regexTimeoutMs: config.masking?.regexTimeoutMs,
       onMaskingError: config.masking?.onMaskingError,
+    });
+    this.serializationManager = new SerializationManager({
+      timeoutMs: config.logger?.serializerTimeoutMs,
+      sanitizeSensitiveData: config.masking?.enableDefaultRules !== false,
+      disableNativeAddon: config.logger?.disableNativeAddon ?? false,
+      maskingRules: this.maskingEngine.getNativeRules(),
+      onStepError: config.onStepError,
+      onSerializationFallback: config.onSerializationFallback,
     });
     this.onLogFailure = config.onLogFailure;
     this.onTransportError = config.onTransportError;

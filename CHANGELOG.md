@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.1.0
+
+**Masking is now data-driven and consistent across both engines — and a real security gap is closed.**
+
+### Security fix — the native path no longer leaks PII
+
+Before this release, when the native Rust addon was active (the default on supported platforms), masking only redacted secret-type **keys** (`password`, `token`, `secret`, …) and let `email`, `phone`, `ssn`, and `credit-card` fields through **in cleartext** — even though the docs promised they were masked. Root cause: the native engine and the JS engine had two unreconciled default rule sets, and the native path bypassed the JS `MaskingEngine` entirely. Now both engines mask the same fields. If you relied on the default rules in production on a native build, **email/phone/ssn/card were not being masked — they are now.**
+
+### Masking as data, not code
+
+- A masking strategy is now a declarative **`MaskSpec`** (`{ redact?, unmaskStart?, unmaskEnd?, scope?, keepAfter?, maskChar?, preserveLength? }`) interpreted by **one primitive per engine** — `applyMask` in JS, `apply_mask` in Rust. A **shared parity fixture is asserted from both languages**, so the two engines cannot drift; adding a strategy is a new spec, not a new function in two places.
+- **Single source of truth.** The `MaskingEngine` owns the rules; the native engine is configured from the very same rules. There is no separate native key list to fall out of sync.
+- **Declarative custom masks cross to the native engine.** A rule with a `spec` (e.g. `{ scope: 'digits', unmaskEnd: 4 }` for an Argentine CUIT) now runs natively, not only in JS.
+- **No silent skips.** A rule the native engine cannot honor — an incompatible regex (lookahead/backref) or a custom JS *function* — makes the logger fall back to the JS engine (which honors anything) and reports it via `onSerializationFallback`, instead of dropping the rule and letting data through.
+
+### New public API
+
+- `applyMask(value, spec)`, `strategyToSpec(strategy, opts)`, and the `MaskSpec` type are now exported. Additive — no existing export changed.
+
+### Behavior changes (masked output)
+
+- **Credentials are fully redacted** to `[REDACTED]` (previously `password` → `********`, `token` → `eyJh…a1B9c`). A credential is never shown, not even partially. Identifiers (email/phone/card/ssn) keep their format-preserving partial mask (last 4).
+- **camelCase card keys now match.** `creditCard` / `cardNumber` are masked by the default rule (previously only `credit_card` / `card_number` matched).
+- A non-string value under a matched key is redacted whole (`[REDACTED]`) rather than descended into — nested PII can no longer leak under a sensitive-named parent.
+
+These change the *masked output*, not the stable log fields (`level`, `message`, `timestamp`, `service`) — hence a minor, not a major. The native addon is rebuilt for all 7 targets.
+
 ## 1.0.0
 
 First stable release. The public API is now covered by [semantic versioning](./docs/stability.md): you can upgrade within `1.x` and nothing breaks. **No breaking changes from `1.0.0-rc.3`** — every change accumulated through the rc line (see below) is carried forward unchanged; 1.0.0 is the commitment to keep it stable, plus the hardening and honesty work that makes that commitment credible.

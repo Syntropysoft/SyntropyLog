@@ -16,6 +16,7 @@ import {
 } from './types';
 import { SerializationPipeline } from './SerializationPipeline';
 import { SerializationPipelineContext, SerializationMetadata } from '../types';
+import { NativeMaskRule } from '../masking/maskSpec';
 import { SerializationStep } from './pipeline/SerializationStep';
 import { HygieneStep } from './pipeline/HygieneStep';
 import { SanitizationStep } from './pipeline/SanitizationStep';
@@ -29,33 +30,7 @@ import {
   SerializerDistribution,
   TimeoutStrategyDistribution,
 } from '../types';
-import {
-  MASK_KEY_PWD,
-  MASK_KEY_TOK,
-  MASK_KEY_SEC,
-  MASK_KEY_KEY,
-  MASK_KEY_AUTH,
-  MASK_KEY_CREDENTIAL,
-  MASK_KEY_API_KEY,
-  MASK_KEY_PRIVATE_KEY,
-  MASK_KEY_CONNECTION_STRING,
-  MASK_KEY_WALLET_LOCATION,
-} from '../sensitiveKeys';
-
-function getDefaultSensitiveFields(): string[] {
-  return [
-    MASK_KEY_PWD,
-    MASK_KEY_TOK,
-    MASK_KEY_SEC,
-    MASK_KEY_KEY,
-    MASK_KEY_AUTH,
-    MASK_KEY_CREDENTIAL,
-    MASK_KEY_API_KEY,
-    MASK_KEY_PRIVATE_KEY,
-    MASK_KEY_CONNECTION_STRING,
-    MASK_KEY_WALLET_LOCATION,
-  ];
-}
+import { MASK_KEY_PWD, MASK_KEY_TOK, MASK_KEY_SEC } from '../sensitiveKeys';
 
 function getDefaultRedactPatterns(): RegExp[] {
   const q = '[\'"][^\'"]*[\'"]';
@@ -72,6 +47,12 @@ export interface SerializationManagerConfig {
   enableMetrics?: boolean;
   sanitizeSensitiveData?: boolean;
   sanitizationContext?: SanitizationConfig;
+  /**
+   * Masking rules for the native engine, derived from the single MaskingEngine source.
+   * `null` means the MaskingEngine has a rule the native engine cannot honor (a custom
+   * JS function) → the native path is disabled so masking runs faithfully in JS.
+   */
+  maskingRules?: NativeMaskRule[] | null;
   /** If true, Pino-style: only first level; nested objects are stringified in Node (one stringify per value). Faster for entries with complex objects; output will have nested values as JSON string. */
   nativeShallow?: boolean;
   /** When true, the native addon is not loaded (pure JS path). Set via logger.disableNativeAddon in init(). */
@@ -97,7 +78,8 @@ type NativeAddon = {
     service: string,
     metadataJson: string
   ) => string;
-  configureNative: (config: string) => void;
+  /** Returns false when native cannot honor the config; caller must fall back to JS. */
+  configureNative: (config: string) => boolean;
 };
 
 const require = createRequire(import.meta.url);
@@ -109,7 +91,10 @@ export class SerializationManager {
   private sanitizationStep: SanitizationStep;
   private timeoutStep: TimeoutStep;
   private config: Required<
-    Omit<SerializationManagerConfig, 'onStepError' | 'onSerializationFallback'>
+    Omit<
+      SerializationManagerConfig,
+      'onStepError' | 'onSerializationFallback' | 'maskingRules'
+    >
   >;
   private onStepError?: (step: string, error: unknown) => void;
   private onSerializationFallback?: (reason?: unknown) => void;
@@ -117,6 +102,8 @@ export class SerializationManager {
   private nativeChecked = false;
   /** Cached JSON config for Rust addon; built once and reused for each serialize(). */
   private cachedNativeConfigJson: string | null = null;
+  /** Masking rules for the native engine (single source = MaskingEngine); null disables native. */
+  private readonly nativeMaskRules: NativeMaskRule[] | null;
   private metrics: {
     totalSerializations: number;
     successfulSerializations: number;
@@ -138,9 +125,10 @@ export class SerializationManager {
       nativeShallow: config.nativeShallow ?? false,
       disableNativeAddon: config.disableNativeAddon ?? false,
       sanitizationContext: {
-        sensitiveFields:
-          config.sanitizationContext?.sensitiveFields ||
-          getDefaultSensitiveFields(),
+        // No default sensitive-fields list: key masking is owned solely by the
+        // MaskingEngine (single source). The DataSanitizer in the pipeline therefore
+        // redacts nothing by key unless a caller explicitly passes a list.
+        sensitiveFields: config.sanitizationContext?.sensitiveFields || [],
         redactPatterns:
           config.sanitizationContext?.redactPatterns ||
           getDefaultRedactPatterns(),
@@ -153,6 +141,9 @@ export class SerializationManager {
     };
     this.onStepError = config.onStepError;
     this.onSerializationFallback = config.onSerializationFallback;
+    // undefined (not provided) → no native rules; null → native disabled (custom JS fn).
+    this.nativeMaskRules =
+      config.maskingRules === undefined ? [] : config.maskingRules;
 
     this.metrics = {
       totalSerializations: 0,
@@ -194,11 +185,29 @@ export class SerializationManager {
       this.nativeAddon = null;
       return null;
     }
+    // A null rule set means the MaskingEngine has a rule the native engine cannot honor
+    // (a custom JS function). Stay on the JS pipeline so that function runs faithfully.
+    if (this.nativeMaskRules === null) {
+      this.onSerializationFallback?.(
+        'native disabled: a masking rule uses a custom function (JS-only)'
+      );
+      this.nativeAddon = null;
+      return null;
+    }
     try {
       this.nativeAddon = require('syntropylog-native') as NativeAddon;
       if (this.nativeAddon && this.nativeAddon.configureNative) {
         const configStr = this.buildNativeConfigJson();
-        this.nativeAddon.configureNative(configStr);
+        const accepted = this.nativeAddon.configureNative(configStr);
+        if (!accepted) {
+          // Native rejected the config (e.g. a regex it cannot compile). Never let data
+          // slip through unmasked — fall back to the JS engine, which honors any RegExp.
+          this.onSerializationFallback?.(
+            'native rejected masking config (incompatible regex); using JS pipeline'
+          );
+          this.nativeAddon = null;
+          return null;
+        }
       }
     } catch {
       this.nativeAddon = null;
@@ -219,7 +228,10 @@ export class SerializationManager {
       typeof re === 'string' ? re : re.source
     );
     this.cachedNativeConfigJson = JSON.stringify({
+      // Key masking is driven by maskingRules (single source = MaskingEngine); the legacy
+      // sensitiveFields net defaults to empty so the two engines can't drift.
       sensitiveFields: ctx.sensitiveFields || [],
+      maskingRules: this.nativeMaskRules ?? [],
       redactPatterns,
       maxDepth: DEFAULT_VALUES.maxDepth,
       maxStringLength: ctx.maxStringLength ?? DEFAULT_VALUES.maxStringLength,
