@@ -45,7 +45,7 @@ What lands on the console (structured JSON):
 
 Masking is automatic by configuration: what you see here is the library's **default behavior** — not magic. From here, SyntropyLog is built to be **flexible and configurable**. You keep these sensible defaults until you need to adapt them to your case, then you shape it — masking rules, which fields each level emits, where logs go, context propagation, retention — each declared once. The sections below are how. (The masked output is identical under the native Rust engine, the default, and the pure-JS fallback.)
 
-> Pass the metadata **object first**, message second. Anything after the message is `util.format`-inlined into the message string (and not masked) — so put sensitive data in the object.
+> **Masking is by field name.** A field whose *key* matches a rule is masked; anything without a known key — free text, array elements, the message itself — passes through untouched. So pass sensitive data as keyed fields in the metadata **object** (the first argument), not buried in the message. **Log-data quality is the caller's responsibility:** masking enforces your rules on keyed fields — it can't find PII you hide in prose.
 
 ---
 
@@ -286,7 +286,7 @@ Full guide: [docs/context.md](docs/context.md).
 
 Masking runs automatically on every entry before it reaches any transport — **identically in the native Rust engine and the JS fallback** (one declarative rule set, asserted byte-for-byte equal by a shared parity test). Rules apply by field name at any depth.
 
-> **Masking matches the field _name_, not the content.** It redacts the value of fields whose key matches a rule (`email`, `token`, …); it does **not** scan free-text strings, array elements, or the log message for PII. Put sensitive data in keyed fields — see [Scope & limitations](docs/masking.md#scope--limitations).
+> **Masking matches the field _name_, not the content.** It redacts the value of fields whose key matches a rule (`email`, `token`, …); it does **not** scan free-text strings, array elements, or the log message for PII. Put sensitive data in keyed fields — **log-data quality is the caller's responsibility**. See [Scope & limitations](docs/masking.md#scope--limitations).
 
 ```typescript
 await syntropyLog.init({

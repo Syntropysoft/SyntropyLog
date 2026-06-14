@@ -86,6 +86,8 @@ Masking is **field-name based**: a rule matches the *key* of a field and masks t
 
 **Guidance:** put anything sensitive in a field with a known sensitive key (`{ email, phone, ssn, ... }`) so masking can redact it. Do **not** rely on masking to find PII inside free-text strings, array elements, or the log message — structure it into keyed fields, or mask it in your own code before logging.
 
+**Log-data quality is the responsibility of the caller.** Masking enforces *your* rules on keyed fields, deterministically and fast; it does not guess at PII buried in prose. Drawing that line on purpose is what keeps the boundary honest — so nobody believes a free-text field is covered when it isn't — and keeps the framework out of the impossible job of parsing whatever text you happened to write.
+
 ---
 
 ## Mixing defaults with your own rules
