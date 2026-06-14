@@ -43,7 +43,7 @@ What lands on the console (structured JSON):
 {"email":"r***@x.com","level":"info","message":"payment ok","password":"[REDACTED]","service":"payments","timestamp":"2026-06-14T13:11:48.060+00:00"}
 ```
 
-That's the whole thing to get started: **masking works at zero config**, and the output is identical whether the native Rust engine (the default) or the pure-JS fallback runs. Everything below is **opt-in** — add a piece when you actually need it.
+Masking is automatic by configuration: what you see here is the library's **default behavior** — not magic. From here, SyntropyLog is built to be **flexible and configurable**. You keep these sensible defaults until you need to adapt them to your case, then you shape it — masking rules, which fields each level emits, where logs go, context propagation, retention — each declared once. The sections below are how. (The masked output is identical under the native Rust engine, the default, and the pure-JS fallback.)
 
 > Pass the metadata **object first**, message second. Anything after the message is `util.format`-inlined into the message string (and not masked) — so put sensitive data in the object.
 
