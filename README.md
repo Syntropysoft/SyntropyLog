@@ -19,11 +19,40 @@
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
-> **Not a logger — an observability pipeline.** With Pino or Winston you wire correlation IDs, PII redaction, and per-level field control yourself, in every service. SyntropyLog does it for you: declare it **once** in `init()`, and it runs on every log call, in every async chain, across every service. You write the rules **once**; the framework enforces them on every entry — before it ever reaches the **console, Datadog, Grafana, your database, an OpenTelemetry collector, or wherever your `executor` sends it.**
+---
+
+## Quick start
+
+```bash
+npm install syntropylog
+```
+
+```typescript
+import { syntropyLog } from 'syntropylog';
+
+// 1. Configure once — this is all you need.
+await syntropyLog.init({ logger: { serviceName: 'payments' } });
+
+// 2. Log an object. Sensitive fields are masked automatically, before any transport.
+syntropyLog.getLogger().info({ email: 'real@x.com', password: 'hunter2' }, 'payment ok');
+```
+
+What lands on the console (structured JSON):
+
+```json
+{"email":"r***@x.com","level":"info","message":"payment ok","password":"[REDACTED]","service":"payments","timestamp":"2026-06-14T13:11:48.060+00:00"}
+```
+
+That's the whole thing to get started: **masking works at zero config**, and the output is identical whether the native Rust engine (the default) or the pure-JS fallback runs. Everything below is **opt-in** — add a piece when you actually need it.
+
+> Pass the metadata **object first**, message second. Anything after the message is `util.format`-inlined into the message string (and not masked) — so put sensitive data in the object.
 
 ---
 
 ## What SyntropyLog is
+
+> **Not a logger — an observability pipeline.** With Pino or Winston you wire correlation IDs, PII redaction, and per-level field control yourself, in every service. SyntropyLog does it for you: declare it **once** in `init()`, and it runs on every log call, in every async chain, across every service. You write the rules **once**; the framework enforces them on every entry — before it ever reaches the **console, Datadog, Grafana, your database, an OpenTelemetry collector, or wherever your `executor` sends it.**
+
 
 Every Node.js team building microservices ends up writing the same boilerplate: thread `correlationId` through every call, scrub `password`/`email` before logging, remember to stamp `service` on every entry, repeat the same header-extraction middleware on every service.
 
@@ -58,13 +87,9 @@ With Pino or Winston, you **write logging**. With SyntropyLog, you **declare obs
 
 ---
 
-## Quick Start
+## A fuller example
 
-```bash
-npm install syntropylog
-```
-
-A complete, runnable minimum — configure declaratively, then log:
+The same start, now with a logging matrix (field control per level), masking, and clean shutdown:
 
 ```typescript
 import { syntropyLog } from 'syntropylog';
