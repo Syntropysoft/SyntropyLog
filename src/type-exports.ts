@@ -61,11 +61,14 @@ export {
   MaskingEngine,
   MaskingStrategy,
   getDefaultMaskingRules,
+  strategyToSpec,
 } from './masking/MaskingEngine';
 export type {
   MaskingRule,
   GetDefaultMaskingRulesOptions,
 } from './masking/MaskingEngine';
+export { applyMask } from './masking/maskSpec';
+export type { MaskSpec } from './masking/maskSpec';
 export { SanitizationEngine } from './sanitization/SanitizationEngine';
 
 // --- Sensitive key aliases (for custom rules without writing literals) ---

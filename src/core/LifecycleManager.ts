@@ -106,15 +106,8 @@ export class LifecycleManager extends EventEmitter {
         this.contextManager.configure(this.config.context);
       }
 
-      this.serializationManager = new SerializationManager({
-        timeoutMs: this.config.logger?.serializerTimeoutMs,
-        sanitizeSensitiveData:
-          this.config.masking?.enableDefaultRules !== false,
-        disableNativeAddon: this.config.logger?.disableNativeAddon ?? false,
-        onStepError: this.config.onStepError,
-        onSerializationFallback: this.config.onSerializationFallback,
-      });
-
+      // MaskingEngine first: it is the single source of masking rules; the native
+      // engine is configured from the very same rules so the two cannot drift.
       this.maskingEngine = new MaskingEngine({
         rules: this.config.masking?.rules,
         maskChar: this.config.masking?.maskChar,
@@ -122,6 +115,16 @@ export class LifecycleManager extends EventEmitter {
         enableDefaultRules: this.config.masking?.enableDefaultRules !== false,
         regexTimeoutMs: this.config.masking?.regexTimeoutMs,
         onMaskingError: this.config.masking?.onMaskingError,
+      });
+
+      this.serializationManager = new SerializationManager({
+        timeoutMs: this.config.logger?.serializerTimeoutMs,
+        sanitizeSensitiveData:
+          this.config.masking?.enableDefaultRules !== false,
+        disableNativeAddon: this.config.logger?.disableNativeAddon ?? false,
+        maskingRules: this.maskingEngine.getNativeRules(),
+        onStepError: this.config.onStepError,
+        onSerializationFallback: this.config.onSerializationFallback,
       });
 
       this.loggerFactory = new LoggerFactory(

@@ -85,23 +85,30 @@ Field names not in this list pass through verbatim — you can whitelist any cus
 
 ## What it looks like in practice
 
-Same context, different levels:
+The matrix filters **context** — the fields you set with `contextManager.set(...)`, which propagate to every log in the scope. Same context, different levels:
 
 ```typescript
 // Matrix: info → [correlationId, userId, operation]
-//         error → [correlationId, userId, operation, errorCode, tenantId, orderId]
+//         error → [correlationId, userId, operation, errorCode, tenantId]
 
-log.info({ userId: 123, tenantId: 'acme', orderId: 'ord_42', operation: 'charge' },
-         'Payment captured');
-// → { correlationId, userId, operation, msg: 'Payment captured' }
-//   tenantId and orderId dropped — not in info whitelist
+await contextManager.run(async () => {
+  contextManager.set('correlationId', requestId);
+  contextManager.set('userId', 123);
+  contextManager.set('operation', 'charge');
+  contextManager.set('tenantId', 'acme');
+  contextManager.set('errorCode', 'CARD_DECLINED');
 
-log.error({ userId: 123, tenantId: 'acme', orderId: 'ord_42',
-            operation: 'charge', errorCode: 'CARD_DECLINED' },
-          'Payment failed');
-// → { correlationId, userId, operation, errorCode, tenantId, orderId, ... }
-//   full context surfaces only on error
+  log.info('Payment captured');
+  // → { correlationId, userId, operation, message: 'Payment captured' }
+  //   tenantId and errorCode dropped — not in the info whitelist
+
+  log.error('Payment failed');
+  // → { correlationId, userId, operation, errorCode, tenantId, message: 'Payment failed' }
+  //   same context — the wider error whitelist lets more through
+});
 ```
+
+> **Metadata vs context.** This filtering applies only to context. Per-call metadata you pass to `.info({ ... })` is always emitted (and masked) — to keep a field out, don't pass it. The matrix is for the auto-propagating context you can't trim at each call site.
 
 ---
 

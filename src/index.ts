@@ -90,11 +90,16 @@ export {
   MaskingEngine,
   MaskingStrategy,
   getDefaultMaskingRules,
+  strategyToSpec,
 } from './masking/MaskingEngine';
 export type {
   MaskingRule,
   GetDefaultMaskingRulesOptions,
 } from './masking/MaskingEngine';
+// --- Declarative masking primitive: write custom masks as data (they run in both the
+// JS and native engines). Provide one via a rule's `spec` field instead of a JS function. ---
+export { applyMask } from './masking/maskSpec';
+export type { MaskSpec } from './masking/maskSpec';
 
 // --- Sensitive-key aliases (explicit, not `export *`, so the public surface is
 // visible and intentional: adding a new const here does NOT auto-publish it). ---

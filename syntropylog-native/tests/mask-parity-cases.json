@@ -1,0 +1,19 @@
+[
+  { "value": "john@example.com", "spec": { "unmaskStart": 1, "keepAfter": "@" }, "expected": "j***@example.com" },
+  { "value": "ab@example.com", "spec": { "unmaskStart": 1, "keepAfter": "@" }, "expected": "a*@example.com" },
+  { "value": "a@b.com", "spec": { "unmaskStart": 1, "keepAfter": "@" }, "expected": "a@b.com" },
+  { "value": "notanemail", "spec": { "unmaskStart": 1, "keepAfter": "@" }, "expected": "n*********" },
+  { "value": "4111-1111-1111-1234", "spec": { "scope": "digits", "unmaskEnd": 4 }, "expected": "****-****-****-1234" },
+  { "value": "4111111111111234", "spec": { "scope": "digits", "unmaskEnd": 4 }, "expected": "************1234" },
+  { "value": "123-45-6789", "spec": { "scope": "digits", "unmaskEnd": 4 }, "expected": "***-**-6789" },
+  { "value": "+14155551234", "spec": { "scope": "digits", "unmaskEnd": 4 }, "expected": "+*******1234" },
+  { "value": "12", "spec": { "scope": "digits", "unmaskEnd": 4 }, "expected": "12" },
+  { "value": "hunter2", "spec": { "redact": true }, "expected": "[REDACTED]" },
+  { "value": "anything", "spec": { "redact": true }, "expected": "[REDACTED]" },
+  { "value": "hunter2", "spec": {}, "expected": "*******" },
+  { "value": "secret-value", "spec": { "preserveLength": false }, "expected": "********" },
+  { "value": "20-30405060-7", "spec": { "scope": "digits", "unmaskEnd": 4 }, "expected": "**-*****060-7" },
+  { "value": "cardholder", "spec": { "scope": "digits", "unmaskEnd": 4 }, "expected": "cardholder" },
+  { "value": "MyT0ken!", "spec": { "unmaskStart": 2, "unmaskEnd": 2 }, "expected": "My****n!" },
+  { "value": "x", "spec": { "unmaskStart": 5 }, "expected": "x" }
+]

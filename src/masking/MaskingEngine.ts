@@ -12,7 +12,9 @@ import {
   MASK_KEY_TOK,
   MASK_KEYS_PASSWORD,
   MASK_KEYS_TOKEN,
+  MASK_KEYS_ALL,
 } from '../sensitiveKeys';
+import { applyMask, MaskSpec, REDACTED } from './maskSpec';
 
 /**
  * @enum MaskingStrategy
@@ -37,14 +39,22 @@ export interface MaskingRule {
   pattern: string | RegExp;
   /** Masking strategy to apply */
   strategy: MaskingStrategy;
-  /** Custom masking function (for CUSTOM strategy) */
+  /** Custom masking function (for CUSTOM strategy). Runs only in the JS path — a JS
+   * closure cannot cross to the native engine, so a rule using this disables native
+   * for that logger (the function still runs faithfully in JS). Prefer `spec` for a
+   * declarative custom mask that works in both engines. */
   customMask?: (value: string) => string;
+  /** Declarative custom mask. Overrides the strategy preset and crosses to native. */
+  spec?: MaskSpec;
   /** Whether to preserve original length */
   preserveLength?: boolean;
   /** Character to use for masking */
   maskChar?: string;
   /** Compiled regex pattern for performance */
   _compiledPattern?: RegExp;
+  /** Resolved declarative spec (from `spec` or derived from `strategy`); the single
+   * thing both engines interpret. Absent only for CUSTOM-with-function rules. */
+  _spec?: MaskSpec;
   /**
    * Internal: when true, rule is a built-in default (safe pattern); use sync RegExp.test()
    * instead of regex-test worker to avoid ~3s delay per log from IPC round-trips.
@@ -88,7 +98,9 @@ export function getDefaultMaskingRules(
   const preserveLength = options.preserveLength ?? true;
   return [
     {
-      pattern: /credit_card|card_number|payment_number/i,
+      // Match snake_case AND camelCase (the `i` flag makes `creditcard` match
+      // `creditCard`, `cardnumber` match `cardNumber`, etc.).
+      pattern: /credit_card|creditcard|card_number|cardnumber|payment_number/i,
       strategy: MaskingStrategy.CREDIT_CARD,
       preserveLength,
       maskChar,
@@ -123,7 +135,47 @@ export function getDefaultMaskingRules(
       preserveLength,
       maskChar,
     },
+    {
+      // Catch-all for the remaining secret-type keys (auth, credential, connection
+      // string, wallet, session id, …) so the rule set — the single source of truth —
+      // covers everything the legacy native `sensitiveFields` list did. Redacted.
+      pattern: new RegExp(MASK_KEYS_ALL.join('|'), 'i'),
+      strategy: MaskingStrategy.PASSWORD,
+      preserveLength,
+      maskChar,
+    },
   ];
+}
+
+/**
+ * Expand a built-in strategy into its declarative {@link MaskSpec}. Presets only —
+ * the actual masking is done by the shared `applyMask` primitive (and its Rust twin),
+ * so a new strategy is a new spec here, not a new function in two languages.
+ *
+ * Identifiers (email/phone/card/ssn) keep a format-preserving partial (the last 4 of an
+ * identifier is not the secret and aids debugging); credentials are fully redacted.
+ */
+export function strategyToSpec(
+  strategy: MaskingStrategy,
+  opts: { maskChar?: string; preserveLength?: boolean } = {}
+): MaskSpec {
+  const base: MaskSpec = {
+    maskChar: opts.maskChar,
+    preserveLength: opts.preserveLength,
+  };
+  switch (strategy) {
+    case MaskingStrategy.EMAIL:
+      return { ...base, unmaskStart: 1, keepAfter: '@' };
+    case MaskingStrategy.CREDIT_CARD:
+    case MaskingStrategy.SSN:
+    case MaskingStrategy.PHONE:
+      return { ...base, scope: 'digits', unmaskEnd: 4 };
+    case MaskingStrategy.PASSWORD:
+    case MaskingStrategy.TOKEN:
+      return { redact: true };
+    default:
+      return base; // mask all characters
+  }
 }
 
 /**
@@ -199,6 +251,17 @@ export class MaskingEngine {
     rule.preserveLength = rule.preserveLength ?? this.preserveLength;
     rule.maskChar = rule.maskChar ?? this.maskChar;
 
+    // Resolve the declarative spec once: an explicit spec wins, otherwise derive it from
+    // the strategy. A CUSTOM rule with a JS function keeps no spec (it runs the function).
+    if (rule.spec) {
+      rule._spec = rule.spec;
+    } else if (!(rule.strategy === MaskingStrategy.CUSTOM && rule.customMask)) {
+      rule._spec = strategyToSpec(rule.strategy, {
+        maskChar: rule.maskChar,
+        preserveLength: rule.preserveLength,
+      });
+    }
+
     this.rules.push(rule);
   }
 
@@ -265,22 +328,14 @@ export class MaskingEngine {
     for (const key in dataObj) {
       if (!Object.prototype.hasOwnProperty.call(dataObj, key)) continue;
       const value = dataObj[key];
+      const rule = this.findMatchingRule(key);
 
-      if (typeof value === 'string') {
-        for (const rule of this.rules) {
-          let isMatch = false;
-          if (rule._compiledPattern) {
-            if (rule._isDefaultRule) {
-              isMatch = rule._compiledPattern.test(key);
-            } else {
-              isMatch = this.testRegexWithTimeout(rule._compiledPattern, key);
-            }
-          }
-          if (isMatch) {
-            dataObj[key] = this.applyStrategy(value, rule);
-            break;
-          }
-        }
+      if (rule) {
+        // Matched key: mask string values by spec; redact any non-string value whole
+        // (no descent → nested PII can't leak under a sensitive-named parent). This
+        // mirrors the native engine's `resolve_key_action` exactly.
+        dataObj[key] =
+          typeof value === 'string' ? this.applyStrategy(value, rule) : REDACTED;
       } else if (typeof value === 'object' && value !== null) {
         const maskedValue = this.applyMaskingRules(value, visited);
         if (maskedValue !== value) {
@@ -292,176 +347,54 @@ export class MaskingEngine {
     return dataObj;
   }
 
+  /** First rule whose key-pattern matches (order preserved → first wins). */
+  private findMatchingRule(key: string): MaskingRule | undefined {
+    for (const rule of this.rules) {
+      if (!rule._compiledPattern) continue;
+      const isMatch = rule._isDefaultRule
+        ? rule._compiledPattern.test(key)
+        : this.testRegexWithTimeout(rule._compiledPattern, key);
+      if (isMatch) return rule;
+    }
+    return undefined;
+  }
+
   /**
-   * Applies specific masking strategy to a value.
-   * @param value - Value to mask
-   * @param rule - Masking rule to apply
-   * @returns Masked value
+   * Apply a matched rule to a string value. A custom JS function (if any) runs here;
+   * otherwise the resolved declarative spec is interpreted by the shared `applyMask`
+   * primitive — the exact same code path the native engine mirrors.
    * @private
    */
   private applyStrategy(value: string, rule: MaskingRule): string {
-    if (rule.strategy === MaskingStrategy.CUSTOM && rule.customMask) {
+    if (rule.customMask) {
       return rule.customMask(value);
     }
-
-    switch (rule.strategy) {
-      case MaskingStrategy.CREDIT_CARD:
-        return this.maskCreditCard(value, rule);
-      case MaskingStrategy.SSN:
-        return this.maskSSN(value, rule);
-      case MaskingStrategy.EMAIL:
-        return this.maskEmail(value, rule);
-      case MaskingStrategy.PHONE:
-        return this.maskPhone(value, rule);
-      case MaskingStrategy.PASSWORD:
-        return this.maskPassword(value, rule);
-      case MaskingStrategy.TOKEN:
-        return this.maskToken(value, rule);
-      default:
-        return this.maskDefault(value, rule);
+    if (rule._spec) {
+      return applyMask(value, rule._spec);
     }
+    return REDACTED; // no function and no spec → safe fallback
   }
 
   /**
-   * Masks credit card number.
-   * @param value - Credit card number
-   * @param rule - Masking rule
-   * @returns Masked credit card
-   * @private
+   * Export the rules for the native engine as `[{ pattern, flags, spec }]`, or `null`
+   * if any rule uses a custom JS function (which cannot cross to Rust). On `null` the
+   * caller must keep masking in the JS path so the function still runs — never silently
+   * skip it.
    */
-  private maskCreditCard(value: string, rule: MaskingRule): string {
-    const clean = value.replace(/\D/g, '');
-    if (rule.preserveLength) {
-      // Preserve original format, mask all but last 4 digits
-      return value.replace(/\d/g, (match, offset) => {
-        const digitIndex = value.substring(0, offset).replace(/\D/g, '').length;
-        return digitIndex < clean.length - 4 ? rule.maskChar! : match;
+  public getNativeRules():
+    | Array<{ pattern: string; flags: string; spec: MaskSpec }>
+    | null {
+    const out: Array<{ pattern: string; flags: string; spec: MaskSpec }> = [];
+    for (const rule of this.rules) {
+      if (rule.customMask) return null; // JS-only function → native cannot honor it
+      if (!rule._compiledPattern || !rule._spec) return null;
+      out.push({
+        pattern: rule._compiledPattern.source,
+        flags: rule._compiledPattern.flags,
+        spec: rule._spec,
       });
-    } else {
-      // Fixed format: ****-****-****-1111
-      return `${rule.maskChar!.repeat(4)}-${rule.maskChar!.repeat(4)}-${rule.maskChar!.repeat(4)}-${clean.slice(-4)}`;
     }
-  }
-
-  /**
-   * Masks SSN.
-   * @param value - SSN
-   * @param rule - Masking rule
-   * @returns Masked SSN
-   * @private
-   */
-  private maskSSN(value: string, rule: MaskingRule): string {
-    const clean = value.replace(/\D/g, '');
-    if (rule.preserveLength) {
-      // Preserve original format, mask all but last 4 digits
-      return value.replace(/\d/g, (match, offset) => {
-        const digitIndex = value.substring(0, offset).replace(/\D/g, '').length;
-        return digitIndex < clean.length - 4 ? rule.maskChar! : match;
-      });
-    } else {
-      // Fixed format: ***-**-6789
-      return `***-**-${clean.slice(-4)}`;
-    }
-  }
-
-  /**
-   * Masks email address.
-   * @param value - Email address
-   * @param rule - Masking rule
-   * @returns Masked email
-   * @private
-   */
-  private maskEmail(value: string, rule: MaskingRule): string {
-    const atIndex = value.indexOf('@');
-    if (atIndex > 0) {
-      const username = value.substring(0, atIndex);
-      const domain = value.substring(atIndex);
-
-      if (rule.preserveLength) {
-        // Preserve original length: first char + asterisks + @domain
-        const maskedUsername =
-          username.length > 1
-            ? username.charAt(0) + rule.maskChar!.repeat(username.length - 1)
-            : rule.maskChar!.repeat(username.length);
-        return maskedUsername + domain;
-      } else {
-        return `${username.charAt(0)}***${domain}`;
-      }
-    }
-    return this.maskDefault(value, rule);
-  }
-
-  /**
-   * Masks phone number.
-   * @param value - Phone number
-   * @param rule - Masking rule
-   * @returns Masked phone number
-   * @private
-   */
-  private maskPhone(value: string, rule: MaskingRule): string {
-    const clean = value.replace(/\D/g, '');
-    if (rule.preserveLength) {
-      // Preserve original format, mask all but last 4 digits
-      return value.replace(/\d/g, (match, offset) => {
-        const digitIndex = value.substring(0, offset).replace(/\D/g, '').length;
-        return digitIndex < clean.length - 4 ? rule.maskChar! : match;
-      });
-    } else {
-      // Fixed format: ***-***-4567
-      return `${rule.maskChar!.repeat(3)}-${rule.maskChar!.repeat(3)}-${clean.slice(-4)}`;
-    }
-  }
-
-  /**
-   * Masks password.
-   * @param value - Password
-   * @param rule - Masking rule
-   * @returns Masked password
-   * @private
-   */
-  private maskPassword(value: string, rule: MaskingRule): string {
-    return rule.maskChar!.repeat(value.length);
-  }
-
-  /**
-   * Masks token.
-   * @param value - Token
-   * @param rule - Masking rule
-   * @returns Masked token
-   * @private
-   */
-  private maskToken(value: string, rule: MaskingRule): string {
-    if (rule.preserveLength) {
-      return (
-        value.substring(0, 4) +
-        rule.maskChar!.repeat(value.length - 9) +
-        value.substring(value.length - 5)
-      );
-    } else {
-      if (value.length > DEFAULT_VALUES.maskDefaultCapLength) {
-        return (
-          value.substring(0, 4) + '...' + value.substring(value.length - 5)
-        );
-      }
-      return rule.maskChar!.repeat(value.length);
-    }
-  }
-
-  /**
-   * Default masking strategy.
-   * @param value - Value to mask
-   * @param rule - Masking rule
-   * @returns Masked value
-   * @private
-   */
-  private maskDefault(value: string, rule: MaskingRule): string {
-    if (rule.preserveLength) {
-      return rule.maskChar!.repeat(value.length);
-    } else {
-      return rule.maskChar!.repeat(
-        Math.min(value.length, DEFAULT_VALUES.maskDefaultCapLength)
-      );
-    }
+    return out;
   }
 
   /**

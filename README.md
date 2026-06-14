@@ -19,11 +19,40 @@
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
-> **Not a logger — an observability pipeline.** With Pino or Winston you wire correlation IDs, PII redaction, and per-level field control yourself, in every service. SyntropyLog does it for you: declare it **once** in `init()`, and it runs on every log call, in every async chain, across every service. You write the rules **once**; the framework enforces them on every entry — before it ever reaches the **console, Datadog, Grafana, your database, an OpenTelemetry collector, or wherever your `executor` sends it.**
+---
+
+## Quick start
+
+```bash
+npm install syntropylog
+```
+
+```typescript
+import { syntropyLog } from 'syntropylog';
+
+// 1. Configure once — this is all you need.
+await syntropyLog.init({ logger: { serviceName: 'payments' } });
+
+// 2. Log an object. Sensitive fields are masked automatically, before any transport.
+syntropyLog.getLogger().info({ email: 'real@x.com', password: 'hunter2' }, 'payment ok');
+```
+
+What lands on the console (structured JSON):
+
+```json
+{"email":"r***@x.com","level":"info","message":"payment ok","password":"[REDACTED]","service":"payments","timestamp":"2026-06-14T13:11:48.060+00:00"}
+```
+
+Masking is automatic by configuration: what you see here is the library's **default behavior** — not magic. From here, SyntropyLog is built to be **flexible and configurable**. You keep these sensible defaults until you need to adapt them to your case, then you shape it — masking rules, which fields each level emits, where logs go, context propagation, retention — each declared once. The sections below are how. (The masked output is identical under the native Rust engine, the default, and the pure-JS fallback.)
+
+> **Masking is by field name.** A field whose *key* matches a rule is masked; anything without a known key — free text, array elements, the message itself — passes through untouched. So pass sensitive data as keyed fields in the metadata **object** (the first argument), not buried in the message. **Log-data quality is the caller's responsibility:** masking enforces your rules on keyed fields — it can't find PII you hide in prose.
 
 ---
 
 ## What SyntropyLog is
+
+> **Not a logger — an observability pipeline.** With Pino or Winston you wire correlation IDs, PII redaction, and per-level field control yourself, in every service. SyntropyLog does it for you: declare it **once** in `init()`, and it runs on every log call, in every async chain, across every service. You write the rules **once**; the framework enforces them on every entry — before it ever reaches the **console, Datadog, Grafana, your database, an OpenTelemetry collector, or wherever your `executor` sends it.**
+
 
 Every Node.js team building microservices ends up writing the same boilerplate: thread `correlationId` through every call, scrub `password`/`email` before logging, remember to stamp `service` on every entry, repeat the same header-extraction middleware on every service.
 
@@ -58,13 +87,9 @@ With Pino or Winston, you **write logging**. With SyntropyLog, you **declare obs
 
 ---
 
-## Quick Start
+## A fuller example
 
-```bash
-npm install syntropylog
-```
-
-A complete, runnable minimum — configure declaratively, then log:
+The same start, now with a logging matrix (field control per level), masking, and clean shutdown:
 
 ```typescript
 import { syntropyLog } from 'syntropylog';
@@ -119,20 +144,29 @@ syntropyLog.getLogger('billing') === billing; // true — same cached instance
 
 ## Logging Matrix — the differentiator
 
-A declarative contract defining exactly which context fields appear at each level. Same call, different output by level:
+A declarative contract for **context fields** — the values you set once per request with `contextManager.set(...)`, which then propagate to *every* log in that async scope. The matrix decides which of them surface at each level.
+
+> **Matrix governs context, not per-call metadata.** Metadata you pass to `.info({ ... })` is always emitted (and masked) — if you don't want a field logged, just don't pass it. The matrix exists for the auto-propagating *context* you **can't** trim at each call site.
 
 ```typescript
 // info  → [correlationId, userId, operation]
-// error → [correlationId, userId, operation, errorCode, tenantId, orderId]
+// error → [correlationId, userId, operation, errorCode, tenantId]
 
-log.info({ userId: 123, tenantId: 'acme', orderId: 'ord_42', operation: 'charge' },
-         'Payment captured');
-// → { correlationId, userId, operation, message: 'Payment captured' }
-//   tenantId and orderId are dropped — not in the info whitelist
+await contextManager.run(async () => {
+  contextManager.set('correlationId', requestId);
+  contextManager.set('userId', 123);
+  contextManager.set('operation', 'charge');
+  contextManager.set('tenantId', 'acme');
+  contextManager.set('errorCode', 'CARD_DECLINED');
 
-log.error({ userId: 123, tenantId: 'acme', orderId: 'ord_42', operation: 'charge', errorCode: 'CARD_DECLINED' },
-          'Payment failed');
-// → full context surfaces only on error
+  log.info('Payment captured');
+  // → { correlationId: 'req-7', userId: 123, operation: 'charge', message: 'Payment captured' }
+  //   tenantId and errorCode are dropped — not in the info whitelist
+
+  log.error('Payment failed');
+  // → { correlationId, userId, operation, errorCode: 'CARD_DECLINED', tenantId: 'acme', message: 'Payment failed' }
+  //   same context — the wider error whitelist lets more through
+});
 ```
 
 You declare the contract once in `init()`. Compliance reviews the matrix, not your codebase.
@@ -250,34 +284,39 @@ Full guide: [docs/context.md](docs/context.md).
 
 ## Data masking
 
-Masking runs automatically on every entry before it reaches any transport. The engine flattens nested objects, applies rules by field name at any depth, then reconstructs the structure.
+Masking runs automatically on every entry before it reaches any transport — **identically in the native Rust engine and the JS fallback** (one declarative rule set, asserted byte-for-byte equal by a shared parity test). Rules apply by field name at any depth.
+
+> **Masking matches the field _name_, not the content.** It redacts the value of fields whose key matches a rule (`email`, `token`, …); it does **not** scan free-text strings, array elements, or the log message for PII. Put sensitive data in keyed fields — **log-data quality is the caller's responsibility**. See [Scope & limitations](docs/masking.md#scope--limitations).
 
 ```typescript
 await syntropyLog.init({
   masking: {
-    enableDefaultRules: true,    // email, password, token, card, SSN, phone
+    enableDefaultRules: true,    // email, phone, credit_card, ssn, password, token + secret families
     regexTimeoutMs: 100,         // ReDoS guard for custom rules (default 100ms)
     rules: [
-      { pattern: /cuit|cuil/i, strategy: MaskingStrategy.CUSTOM,
-        customMask: (v) => v.replace(/\d(?=\d{4})/g, '*') },
+      // Declarative custom mask (a `spec`, not a JS function) → runs in the native engine too.
+      { pattern: /cuit|cuil/i, strategy: MaskingStrategy.CUSTOM, spec: { scope: 'digits', unmaskEnd: 4 } },
     ],
   },
 });
 
-log.info('Payment', { creditCardNumber: '4111-1111-1111-1234', amount: 299.90 });
-// → creditCardNumber: "****-****-****-1234"   amount: 299.9 (not masked)
-log.info('Order', { order: { user: { token: 'abc123', id: 'USR-1' } } });
-// → order.user.token: "******"   order.user.id: "USR-1" (not masked)
+// Metadata goes FIRST (object), message second — only the metadata object is masked.
+log.info({ creditCardNumber: '4111-1111-1111-1234', amount: 299.90 }, 'Payment');
+// → creditCardNumber: "****-****-****-1234"   amount: 299.9 (numbers untouched)
+log.info({ order: { user: { token: 'abc123', id: 'USR-1' } } }, 'Order');
+// → order.user.token: "[REDACTED]"   order.user.id: "USR-1" (not a sensitive key)
 ```
 
-| Field pattern | Strategy | Example |
-|---|---|---|
-| `email`, `mail` | Email | `j***@example.com` |
-| `password`, `pass`, `pwd`, `secret` | Full mask | `************` |
-| `token`, `key`, `auth`, `jwt`, `bearer` | Token | `eyJh…a1B9c` |
-| `creditCard`, `cardNumber` | Last 4 | `****-****-****-1234` |
-| `ssn`, `socialSecurity` | Last 4 | `*****6789` |
-| `phone`, `mobile`, `tel` | Last 4 | `*******4567` |
+**Identifiers keep their last digits (debuggable); credentials are fully redacted:**
+
+| Field key (examples) | Result |
+|---|---|
+| `email`, `mail` | `j***@example.com` |
+| `phone`, `mobile`, `tel` | `***-***-4567` |
+| `creditCard`, `cardNumber`, `credit_card` | `****-****-****-1234` |
+| `ssn`, `social_security` | `***-**-6789` |
+| `password`, `pass`, `pwd`, `secret` | `[REDACTED]` |
+| `token`, `apiKey`, `key`, `auth`, `jwt`, `bearer` | `[REDACTED]` |
 
 Spread the defaults and add your own; use the `maskEnum` aliases instead of string literals (no Sonar S2068 noise):
 

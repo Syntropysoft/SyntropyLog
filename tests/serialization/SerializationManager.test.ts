@@ -61,10 +61,11 @@ describe('SerializationManager', () => {
     it('returns cached JSON on second call', () => {
       const m = new SerializationManager({
         sanitizationContext: {
-          sensitiveFields: ['pwd'],
           redactPatterns: [/secret/gi],
           maxStringLength: 200,
         },
+        // Key masking flows through maskingRules (single source = MaskingEngine).
+        maskingRules: [{ pattern: 'pwd', flags: 'i', spec: { redact: true } }],
       });
       (m as any).getNativeAddon = vi.fn().mockReturnValue(null);
       (m as any).nativeChecked = true;
@@ -75,7 +76,9 @@ describe('SerializationManager', () => {
 
       expect(first).toBe(second);
       expect(JSON.parse(first)).toMatchObject({
-        sensitiveFields: ['pwd'],
+        // Legacy sensitiveFields net is empty so the two engines can't drift.
+        sensitiveFields: [],
+        maskingRules: [{ pattern: 'pwd', flags: 'i', spec: { redact: true } }],
         maxDepth: expect.any(Number),
         maxStringLength: 200,
         sanitize: true,

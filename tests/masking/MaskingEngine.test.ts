@@ -32,8 +32,8 @@ describe('MaskingEngine', () => {
     it('should use default options when none are provided', async () => {
       const engine = new MaskingEngine();
       const result = (await engine.process({ password: '123' })) as any;
-      // Default rules should mask password
-      expect(result.password).toBe('***');
+      // Credentials are fully redacted (canonical: a credential is never shown, not even partially).
+      expect(result.password).toBe('[REDACTED]');
     });
 
     it('should use a custom maskChar', async () => {
@@ -55,7 +55,7 @@ describe('MaskingEngine', () => {
         credit_card: '4111-1111-1111-1111',
       })) as any;
 
-      expect(result.password).toBe('*********');
+      expect(result.password).toBe('[REDACTED]');
       expect(result.email).toBe('t***@example.com');
       expect(result.credit_card).toBe('****-****-****-1111');
     });
@@ -88,8 +88,8 @@ describe('MaskingEngine', () => {
         public_key: 'pk_test_1234567890abcdef',
       })) as any;
 
-      // Should preserve original length - first 4 chars + asterisks + last 5 chars
-      expect(result.api_key).toBe('sk_t***************bcdef');
+      // TOKEN strategy fully redacts (credential — never shown partially).
+      expect(result.api_key).toBe('[REDACTED]');
       expect(result.public_key).toBe('pk_test_1234567890abcdef');
     });
 
@@ -174,11 +174,11 @@ describe('MaskingEngine', () => {
       const result = (await engine.process(data)) as any;
 
       expect(result.users[0].name).toBe('John');
-      expect(result.users[0].password).toBe('******');
+      expect(result.users[0].password).toBe('[REDACTED]');
       expect(result.users[1].name).toBe('Jane');
-      expect(result.users[1].password).toBe('******');
+      expect(result.users[1].password).toBe('[REDACTED]');
       expect(result.users[2].name).toBe('Bob');
-      expect(result.users[2].password).toBe('******');
+      expect(result.users[2].password).toBe('[REDACTED]');
     });
 
     it('should preserve non-string values', async () => {
@@ -285,8 +285,8 @@ describe('MaskingEngine', () => {
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
       })) as any;
 
-      // Should preserve original length - first 4 chars + asterisks + last 4 chars
-      expect(result.token).toMatch(/^eyJh.*ssw5c$/);
+      // TOKEN strategy fully redacts (credential — structure never revealed).
+      expect(result.token).toBe('[REDACTED]');
     });
   });
 
@@ -425,11 +425,10 @@ describe('MaskingEngine', () => {
       // Note: async overhead might increase this slightly, but should still be fast
       expect(endTime - startTime).toBeLessThan(200);
 
-      // Should mask sensitive data
-      // Should mask sensitive data (preserving original length)
-      expect(result.level0.password).toBe('*******');
+      // Credentials redacted; identifiers (email) partially masked.
+      expect(result.level0.password).toBe('[REDACTED]');
       expect(result.level0.email).toBe('u****@example.com');
-      expect(result.level99.password).toBe('********');
+      expect(result.level99.password).toBe('[REDACTED]');
       expect(result.level99.email).toBe('u*****@example.com');
     });
   });
@@ -485,7 +484,7 @@ describe('MaskingEngine', () => {
       expect(result.email).toBe('j***@example.com');
     });
 
-    it('should mask email with single-char username (no char to preserve)', async () => {
+    it('should keep the first char of a single-char email local part', async () => {
       const engine = new MaskingEngine({ enableDefaultRules: false });
       engine.addRule({
         pattern: /email/i,
@@ -494,11 +493,11 @@ describe('MaskingEngine', () => {
         maskChar: '*',
       });
       const result = (await engine.process({ email: 'a@example.com' })) as any;
-      // single char username => maskChar.repeat(1)
-      expect(result.email).toBe('*@example.com');
+      // unmaskStart:1 keeps the first char of the local part (nothing left to mask here).
+      expect(result.email).toBe('a@example.com');
     });
 
-    it('should mask email without @ (fallback to maskDefault)', async () => {
+    it('should mask email without @ (keeps first char, masks the rest)', async () => {
       const engine = new MaskingEngine({ enableDefaultRules: false });
       engine.addRule({
         pattern: /email/i,
@@ -507,11 +506,11 @@ describe('MaskingEngine', () => {
         maskChar: '*',
       });
       const result = (await engine.process({ email: 'invalidemail' })) as any;
-      // no @ → maskDefault with preserveLength=true → repeat(length)
-      expect(result.email).toBe('************');
+      // No '@' → no kept tail; unmaskStart:1 keeps 'i', masks the other 11 chars.
+      expect(result.email).toBe('i***********');
     });
 
-    it('should mask short token without preserveLength (<=8 chars)', async () => {
+    it('should fully redact a short token (credential)', async () => {
       const engine = new MaskingEngine({ enableDefaultRules: false });
       engine.addRule({
         pattern: /tok/i,
@@ -520,11 +519,10 @@ describe('MaskingEngine', () => {
         maskChar: '*',
       });
       const result = (await engine.process({ tok: 'short' })) as any;
-      // short value (<=8 chars), no preserveLength → maskChar repeat(length)
-      expect(result.tok).toBe('*****');
+      expect(result.tok).toBe('[REDACTED]');
     });
 
-    it('should mask token without preserveLength (>8 chars)', async () => {
+    it('should fully redact a long token (credential)', async () => {
       const engine = new MaskingEngine({ enableDefaultRules: false });
       engine.addRule({
         pattern: /tok/i,
@@ -535,21 +533,57 @@ describe('MaskingEngine', () => {
       const result = (await engine.process({
         tok: 'someLongToken1234',
       })) as any;
-      // > 8 chars: first 4 + '...' + last 5 → 'some' + '...' + 'n1234'
-      expect(result.tok).toBe('some...n1234');
+      expect(result.tok).toBe('[REDACTED]');
     });
 
-    it('should apply maskDefault without preserveLength (capped at 8 chars)', async () => {
+    it('should cap the masked run at 8 when preserveLength is false', async () => {
       const engine = new MaskingEngine({ enableDefaultRules: false });
       engine.addRule({
         pattern: /myfield/i,
-        strategy: MaskingStrategy.EMAIL, // Triggers maskDefault via bad email (no @)
+        strategy: MaskingStrategy.EMAIL, // no '@' in value → masks the head
         preserveLength: false,
         maskChar: '*',
       });
       const result = (await engine.process({ myfield: 'toolongvalue' })) as any;
-      // maskDefault without preserveLength → repeat(min(length, 8))
-      expect(result.myfield.length).toBeLessThanOrEqual(8);
+      // unmaskStart:1 keeps 't'; remaining 11 chars masked but capped at 8 → 't' + 8 '*'.
+      expect(result.myfield).toBe('t********');
+    });
+  });
+
+  describe('getNativeRules (single source → native)', () => {
+    it('exports default rules as { pattern, flags, spec }', () => {
+      const engine = new MaskingEngine();
+      const rules = engine.getNativeRules();
+      expect(rules).not.toBeNull();
+      const email = rules!.find((r) => /email/i.test('email') && r.pattern.includes('email'));
+      expect(email).toBeDefined();
+      expect(email!.flags).toContain('i');
+      expect(email!.spec).toMatchObject({ unmaskStart: 1, keepAfter: '@' });
+      // Credentials map to a redact spec.
+      expect(rules!.some((r) => r.spec.redact === true)).toBe(true);
+    });
+
+    it('exports a declarative custom spec (crosses to native)', () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /cuit/i,
+        strategy: MaskingStrategy.CUSTOM,
+        spec: { scope: 'digits', unmaskEnd: 4 },
+      });
+      const rules = engine.getNativeRules();
+      expect(rules).toHaveLength(1);
+      expect(rules![0].spec).toMatchObject({ scope: 'digits', unmaskEnd: 4 });
+    });
+
+    it('returns null when any rule uses a custom JS function (cannot cross)', () => {
+      const engine = new MaskingEngine({ enableDefaultRules: false });
+      engine.addRule({
+        pattern: /custom/i,
+        strategy: MaskingStrategy.CUSTOM,
+        customMask: (v) => v.toUpperCase(),
+      });
+      // null forces the caller to keep masking in JS so the function still runs.
+      expect(engine.getNativeRules()).toBeNull();
     });
   });
 

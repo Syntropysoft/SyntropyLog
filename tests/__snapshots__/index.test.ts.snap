@@ -54,6 +54,7 @@ exports[`Main entry point (src/index.ts) > should match the public API snapshot 
   "Transport",
   "UniversalAdapter",
   "UniversalLogFormatter",
+  "applyMask",
   "correlationIdMiddleware",
   "createSyntropyLog",
   "defineMatrix",
@@ -63,6 +64,7 @@ exports[`Main entry point (src/index.ts) > should match the public API snapshot 
   "getDefaultMaskingRules",
   "maskEnum",
   "resolveCorrelationId",
+  "strategyToSpec",
   "syntropyLog",
   "traceIdFromTraceparent",
 ]
