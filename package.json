@@ -4,7 +4,7 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "description": "Structured observability framework for Node.js — declarative logging, masking, compliance, and tracing for high-demand environments.",
+  "description": "Observability framework for Node.js powered by a native Rust engine: declarative correlation, PII masking, per-level field control and retention enforced on every log, serialized + masked + sanitized in one native pass (transparent JS fallback). Failsafe — logging can't crash your app. A native-Rust alternative to Pino/Winston pipelines.",
   "keywords": [
     "instance-manager",
     "instance-management",
@@ -60,7 +60,13 @@
     "microservice-observability",
     "infrastructure-logging",
     "kubernetes",
-    "production-logging"
+    "production-logging",
+    "rust",
+    "napi-rs",
+    "native-addon",
+    "pino-alternative",
+    "winston-alternative",
+    "failsafe"
   ],
   "author": {
     "name": "Gabriel Alejandro Gomez",
