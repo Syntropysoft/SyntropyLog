@@ -1,6 +1,6 @@
 {
   "name": "syntropylog-native",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Native Rust engine for SyntropyLog (napi-rs): serialize + PII mask (declarative MaskSpec) + sanitize in a single pass. Optional — SyntropyLog transparently falls back to a parity-tested pure-JS engine when no prebuilt binary is available.",
   "keywords": [
     "syntropylog",
