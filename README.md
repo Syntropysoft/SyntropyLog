@@ -569,7 +569,7 @@ syntropyLog.getStats();
 //     failures: { log, transport, serializationFallback, masking, step } }
 ```
 
-The **serialization pipeline** guarantees logging never blocks the event loop: a `HygieneStep` neutralizes circular references and caps depth, a `TimeoutStep` enforces a mandatory per-step timeout ("no death by log"), and a `SanitizationStep` strips control characters. Full guide: [docs/lifecycle.md](docs/lifecycle.md).
+The **serialization pipeline** keeps a pathological payload from hanging the event loop (logging runs synchronously, but it's bounded): a `HygieneStep` neutralizes circular references and caps depth, a `TimeoutStep` enforces a mandatory per-step timeout ("no death by log"), and a `SanitizationStep` strips control characters. Full guide: [docs/lifecycle.md](docs/lifecycle.md).
 
 ### Multi-instance & hot reconfiguration
 
