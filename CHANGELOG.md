@@ -4,12 +4,14 @@
 
 ### Masking safety — message-first object calls are now masked
 
-A trailing **plain object** on a message-first call — `log.info('message', { ...pii })`, the `console.log` style many developers reach for by habit — is now routed to **metadata** so it goes through masking, instead of being inlined into the message string unmasked. This closes a real footgun: previously, passing the metadata object *after* the message put its contents into the message text, which masking does not touch, so PII could leak. Errors, class instances, arrays and printf-style args (`%s`, `%o`, …) keep `util.format` behavior, so `log.info('failed', err)` and `log.info('user %s', name)` are unchanged. Both argument orders now mask: `log.info({ email }, 'msg')` and `log.info('msg', { email })`.
+A trailing **plain object** on a message-first call — `log.info('message', { ...pii })`, the `console.log` style many developers reach for by habit — is now routed to **metadata** so it goes through masking, instead of being inlined into the message string unmasked. This closes a real footgun: previously, passing the metadata object *after* the message put its contents into the message text, which masking does not touch, so PII could leak. Errors, class instances, arrays and printf-style args (`%s`, `%o`, …) keep `util.format` behavior, so `log.info('failed', err)` and `log.info('user %s', name)` are unchanged. **Both argument orders now mask:** `log.info({ email }, 'msg')` and `log.info('msg', { email })`. Docs/example callouts updated accordingly.
 
-### Docs / AI-optimization
+## 1.1.1
+
+Docs and npm-metadata only — no code or behavior change.
 
 - **README optimized for AI/LLM readers (and humans).** The tagline leads with "Node.js, powered by a native Rust engine" and "failsafe"; a new **How it compares to Pino & Winston** section states the category/engine differences factually. The honest benchmark stance is kept verbatim — only minimal logging is a fair head-to-head; no claim that we out-mask Pino, because that wasn't measured fairly.
-- **Masking boundary stated as one truth.** Masking is by field name; free text concatenated into the message string is not scanned — log-data quality is the caller's responsibility. The Logging Matrix docs were corrected to show it filters *context* fields, not per-call metadata.
+- **Masking boundary stated as one truth.** Masking is by field name; free text / array elements / the message are not scanned — log-data quality is the caller's responsibility. The Logging Matrix docs were corrected to show it filters *context* fields, not per-call metadata.
 - **npm metadata.** Richer descriptions + keywords (`rust`, `napi-rs`, `native-addon`, `pino-alternative`, …) on both `syntropylog` and `syntropylog-native`.
 
 ## 1.1.0
