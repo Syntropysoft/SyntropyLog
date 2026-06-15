@@ -69,6 +69,15 @@ function shouldLogByLevel(
 }
 
 /** Pure: parse Pino-like args into message and metadata. */
+/** Pure: a plain `{}` object literal — not null, array, Error, or a class instance. */
+function isPlainObject(v: unknown): v is LogMetadata {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    (v as object).constructor === Object
+  );
+}
+
 function parseLogArgs(args: (LogFormatArg | LogMetadata | JsonValue)[]): {
   message: string;
   metadata: LogMetadata;
@@ -82,6 +91,7 @@ function parseLogArgs(args: (LogFormatArg | LogMetadata | JsonValue)[]): {
     args[0] !== null &&
     !Array.isArray(args[0])
   ) {
+    // Metadata-first: log.info({ ...meta }, 'message', ...formatArgs)
     metadata = args[0] as LogMetadata;
     message = (args[1] as string) || '';
     const formatArgs = args.slice(2);
@@ -89,10 +99,17 @@ function parseLogArgs(args: (LogFormatArg | LogMetadata | JsonValue)[]): {
       message = util.format(message, ...formatArgs);
     }
   } else {
+    // Message-first: log.info('message', ...rest)
     message = (args[0] as string) || '';
-    const formatArgs = args.slice(1);
-    if (message && formatArgs.length > 0) {
-      message = util.format(message, ...formatArgs);
+    const rest = args.slice(1);
+    // Safety net for the console.log-style call `log.info('message', { ...pii })`: a single
+    // trailing plain object is almost always metadata the caller expects to be MASKED, not
+    // text to inline into the message. Treat it as metadata so it goes through masking.
+    // Errors, class instances, arrays, primitives and printf args keep util.format behavior.
+    if (rest.length === 1 && isPlainObject(rest[0])) {
+      metadata = rest[0];
+    } else if (message && rest.length > 0) {
+      message = util.format(message, ...rest);
     }
   }
   return { message: message || '', metadata };

@@ -45,7 +45,7 @@ What lands on the console (structured JSON):
 
 Masking is automatic by configuration: what you see here is the library's **default behavior** — not magic. From here, SyntropyLog is built to be **flexible and configurable**. You keep these sensible defaults until you need to adapt them to your case, then you shape it — masking rules, which fields each level emits, where logs go, context propagation, retention — each declared once. The sections below are how. (The masked output is identical under the native Rust engine, the default, and the pure-JS fallback.)
 
-> **Masking is by field name.** A field whose *key* matches a rule is masked; anything without a known key — free text, array elements, the message itself — passes through untouched. So pass sensitive data as keyed fields in the metadata **object** (the first argument), not buried in the message. **Log-data quality is the caller's responsibility:** masking enforces your rules on keyed fields — it can't find PII you hide in prose.
+> **Masking is by field name.** A field whose *key* matches a rule is masked; anything without a known key — array elements, or text you concatenate into the message — passes through untouched. So pass sensitive data as **keyed fields in an object** — `log.info({ email }, 'msg')` **or** `log.info('msg', { email })`, both are masked — not as message text or `%s`/`%o` format args. **Log-data quality is the caller's responsibility:** masking enforces your rules on keyed fields — it can't find PII you hide in prose.
 
 ---
 
