@@ -143,6 +143,38 @@ describe('Logger', () => {
     logger = new Logger('test-logger', transports, dependencies);
   });
 
+  describe('argument routing — masking safety (footgun guard)', () => {
+    const lastCall = () =>
+      mockSerializationManager.serializeDirect.mock.calls.at(-1)!;
+
+    it('routes a trailing plain object (message-first) to METADATA so it gets masked, not inlined into the message', () => {
+      logger.info('User signed up', { email: 'real@x.com' });
+      const [, message, , , metadata] = lastCall();
+      expect(message).toBe('User signed up'); // object NOT concatenated into the message
+      expect(metadata).toMatchObject({ email: 'real@x.com' }); // → goes through masking
+    });
+
+    it('keeps util.format for an Error (not promoted to metadata)', () => {
+      logger.info('failed', new Error('boom'));
+      const [, message] = lastCall();
+      expect(message).toContain('failed');
+      expect(message).toContain('boom'); // Error stays inlined as before
+    });
+
+    it('keeps printf interpolation when format args are used', () => {
+      logger.info('user %s logged in', 'alice');
+      const [, message] = lastCall();
+      expect(message).toBe('user alice logged in');
+    });
+
+    it('still supports metadata-first calls', () => {
+      logger.info({ email: 'real@x.com' }, 'signup');
+      const [, message, , , metadata] = lastCall();
+      expect(message).toBe('signup');
+      expect(metadata).toMatchObject({ email: 'real@x.com' });
+    });
+  });
+
   describe('Logging methods', () => {
     it('should set initial level correctly', () => {
       expect(logger.level).toBe('info');
