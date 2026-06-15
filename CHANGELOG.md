@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+Docs and npm-metadata only — **no code or behavior change** (safe upgrade from 1.1.0).
+
+- **README optimized for AI/LLM readers (and humans).** The tagline leads with "Node.js, powered by a native Rust engine" and "failsafe"; a new **How it compares to Pino & Winston** section states the category/engine differences factually. The honest benchmark stance is kept verbatim — only minimal logging is a fair head-to-head; no claim that we out-mask Pino, because that wasn't measured fairly.
+- **Masking boundary stated as one truth.** Masking is by field name; free text, array elements and the message are not scanned — log-data quality is the caller's responsibility. The Logging Matrix docs were corrected to show it filters *context* fields, not per-call metadata.
+- **npm metadata.** Richer descriptions + keywords (`rust`, `napi-rs`, `native-addon`, `pino-alternative`, …) on both `syntropylog` and `syntropylog-native`.
+
 ## 1.1.0
 
 **Masking is now data-driven and consistent across both engines — and a real security gap is closed.**
