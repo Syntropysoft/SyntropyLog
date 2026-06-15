@@ -86,7 +86,7 @@ jobs:
           node scripts/patch-index-no-shell.js
 
       - name: Upload addon artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: addon-${{ matrix.target }}
           path: |

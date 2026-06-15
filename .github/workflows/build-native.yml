@@ -94,7 +94,7 @@ jobs:
         run: cd syntropylog-native && node test-node.mjs
 
       - name: Upload addon artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: addon-${{ matrix.target }}
           path: |
@@ -126,7 +126,7 @@ jobs:
           ls -la addon-package/
 
       - name: Upload merged addon (all platforms)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: syntropylog-native-all-platforms
           path: addon-package
