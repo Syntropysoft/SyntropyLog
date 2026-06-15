@@ -1,7 +1,19 @@
 {
   "name": "syntropylog-native",
   "version": "1.1.0",
-  "description": "Native Rust addon for SyntropyLog (fast serialization + masking)",
+  "description": "Native Rust engine for SyntropyLog (napi-rs): serialize + PII mask (declarative MaskSpec) + sanitize in a single pass. Optional — SyntropyLog transparently falls back to a parity-tested pure-JS engine when no prebuilt binary is available.",
+  "keywords": [
+    "syntropylog",
+    "rust",
+    "napi-rs",
+    "native-addon",
+    "observability",
+    "masking",
+    "pii-masking",
+    "sanitization",
+    "serialization",
+    "logging"
+  ],
   "main": "index.js",
   "module": "index.mjs",
   "types": "index.d.ts",

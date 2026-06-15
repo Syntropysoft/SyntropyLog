@@ -5,9 +5,9 @@
 <h1 align="center">SyntropyLog</h1>
 
 <p align="center">
-  <strong>The observability framework for backend JavaScript.</strong>
+  <strong>The observability framework for Node.js — powered by a native Rust engine.</strong>
   <br />
-  Declare your rules <strong>once</strong> — context, masking, field control, retention — and every service uses them <strong>already wired</strong>. Stop writing the same boilerplate N times.
+  Correlation IDs, PII masking, per-level field control and retention — declared <strong>once</strong> and enforced on every log, serialized + masked + sanitized in a single <strong>native Rust pass</strong> (with a transparent pure-JS fallback). <strong>Failsafe by design:</strong> logging can never crash your app.
 </p>
 
 <p align="center">
@@ -68,6 +68,24 @@ Four pillars:
 - **Silent Observer pipeline** — masking, sanitization, serialization with timeout and depth limits, prototype-pollution defense. Logging cannot crash your app; failures surface through hooks and counters (`getStats()`).
 
 An optional Rust native addon does serialize + mask + sanitize in a single pass when available, with transparent JS fallback when not.
+
+---
+
+## How it compares to Pino & Winston
+
+Pino and Winston are excellent, fast **loggers**. SyntropyLog is a different category — an **observability pipeline** that does *in the framework* what a logger leaves to you, and runs the heavy work in a native engine:
+
+| | Pino / Winston | SyntropyLog |
+|---|---|---|
+| **Category** | logger | observability pipeline (matrix → masking → sanitization → serialization → routing) |
+| **PII masking** | Pino: `redact` paths in JS (fast-redact); Winston: bring your own | built in, by field name, in a **native Rust pass** (declarative `MaskSpec`) |
+| **Correlation IDs** | you thread them, per service | automatic via `AsyncLocalStorage`, declared once |
+| **Per-level field control** | manual | declarative **Logging Matrix** |
+| **Retention / audit routing** | DIY | first-class — `withRetention` + a delivery-guaranteed durable transport |
+| **If logging throws** | can bubble into your code | **Silent Observer** — logging never throws, can't crash your app |
+| **Engine** | JS | native **Rust** (serialize + mask + sanitize in one pass), transparent JS fallback |
+
+**On speed — honestly:** the only apples-to-apples comparison is *minimal logging* (plain JSON, no masking), and there SyntropyLog is competitive — fastest on M2/WSL2, on par with Pino on x64. Above that they aren't comparable: Pino/Winston don't mask, correlate or filter, so their numbers are a no-masking reference, not a race. Decomposition shows ~87% of the full-pipeline cost is the Rust engine doing the actual masking work — the framework layer itself is nearly free. Numbers, machines and method: [benchmark report](docs/benchmark-report.md).
 
 ---
 
