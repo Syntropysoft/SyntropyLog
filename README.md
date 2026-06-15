@@ -589,6 +589,8 @@ syntropyLog.resetTransports();
 
 An optional Rust addon does serialize + mask + sanitize in a single pass. It installs automatically on Node ≥ 20 for Linux, macOS, and Windows; if unavailable, the JS pipeline is used transparently.
 
+> **What the addon is — and isn't.** It runs **synchronously on the main thread**: a faster *single pass*, **not** an off-thread offload. It does the **CPU work** (serialize/mask/sanitize) and returns a string — the **I/O is your transport's job, in JS**. The win is doing the same work in less time, so it occupies the event loop *less* — it does not move work *off* it. (No claim that logging "never touches the event loop"; it does, briefly and bounded.)
+
 ```typescript
 syntropyLog.isNativeAddonInUse(); // true when the Rust pipeline is active
 // Force JS mode: logger.disableNativeAddon: true in init()
