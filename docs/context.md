@@ -160,16 +160,19 @@ async function bootstrap() {
 The application module:
 
 ```typescript
-// src/app.module.ts
+// src/app.module.ts — pass the instance you initialized (see note below)
 @Module({
-  imports: [SyntropyLogModule.forRoot()],
+  imports: [SyntropyLogModule.forRoot({ syntropyLog })],
   controllers: [/* … */],
   providers: [/* … */],
 })
 export class AppModule {}
 ```
 
-For multi-tenant apps, pass a factory-produced instance into `forRoot({ syntropyLog })` and into `SyntropyNestLoggerService(syntropyLog)`.
+> ⚠️ **Pass your instance explicitly.** `forRoot()` with no argument resolves the `syntropylog/nestjs`
+> subpath's **own**, uninitialized singleton (it throws `Logger Factory not available` at startup). Always
+> pass the `syntropyLog` you `init()`ed — or, recommended, wrap it in a small local `LoggerService` (see the
+> [NestJS section in the README](../README.md#nestjs)). The same applies to `SyntropyNestLoggerService(syntropyLog)`.
 
 ### Using `@InjectLogger()` in services
 

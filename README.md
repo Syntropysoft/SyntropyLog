@@ -336,18 +336,22 @@ log.info({ order: { user: { token: 'abc123', id: 'USR-1' } } }, 'Order');
 | `password`, `pass`, `pwd`, `secret` | `[REDACTED]` |
 | `token`, `apiKey`, `key`, `auth`, `jwt`, `bearer` | `[REDACTED]` |
 
-Spread the defaults and add your own; use the `maskEnum` aliases instead of string literals (no Sonar S2068 noise):
+Keep the defaults on and add your own rules **on top** — use the `maskEnum` aliases instead of string literals (no Sonar S2068 noise):
 
 ```typescript
-import { getDefaultMaskingRules, maskEnum, MaskingStrategy } from 'syntropylog';
+import { maskEnum, MaskingStrategy } from 'syntropylog';
 masking: {
-  enableDefaultRules: false,
+  enableDefaultRules: true,   // built-in defaults stay on; your rules are added on top
   rules: [
-    ...getDefaultMaskingRules({ maskChar: '*' }),
     { pattern: new RegExp(maskEnum.MASK_KEYS_TOKEN.join('|'), 'i'), strategy: MaskingStrategy.TOKEN },
   ],
 }
 ```
+
+> ⚠️ **Keep `enableDefaultRules: true`.** Disabling the defaults and re-adding them by spreading
+> `getDefaultMaskingRules()` is masked **only by the JS fallback** — with the native addon active (the
+> default) those spread-in default rules are not applied and **PII can leak unmasked**. Custom rules you
+> add on top are masked by both engines; the built-in defaults must stay enabled, not re-supplied.
 
 **Silent Observer:** if masking fails or times out, the pipeline never throws — it returns a safe payload marked `_maskingFailed` with only allowed keys (`level`, `timestamp`, `message`, `service`); the raw metadata never leaks. Full guide: [docs/masking.md](docs/masking.md).
 
@@ -498,31 +502,46 @@ const service = createServiceWithMock(UserService, helper.mockSyntropyLog);
 
 ## NestJS
 
-`syntropylog/nestjs` ships a `LoggerService` implementation, a global module, and a per-class logger decorator. `@nestjs/*`, `reflect-metadata`, and `rxjs` are **optional peer dependencies** — non-Nest users see no warnings.
+Initialize SyntropyLog **once** at bootstrap, then route Nest's own logs through it with a thin
+`LoggerService` that wraps the main singleton — the production pattern. `@nestjs/*`, `reflect-metadata`,
+and `rxjs` are needed only in Nest apps.
 
 ```typescript
-// main.ts — init before creating the app
+// syntropy-nest-logger.service.ts — a Nest LoggerService backed by the main singleton
+import { LoggerService } from '@nestjs/common';
+import { syntropyLog } from 'syntropylog';
+
+export class SyntropyNestLoggerService implements LoggerService {
+  private ctx(p: unknown[]) { return (p.find((x) => typeof x === 'string') as string) ?? 'nest'; }
+  log(m: unknown, ...p: unknown[])     { syntropyLog.getLogger('nest').info({ nestContext: this.ctx(p) }, String(m)); }
+  error(m: unknown, ...p: unknown[])   { syntropyLog.getLogger('nest').error({ nestContext: this.ctx(p) }, String(m)); }
+  warn(m: unknown, ...p: unknown[])    { syntropyLog.getLogger('nest').warn({ nestContext: this.ctx(p) }, String(m)); }
+  debug(m: unknown, ...p: unknown[])   { syntropyLog.getLogger('nest').debug({ nestContext: this.ctx(p) }, String(m)); }
+  verbose(m: unknown, ...p: unknown[]) { syntropyLog.getLogger('nest').trace({ nestContext: this.ctx(p) }, String(m)); }
+}
+
+// main.ts — init BEFORE create, then attach the logger
 import { syntropyLog } from 'syntropylog';
 await syntropyLog.init({ logger: { serviceName: 'my-app', level: 'info' } });
-const app = await NestFactory.create(AppModule);
+const app = await NestFactory.create(AppModule, {
+  bufferLogs: true,                          // hold early logs until the logger is attached
+  logger: new SyntropyNestLoggerService(),   // Nest's own logs now flow through SyntropyLog
+});
 
-// app.module.ts
-import { SyntropyLogModule } from 'syntropylog/nestjs';
-@Module({ imports: [SyntropyLogModule.forRoot()] })
-export class AppModule {}
-
-// any.service.ts — @InjectLogger() binds .withSource(ClassName) per consumer
-import { InjectLogger } from 'syntropylog/nestjs';
-import type { ILogger } from 'syntropylog';
-
+// any.service.ts — bind the class name as `source`, no DI plumbing needed
 @Injectable()
 export class PaymentService {
-  constructor(@InjectLogger() private readonly log: ILogger) {}
+  private readonly log = syntropyLog.getLogger('payments').withSource('PaymentService');
   charge() { this.log.info({ amount: 1500 }, 'Charging'); } // entry includes source: 'PaymentService'
 }
 ```
 
-`forRoot({ syntropyLog })` accepts an instance from `createSyntropyLog()` for multi-tenant or isolated-test setups; `{ loggerName, defaultContext }` route Nest's own logs separately.
+> ⚠️ **Known issue with the packaged `syntropylog/nestjs` subpath** (`SyntropyLogModule`, `@InjectLogger`):
+> it bundles its **own** SyntropyLog singleton, separate from the one you `init()`. So
+> `SyntropyLogModule.forRoot()` with no argument resolves an **uninitialized** instance and throws
+> `Logger Factory not available` at startup. Until the subpath shares the main singleton, wrap it directly
+> as shown above (this is the pattern the Nest support is modeled on), or — if you use the module — pass
+> your initialized instance explicitly: `SyntropyLogModule.forRoot({ syntropyLog })`.
 
 ---
 
