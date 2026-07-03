@@ -29,6 +29,8 @@
  * Phase 3 plan.
  */
 
+import { appendFile, rm } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import { Transport, type TransportOptions } from './Transport';
 import type { LogEntry } from '../../types';
 
@@ -119,6 +121,21 @@ export interface DurableAdapterTransportOptions extends TransportOptions {
    * `'retries-exhausted'`.
    */
   flushTimeoutMs?: number;
+
+  /**
+   * **Opt-in disk persistence.** When set, the undelivered durable backlog is
+   * written to this file (JSONL) so it survives a process restart: on
+   * construction the file is replayed, and once the queue fully drains the
+   * file is deleted — a self-emptying spool (a buffer, not an archive; no
+   * rotation). Absent ⇒ in-memory only (unchanged).
+   *
+   * Guarantee is **at-least-once**: a crash mid-delivery re-delivers the
+   * current spool on the next start, so the executor should be idempotent.
+   * Writes are async and never block the event loop; a spool-write failure
+   * degrades gracefully to in-memory-only. Requires a Node filesystem
+   * (no new dependency — uses `node:fs`; disk is not network I/O).
+   */
+  persistPath?: string;
 }
 
 interface QueueItem {
@@ -168,10 +185,14 @@ export class DurableAdapterTransport extends Transport {
   ) => void;
   private readonly durableOnlyForRetention: boolean;
   private readonly flushTimeoutMs: number;
+  private readonly persistPath?: string;
 
   private readonly queue: QueueItem[] = [];
   private processing = false;
   private shuttingDown = false;
+
+  /** Serializes all spool writes so they never interleave and never block the caller. */
+  private diskChain: Promise<void> = Promise.resolve();
 
   constructor(options: DurableAdapterTransportOptions) {
     super(options);
@@ -187,6 +208,65 @@ export class DurableAdapterTransport extends Transport {
     this.onDrop = options.onDrop;
     this.durableOnlyForRetention = options.durableOnlyForRetention ?? true;
     this.flushTimeoutMs = options.flushTimeoutMs ?? 5_000;
+    this.persistPath = options.persistPath;
+    this.recover();
+  }
+
+  /**
+   * Replays a spool left on disk by a prior crash/outage. Synchronous read —
+   * a one-time startup cost, not the hot path. Corrupt lines are skipped, an
+   * unreadable spool is ignored (startup must never crash on it).
+   */
+  private recover(): void {
+    if (!this.persistPath || !existsSync(this.persistPath)) return;
+
+    let content: string;
+    try {
+      content = readFileSync(this.persistPath, 'utf8');
+    } catch {
+      return;
+    }
+
+    let recovered = 0;
+    for (const line of content.split('\n')) {
+      if (line.trim() === '') continue;
+      try {
+        this.queue.push({ entry: JSON.parse(line), attempt: 0 });
+        recovered++;
+      } catch {
+        // Skip a corrupt/partial line — never lose the rest of the backlog.
+      }
+    }
+
+    if (recovered > 0) void this.drain();
+  }
+
+  /** Append-ahead an accepted entry to the spool (async, serialized, best-effort). */
+  private appendSpool(entry: unknown): void {
+    if (!this.persistPath) return;
+    const path = this.persistPath;
+    let line: string;
+    try {
+      line = JSON.stringify(entry) + '\n';
+    } catch {
+      return; // non-serializable entry → keep the in-memory copy, skip the spool
+    }
+    this.diskChain = this.diskChain
+      .then(() => appendFile(path, line))
+      .catch(() => {
+        // Spool write failed → degrade to in-memory-only (Silent Observer).
+      });
+  }
+
+  /** Delete the spool once the backlog is fully drained (self-emptying buffer). */
+  private clearSpool(): void {
+    if (!this.persistPath) return;
+    const path = this.persistPath;
+    this.diskChain = this.diskChain
+      .then(() => rm(path, { force: true }))
+      .catch(() => {
+        // Nothing to clean up we can act on; leave it for the next drain/restart.
+      });
   }
 
   public log(entry: LogEntry | string): void {
@@ -236,12 +316,13 @@ export class DurableAdapterTransport extends Transport {
   private enqueue(entry: unknown): void {
     if (this.queue.length < this.bufferSize) {
       this.queue.push({ entry, attempt: 0 });
+      this.appendSpool(entry);
       return;
     }
 
     switch (this.dropStrategy) {
       case 'reject': {
-        this.onDrop?.(entry, 'buffer-full');
+        this.onDrop?.(entry, 'buffer-full'); // not accepted → not spooled
         return;
       }
       case 'newest': {
@@ -249,6 +330,7 @@ export class DurableAdapterTransport extends Transport {
         const dropped = this.queue.pop();
         if (dropped) this.onDrop?.(dropped.entry, 'buffer-full');
         this.queue.push({ entry, attempt: 0 });
+        this.appendSpool(entry);
         return;
       }
       case 'oldest':
@@ -256,6 +338,7 @@ export class DurableAdapterTransport extends Transport {
         const dropped = this.queue.shift();
         if (dropped) this.onDrop?.(dropped.entry, 'buffer-full');
         this.queue.push({ entry, attempt: 0 });
+        this.appendSpool(entry);
         return;
       }
     }
@@ -285,6 +368,9 @@ export class DurableAdapterTransport extends Transport {
       }
     } finally {
       this.processing = false;
+      // Queue is empty — every entry was delivered or DLQ'd — so nothing is
+      // undelivered: drop the spool. It self-recreates on the next enqueue.
+      this.clearSpool();
     }
   }
 
@@ -346,6 +432,11 @@ export class DurableAdapterTransport extends Transport {
         }
       }
     }
+
+    // Nothing remains queued (drained or DLQ'd) → drop the spool, and don't
+    // resolve until every pending disk write (including the delete) has settled.
+    this.clearSpool();
+    await this.diskChain;
   }
 
   /**
