@@ -20,7 +20,10 @@
 </p>
 
 <p align="center">
-  Working in .NET? The same framework exists for that ecosystem: <a href="https://www.nuget.org/packages/sl4n/"><strong>sl4n</strong></a> — same concepts (Logging Matrix, masking by field name, retention, durable delivery), built idiomatically on <code>Microsoft.Extensions.Logging</code>. <a href="https://github.com/Syntropysoft/sl4n">Repo ›</a>
+  Not on Node.js? The same framework exists for other ecosystems — same concepts (Logging Matrix, masking by field name, retention, durable delivery), each built idiomatically:
+  <br />
+  <strong>.NET</strong> → <a href="https://www.nuget.org/packages/sl4n/"><strong>sl4n</strong></a> on <code>Microsoft.Extensions.Logging</code> (<a href="https://github.com/Syntropysoft/sl4n">repo</a>) ·
+  <strong>Python</strong> → <a href="https://pypi.org/project/slpy-log/"><strong>slpy</strong></a> on <code>contextvars</code>/asyncio, with its own optional Rust masking engine (<a href="https://github.com/Syntropysoft/syntropylog.py">repo</a>)
 </p>
 
 ---
@@ -725,6 +728,7 @@ Full details: [SECURITY.md](./SECURITY.md).
 - **[Benchmark report (throughput + memory)](docs/benchmark-report.md)** — SyntropyLog vs Pino vs Winston, three machines
 - **[Examples repository](https://github.com/Syntropysoft/syntropylog-examples)** — 22 runnable examples (`00`–`21`): fundamentals (`00`–`09`), integration (`10`–`12`), testing (`13`–`16`), benchmark (`17`), compliance & observability (`18` durable transport, `19` retention policies, `20` getStats, `21` correlation middleware)
 - **[sl4n — SyntropyLog for .NET](https://www.nuget.org/packages/sl4n/)** ([repo](https://github.com/Syntropysoft/sl4n)) — the same declarative model (Logging Matrix, field-name masking, retention, durable delivery) built on `Microsoft.Extensions.Logging` for .NET 8+
+- **[slpy — SyntropyLog for Python](https://pypi.org/project/slpy-log/)** ([repo](https://github.com/Syntropysoft/syntropylog.py)) — the same declarative model on `contextvars`/asyncio for Python 3.7+, with FastAPI middleware and its own optional Rust masking engine (`pip install slpy-log`)
 - **[Documentación en Español](doc-es/caracteristicas-y-ejemplos.md)**
 
 ```bash
