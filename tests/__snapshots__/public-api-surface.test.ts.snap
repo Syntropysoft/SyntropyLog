@@ -19,6 +19,7 @@ exports[`Public API surface (src/index.ts) — 1.0 semver contract > locks the e
     "FastifyRequestLike",
     "GetDefaultMaskingRulesOptions",
     "HeadersRecord",
+    "ILogger",
     "ISerializer",
     "ISyntropyLog",
     "IncomingHeaderValue",

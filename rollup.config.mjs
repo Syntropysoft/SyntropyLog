@@ -72,7 +72,7 @@ const createEntryConfig = (
 });
 
 // Base configuration for each type declaration entry point.
-const createDtsConfig = (inputFile, outputName) => ({
+const createDtsConfig = (inputFile, outputName, extraExternal = []) => ({
   input: inputFile,
   output: [{ file: outputName, format: 'es' }],
   plugins: [dts()],
@@ -80,6 +80,7 @@ const createDtsConfig = (inputFile, outputName) => ({
     ...Object.keys(pkg.peerDependencies || {}),
     ...builtinModules,
     ...builtinModules.map((m) => `node:${m}`),
+    ...extraExternal,
   ],
 });
 
@@ -114,10 +115,13 @@ export default [
     external: [...external, 'vitest'],
   }),
 
-  // NestJS sub-package — Nest deps stay external (peer-dep, optional).
+  // NestJS sub-package — Nest deps stay external (peer-dep, optional). The core package
+  // itself ('syntropylog') is also external so the subpath shares the ONE runtime
+  // singleton instead of bundling a second copy (KNOWN-ISSUES #1).
   createEntryConfig('src/nestjs/index.ts', './dist/nestjs/index', {
     external: [
       ...external,
+      'syntropylog',
       '@nestjs/common',
       '@nestjs/core',
       'reflect-metadata',
@@ -134,5 +138,6 @@ export default [
   createDtsConfig(
     'dist/types/nestjs/index.d.ts',
     'dist/nestjs/index.d.ts',
+    ['syntropylog'],
   ),
 ];

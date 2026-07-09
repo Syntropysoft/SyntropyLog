@@ -12,9 +12,9 @@ The **documentation** has already been corrected to steer users onto the safe pa
 (README NestJS + masking sections, `docs/masking.md`, `docs/context.md`, `docs/migration-from-pino.md`).
 **This file tracks the underlying code fixes that still need to happen.**
 
-Affected version: **1.2.0**. Status: **Issue 1 open** (docs worked around, code unfixed);
-**Issue 2 FIXED** on `develop` (native engine now honors explicit rules unconditionally —
-see the resolution note under Issue 2).
+Affected version: **1.2.0**. Status: **both FIXED on `develop`** — Issue 1 (nestjs subpath
+now shares the one runtime singleton and references the same nominal types) and Issue 2
+(native engine honors explicit rules unconditionally). See the resolution note under each.
 
 ---
 
@@ -22,6 +22,18 @@ see the resolution note under Issue 2).
 
 **Labels:** `bug`, `nestjs`, `build/bundling`
 **Severity:** high — the documented "no-arg" setup throws at startup in any real app.
+**Status: ✅ FIXED on `develop`** (changeset `nestjs-shared-singleton`, minor). The `syntropylog/nestjs`
+build now treats the core package (`syntropylog`) as **external** instead of inlining it, so the subpath
+`require('syntropylog')`s the one shared runtime singleton and its `.d.ts` references the same nominal
+types. Verified: the no-arg `SyntropyNestLoggerService` works after a single `syntropyLog.init()`, and
+`forRoot({ syntropyLog })` / `new SyntropyNestLoggerService(syntropyLog)` type-check with no cast.
+
+> **Resolution.** Runtime imports of the singleton **value** and the core **types** were changed from
+> relative paths (`../SyntropyLog`, `../ISyntropyLog`, `../logger`) to the bare package specifier
+> `syntropylog`; `rollup.config.mjs` marks `syntropylog` external for both the nestjs JS bundle and its
+> `.d.ts` bundle; a `paths` alias (`syntropylog` → `./src/index.ts`) lets `tsc` resolve the self-reference
+> at build time (and `ILogger` is now re-exported from `src/index.ts`, already public via type-exports).
+> Result: the 172 KB duplicate-core bundle dropped to ~13 KB with zero bundled core classes.
 
 ### Describe the bug
 The `syntropylog/nestjs` subpath ships its **own copy** of the core SyntropyLog singleton,

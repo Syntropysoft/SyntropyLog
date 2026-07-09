@@ -7,6 +7,10 @@
 // --- Main Framework Class ---
 export { syntropyLog, SyntropyLog, createSyntropyLog } from './SyntropyLog';
 export type { ISyntropyLog, SyntropyLogStats } from './ISyntropyLog';
+// Re-exported so the `syntropylog/nestjs` subpath can import it from the package entry
+// (external at build) instead of bundling a second copy — see KNOWN-ISSUES #1. It is
+// already part of the public type surface via type-exports.ts.
+export type { ILogger } from './logger';
 export type {
   StatsSnapshot,
   StatsFailureCounts,
