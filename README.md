@@ -19,6 +19,10 @@
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
+<p align="center">
+  Working in .NET? The same framework exists for that ecosystem: <a href="https://www.nuget.org/packages/sl4n/"><strong>sl4n</strong></a> — same concepts (Logging Matrix, masking by field name, retention, durable delivery), built idiomatically on <code>Microsoft.Extensions.Logging</code>. <a href="https://github.com/Syntropysoft/sl4n">Repo ›</a>
+</p>
+
 ---
 
 ## What's new in 1.3.0
@@ -720,6 +724,7 @@ Full details: [SECURITY.md](./SECURITY.md).
 - **[Migrating from Pino](docs/migration-from-pino.md)** — practical side-by-side
 - **[Benchmark report (throughput + memory)](docs/benchmark-report.md)** — SyntropyLog vs Pino vs Winston, three machines
 - **[Examples repository](https://github.com/Syntropysoft/syntropylog-examples)** — 22 runnable examples (`00`–`21`): fundamentals (`00`–`09`), integration (`10`–`12`), testing (`13`–`16`), benchmark (`17`), compliance & observability (`18` durable transport, `19` retention policies, `20` getStats, `21` correlation middleware)
+- **[sl4n — SyntropyLog for .NET](https://www.nuget.org/packages/sl4n/)** ([repo](https://github.com/Syntropysoft/sl4n)) — the same declarative model (Logging Matrix, field-name masking, retention, durable delivery) built on `Microsoft.Extensions.Logging` for .NET 8+
 - **[Documentación en Español](doc-es/caracteristicas-y-ejemplos.md)**
 
 ```bash
