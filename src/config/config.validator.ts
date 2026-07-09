@@ -61,13 +61,12 @@ const validateTransportEntry = (input: unknown): Result<unknown> => {
   // ...or a descriptor object { transport, env? }
   return object({
     transport: validateTransport,
-    env: optional(
-      (v: unknown): Result<string | string[]> =>
-        typeof v === 'string'
+    env: optional((v: unknown): Result<string | string[]> =>
+      typeof v === 'string'
+        ? ok(v)
+        : Array.isArray(v)
           ? ok(v)
-          : Array.isArray(v)
-            ? ok(v)
-            : err('env must be a string or string[]')
+          : err('env must be a string or string[]')
     ),
   })(input);
 };

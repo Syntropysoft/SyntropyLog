@@ -335,7 +335,9 @@ export class MaskingEngine {
         // (no descent → nested PII can't leak under a sensitive-named parent). This
         // mirrors the native engine's `resolve_key_action` exactly.
         dataObj[key] =
-          typeof value === 'string' ? this.applyStrategy(value, rule) : REDACTED;
+          typeof value === 'string'
+            ? this.applyStrategy(value, rule)
+            : REDACTED;
       } else if (typeof value === 'object' && value !== null) {
         const maskedValue = this.applyMaskingRules(value, visited);
         if (maskedValue !== value) {
@@ -381,9 +383,11 @@ export class MaskingEngine {
    * caller must keep masking in the JS path so the function still runs — never silently
    * skip it.
    */
-  public getNativeRules():
-    | Array<{ pattern: string; flags: string; spec: MaskSpec }>
-    | null {
+  public getNativeRules(): Array<{
+    pattern: string;
+    flags: string;
+    spec: MaskSpec;
+  }> | null {
     const out: Array<{ pattern: string; flags: string; spec: MaskSpec }> = [];
     for (const rule of this.rules) {
       if (rule.customMask) return null; // JS-only function → native cannot honor it

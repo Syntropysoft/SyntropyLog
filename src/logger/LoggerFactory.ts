@@ -18,8 +18,7 @@ import { JsonValue } from '../types';
 
 /** Transport or descriptor with optional env filter for conditional enabling. */
 type TransportEntry =
-  | Transport
-  | { transport: Transport; env?: string | string[] };
+  Transport | { transport: Transport; env?: string | string[] };
 
 /**
  * Options for reconfigureTransportsForDebug.
