@@ -72,9 +72,7 @@ function shouldLogByLevel(
 /** Pure: a plain `{}` object literal — not null, array, Error, or a class instance. */
 function isPlainObject(v: unknown): v is LogMetadata {
   return (
-    typeof v === 'object' &&
-    v !== null &&
-    (v as object).constructor === Object
+    typeof v === 'object' && v !== null && (v as object).constructor === Object
   );
 }
 

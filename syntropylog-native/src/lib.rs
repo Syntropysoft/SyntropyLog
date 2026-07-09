@@ -320,20 +320,22 @@ enum KeyAction<'a> {
 }
 
 /// Pure key policy, with guard clauses ordered by precedence:
-///   sanitize off → recurse · matching rule → mask · legacy sensitive key → redact · otherwise recurse.
+///   matching rule → mask · sanitize off → recurse · legacy sensitive key → redact · otherwise recurse.
+///
+/// An explicit masking rule is an explicit instruction and is honored UNCONDITIONALLY —
+/// the `sanitize` master switch must never silently drop it (that footgun leaked PII when a
+/// caller turned off the built-in defaults but re-added rules). `sanitize` gates only the
+/// legacy `sensitive_set` net, which has no per-rule spec of its own.
 fn resolve_key_action<'a>(
     key: &str,
     sanitize: bool,
     rules: &'a [CompiledRule],
     sensitive_set: &HashSet<String>,
 ) -> KeyAction<'a> {
-    if !sanitize {
-        return KeyAction::Recurse;
-    }
     if let Some(rule) = match_rule(key, rules) {
         return KeyAction::Mask(rule);
     }
-    if is_sensitive_key(key, sensitive_set) {
+    if sanitize && is_sensitive_key(key, sensitive_set) {
         return KeyAction::Redact;
     }
     KeyAction::Recurse
@@ -788,7 +790,11 @@ mod tests {
         assert!(matches!(resolve_key_action("email", true, &rules, &sensitive), KeyAction::Mask(_)));
         assert!(matches!(resolve_key_action("password", true, &rules, &sensitive), KeyAction::Redact));
         assert!(matches!(resolve_key_action("plain", true, &rules, &sensitive), KeyAction::Recurse));
-        assert!(matches!(resolve_key_action("email", false, &rules, &sensitive), KeyAction::Recurse));
+
+        // Failsafe: an explicit masking rule is honored even with sanitize OFF — the master
+        // switch must never silently drop it. The legacy sensitive_set net stays gated.
+        assert!(matches!(resolve_key_action("email", false, &rules, &sensitive), KeyAction::Mask(_)));
+        assert!(matches!(resolve_key_action("password", false, &rules, &sensitive), KeyAction::Recurse));
     }
 
     #[test]

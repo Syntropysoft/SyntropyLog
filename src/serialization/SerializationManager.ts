@@ -235,6 +235,10 @@ export class SerializationManager {
       redactPatterns,
       maxDepth: DEFAULT_VALUES.maxDepth,
       maxStringLength: ctx.maxStringLength ?? DEFAULT_VALUES.maxStringLength,
+      // `sanitize` gates only the LEGACY sensitive_set + redact-patterns net. It does NOT
+      // gate explicit maskingRules: the native engine (resolve_key_action) honors those
+      // unconditionally, matching the JS MaskingEngine which has no such switch. That is
+      // what fixes the PII leak when enableDefaultRules:false but custom rules are present.
       sanitize: this.config.sanitizeSensitiveData,
     });
     return this.cachedNativeConfigJson;

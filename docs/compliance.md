@@ -232,6 +232,7 @@ Compliance-grade frameworks have a problem the headline pitch tends to hide: **f
 - **Drop strategy** (`'oldest'` default, `'newest'`, `'reject'`) chooses which entry leaves the queue when the buffer is full.
 - **Selective by default** — only entries with `retention` metadata go through the durable path. Plain `info`/`warn` logs stay fire-and-forget, matching `AdapterTransport`. Set `durableOnlyForRetention: false` to make every entry durable (pay attention to memory).
 - **Shutdown drain** — `flush()` and `shutdown()` wait up to `flushTimeoutMs` (default 5s) for the buffer to empty, then DLQ the rest.
+- **Opt-in disk persistence (`persistPath`, since 1.3.0)** — when set, the undelivered durable backlog is also written to a JSONL file on disk. On restart the file is replayed and delivery resumes; when the queue fully drains, the file deletes itself (a spool, not an archive). Delivery becomes **at-least-once across restarts** — make the executor idempotent. A spool-write failure never throws; the transport degrades to in-memory-only. Uses only `node:fs`; point it at a **local** disk. Without `persistPath`, behavior is unchanged (in-memory only).
 
 ```typescript
 import {
@@ -253,6 +254,7 @@ const auditTransport = new DurableAdapterTransport({
   initialBackoffMs: 200,
   maxBackoffMs: 60_000,
   dropStrategy: 'oldest',
+  persistPath: '/var/log/audit-spool.jsonl',  // optional — backlog survives restarts
   onDrop: (entry, reason, cause) => {
     // Last-resort persistence. The auditor sees this file, not lost data.
     auditDlq.write(JSON.stringify({ entry, reason, cause: String(cause) }) + '\n');
@@ -274,7 +276,7 @@ const audit = syntropyLog.getLogger().withRetention({ policy: 'SOX_AUDIT_TRAIL',
 audit.audit({ userId, action: 'manager.override' }, 'Approval');
 ```
 
-**Out of scope:** disk and external-store spillover, persistent recovery on restart. The `onDrop` hook + a local file (as above) is the recommended durable boundary.
+**Restart recovery is built in since 1.3.0** via `persistPath` (see above). Still out of scope: external-store spillover (Redis, S3, …) and spool rotation/archival. The `onDrop` hook + a local DLQ file (as above) remains the last-resort boundary for entries that exhaust their retry budget.
 
 **Backend adapters:** SyntropyLog deliberately does not ship concrete backend adapters (`pg`, `@aws-sdk/*`, `mongodb`, `@elastic/elasticsearch`, etc.). The `executor` function — typically 10–20 lines — is the integration point. This keeps the framework independent of client-library versions and storage flux. Recipe snippets for common backends may land as docs in the future, but as docs, not as packages. See [transports.md](transports.md) for the executor contract.
 

@@ -84,6 +84,23 @@ describe('SerializationManager', () => {
         sanitize: true,
       });
     });
+
+    // Regression for the PII leak (KNOWN-ISSUES #2): the native config still carries the
+    // explicit maskingRules even when sanitizeSensitiveData is false (enableDefaultRules:false).
+    // The native engine honors those rules unconditionally (see the Rust resolve_key_action
+    // failsafe test), so custom rules re-added by the caller are never silently dropped.
+    it('still carries explicit maskingRules when sanitizeSensitiveData is false', () => {
+      const m = new SerializationManager({
+        sanitizeSensitiveData: false, // e.g. enableDefaultRules:false
+        maskingRules: [
+          { pattern: 'card', flags: 'i', spec: { scope: 'digits', unmaskEnd: 4 } },
+        ],
+      });
+      const cfg = JSON.parse((m as any).buildNativeConfigJson());
+      expect(cfg.maskingRules).toEqual([
+        { pattern: 'card', flags: 'i', spec: { scope: 'digits', unmaskEnd: 4 } },
+      ]);
+    });
   });
 
   describe('isNativeAddonInUse', () => {

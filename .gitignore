@@ -687,3 +687,6 @@ doc-es/contexto-general-claude.md
 # Native addon binaries (prebuilt per-platform, should not be committed)
 *.node
 addon-artifacts/*.node
+
+# Local pre-release tarballs (scripts/pack-local.mjs)
+.local-pack/

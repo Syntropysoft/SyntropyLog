@@ -31,9 +31,11 @@ import {
   type Provider,
 } from '@nestjs/common';
 import { INQUIRER } from '@nestjs/core';
-import type { ILogger } from '../logger';
-import type { ISyntropyLog } from '../ISyntropyLog';
-import { syntropyLog as defaultSyntropyLog } from '../SyntropyLog';
+// Singleton VALUE and core TYPES from the package entry (external at build time) → one
+// shared runtime instance and the SAME nominal types, not a bundled second copy that
+// deadlocks the singleton and clashes on types (TS2322). See KNOWN-ISSUES #1.
+import type { ILogger, ISyntropyLog } from 'syntropylog';
+import { syntropyLog as defaultSyntropyLog } from 'syntropylog';
 import { SYNTROPYLOG_INSTANCE_TOKEN, SYNTROPYLOG_LOGGER_TOKEN } from './tokens';
 import {
   SyntropyNestLoggerService,

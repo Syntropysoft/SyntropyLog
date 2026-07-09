@@ -117,18 +117,13 @@ const logger = pino({
 **SyntropyLog:**
 
 ```typescript
-import {
-  syntropyLog,
-  MaskingStrategy,
-  getDefaultMaskingRules,
-} from 'syntropylog';
+import { syntropyLog, MaskingStrategy } from 'syntropylog';
 
 await syntropyLog.init({
   logger: { serviceName: 'my-app' },
   masking: {
-    enableDefaultRules: false,
+    enableDefaultRules: true,   // password, email, token, card, SSN, phone stay on
     rules: [
-      ...getDefaultMaskingRules({ maskChar: '*' }),    // password, email, token, card, SSN, phone
       { pattern: /myCustomKey/i, strategy: MaskingStrategy.PASSWORD },
     ],
   },

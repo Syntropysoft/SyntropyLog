@@ -92,20 +92,26 @@ Masking is **field-name based**: a rule matches the *key* of a field and masks t
 
 ## Mixing defaults with your own rules
 
-`getDefaultMaskingRules` returns the built-in rule set so you can spread it alongside custom rules. Set `enableDefaultRules: false` when you provide the full list yourself.
+Keep the built-in defaults enabled and add your own rules on top — custom rules are appended to the defaults.
 
 ```typescript
-import { getDefaultMaskingRules, MaskingStrategy } from 'syntropylog';
+import { MaskingStrategy } from 'syntropylog';
 
 masking: {
-  enableDefaultRules: false,
+  enableDefaultRules: true,   // built-in defaults stay on
   maskChar: '*',
   rules: [
-    ...getDefaultMaskingRules({ maskChar: '*' }),
     { pattern: /myCustomKey|internalSecret/i, strategy: MaskingStrategy.PASSWORD },
   ],
 }
 ```
+
+> ✅ **Failsafe (since 1.3.0): every rule you pass in `rules` is always applied — by both the native
+> engine and the JS fallback — regardless of `enableDefaultRules`.** So
+> `{ enableDefaultRules: false, rules: [...getDefaultMaskingRules()] }` also masks correctly.
+> (Before 1.3.0 the native engine skipped explicit rules when `enableDefaultRules` was `false`, which
+> could leak PII.) The simplest safe setup is still `enableDefaultRules: true` plus your own rules on
+> top; disable the defaults only when you need full control of the rule set.
 
 ---
 
@@ -114,13 +120,12 @@ masking: {
 `maskEnum` is a single exported object containing every sensitive-key alias and grouped arrays. Import it once and pick or spread what you need — no string literals (Sonar-safe), no listing every constant.
 
 ```typescript
-import { maskEnum, MaskingStrategy, getDefaultMaskingRules } from 'syntropylog';
+import { maskEnum, MaskingStrategy } from 'syntropylog';
 
 masking: {
-  enableDefaultRules: false,
+  enableDefaultRules: true,
   maskChar: '*',
   rules: [
-    ...getDefaultMaskingRules({ maskChar: '*' }),
     // One pattern for all token-like keys (access_token, refresh_token, api_key, jwt, …)
     {
       pattern: new RegExp(maskEnum.MASK_KEYS_TOKEN.join('|'), 'i'),

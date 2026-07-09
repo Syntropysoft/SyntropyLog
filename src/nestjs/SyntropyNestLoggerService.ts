@@ -24,8 +24,13 @@ import {
   type LoggerService,
   type LogLevel,
 } from '@nestjs/common';
-import type { ISyntropyLog } from '../ISyntropyLog';
-import { syntropyLog as defaultSyntropyLog } from '../SyntropyLog';
+// Both the singleton VALUE and the core TYPES come from the package entry (external at
+// build time) so the nestjs subpath shares the ONE runtime instance AND references the
+// SAME nominal types — bundling its own copy left the singleton uninitialized ("Logger
+// Factory not available") and made the core types (Transport et al.) clash (TS2322).
+// See KNOWN-ISSUES #1.
+import type { ISyntropyLog } from 'syntropylog';
+import { syntropyLog as defaultSyntropyLog } from 'syntropylog';
 import { SYNTROPYLOG_INSTANCE_TOKEN } from './tokens';
 
 /** SyntropyLog method names that map 1:1 from Nest levels. */

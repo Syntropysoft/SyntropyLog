@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.3.0
+
+**Two security/correctness fixes surfaced by a real distributed app, plus opt-in disk persistence for the durable transport.** Both fixes were found by an end-to-end example running 5 services (NestJS + Fastify + Express + worker, Redis + Kafka) — a shape a single-process demo never exercises. SyntropyLog still ships with **no required runtime dependencies**; the native addon is rebuilt.
+
+### Added — durable transport survives a restart
+
+- **`DurableAdapterTransport` gains an opt-in `persistPath`.** The durable path was in-memory only, so a crash lost the buffered audit backlog it exists to protect. With `persistPath` set, every accepted entry is **write-ahead-logged** to a JSONL spool (async, serialized through a single write chain, never blocking the event loop), and the constructor **replays the spool on startup** and re-enqueues — so retention-tagged entries survive a process restart. The spool is a **buffer, not an archive**: when the queue fully drains, the file is deleted (no rotation, no cleanup). Delivery is **at-least-once** (a crash mid-delivery re-delivers, so the executor should be idempotent); a spool-write failure degrades to in-memory-only (Silent Observer). **Absent `persistPath`, behavior is 100% unchanged.** Uses `node:fs` only — zero new dependencies.
+
+### Fixed — native masking could leak PII when defaults were disabled and re-added
+
+- **The native Rust engine (the default) now honors explicit masking rules unconditionally.** It previously gated *all* masking on an internal `sanitize` switch derived from `enableDefaultRules`, so a config that turned the built-in defaults off and re-added rules — `{ enableDefaultRules: false, rules: [...getDefaultMaskingRules()] }`, or any custom rule set — left the native engine masking **nothing** and logging PII in cleartext, while the pure-JS fallback masked correctly. Now the engine matches the rule set **before** consulting `sanitize` (mirroring the JS `MaskingEngine`, which has no such switch); `sanitize` gates only the legacy `sensitiveFields` net. An explicit rule can no longer be silently dropped by the master switch. Verified byte-for-byte parity between the native and JS engines for this config; regression-locked in both languages.
+
+### Fixed — `syntropylog/nestjs` no longer bundles a second, uninitialized singleton
+
+- **The NestJS subpath now shares the one runtime SyntropyLog instance.** Its build inlined its own copy of the core module, so it carried a **separate** singleton: `syntropyLog.init()` on the main instance left the nestjs one uninitialized, and the documented no-argument setup (`new SyntropyNestLoggerService()` / `SyntropyLogModule.forRoot()`) threw `Logger Factory not available` at startup in any real app. The duplicate core also produced two unrelated copies of the nominal types (`Transport`, …), so passing the instance explicitly (`forRoot({ syntropyLog })`) tripped a `TS2322` clash and forced an `as never` cast. The build now treats `syntropylog` as **external** for the subpath, so it resolves to the same runtime instance and the same types — the bundle dropped from ~172 KB to ~13 KB. The no-arg forms work after a single `init()`, and passing the instance type-checks with no cast.
+- **`ILogger` is now re-exported from the package entry** (additive — it was already part of the public type surface).
+
+### Documentation
+
+- NestJS setup and masking guidance corrected to the safe patterns; the event-loop wording is now honest ("bounded", not "never blocks"), and a callout clarifies the native addon is a **synchronous single pass, not an off-thread offload**.
+
+### Housekeeping
+
+- Dev tooling updated to latest same-major (`@nestjs/*` 11.1.28, `typescript-eslint` + plugins 8.63.0, `vitest`/`@vitest/coverage-*` 4.1.10, `prettier` 3.9.4, `rollup` 4.62.2, `tsx` 4.23.0), which pulls patched `vite` 8.0.16; `js-yaml` pinned to its patched lines via `pnpm.overrides` (in-major). These are dev/test dependencies only — the published package has no runtime dependencies, so consumers were never exposed — but `pnpm audit` is clean across all severities.
+
 ## 1.2.0
 
 ### Masking safety — message-first object calls are now masked

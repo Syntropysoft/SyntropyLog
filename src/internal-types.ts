@@ -71,21 +71,13 @@ export type LogFormatArg = string | number | boolean | null | undefined;
  * This follows the Pino-like signature: (obj, msg, ...args) or (msg, ...args)
  */
 export type LogArguments =
-  | [LogMetadata, string?, ...LogFormatArg[]]
-  | [string, ...LogFormatArg[]]
-  | [];
+  [LogMetadata, string?, ...LogFormatArg[]] | [string, ...LogFormatArg[]] | [];
 
 /**
  * Type for values that can be stored in context
  */
 export type ContextValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | Buffer
-  | JsonValue;
+  string | number | boolean | null | undefined | Buffer | JsonValue;
 
 /**
  * Type for context data structure
