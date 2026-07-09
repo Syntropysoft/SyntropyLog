@@ -1,6 +1,15 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      // The nestjs subpath imports from bare 'syntropylog' (KNOWN-ISSUES #1 fix).
+      // Tests must resolve it to src, never to a (possibly missing/stale) dist —
+      // the Release job runs the pre-commit suite before any build exists.
+      syntropylog: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+    },
+  },
   test: {
     globals: true, // Enable global test functions like describe, it, beforeEach, etc.
     environment: 'node', // Or 'jsdom' if you need to simulate a browser
