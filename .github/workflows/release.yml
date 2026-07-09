@@ -150,3 +150,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # The version-bump commit must not run husky hooks: CI already gates
+          # tests, and the pre-commit suite ran here before any dist existed
+          # (broke the changesets commit on 2026-07-09).
+          HUSKY: 0
