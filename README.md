@@ -7,7 +7,7 @@
 <p align="center">
   <strong>The observability framework for Node.js — powered by a native Rust engine.</strong>
   <br />
-  Correlation IDs, PII masking, per-level field control and retention — declared <strong>once</strong> and enforced on every log, serialized + masked + sanitized in a single <strong>native Rust pass</strong> (with a transparent pure-JS fallback). <strong>Failsafe by design:</strong> logging can never crash your app.
+  Correlation IDs, PII masking, per-level field control and retention — declared <strong>once</strong> and enforced on every log, serialized + masked + sanitized in a single <strong>native Rust pass</strong> (with a transparent pure-JS fallback). <strong>Failsafe by design:</strong> logging can never crash your app — and audit entries can survive backend outages <strong>and process restarts</strong> (opt-in disk spool).
 </p>
 
 <p align="center">
@@ -18,6 +18,16 @@
   <a href="https://www.npmjs.com/package/syntropylog"><img src="https://img.shields.io/npm/v/syntropylog?label=version&color=blue" alt="Version"></a>
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
+
+---
+
+## What's new in 1.3.0
+
+- **New — audit logs survive restarts.** `DurableAdapterTransport` has a new option: `persistPath`. If you set it, undelivered audit entries are also saved to a file on disk. If the process crashes or restarts, they are re-sent on the next start. If you don't set it, nothing changes. [How it works ›](#surviving-restarts-persistpath)
+- **Fixed — masking rules you pass explicitly are now always applied.** Before, `{ enableDefaultRules: false, rules: [...] }` applied the rules in the JS engine but **not** in the native Rust engine, so PII could leak unmasked. Now both engines always apply every rule in `rules`, no matter what `enableDefaultRules` is.
+- **Fixed — `syntropylog/nestjs` now shares the one runtime singleton.** Before, the NestJS subpath bundled its own copy of the core, which was never initialized — so `SyntropyNestLoggerService` crashed with "Logger Factory not available" and `forRoot({ syntropyLog })` failed to type-check (TS2322). Both work now.
+
+Details: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -63,7 +73,7 @@ It is scoped on purpose: SyntropyLog owns the **log pipeline up to the moment of
 Four pillars:
 
 - **Logging Matrix** — a declarative whitelist of context fields per log level. If a field isn't in the matrix for that level, it never reaches a transport. Field control by config, not by code review.
-- **Retention-aware audit trail with delivery guarantees** — `withRetention(...)` travels with each entry so your transport routes it by policy. `DurableAdapterTransport` adds buffer + exponential-backoff retry + dead-letter queue so audit-tagged entries survive transient backend outages.
+- **Retention-aware audit trail with delivery guarantees** — `withRetention(...)` travels with each entry so your transport routes it by policy. `DurableAdapterTransport` adds buffer + exponential-backoff retry + dead-letter queue so audit-tagged entries survive transient backend outages — and, with opt-in `persistPath`, process restarts too.
 - **Universal Adapter** — one `executor` function sends logs to Postgres, Mongo, Elasticsearch, S3, anything. You write the executor; the framework stays agnostic of client libraries.
 - **Silent Observer pipeline** — masking, sanitization, serialization with timeout and depth limits, prototype-pollution defense. Logging cannot crash your app; failures surface through hooks and counters (`getStats()`).
 
@@ -81,7 +91,7 @@ Pino and Winston are excellent, fast **loggers**. SyntropyLog is a different cat
 | **PII masking** | Pino: `redact` paths in JS (fast-redact); Winston: bring your own | built in, by field name, in a **native Rust pass** (declarative `MaskSpec`) |
 | **Correlation IDs** | you thread them, per service | automatic via `AsyncLocalStorage`, declared once |
 | **Per-level field control** | manual | declarative **Logging Matrix** |
-| **Retention / audit routing** | DIY | first-class — `withRetention` + a delivery-guaranteed durable transport |
+| **Retention / audit routing** | DIY | first-class — `withRetention` + a delivery-guaranteed durable transport (optionally restart-surviving) |
 | **If logging throws** | can bubble into your code | **Silent Observer** — logging never throws, can't crash your app |
 | **Engine** | JS | native **Rust** (serialize + mask + sanitize in one pass), transparent JS fallback |
 
@@ -348,10 +358,12 @@ masking: {
 }
 ```
 
-> ⚠️ **Keep `enableDefaultRules: true`.** Disabling the defaults and re-adding them by spreading
-> `getDefaultMaskingRules()` is masked **only by the JS fallback** — with the native addon active (the
-> default) those spread-in default rules are not applied and **PII can leak unmasked**. Custom rules you
-> add on top are masked by both engines; the built-in defaults must stay enabled, not re-supplied.
+> ✅ **Explicit rules are always applied — failsafe.** Every rule you pass in `rules` is enforced by
+> **both** engines (native Rust and JS fallback), regardless of `enableDefaultRules`. So
+> `{ enableDefaultRules: false, rules: [...getDefaultMaskingRules()] }` masks correctly too.
+> (Before 1.3.0 the native engine skipped explicit rules when `enableDefaultRules` was `false` — that
+> could leak PII and is fixed.) Simplest safe setup: keep `enableDefaultRules: true` and add your own
+> rules on top. Only turn it off when you truly need full control of the rule set.
 
 **Silent Observer:** if masking fails or times out, the pipeline never throws — it returns a safe payload marked `_maskingFailed` with only allowed keys (`level`, `timestamp`, `message`, `service`); the raw metadata never leaks. Full guide: [docs/masking.md](docs/masking.md).
 
@@ -445,6 +457,7 @@ const durable = new DurableAdapterTransport({
   dropStrategy: 'oldest',     // 'oldest' | 'newest' | 'reject'  (default 'oldest')
   durableOnlyForRetention: true,  // default — only retention-tagged entries are durable
   flushTimeoutMs: 5_000,      // default — flush()/shutdown() drain window, then DLQ the rest
+  persistPath: '/var/log/app/audit-spool.jsonl',  // OPTIONAL (new in 1.3.0) — survive restarts, see below
   onDrop: (entry, reason, cause) => {
     // reason: 'buffer-full' | 'retries-exhausted'
     deadLetterFile.append(entry);
@@ -454,7 +467,43 @@ const durable = new DurableAdapterTransport({
 await syntropyLog.init({ logger: { serviceName: 'payments', transports: [durable] } });
 ```
 
-This closes the audit-log-loss gap that fire-and-forget loggers leave open. Full guide: [docs/transports.md](docs/transports.md).
+This closes the audit-log-loss gap that fire-and-forget loggers leave open. Full guide: [docs/compliance.md](docs/compliance.md).
+
+#### Surviving restarts (`persistPath`)
+
+Without `persistPath`, the durable buffer lives in memory: it survives backend outages, but not a process crash or restart. `persistPath` closes that last gap.
+
+**When is it on?** Only when you meet both conditions — otherwise behavior is 100% unchanged:
+
+1. You pass `persistPath: '<file path>'` to the `DurableAdapterTransport` constructor. No path ⇒ feature off.
+2. The entry takes the **durable path**. By default that means entries tagged with `withRetention(...)`. If you set `durableOnlyForRetention: false`, then every entry this transport receives is durable — and therefore persisted too.
+
+**What it does, step by step:**
+
+1. Every entry that enters the durable queue is also appended to the `persistPath` file (JSONL — one JSON entry per line). The write is asynchronous; it never blocks the event loop or your code.
+2. If the process crashes or restarts, the file is still on disk.
+3. On the next start, when the transport is constructed, it reads the file and re-queues every entry it finds. Delivery resumes automatically.
+4. When the queue fully drains (everything delivered), the file **deletes itself**. It is a spool — a temporary buffer, not an archive. There is no rotation and it does not grow forever.
+
+**Rules to use it correctly:**
+
+- Delivery is **at-least-once**: a crash in the middle of a delivery re-sends that entry on the next start. Your `executor` must be **idempotent** (safe to receive the same entry twice — e.g. upsert by a unique id).
+- Use a **local disk path**. `node:fs` writes to a network filesystem turn disk I/O into network I/O — that's what the executor is for, not the spool.
+- If a spool write fails (disk full, no permissions), the transport does **not** throw: it logs the problem and keeps working in memory-only mode. Failsafe, like everything else in the pipeline.
+- Zero new dependencies — it uses only `node:fs`.
+
+```typescript
+// Minimal restart-surviving audit setup:
+const durable = new DurableAdapterTransport({
+  // Idempotent: keyed by a unique id YOU put in the metadata, so a re-delivered
+  // entry overwrites itself instead of duplicating.
+  executor: async (entry) => { await auditStore.upsert(entry.eventId, entry); },
+  persistPath: '/var/log/app/audit-spool.jsonl',
+});
+
+// Only entries logged like this take the durable (and persisted) path:
+log.withRetention('SOX_AUDIT_TRAIL').audit('payment captured', { eventId, orderId });
+```
 
 ### Per-call transport control & per-env routing
 
@@ -645,7 +694,7 @@ Full details: [SECURITY.md](./SECURITY.md).
 | **Logging Matrix** | Whitelist of context fields per level; `defineMatrix()` for typed keys | [logging-matrix.md](docs/logging-matrix.md) |
 | **MaskingEngine** | Redact PII before transport; `getDefaultMaskingRules`, `maskEnum`, ReDoS-safe | [masking.md](docs/masking.md) |
 | **Universal Adapter** | One `executor` → any backend; framework stays agnostic | [transports.md](docs/transports.md) |
-| **DurableAdapterTransport** | Buffer + backoff retry + DLQ; delivery guarantees for retention-tagged audit entries | [transports.md](docs/transports.md) |
+| **DurableAdapterTransport** | Buffer + backoff retry + DLQ; delivery guarantees for retention-tagged audit entries; opt-in `persistPath` disk spool survives restarts | [compliance.md](docs/compliance.md) |
 | **Transport pool & per-env routing** | `transportList` + `env`; per-call `override`/`add`/`remove` | [transports.md](docs/transports.md) |
 | **Fluent API** | `child`, `withSource`, `withTransactionId`, `withMeta`, `withRetention`; `defineRetentionPolicies()` registry | [fluent-api.md](docs/fluent-api.md) |
 | **Context propagation** | Correlation + transaction IDs via `AsyncLocalStorage`; inbound/outbound wire-name translation | [context.md](docs/context.md) |

@@ -106,10 +106,12 @@ masking: {
 }
 ```
 
-> ⚠️ Do **not** set `enableDefaultRules: false` and re-add the defaults via `...getDefaultMaskingRules()`:
-> with the native addon active (the default) those spread-in default rules are **not** applied, so PII
-> leaks unmasked (it works only in the pure-JS fallback). Keep `enableDefaultRules: true` and add custom
-> rules on top.
+> ✅ **Failsafe (since 1.3.0): every rule you pass in `rules` is always applied — by both the native
+> engine and the JS fallback — regardless of `enableDefaultRules`.** So
+> `{ enableDefaultRules: false, rules: [...getDefaultMaskingRules()] }` also masks correctly.
+> (Before 1.3.0 the native engine skipped explicit rules when `enableDefaultRules` was `false`, which
+> could leak PII.) The simplest safe setup is still `enableDefaultRules: true` plus your own rules on
+> top; disable the defaults only when you need full control of the rule set.
 
 ---
 
