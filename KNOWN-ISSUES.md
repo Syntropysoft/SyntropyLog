@@ -12,7 +12,9 @@ The **documentation** has already been corrected to steer users onto the safe pa
 (README NestJS + masking sections, `docs/masking.md`, `docs/context.md`, `docs/migration-from-pino.md`).
 **This file tracks the underlying code fixes that still need to happen.**
 
-Affected version: **1.2.0**. Status: **open** (docs worked around, code unfixed).
+Affected version: **1.2.0**. Status: **Issue 1 open** (docs worked around, code unfixed);
+**Issue 2 FIXED** on `develop` (native engine now honors explicit rules unconditionally —
+see the resolution note under Issue 2).
 
 ---
 
@@ -99,6 +101,18 @@ no `SyntropyLogModule`. See README → NestJS section.
 
 **Labels:** `bug`, `masking`, `native-addon`, `security`
 **Severity:** high — silent PII leak under the **default** engine.
+**Status: ✅ FIXED on `develop`** (changeset `native-masking-rules-failsafe`, minor). Root cause and
+fix below; the native addon was re-released. Verified: `{ enableDefaultRules: false, rules:
+[...getDefaultMaskingRules()] }` now masks byte-for-byte identically under the native and JS engines.
+
+> **Resolution.** The native engine gated *all* masking on the `sanitize` switch (`resolve_key_action`
+> returned `Recurse` when `sanitize == false`), and `sanitize` is derived from `enableDefaultRules`.
+> So disabling the built-in defaults disabled masking for the re-added rules too. Fixed by matching
+> the explicit rule set **before** the `sanitize` guard, so explicit `maskingRules` are honored
+> unconditionally (parity with the JS `MaskingEngine`, which has no such switch); `sanitize` now gates
+> only the legacy `sensitiveFields` net. Regression locked by the Rust `resolve_key_action_precedence`
+> failsafe assertions + a SerializationManager test that the native config still carries explicit rules
+> when `sanitizeSensitiveData` is false.
 
 ### Describe the bug
 The README claims **byte-for-byte parity** between the native Rust addon (the default engine)
