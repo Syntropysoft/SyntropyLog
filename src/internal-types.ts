@@ -151,8 +151,6 @@ export type SanitizationContext = {
   maxDepth?: number;
 };
 
-// Redis Types removed
-
 /**
  * Type for serialized data
  */
