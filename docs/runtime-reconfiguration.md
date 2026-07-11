@@ -20,7 +20,7 @@ Masking rules can only be **added**, never removed or relaxed. Transports can on
 
 ## What stays fixed at `init`
 
-- `maskChar`, `preserveLength`, `maxDepth`, `regexTimeoutMs`.
+- `maskChar`, `preserveLength`, `maxDepth` (`regexTimeoutMs` is accepted but has no effect — see [masking.md](masking.md)).
 - `AdapterTransport` and custom transports.
 - Header names, context configuration.
 - Native addon enable/disable.

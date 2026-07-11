@@ -28,11 +28,10 @@
 
 ---
 
-## What's new in 1.3.0
+## What's new
 
-- **New — audit logs survive restarts.** `DurableAdapterTransport` has a new option: `persistPath`. If you set it, undelivered audit entries are also saved to a file on disk. If the process crashes or restarts, they are re-sent on the next start. If you don't set it, nothing changes. [How it works ›](#surviving-restarts-persistpath)
-- **Fixed — masking rules you pass explicitly are now always applied.** Before, `{ enableDefaultRules: false, rules: [...] }` applied the rules in the JS engine but **not** in the native Rust engine, so PII could leak unmasked. Now both engines always apply every rule in `rules`, no matter what `enableDefaultRules` is.
-- **Fixed — `syntropylog/nestjs` now shares the one runtime singleton.** Before, the NestJS subpath bundled its own copy of the core, which was never initialized — so `SyntropyNestLoggerService` crashed with "Logger Factory not available" and `forRoot({ syntropyLog })` failed to type-check (TS2322). Both work now.
+- **Faster — masking in the JS fallback path is 2.4x faster (442 → 183 ns/op).** Field *names* repeat across log entries while values change, yet every key was re-scanned against every rule on every log. The engine now caches the *decision* per key name (bounded, cap 4096, invalidated on `addRule`) — never the value. Masked output is byte-for-byte identical; the native Rust engine was never the bottleneck and is unchanged. A family fix: found by the Java port's JMH suite, applied here, scheduled for Python.
+- **Hardened — explosive custom key patterns are rejected at init.** V8 cannot interrupt a running regex, so a pattern like `(a+)+` was one crafted log key away from hanging the event loop forever. `addRule()` now fails fast with a clear `TypeError` on nested unbounded quantifiers; safe patterns and default rules are unaffected.
 
 Details: [CHANGELOG.md](CHANGELOG.md).
 
@@ -327,7 +326,6 @@ Masking runs automatically on every entry before it reaches any transport — **
 await syntropyLog.init({
   masking: {
     enableDefaultRules: true,    // email, phone, credit_card, ssn, password, token + secret families
-    regexTimeoutMs: 100,         // ReDoS guard for custom rules (default 100ms)
     rules: [
       // Declarative custom mask (a `spec`, not a JS function) → runs in the native engine too.
       { pattern: /cuit|cuil/i, strategy: MaskingStrategy.CUSTOM, spec: { scope: 'digits', unmaskEnd: 4 } },
@@ -687,7 +685,7 @@ It is a structured-logging and context-propagation framework. It is **not** a lo
 - **No network I/O at runtime.** The framework contacts no external URLs; the only output is what your transports produce.
 - **Zero runtime dependencies** (`dependencies: {}`). The optional native addon is built from auditable Rust source in the same repo — no opaque prebuilt binaries; transparent JS fallback.
 - **No environment sniffing** — configuration is passed to `init()`; the package reads no env vars on its own.
-- **Hardened pipeline:** prototype-pollution guard (`__proto__`/`constructor`/`prototype` stripped at every depth), ReDoS-safe masking (regex timeout), Silent Observer (logging never throws).
+- **Hardened pipeline:** prototype-pollution guard (`__proto__`/`constructor`/`prototype` stripped at every depth), ReDoS-safe masking (explosive patterns rejected at init — no runtime timeout is possible in JS, so none is claimed), Silent Observer (logging never throws).
 - **Supply chain:** all devDeps pinned to exact versions, `pnpm.overrides` verified, NPM provenance signing on publish; `pnpm audit` reports 0 vulnerabilities.
 
 Full details: [SECURITY.md](./SECURITY.md).
