@@ -15,6 +15,7 @@ import {
   MASK_KEYS_ALL,
 } from '../sensitiveKeys';
 import { applyMask, MaskSpec, REDACTED } from './maskSpec';
+import { assertSafeKeyPattern } from './regexSafety';
 
 /**
  * @enum MaskingStrategy
@@ -75,7 +76,12 @@ export interface MaskingEngineOptions {
   preserveLength?: boolean;
   /** Enable default rules for common data types */
   enableDefaultRules?: boolean;
-  /** Max ms per custom rule regex evaluation; on timeout a warning is logged and the rule is skipped. */
+  /**
+   * @deprecated Has never been enforced — V8 cannot interrupt a running regex, so no runtime
+   * timeout is possible in the JS path. Real ReDoS defense: explosive custom patterns are
+   * rejected at init (regexSafety.ts) and keys are truncated to a bounded length. Kept only
+   * for config compatibility; ignored.
+   */
   regexTimeoutMs?: number;
   /** Called when masking fails (timeout or error). Never receives raw payload. */
   onMaskingError?: (error: unknown) => void;
@@ -247,6 +253,13 @@ export class MaskingEngine {
       rule._compiledPattern = rule.pattern;
     }
 
+    // ReDoS defense happens HERE, at init time — not on the log hot path. V8 cannot
+    // interrupt a running regex (no timeout is possible), so an explosive custom pattern
+    // is rejected before it can ever run. Default rules are known-safe alternations.
+    if (!rule._isDefaultRule) {
+      assertSafeKeyPattern(rule._compiledPattern);
+    }
+
     // Set defaults
     rule.preserveLength = rule.preserveLength ?? this.preserveLength;
     rule.maskChar = rule.maskChar ?? this.maskChar;
@@ -355,7 +368,7 @@ export class MaskingEngine {
       if (!rule._compiledPattern) continue;
       const isMatch = rule._isDefaultRule
         ? rule._compiledPattern.test(key)
-        : this.testRegexWithTimeout(rule._compiledPattern, key);
+        : this.testCustomPatternBounded(rule._compiledPattern, key);
       if (isMatch) return rule;
     }
     return undefined;
@@ -434,18 +447,23 @@ export class MaskingEngine {
     return this.initialized;
   }
 
-  private testRegexWithTimeout(regex: RegExp, key: string): boolean {
-    // Node.js Event Loop Blocking Defense:
-    // V8 regex execution is synchronous and uninterruptible. A catastrophic backtracking (ReDoS)
-    // cannot be caught by a try/catch block if it hangs the thread.
-    // Since we only test the regex against object *keys* (not values), we enforce a strict
-    // length limit. Keys excessively long are skipped to prevent ReDoS vectors.
-    if (key.length > DEFAULT_VALUES.maxKeyLengthForRegex) {
-      return false;
-    }
+  private testCustomPatternBounded(regex: RegExp, key: string): boolean {
+    // There is NO timeout here and none is possible: V8 regex execution is synchronous and
+    // uninterruptible (the old name, testRegexWithTimeout, promised one — it lied). The
+    // layered defense is:
+    //   1. Explosive patterns are REJECTED at addRule() time (see regexSafety.ts) — a
+    //      pattern that reaches this point has star-height ≤ 1.
+    //   2. The key is TRUNCATED (never skipped) to cap polynomial blow-up. Skipping was
+    //      fail-open: an over-long key named "…password…" sailed through unmasked.
+    //   3. The full elimination is the declarative path — spec rules cross to the native
+    //      Rust engine (linear-time `regex` crate), where ReDoS cannot exist.
+    const bounded =
+      key.length > DEFAULT_VALUES.maxKeyLengthForRegex
+        ? key.slice(0, DEFAULT_VALUES.maxKeyLengthForRegex)
+        : key;
 
     try {
-      return regex.test(key);
+      return regex.test(bounded);
     } catch {
       return false;
     }
