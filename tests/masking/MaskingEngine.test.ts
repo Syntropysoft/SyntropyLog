@@ -602,4 +602,61 @@ describe('MaskingEngine', () => {
       expect(result[longKey]).toBe('should-not-be-masked');
     });
   });
+
+  describe('Decision cache (perf fix, 2026-07-11 — semantics must be identical)', () => {
+    const cacheSize = (engine: MaskingEngine): number =>
+      (engine.getStats() as any).decisionCacheSize;
+    const CACHE_MAX: number = (MaskingEngine as any).DECISION_CACHE_MAX;
+
+    it('repeat calls hit the cache and mask identically (rule cached, not the value)', async () => {
+      const engine = new MaskingEngine();
+      expect(((await engine.process({ email: 'john@example.com' })) as any).email)
+        .toBe('j***@example.com');
+      expect(((await engine.process({ email: 'anna@example.com' })) as any).email)
+        .toBe('a***@example.com');
+      expect(((await engine.process({ name: 'John' })) as any).name).toBe('John');
+      expect(((await engine.process({ name: 'Anna' })) as any).name).toBe('Anna');
+      expect(cacheSize(engine)).toBe(2); // email + name, one entry per key NAME
+    });
+
+    it('caches nested key decisions too (JS masks at any depth)', async () => {
+      const engine = new MaskingEngine();
+      const result = (await engine.process({
+        user: { email: 'john@example.com', name: 'John' },
+      })) as any;
+      expect(result.user.email).toBe('j***@example.com');
+      expect(result.user.name).toBe('John');
+      expect(cacheSize(engine)).toBe(3); // user + email + name
+    });
+
+    it('is bounded: beyond the cap, new keys still mask correctly, uncached', async () => {
+      const engine = new MaskingEngine();
+      for (let i = 0; i < CACHE_MAX + 50; i++) {
+        await engine.process({ [`field_${i}`]: 'v' });
+      }
+      expect(cacheSize(engine)).toBe(CACHE_MAX);
+      // A brand-new sensitive key AFTER the cap still masks (pays the scan, isn't stored).
+      const result = (await engine.process({
+        brand_new_password_key: 'x',
+      })) as any;
+      expect(result.brand_new_password_key).toBe('[REDACTED]');
+      expect(cacheSize(engine)).toBe(CACHE_MAX);
+    });
+
+    it('addRule invalidates the cache (a key cached as "no rule" can now match)', async () => {
+      const engine = new MaskingEngine();
+      // First pass: 'cuit' matches no rule → cached as null, value untouched.
+      expect(((await engine.process({ cuit: '20-12345678-9' })) as any).cuit)
+        .toBe('20-12345678-9');
+      engine.addRule({
+        pattern: /cuit/i,
+        strategy: MaskingStrategy.CUSTOM,
+        spec: { scope: 'digits', unmaskEnd: 4 },
+      });
+      // Same key after addRule: the stale "no rule" decision must NOT survive.
+      // 11 digits, last 4 kept → 6789 visible, separators preserved.
+      expect(((await engine.process({ cuit: '20-12345678-9' })) as any).cuit)
+        .toBe('**-*****678-9');
+    });
+  });
 });

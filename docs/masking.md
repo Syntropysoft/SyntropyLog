@@ -157,9 +157,10 @@ sonar.issue.ignore.multicriteria.e1.resourceKey=**/mySensitiveKeys.ts
 
 ## Safety properties
 
-- **Silent Observer.** If masking fails (e.g. a custom regex times out), the pipeline does not throw. The `masking.onMaskingError` hook fires; on failure the entry is replaced by a safe redaction marker rather than leaking raw payload (see [lifecycle.md](lifecycle.md)).
-- **ReDoS protection.** Provide ReDoS-safe regexes; the JS engine applies a configurable `regexTimeoutMs` to abort long matches, and the native engine uses the linear `regex` crate. Long keys (>256 chars) are skipped.
+- **Silent Observer.** If masking fails, the pipeline does not throw. The `masking.onMaskingError` hook fires; on failure the entry is replaced by a safe redaction marker rather than leaking raw payload (see [lifecycle.md](lifecycle.md)).
+- **ReDoS protection — at init, not at runtime.** V8 cannot interrupt a running regex, so no runtime timeout is possible in the JS path (`regexTimeoutMs` is kept for config compatibility but has no effect). Instead, `addRule()` statically rejects explosive custom patterns (nested unbounded quantifiers like `(a+)+`) with a clear `TypeError` — fail-fast at init, before a crafted log key can ever reach them. Over-long keys (>256 chars) are truncated for matching, never skipped (skipping was fail-open). The native engine uses the linear-time `regex` crate, where ReDoS cannot exist.
 - **No silent skips.** A masking rule the native engine cannot compile (lookahead/backrefs) makes it fall back to the JS engine instead of dropping the rule — data is never let through unmasked.
+- **Bounded decision cache.** The JS engine caches the per-key-name rule decision (never the value) so repeat field names skip the rule scan — 2.4x on the fallback path. It is capped at 4096 entries (hostile payloads generating unique key names cannot grow memory; past the cap new keys still mask, uncached) and cleared whenever a rule is added at runtime. `getStats()` reports `decisionCacheSize`.
 
 ---
 

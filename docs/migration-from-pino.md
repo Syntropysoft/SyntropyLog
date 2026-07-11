@@ -133,7 +133,7 @@ await syntropyLog.init({
 Differences worth knowing:
 
 - Masking runs **before** any transport, on a deep walk — you don't have to enumerate paths.
-- A regex timeout (`regexTimeoutMs`, default 100ms) prevents a malicious custom rule from blocking the event loop.
+- Explosive custom rule patterns (nested unbounded quantifiers) are **rejected at init** with a `TypeError` — V8 cannot interrupt a running regex, so the defense is static, not a runtime timeout.
 - If masking fails, the framework does not throw — the entry is dropped from the failed transport but logging keeps working. Failures surface via `onMaskingError` and the `failures.masking` counter in `getStats()`.
 
 See [docs/masking.md](masking.md).

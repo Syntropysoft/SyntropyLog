@@ -7,8 +7,7 @@ import { randomUUID } from 'crypto';
  * without depending on the actual framework state, making tests more reliable
  * and avoiding initialization/shutdown issues.
  *
- * Similar to BeaconRedisMock, this is designed to be flexible and configurable
- * for different testing scenarios.
+ * Designed to be flexible and configurable for different testing scenarios.
  */
 
 export interface MockLogger {

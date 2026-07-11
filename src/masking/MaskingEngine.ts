@@ -15,6 +15,7 @@ import {
   MASK_KEYS_ALL,
 } from '../sensitiveKeys';
 import { applyMask, MaskSpec, REDACTED } from './maskSpec';
+import { assertSafeKeyPattern } from './regexSafety';
 
 /**
  * @enum MaskingStrategy
@@ -75,7 +76,12 @@ export interface MaskingEngineOptions {
   preserveLength?: boolean;
   /** Enable default rules for common data types */
   enableDefaultRules?: boolean;
-  /** Max ms per custom rule regex evaluation; on timeout a warning is logged and the rule is skipped. */
+  /**
+   * @deprecated Has never been enforced — V8 cannot interrupt a running regex, so no runtime
+   * timeout is possible in the JS path. Real ReDoS defense: explosive custom patterns are
+   * rejected at init (regexSafety.ts) and keys are truncated to a bounded length. Kept only
+   * for config compatibility; ignored.
+   */
   regexTimeoutMs?: number;
   /** Called when masking fails (timeout or error). Never receives raw payload. */
   onMaskingError?: (error: unknown) => void;
@@ -187,8 +193,24 @@ export function strategyToSpec(
  * regardless of object depth or complexity.
  */
 export class MaskingEngine {
+  /**
+   * @private Cap for the per-key-name decision cache. Bounded so attacker-controlled
+   * key names (a hostile payload generating unique keys per log) cannot grow memory:
+   * past the cap, new keys still mask correctly — they just pay the scan, uncached.
+   */
+  private static readonly DECISION_CACHE_MAX = 4096;
   /** @private Array of masking rules */
   private rules: MaskingRule[] = [];
+  /**
+   * @private Per-key-name decision cache: key → matched rule (or null for "no rule").
+   * Field NAMES repeat across log entries while values change, and the scan tests every
+   * rule (the catch-all is a wide alternation) on every non-sensitive key — so caching
+   * the decision, never the value, removes the whole scan from the hot path. Family fix
+   * (found by the Java port's JMH suite: 4,497→1,187 ns/op). Deterministic by design:
+   * matching depends only on the key name and the rule set — and it is invalidated on
+   * addRule() because a new rule can change the decision for keys cached as "no rule".
+   */
+  private readonly decisionCache = new Map<string, MaskingRule | null>();
   /** @private Default mask character */
   private readonly maskChar: string;
   /** @private Whether to preserve original length by default */
@@ -247,6 +269,13 @@ export class MaskingEngine {
       rule._compiledPattern = rule.pattern;
     }
 
+    // ReDoS defense happens HERE, at init time — not on the log hot path. V8 cannot
+    // interrupt a running regex (no timeout is possible), so an explosive custom pattern
+    // is rejected before it can ever run. Default rules are known-safe alternations.
+    if (!rule._isDefaultRule) {
+      assertSafeKeyPattern(rule._compiledPattern);
+    }
+
     // Set defaults
     rule.preserveLength = rule.preserveLength ?? this.preserveLength;
     rule.maskChar = rule.maskChar ?? this.maskChar;
@@ -263,6 +292,11 @@ export class MaskingEngine {
     }
 
     this.rules.push(rule);
+
+    // A new rule can only change the decision for keys cached as "no rule matched"
+    // (first-match-wins keeps existing matches valid), but clearing everything is the
+    // simple, obviously-correct move — addRule is config-time, not hot-path.
+    this.decisionCache.clear();
   }
 
   /** Message used when masking fails (e.g. timeout) so we never emit raw payload. */
@@ -349,13 +383,30 @@ export class MaskingEngine {
     return dataObj;
   }
 
-  /** First rule whose key-pattern matches (order preserved → first wins). */
+  /**
+   * First rule whose key-pattern matches (order preserved → first wins), served from
+   * the bounded decision cache when the key name has been seen before.
+   */
   private findMatchingRule(key: string): MaskingRule | undefined {
+    const cached = this.decisionCache.get(key);
+    if (cached !== undefined) {
+      return cached ?? undefined; // null = cached "no rule matched"
+    }
+
+    const found = this.scanRules(key);
+    if (this.decisionCache.size < MaskingEngine.DECISION_CACHE_MAX) {
+      this.decisionCache.set(key, found ?? null);
+    }
+    return found;
+  }
+
+  /** The uncached scan: every rule, in order. Pure — depends only on key + rule set. */
+  private scanRules(key: string): MaskingRule | undefined {
     for (const rule of this.rules) {
       if (!rule._compiledPattern) continue;
       const isMatch = rule._isDefaultRule
         ? rule._compiledPattern.test(key)
-        : this.testRegexWithTimeout(rule._compiledPattern, key);
+        : this.testCustomPatternBounded(rule._compiledPattern, key);
       if (isMatch) return rule;
     }
     return undefined;
@@ -423,6 +474,7 @@ export class MaskingEngine {
         (r) => r.strategy === MaskingStrategy.CUSTOM
       ).length,
       strategies: this.rules.map((r) => r.strategy),
+      decisionCacheSize: this.decisionCache.size,
     };
   }
 
@@ -434,18 +486,23 @@ export class MaskingEngine {
     return this.initialized;
   }
 
-  private testRegexWithTimeout(regex: RegExp, key: string): boolean {
-    // Node.js Event Loop Blocking Defense:
-    // V8 regex execution is synchronous and uninterruptible. A catastrophic backtracking (ReDoS)
-    // cannot be caught by a try/catch block if it hangs the thread.
-    // Since we only test the regex against object *keys* (not values), we enforce a strict
-    // length limit. Keys excessively long are skipped to prevent ReDoS vectors.
-    if (key.length > DEFAULT_VALUES.maxKeyLengthForRegex) {
-      return false;
-    }
+  private testCustomPatternBounded(regex: RegExp, key: string): boolean {
+    // There is NO timeout here and none is possible: V8 regex execution is synchronous and
+    // uninterruptible (the old name, testRegexWithTimeout, promised one — it lied). The
+    // layered defense is:
+    //   1. Explosive patterns are REJECTED at addRule() time (see regexSafety.ts) — a
+    //      pattern that reaches this point has star-height ≤ 1.
+    //   2. The key is TRUNCATED (never skipped) to cap polynomial blow-up. Skipping was
+    //      fail-open: an over-long key named "…password…" sailed through unmasked.
+    //   3. The full elimination is the declarative path — spec rules cross to the native
+    //      Rust engine (linear-time `regex` crate), where ReDoS cannot exist.
+    const bounded =
+      key.length > DEFAULT_VALUES.maxKeyLengthForRegex
+        ? key.slice(0, DEFAULT_VALUES.maxKeyLengthForRegex)
+        : key;
 
     try {
-      return regex.test(key);
+      return regex.test(bounded);
     } catch {
       return false;
     }
@@ -456,6 +513,7 @@ export class MaskingEngine {
    */
   public shutdown(): void {
     this.rules = [];
+    this.decisionCache.clear();
     this.initialized = false;
   }
 }
