@@ -1,7 +1,7 @@
 # SyntropyLog — Benchmark Report
 
 **Source:** output of `pnpm run bench:memory` (`NODE_OPTIONS=--expose-gc`).
-**Date:** 2026-07-11 (develop, heading to 1.4.0). **Native addon (Rust):** yes (M2, GH).
+**Date:** 2026-07-11 (1.4.0). **Native addon (Rust):** yes (M2, GH).
 
 Environments captured so the results read as cross-platform rather than single-box:
 
