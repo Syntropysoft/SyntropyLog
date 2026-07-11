@@ -57,7 +57,7 @@ genesis built was removed, and what remained got a spine.
 - **2026-06-13 — `syntropylog@1.0.0` + `syntropylog-native@1.0.0` published to npm** with
   provenance, after ~a year of work. 1.1.0 (PII fix), 1.2.0, 1.3.0 followed within a month.
 - The **family** grew from the canon: **sl4n** (.NET, rides on MEL), **slpy** (Python),
-  **syntropylog-jvm** (rides on SLF4J/Logback) — each mounting on its platform's standard, each
+  **syntropylog-java** (rides on SLF4J/Logback) — each mounting on its platform's standard, each
   asserting the shared masking parity fixture. Example 22 closed the circle: one correlationId
   traveling across JS + Python + .NET services.
 
