@@ -201,6 +201,58 @@ describe('@syntropylog/nestjs — integration', () => {
     });
   });
 
+  describe('@InjectLogger() — lazy resolution (no throw before init)', () => {
+    it('a consumer can be constructed before init() ran — no "Logger Factory not available" at bootstrap', async () => {
+      // A fresh instance deliberately NOT initialized yet. Before the lazy fix, the
+      // @InjectLogger transient factory resolved getLogger() at DI time, so this whole
+      // bootstrap threw "Logger Factory not available" — the regression this guards.
+      const uninited = createSyntropyLog();
+
+      @Injectable()
+      class EarlyConsumer {
+        constructor(@InjectLogger() readonly log: ILogger) {}
+      }
+
+      @Module({
+        imports: [SyntropyLogModule.forRoot({ syntropyLog: uninited })],
+        providers: [EarlyConsumer],
+        exports: [EarlyConsumer],
+      })
+      class TestModule {}
+
+      // Must NOT throw even though init() has not run.
+      const moduleRef = await Test.createTestingModule({
+        imports: [TestModule],
+      }).compile();
+      const svc = await moduleRef.resolve(EarlyConsumer);
+      expect(svc.log).toBeDefined();
+
+      // Bring the instance up AFTER the consumer already exists, and prove the deferred
+      // logger resolves on first use and stays bound to the injecting class name.
+      const lateSpy = new SpyTransport({ level: 'trace' });
+      await uninited.init({
+        logger: {
+          serviceName: 'late-init',
+          level: 'trace',
+          transports: [lateSpy],
+        },
+      });
+
+      svc.log.info({ orderId: 'ord_late' }, 'logged after late init');
+
+      const entry = lateSpy.getLastEntry() as unknown as {
+        message: string;
+        source: string;
+        orderId: string;
+      };
+      expect(entry.message).toBe('logged after late init');
+      expect(entry.source).toBe('EarlyConsumer');
+      expect(entry.orderId).toBe('ord_late');
+
+      await uninited.shutdown();
+    });
+  });
+
   describe('forRoot({ syntropyLog }) — instance isolation', () => {
     it('two NestJS apps with different SyntropyLog instances do not cross-talk', async () => {
       const spyA = new SpyTransport();
