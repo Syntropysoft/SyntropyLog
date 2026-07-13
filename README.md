@@ -446,6 +446,12 @@ const dbTransport = new AdapterTransport({
 });
 ```
 
+> **Why a one-function `executor` instead of a `syntropylog-datadog` / `syntropylog-loki` package?**
+> Shipping a versioned adapter per backend means inheriting every backend client-library's breaking
+> changes — the fate of much of the Winston plugin ecosystem. Here the coupling lives in **your** code,
+> where you already own the client-library version: retargeting a backend rewrites **this one map + executor**,
+> never your log calls. It's a deliberate choice about who carries the maintenance cost — kept off the framework.
+
 ### DurableAdapterTransport — delivery guarantees for audit logs
 
 Turns audit-flagged entries into delivery-guaranteed writes: in-memory buffer, exponential-backoff retry, and a dead-letter queue via `onDrop`. **Selective by default** — only entries with `retention` metadata take the durable path; `info`/`warn`/`error` keep fire-and-forget semantics.
@@ -590,12 +596,13 @@ export class PaymentService {
 }
 ```
 
-> ⚠️ **Known issue with the packaged `syntropylog/nestjs` subpath** (`SyntropyLogModule`, `@InjectLogger`):
-> it bundles its **own** SyntropyLog singleton, separate from the one you `init()`. So
-> `SyntropyLogModule.forRoot()` with no argument resolves an **uninitialized** instance and throws
-> `Logger Factory not available` at startup. Until the subpath shares the main singleton, wrap it directly
-> as shown above (this is the pattern the Nest support is modeled on), or — if you use the module — pass
-> your initialized instance explicitly: `SyntropyLogModule.forRoot({ syntropyLog })`.
+> **The packaged `syntropylog/nestjs` subpath** (`SyntropyLogModule`, `SyntropyNestLoggerService`,
+> `@InjectLogger`) shares the **one** runtime singleton you `init()` — no bundled second copy. Initialize
+> once, then `SyntropyLogModule.forRoot({ syntropyLog })` wires the module to that instance (passing it
+> explicitly stays the recommended form for multi-instance / test setups). `@InjectLogger()` resolves its
+> logger **lazily**, on first use — so a provider can be constructed *before* `init()` has run (init inside
+> a lifecycle hook, or after `NestFactory.create()`) without throwing `Logger Factory not available` at
+> bootstrap. The hand-rolled `LoggerService` above remains a fine minimal alternative.
 
 ---
 
