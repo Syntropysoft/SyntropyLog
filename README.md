@@ -448,9 +448,9 @@ const dbTransport = new AdapterTransport({
 
 > **Why a one-function `executor` instead of a `syntropylog-datadog` / `syntropylog-loki` package?**
 > Shipping a versioned adapter per backend means inheriting every backend client-library's breaking
-> changes — the fate of much of the Winston plugin ecosystem. Here the coupling lives in **your** code,
-> where you already own the client-library version: retargeting a backend rewrites **this one map + executor**,
-> never your log calls. It's a deliberate choice about who carries the maintenance cost — kept off the framework.
+> changes. Here the coupling lives in **your** code, where you already own the client-library version:
+> retargeting a backend rewrites **this one map + executor**, never your log calls. It's a deliberate
+> choice about who carries the maintenance cost — kept off the framework.
 
 ### DurableAdapterTransport — delivery guarantees for audit logs
 
