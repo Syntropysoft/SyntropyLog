@@ -30,8 +30,9 @@
 
 ## What's new
 
-- **Faster — masking in the JS fallback path is 2.4x faster (442 → 183 ns/op).** Field *names* repeat across log entries while values change, yet every key was re-scanned against every rule on every log. The engine now caches the *decision* per key name (bounded, cap 4096, invalidated on `addRule`) — never the value. Masked output is byte-for-byte identical; the native Rust engine was never the bottleneck and is unchanged. A family fix: found by the Java port's JMH suite, applied here, scheduled for Python.
-- **Hardened — explosive custom key patterns are rejected at init.** V8 cannot interrupt a running regex, so a pattern like `(a+)+` was one crafted log key away from hanging the event loop forever. `addRule()` now fails fast with a clear `TypeError` on nested unbounded quantifiers; safe patterns and default rules are unaffected.
+- **Observable — a missing native addon is reported, never silent.** The optional Rust engine always fell back to the JS pipeline transparently; now the load failure also *tells you why*, once, through `onSerializationFallback`: `not installed (optional dependency)` — the supported state — versus `failed to load: <detail>` for a present-but-broken binary (the one worth alerting on). `getStats().nativeAddonActive` reflects the outcome. This closes the last silent fallback branch.
+- **Proven — the failsafe is executed in CI, not claimed.** A new job runs both halves on a real Alpine (musl) container against the *packed* tarballs: the cross-compiled musl binary must actually load and mask natively, and a `--omit=optional` install must produce the **same masked output** while reporting the fallback. Cross-compiling proves it links; this proves it loads.
+- **Fixed — `@InjectLogger()` no longer throws before `init()`.** The NestJS decorator resolved its logger at injection time, breaking common bootstrap orderings; it now resolves lazily on first use, matching the already-lazy `SyntropyNestLoggerService`.
 
 Details: [CHANGELOG.md](CHANGELOG.md).
 
