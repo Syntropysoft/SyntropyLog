@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.5.0
+
+**The optional-addon contract is now explicit, observable — and executed in CI.** The native Rust engine was always optional with a transparent JS fallback; this release makes that failsafe something you can *see* and something CI *proves* on a real Alpine container, instead of a README claim. Plus a NestJS bootstrap-ordering fix.
+
+### Added — a missing native addon is reported, never silent
+
+- **`onSerializationFallback` now fires when the addon fails to load** (once — the result is cached), distinguishing the two cases: `not installed (optional dependency)` — the supported state on unsupported platforms or `--omit=optional` installs — versus `failed to load: <detail>` for a present-but-unloadable binary (wrong libc, corrupt download, ABI mismatch — the one worth alerting on). Every other fallback path (config rejected, JS-only rule, runtime error) already reported; this closes the last silent branch. The fallback behavior itself is unchanged, and `getStats().nativeAddonActive` still reflects the outcome.
+
+### Fixed — `@InjectLogger()` no longer throws before `init()`
+
+- The `@InjectLogger()` transient provider resolved its underlying logger at DI/injection time, so a consumer constructed before `syntropyLog.init()` had run threw `Logger Factory not available` at bootstrap (a common NestJS ordering — init inside a lifecycle hook, or after `NestFactory.create()`). It now returns a lazily-resolved `ILogger` that fetches the logger on first use and memoizes it, matching the already-lazy `SyntropyNestLoggerService`. Additive and non-breaking; the class-name `source` binding is preserved.
+
+### CI — the failsafe is executed, not claimed
+
+- **New `alpine-smoke` job** (`build-native.yml`): the zig-cross-compiled x64 musl binary is **executed** on a real `node:20-alpine` container against the *packed* tarballs — cross-compiling proves it links, this proves it loads and masks natively. A second scenario installs with `--omit=optional` and asserts the JS pipeline produces the **same masked output** while reporting the fallback. Both scenarios log real PII and assert the emitted JSON (`password` fully redacted, `email` never cleartext). arm64 targets remain build-only (no arm64 runner).
+
+### Documentation
+
+- README and `docs/native-addon.md` now answer the operational question head-on — **"what happens when the addon is missing"**: optionalDependency semantics, same-contract JS fallback (byte-for-byte parity fixture), and how to observe it (`getStats().nativeAddonActive`, the once-only fallback reason).
+- **Removed a stale instruction from 4 docs:** `SYNTROPYLOG_NATIVE_DISABLE=1` was dropped when the package stopped reading environment variables, but `native-addon.md`, `stability.md` and two doc-es pages still offered it — a user setting it would believe the addon was disabled while it kept running. All now point to `logger.disableNativeAddon: true` in `init()`.
+
+## 1.4.0
+
+**JS-path masking hardened and faster: explosive custom key patterns are rejected at init (ReDoS), and repeat keys skip the rule scan via a bounded decision cache (2.4× faster masking).** The native Rust engine is unaffected on both counts — its `regex` crate is linear-time and it was never the masking bottleneck; this release closes the gap for custom-JS-function rules and platforms without the addon.
+
+### Changed — explosive custom key patterns are rejected at init
+
+- Measured on V8: `(a+)+$` hangs the event loop forever at 40 chars — far below the 256-char key cap that was the only guard, and no timeout is possible because V8 regex execution is uninterruptible (the old `testRegexWithTimeout` never had one). `addRule()` now runs a **static ReDoS check** (zero-dependency star-height analysis) on every custom key pattern and **throws a clear `TypeError`** on nested unbounded quantifiers (`(a+)+`, `([a-z]+)*`) and counted repetition of unbounded bodies (`(.*a){25}`). Default rules and safe custom patterns are unaffected. If you had such a pattern configured, init now fails fast instead of your process being one crafted log key away from a permanent hang.
+- Over-long keys (>256 chars) are **truncated instead of skipped** when matching custom rules — skipping was fail-open (a long key named `…password…` went unmasked).
+- `regexTimeoutMs` is deprecated and documented as never-enforced (kept for config compatibility).
+- Known residual (documented, pinned by a test): overlapping alternation like `(a|a)*` is not statically detectable without NFA analysis. The full elimination remains the declarative path — spec-based rules cross to the native Rust engine, which cannot ReDoS.
+
+### Performance — masking decision cache (JS path)
+
+- **2.4× faster (442 → 183 ns/op):** field *names* repeat across log entries while values change, yet every key was re-scanned against every rule on every log. The engine now caches the *decision* (key name → matched rule, or "no rule"), never the value. Family fix: found by the Java port's JMH suite (4,497 → 1,187 ns/op there), applied here and scheduled for the Python sibling.
+- Safety properties, all preserved: **bounded (cap 4096)** so hostile unique-key payloads cannot grow memory; **invalidated on `addRule()`**; **deterministic** — masked output is byte-for-byte identical (shared parity fixture still green); works at any depth and is cleared on `shutdown()`.
+- `getStats()` now reports `decisionCacheSize`.
+
 ## 1.3.0
 
 **Two security/correctness fixes surfaced by a real distributed app, plus opt-in disk persistence for the durable transport.** Both fixes were found by an end-to-end example running 5 services (NestJS + Fastify + Express + worker, Redis + Kafka) — a shape a single-process demo never exercises. SyntropyLog still ships with **no required runtime dependencies**; the native addon is rebuilt.
