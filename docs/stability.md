@@ -89,10 +89,10 @@ import { syntropyLog } from 'syntropylog';
 syntropyLog.isNativeAddonInUse();
 ```
 
-To force the JS path (e.g. to compare, or to rule the addon out while debugging):
+To force the JS path (e.g. to compare, or to rule the addon out while debugging) — the package reads no environment variables, so this is config:
 
-```bash
-SYNTROPYLOG_NATIVE_DISABLE=1 node your-app.js
+```ts
+await syntropyLog.init({ logger: { /* … */ disableNativeAddon: true } });
 ```
 
 ## Runtime support

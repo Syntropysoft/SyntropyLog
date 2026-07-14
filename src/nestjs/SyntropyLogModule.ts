@@ -72,6 +72,36 @@ function sourceFromInquirer(inquirer: unknown): string {
   return 'unknown';
 }
 
+/**
+ * A lazily-resolved {@link ILogger}: the underlying logger is fetched from
+ * SyntropyLog on **first use**, not at injection time, then memoized.
+ *
+ * This is what lets an `@InjectLogger()` consumer be constructed *before*
+ * `syntropyLog.init()` has run — a common NestJS ordering (init inside a
+ * lifecycle hook, or after `NestFactory.create()`) — without throwing
+ * `Logger Factory not available` at bootstrap. Resolution is deferred to the
+ * moment the consumer actually logs, by which point `init()` has completed.
+ * `SyntropyNestLoggerService` was already lazy (it resolves per `emit()`); this
+ * brings `@InjectLogger()` to the same, so the two exports behave consistently.
+ */
+function createLazyLogger(resolve: () => ILogger): ILogger {
+  let real: ILogger | undefined;
+  const target = (): ILogger => (real ??= resolve());
+  return new Proxy(Object.create(null) as ILogger, {
+    get(_t, prop): unknown {
+      // Never resolve on a thenable probe (`await logger`) or a Symbol lookup
+      // (inspection, `util.inspect.custom`): those must not eagerly build the
+      // logger, or they'd re-introduce the pre-init throw we're avoiding.
+      if (prop === 'then' || typeof prop === 'symbol') return undefined;
+      const owner = target();
+      const value = (owner as unknown as Record<string, unknown>)[prop];
+      return typeof value === 'function'
+        ? (value as (...args: unknown[]) => unknown).bind(owner)
+        : value;
+    },
+  });
+}
+
 @Module({})
 export class SyntropyLogModule {
   /**
@@ -113,7 +143,11 @@ export class SyntropyLogModule {
       inject: [SYNTROPYLOG_INSTANCE_TOKEN, { token: INQUIRER, optional: true }],
       useFactory: (syntropyLog: ISyntropyLog, inquirer: unknown): ILogger => {
         const source = sourceFromInquirer(inquirer);
-        return syntropyLog.getLogger(source).withSource(source);
+        // Resolve the underlying logger LAZILY (on first log call), so a consumer
+        // can be constructed before init() ran without throwing at bootstrap.
+        return createLazyLogger(() =>
+          syntropyLog.getLogger(source).withSource(source)
+        );
       },
     };
 

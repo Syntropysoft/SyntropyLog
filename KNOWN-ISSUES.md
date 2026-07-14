@@ -12,9 +12,10 @@ The **documentation** has already been corrected to steer users onto the safe pa
 (README NestJS + masking sections, `docs/masking.md`, `docs/context.md`, `docs/migration-from-pino.md`).
 **This file tracks the underlying code fixes that still need to happen.**
 
-Affected version: **1.2.0**. Status: **both FIXED on `develop`** — Issue 1 (nestjs subpath
-now shares the one runtime singleton and references the same nominal types) and Issue 2
-(native engine honors explicit rules unconditionally). See the resolution note under each.
+Status: **all FIXED on `develop`** — Issue 1 (nestjs subpath now shares the one runtime singleton
+and references the same nominal types) and Issue 2 (native engine honors explicit rules
+unconditionally), both surfaced at **1.2.0**; and Issue 3 (`@InjectLogger()` no longer resolves
+eagerly, so it can't throw before `init()`), at **1.4.0**. See the resolution note under each.
 
 ---
 
@@ -182,4 +183,33 @@ against the spread pattern explicitly.
 
 ---
 
-_Last updated: 2026-06-20. Reproductions run against syntropylog@1.2.0 on Node 20._
+## Issue 3 — `@InjectLogger()` resolves the logger eagerly → throws before `init()`
+
+**Labels:** `bug`, `nestjs`, `ergonomics`
+
+**Status: ✅ FIXED on `develop`** (`src/nestjs/SyntropyLogModule.ts`). The `@InjectLogger()` transient
+provider now returns a **lazily-resolved `ILogger`** (a proxy that fetches `getLogger(source)` on first
+use and memoizes it), so a consumer can be constructed before `init()` has run without throwing at
+bootstrap. Regression test: `tests/nestjs/nestjs-integration.test.ts` → "no throw before init" (fails
+with `Logger Factory not available` without the fix, passes with it). Orthogonal to Issue 1: this bit
+**even with** the shared singleton in place.
+
+### Describe the bug
+The `@InjectLogger()` provider factory called `syntropyLog.getLogger(source).withSource(source)` at
+**DI resolution time**. NestJS instantiates providers during `NestFactory.create()`, so any consumer
+that injects a logger and is constructed before `syntropyLog.init()` completed threw
+`Logger Factory not available` at startup. The ordering (`init()` before `create()`) was an implicit,
+unenforced contract — and fighting Nest idioms that init observability inside a lifecycle hook.
+
+### Root cause
+Eager resolution in the transient factory. The sibling `SyntropyNestLoggerService` was already lazy
+(it resolves per `emit()`), so the two exports of the same subpath behaved inconsistently.
+
+### Resolution
+Defer resolution to first use via a `createLazyLogger()` proxy in the transient provider — never throws
+at injection time, resolves once `init()` has run, keeps the class-name `source` binding. Additive and
+non-breaking (public signature unchanged); brings `@InjectLogger()` in line with the logger service.
+
+---
+
+_Last updated: 2026-07-13. Issues 1–2 run against syntropylog@1.2.0; Issue 3 against @1.4.0, Node 20._

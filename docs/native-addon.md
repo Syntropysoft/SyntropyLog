@@ -40,10 +40,12 @@ Useful for emitting a startup banner, a metric label, or a health-check field.
 
 ## Forcing the JS pipeline
 
-Set the environment variable before the process starts:
+Set it in `init()` — the package reads **no** environment variables (see SECURITY.md):
 
-```bash
-SYNTROPYLOG_NATIVE_DISABLE=1 node app.js
+```typescript
+await syntropyLog.init({
+  logger: { /* … */ disableNativeAddon: true },
+});
 ```
 
 Typical reasons:
@@ -51,6 +53,17 @@ Typical reasons:
 - Debugging serialization edge cases against the JS implementation.
 - Comparing performance.
 - Working around a suspected addon issue in production while a fix ships.
+
+---
+
+## When the addon cannot load at all
+
+`syntropylog-native` is an `optionalDependency`, so a platform without a prebuilt binary (or an `--omit=optional` install) is a supported state: the install succeeds and the JS pipeline serves the same contract. The load failure is **reported, not silent** — `onSerializationFallback` fires once, with a reason that distinguishes the two cases:
+
+- `native addon not installed (optional dependency); using JS pipeline` — the package was skipped at install time.
+- `native addon failed to load: <detail>; using JS pipeline` — the package is present but its binary cannot load (wrong libc, corrupt download, ABI mismatch). This one is worth alerting on.
+
+`getStats().nativeAddonActive` reflects the outcome either way. Both scenarios are executed in CI on a real Alpine (musl) container against the packed tarballs — the `alpine-smoke` job in `.github/workflows/build-native.yml`.
 
 ---
 

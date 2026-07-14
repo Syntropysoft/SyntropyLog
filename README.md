@@ -30,8 +30,9 @@
 
 ## What's new
 
-- **Faster — masking in the JS fallback path is 2.4x faster (442 → 183 ns/op).** Field *names* repeat across log entries while values change, yet every key was re-scanned against every rule on every log. The engine now caches the *decision* per key name (bounded, cap 4096, invalidated on `addRule`) — never the value. Masked output is byte-for-byte identical; the native Rust engine was never the bottleneck and is unchanged. A family fix: found by the Java port's JMH suite, applied here, scheduled for Python.
-- **Hardened — explosive custom key patterns are rejected at init.** V8 cannot interrupt a running regex, so a pattern like `(a+)+` was one crafted log key away from hanging the event loop forever. `addRule()` now fails fast with a clear `TypeError` on nested unbounded quantifiers; safe patterns and default rules are unaffected.
+- **Observable — a missing native addon is reported, never silent.** The optional Rust engine always fell back to the JS pipeline transparently; now the load failure also *tells you why*, once, through `onSerializationFallback`: `not installed (optional dependency)` — the supported state — versus `failed to load: <detail>` for a present-but-broken binary (the one worth alerting on). `getStats().nativeAddonActive` reflects the outcome. This closes the last silent fallback branch.
+- **Proven — the failsafe is executed in CI, not claimed.** A new job runs both halves on a real Alpine (musl) container against the *packed* tarballs: the cross-compiled musl binary must actually load and mask natively, and a `--omit=optional` install must produce the **same masked output** while reporting the fallback. Cross-compiling proves it links; this proves it loads.
+- **Fixed — `@InjectLogger()` no longer throws before `init()`.** The NestJS decorator resolved its logger at injection time, breaking common bootstrap orderings; it now resolves lazily on first use, matching the already-lazy `SyntropyNestLoggerService`.
 
 Details: [CHANGELOG.md](CHANGELOG.md).
 
@@ -446,6 +447,12 @@ const dbTransport = new AdapterTransport({
 });
 ```
 
+> **Why a one-function `executor` instead of a `syntropylog-datadog` / `syntropylog-loki` package?**
+> Shipping a versioned adapter per backend means inheriting every backend client-library's breaking
+> changes. Here the coupling lives in **your** code, where you already own the client-library version:
+> retargeting a backend rewrites **this one map + executor**, never your log calls. It's a deliberate
+> choice about who carries the maintenance cost — kept off the framework.
+
 ### DurableAdapterTransport — delivery guarantees for audit logs
 
 Turns audit-flagged entries into delivery-guaranteed writes: in-memory buffer, exponential-backoff retry, and a dead-letter queue via `onDrop`. **Selective by default** — only entries with `retention` metadata take the durable path; `info`/`warn`/`error` keep fire-and-forget semantics.
@@ -590,12 +597,13 @@ export class PaymentService {
 }
 ```
 
-> ⚠️ **Known issue with the packaged `syntropylog/nestjs` subpath** (`SyntropyLogModule`, `@InjectLogger`):
-> it bundles its **own** SyntropyLog singleton, separate from the one you `init()`. So
-> `SyntropyLogModule.forRoot()` with no argument resolves an **uninitialized** instance and throws
-> `Logger Factory not available` at startup. Until the subpath shares the main singleton, wrap it directly
-> as shown above (this is the pattern the Nest support is modeled on), or — if you use the module — pass
-> your initialized instance explicitly: `SyntropyLogModule.forRoot({ syntropyLog })`.
+> **The packaged `syntropylog/nestjs` subpath** (`SyntropyLogModule`, `SyntropyNestLoggerService`,
+> `@InjectLogger`) shares the **one** runtime singleton you `init()` — no bundled second copy. Initialize
+> once, then `SyntropyLogModule.forRoot({ syntropyLog })` wires the module to that instance (passing it
+> explicitly stays the recommended form for multi-instance / test setups). `@InjectLogger()` resolves its
+> logger **lazily**, on first use — so a provider can be constructed *before* `init()` has run (init inside
+> a lifecycle hook, or after `NestFactory.create()`) without throwing `Logger Factory not available` at
+> bootstrap. The hand-rolled `LoggerService` above remains a fine minimal alternative.
 
 ---
 
@@ -649,6 +657,12 @@ An optional Rust addon does serialize + mask + sanitize in a single pass. It ins
 syntropyLog.isNativeAddonInUse(); // true when the Rust pipeline is active
 // Force JS mode: logger.disableNativeAddon: true in init()
 ```
+
+**What happens when the addon is missing.** `syntropylog-native` is an `optionalDependency`: on an unsupported platform (or an `--omit=optional` install) `npm install` still succeeds and the **JS pipeline serves the exact same contract** — same masking rules, same output (the two engines are asserted byte-for-byte equal by a shared parity fixture). Nothing about this is silent or left to trust:
+
+- `getStats().nativeAddonActive` tells you which engine is running.
+- `onSerializationFallback` fires **once** with the reason — `not installed (optional dependency)` for a skipped install, or `failed to load: <detail>` for a present-but-broken binary.
+- CI executes both halves on a real Alpine (musl) container against the packed tarballs: the musl binary must load natively, and a no-addon install must produce the same masked output while reporting the fallback (`alpine-smoke` in [build-native.yml](.github/workflows/build-native.yml)).
 
 Build from source: [docs/building-native-addon.md](docs/building-native-addon.md).
 
