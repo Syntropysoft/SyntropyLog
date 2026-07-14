@@ -81,7 +81,14 @@ describe('syntropyLog.getStats — hook decoration', () => {
   it('increments failures.serializationFallback and forwards the reason', async () => {
     const userHook = vi.fn();
     await syntropyLog.init({
-      logger: { serviceName: 'stats-test', level: 'info' },
+      // disableNativeAddon keeps this hermetic: an explicit config choice fires no
+      // callback, whereas a real load failure (machine without the built binary)
+      // would organically fire the hook once and skew the counts below.
+      logger: {
+        serviceName: 'stats-test',
+        level: 'info',
+        disableNativeAddon: true,
+      },
       onSerializationFallback: userHook,
     });
 

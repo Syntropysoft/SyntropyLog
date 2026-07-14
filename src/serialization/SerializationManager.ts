@@ -209,7 +209,20 @@ export class SerializationManager {
           return null;
         }
       }
-    } catch {
+    } catch (err) {
+      // The addon is an optionalDependency, so absence is a supported state
+      // (unsupported platform, --omit=optional); a present-but-unloadable binary
+      // is not. Either way, never throw — but tell the operator WHY the JS
+      // pipeline is in use instead of failing over silently.
+      const detail = err instanceof Error ? err.message : String(err);
+      const notInstalled =
+        (err as { code?: string } | null)?.code === 'MODULE_NOT_FOUND' &&
+        detail.includes("'syntropylog-native'");
+      this.onSerializationFallback?.(
+        notInstalled
+          ? 'native addon not installed (optional dependency); using JS pipeline'
+          : `native addon failed to load: ${detail}; using JS pipeline`
+      );
       this.nativeAddon = null;
     }
     return this.nativeAddon;
