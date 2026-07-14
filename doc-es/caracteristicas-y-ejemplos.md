@@ -31,7 +31,7 @@ A continuación cada punto se desarrolla con explicación y ejemplos.
 
 **Qué es:** Un addon opcional en Rust que hace en un solo recorrido la serialización, el masking y la sanitización. Incluye strip de ANSI en metadata. Si el addon no está disponible (plataforma no soportada, Node incompatible), el framework usa el pipeline en JS de forma transparente.
 
-**Ejemplo:** No hace falta configurar nada; si instalás el paquete en Linux/Windows/macOS con Node ≥20, el addon se usa automáticamente. Para deshabilitarlo (p. ej. debugging): `SYNTROPYLOG_NATIVE_DISABLE=1`.
+**Ejemplo:** No hace falta configurar nada; si instalás el paquete en Linux/Windows/macOS con Node ≥20, el addon se usa automáticamente. Para deshabilitarlo (p. ej. debugging): `logger.disableNativeAddon: true` en `init()` (el paquete no lee variables de entorno).
 
 ```ts
 // Comprobar en runtime si el addon está en uso

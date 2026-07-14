@@ -92,10 +92,10 @@ syntropyLog.isNativeAddonInUse();
 ```
 
 Para forzar el path JS (ej. para comparar, o descartar el addon mientras
-debuggeás):
+debuggeás) — el paquete no lee variables de entorno, así que va por config:
 
-```bash
-SYNTROPYLOG_NATIVE_DISABLE=1 node tu-app.js
+```ts
+await syntropyLog.init({ logger: { /* … */ disableNativeAddon: true } });
 ```
 
 ## Soporte de runtime

@@ -657,6 +657,12 @@ syntropyLog.isNativeAddonInUse(); // true when the Rust pipeline is active
 // Force JS mode: logger.disableNativeAddon: true in init()
 ```
 
+**What happens when the addon is missing.** `syntropylog-native` is an `optionalDependency`: on an unsupported platform (or an `--omit=optional` install) `npm install` still succeeds and the **JS pipeline serves the exact same contract** — same masking rules, same output (the two engines are asserted byte-for-byte equal by a shared parity fixture). Nothing about this is silent or left to trust:
+
+- `getStats().nativeAddonActive` tells you which engine is running.
+- `onSerializationFallback` fires **once** with the reason — `not installed (optional dependency)` for a skipped install, or `failed to load: <detail>` for a present-but-broken binary.
+- CI executes both halves on a real Alpine (musl) container against the packed tarballs: the musl binary must load natively, and a no-addon install must produce the same masked output while reporting the fallback (`alpine-smoke` in [build-native.yml](.github/workflows/build-native.yml)).
+
 Build from source: [docs/building-native-addon.md](docs/building-native-addon.md).
 
 ---
