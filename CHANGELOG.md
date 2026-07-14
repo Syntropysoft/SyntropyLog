@@ -20,6 +20,7 @@
 
 - README and `docs/native-addon.md` now answer the operational question head-on — **"what happens when the addon is missing"**: optionalDependency semantics, same-contract JS fallback (byte-for-byte parity fixture), and how to observe it (`getStats().nativeAddonActive`, the once-only fallback reason).
 - **Removed a stale instruction from 4 docs:** `SYNTROPYLOG_NATIVE_DISABLE=1` was dropped when the package stopped reading environment variables, but `native-addon.md`, `stability.md` and two doc-es pages still offered it — a user setting it would believe the addon was disabled while it kept running. All now point to `logger.disableNativeAddon: true` in `init()`.
+- **README answers the recurring evaluator question head-on** — *"and Pino + OpenTelemetry?"*: different layers that compose (Pino = logger, OTel = telemetry transport/standard, SyntropyLog = the log-content governance layer neither provides), with the pointer to the existing OTel integration guide. Every independent evaluation raised it; now the answer is quotable instead of implied.
 
 ## 1.4.0
 
