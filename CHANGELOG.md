@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.5.0
+## 1.4.1
 
 **The optional-addon contract is now explicit, observable — and executed in CI.** The native Rust engine was always optional with a transparent JS fallback; this release makes that failsafe something you can *see* and something CI *proves* on a real Alpine container, instead of a README claim. Plus a NestJS bootstrap-ordering fix.
 
