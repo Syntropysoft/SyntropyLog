@@ -67,7 +67,7 @@ jobs:
 
       - name: Install cargo-zigbuild (cross-compile)
         if: ${{ matrix.zig }}
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@v2.85.5
         with:
           tool: cargo-zigbuild@0.22.3
 
