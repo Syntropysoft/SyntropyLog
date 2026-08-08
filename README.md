@@ -30,6 +30,7 @@
 
 ## What's new
 
+- **Fixed (critical) — a non-ASCII log value can no longer crash the process.** The native engine truncated long string values at a raw byte offset without respecting UTF-8 character boundaries, so a metadata value over ~300 bytes whose multi-byte character (accents, emoji, CJK, cyrillic, percent-encoded URLs) straddled the cut aborted the Node process with `SIGABRT` — a hard abort the JS `try/catch` cannot intercept, defeating the *"logging can't crash your app"* guarantee. It was reached by ordinary multilingual content through the recommended `log.info({ field }, 'msg')` — no hostile input. Truncation is now character-boundary-safe. (Two further masking-correctness fixes ship alongside it — see the [CHANGELOG](CHANGELOG.md).)
 - **Observable — a missing native addon is reported, never silent.** The optional Rust engine always fell back to the JS pipeline transparently; now the load failure also *tells you why*, once, through `onSerializationFallback`: `not installed (optional dependency)` — the supported state — versus `failed to load: <detail>` for a present-but-broken binary (the one worth alerting on). `getStats().nativeAddonActive` reflects the outcome. This closes the last silent fallback branch.
 - **Proven — the failsafe is executed in CI, not claimed.** A new job runs both halves on a real Alpine (musl) container against the *packed* tarballs: the cross-compiled musl binary must actually load and mask natively, and a `--omit=optional` install must produce the **same masked output** while reporting the fallback. Cross-compiling proves it links; this proves it loads.
 - **Fixed — `@InjectLogger()` no longer throws before `init()`.** The NestJS decorator resolved its logger at injection time, breaking common bootstrap orderings; it now resolves lazily on first use, matching the already-lazy `SyntropyNestLoggerService`.
@@ -103,6 +104,12 @@ Pino and Winston are excellent, fast **loggers**. SyntropyLog is a different cat
 | **Engine** | JS | native **Rust** (serialize + mask + sanitize in one pass), transparent JS fallback |
 
 **On speed — honestly:** the only apples-to-apples comparison is *minimal logging* (plain JSON, no masking), and there SyntropyLog is competitive — fastest on M2, competitive on x64 (CI-noisy). Above that they aren't comparable: Pino/Winston don't mask, correlate or filter, so their numbers are a no-masking reference, not a race. Decomposition shows most of the full-pipeline cost is the Rust engine doing the actual masking work — the framework layer itself is nearly free. Numbers, machines and method: [benchmark report](docs/benchmark-report.md).
+
+### And "Pino + OpenTelemetry"?
+
+Different layers — **they compose, they don't compete.** Pino is the logger; OpenTelemetry is the transport and instrumentation *standard* for telemetry (traces, metrics, logs). Neither governs the **content** of a log: which fields get masked, what context each level may emit, what retention an audit event carries, how correlation crosses HTTP and a message broker. That governance layer is what SyntropyLog is — the part you would otherwise hand-roll on top of Pino, in every service. SyntropyLog is **not an APM** and does not replace traces or metrics; its logs can flow *out through* OTel (a formatter + executor, with per-call routing — [docs/opentelemetry-integration.md](docs/opentelemetry-integration.md)), and the correlation middleware understands `traceparent`, so it sits comfortably next to OTel tracing.
+
+Rule of thumb: choose Pino + OTel alone when PII, audit and retention are thin requirements you can afford to hand-roll. Choose SyntropyLog when they are first-class — and keep OTel for traces either way.
 
 ---
 

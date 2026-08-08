@@ -1,10 +1,12 @@
 /**
  * FILE: src/masking/MaskingEngine.ts
- * DESCRIPTION: Ultra-fast data masking engine using JSON flattening strategy.
+ * DESCRIPTION: Data masking engine.
  *
- * This engine flattens complex nested objects into linear key-value pairs,
- * applies masking rules, and then reconstructs the original structure.
- * This approach provides extreme processing speed for any object depth.
+ * Walks a metadata object and applies the configured masking rules per key, WITHOUT
+ * mutating the input: it returns a new structure only for the branches that actually
+ * change (copy-on-write), sharing every unchanged sub-tree with the input. A per-call
+ * memo keyed by object reference makes it O(n) over distinct nodes, masks a shared
+ * sub-object once (both references get the same masked result), and terminates on cycles.
  */
 import { DEFAULT_VALUES } from '../constants';
 import {
@@ -186,11 +188,11 @@ export function strategyToSpec(
 
 /**
  * @class MaskingEngine
- * Ultra-fast data masking engine using JSON flattening strategy.
+ * Data masking engine.
  *
- * Instead of processing nested objects recursively, we flatten them to a linear
- * structure for extreme processing speed. This approach provides O(n) performance
- * regardless of object depth or complexity.
+ * Processes nested objects recursively with copy-on-write (never mutates the input) and a
+ * per-call reference memo, giving O(n) over distinct nodes while safely handling shared
+ * sub-objects and cycles. See {@link applyMaskingRules}.
  */
 export class MaskingEngine {
   /**
@@ -305,7 +307,7 @@ export class MaskingEngine {
 
   /**
    * Processes a metadata object and applies the configured masking rules.
-   * Uses JSON flattening strategy for extreme performance.
+   * Returns a NEW object (copy-on-write); the input is never mutated.
    * On failure (timeout, rule error, etc.) does not return any user data (could be sensitive);
    * only reports the error via onMaskingError and returns a fixed redaction marker.
    * @param meta - The metadata object to process
@@ -320,8 +322,11 @@ export class MaskingEngine {
     }
 
     try {
-      const visited = new WeakSet<object>();
-      return this.applyMaskingRules(meta, visited) as Record<string, unknown>;
+      // Memo keyed by input reference: never mutate the caller's object (copy-on-write
+      // below), mask a shared sub-object once so every reference to it gets the SAME
+      // masked result, and terminate on cycles.
+      const memo = new Map<object, unknown>();
+      return this.applyMaskingRules(meta, memo) as Record<string, unknown>;
     } catch (err) {
       this.onMaskingError?.(err);
       return {
@@ -332,55 +337,73 @@ export class MaskingEngine {
   }
 
   /**
-   * Applies masking rules recursively. Synchronous (pure CPU, regexes only) to avoid Promise pressure per log.
+   * Applies masking rules recursively, WITHOUT mutating the input. Synchronous (pure CPU,
+   * regexes only) to avoid Promise pressure per log. Returns a new structure only for the
+   * branches that actually changed (copy-on-write); unchanged inputs are returned as-is.
+   *
+   * `memo` maps an input reference to its masked result so that (a) a sub-object shared by
+   * more than one parent (a DAG) is masked once and both references get the same masked
+   * value — no unmasked leak on the second reference — and (b) a cyclic reference returns
+   * the original object instead of recursing forever.
    */
-  private applyMaskingRules(data: unknown, visited: WeakSet<object>): unknown {
+  private applyMaskingRules(data: unknown, memo: Map<object, unknown>): unknown {
     if (data === null || typeof data !== 'object') {
       return data;
     }
 
-    if (visited.has(data)) {
-      return data;
+    const cached = memo.get(data);
+    if (cached !== undefined) {
+      return cached;
     }
-    visited.add(data);
+    // Seed with the original ref so a back-edge (cycle) terminates; it is overwritten with
+    // the masked result below, so any later NON-cyclic reference still gets the mask.
+    memo.set(data, data);
 
     if (Array.isArray(data)) {
-      let isArrayModified = false;
+      let modified = false;
       const out: unknown[] = new Array(data.length);
       for (let i = 0; i < data.length; i++) {
-        const maskedItem = this.applyMaskingRules(data[i], visited);
+        const maskedItem = this.applyMaskingRules(data[i], memo);
         out[i] = maskedItem;
         if (maskedItem !== data[i]) {
-          isArrayModified = true;
+          modified = true;
         }
       }
-      return isArrayModified ? out : data;
+      const result = modified ? out : data;
+      memo.set(data, result);
+      return result;
     }
 
     const dataObj = data as Record<string, unknown>;
+    // Copy-on-write: allocate a new object only once a value actually changes. The caller's
+    // object is never written to.
+    let out: Record<string, unknown> | null = null;
 
     for (const key in dataObj) {
       if (!Object.prototype.hasOwnProperty.call(dataObj, key)) continue;
       const value = dataObj[key];
       const rule = this.findMatchingRule(key);
 
+      let newValue: unknown = value;
       if (rule) {
         // Matched key: mask string values by spec; redact any non-string value whole
         // (no descent → nested PII can't leak under a sensitive-named parent). This
         // mirrors the native engine's `resolve_key_action` exactly.
-        dataObj[key] =
-          typeof value === 'string'
-            ? this.applyStrategy(value, rule)
-            : REDACTED;
+        newValue =
+          typeof value === 'string' ? this.applyStrategy(value, rule) : REDACTED;
       } else if (typeof value === 'object' && value !== null) {
-        const maskedValue = this.applyMaskingRules(value, visited);
-        if (maskedValue !== value) {
-          dataObj[key] = maskedValue;
-        }
+        newValue = this.applyMaskingRules(value, memo);
+      }
+
+      if (newValue !== value) {
+        if (out === null) out = { ...dataObj };
+        out[key] = newValue;
       }
     }
 
-    return dataObj;
+    const result = out ?? dataObj;
+    memo.set(data, result);
+    return result;
   }
 
   /**
