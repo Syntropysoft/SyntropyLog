@@ -532,4 +532,85 @@ describe('Logger', () => {
       expect(infoOnlyTransport.log).not.toHaveBeenCalled();
     });
   });
+
+  describe('native path — object-consuming transports (wantsObject)', () => {
+    const NATIVE_LINE = JSON.stringify({
+      level: 'audit',
+      message: 'pago',
+      service: 'test-logger',
+      timestamp: '2026-08-08T00:00:00+00:00',
+      retention: { years: 10, immediate: true },
+      eventType: 'OrderPaid',
+    });
+
+    const makeTransport = (name: string, wantsObject: boolean) => {
+      const log = vi.fn();
+      const transport = {
+        level: 'trace' as LogLevel,
+        name,
+        isLevelEnabled: () => true,
+        log,
+        flush: vi.fn(),
+        get wantsObject() {
+          return wantsObject;
+        },
+      } as unknown as Transport;
+      return { transport, log };
+    };
+
+    const nativeResult = (line: string) =>
+      ({
+        serializedNative: line,
+        data: null,
+        serializer: 'native',
+        duration: 0,
+        complexity: 'low',
+        sanitized: true,
+        success: true,
+        metadata: null,
+      }) as unknown as ReturnType<
+        (typeof mockSerializationManager)['serializeDirect']
+      >;
+
+    it('hands the parsed OBJECT to wantsObject transports and the STRING to the rest, parsing once', () => {
+      mockSerializationManager.serializeDirect.mockReturnValueOnce(
+        nativeResult(NATIVE_LINE)
+      );
+      const objT = makeTransport('durable', true);
+      const strT = makeTransport('console', false);
+      const log = new Logger(
+        'test-logger',
+        [objT.transport, strT.transport],
+        dependencies
+      );
+
+      log.info('pago');
+
+      // Object-consumer (durable/adapter/OTLP) receives a parsed object with retention.
+      expect(objT.log).toHaveBeenCalledTimes(1);
+      const objArg = objT.log.mock.calls[0][0];
+      expect(typeof objArg).toBe('object');
+      expect(objArg).toMatchObject({
+        eventType: 'OrderPaid',
+        retention: { years: 10 },
+      });
+
+      // Console-style transport keeps the fast path: the raw serialized string.
+      expect(strT.log).toHaveBeenCalledTimes(1);
+      expect(strT.log.mock.calls[0][0]).toBe(NATIVE_LINE);
+    });
+
+    it('falls back to the raw string when the native line is not valid JSON (never drops the log)', () => {
+      mockSerializationManager.serializeDirect.mockReturnValueOnce(
+        nativeResult('not-json{')
+      );
+      const objT = makeTransport('durable', true);
+      const log = new Logger('t', [objT.transport], dependencies);
+
+      log.info('x');
+
+      expect(objT.log).toHaveBeenCalledTimes(1);
+      expect(typeof objT.log.mock.calls[0][0]).toBe('string');
+    });
+  });
 });

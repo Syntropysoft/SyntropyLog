@@ -73,6 +73,21 @@ export abstract class Transport {
   }
 
   /**
+   * Whether this transport needs the structured {@link LogEntry} object rather than the
+   * pre-serialized JSON string the native engine emits.
+   *
+   * Console-style transports read the string directly (the native fast path) and leave
+   * this `false`. Transports that **inspect or persist entry fields** — {@link AdapterTransport},
+   * {@link DurableAdapterTransport} (retention routing, structured persistence), OTLP/audit
+   * adapters — override it to `true`, so the native path hands them the parsed object instead
+   * of the raw line. The JS pipeline already delivers the object to every transport; this makes
+   * the native path consistent, so an adapter never has to handle "string on native, object on JS".
+   */
+  public get wantsObject(): boolean {
+    return false;
+  }
+
+  /**
    * The core method that all concrete transports must implement. This method
    * handles the actual sending/writing of the log entry. Synchronous (void) to avoid enqueueing Promises in the GC.
    * @param entry - The final log entry: either a LogEntry object or a pre-serialized JSON string (native path).

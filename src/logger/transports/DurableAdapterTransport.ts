@@ -151,10 +151,10 @@ interface QueueItem {
  */
 function hasRetention(entry: unknown): boolean {
   if (typeof entry === 'string') {
-    // Cheap heuristic — the JSON path may contain "retention": somewhere
-    // in the entry; we don't need to parse here because the JS pipeline
-    // calls log() with an object (the native path is for the bundled
-    // formatter, not directly to the adapter).
+    // Cheap substring heuristic, kept as a fallback: this transport declares
+    // `wantsObject = true`, so the Logger parses the native line and calls log()
+    // with an OBJECT (the branch below). A string only reaches here if that parse
+    // failed — never drop a retention entry over a parse hiccup, so still route it durably.
     return entry.includes('"retention"');
   }
   if (entry !== null && typeof entry === 'object') {
@@ -210,6 +210,15 @@ export class DurableAdapterTransport extends Transport {
     this.flushTimeoutMs = options.flushTimeoutMs ?? 5_000;
     this.persistPath = options.persistPath;
     this.recover();
+  }
+
+  /**
+   * This transport routes by the `retention` field and hands structured entries to the
+   * executor, so it needs the object — on the native path too. The Logger parses the
+   * serialized line once and delivers the object here (see {@link Transport.wantsObject}).
+   */
+  public override get wantsObject(): boolean {
+    return true;
   }
 
   /**
