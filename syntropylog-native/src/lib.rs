@@ -206,17 +206,38 @@ struct CompiledConfig {
     redact_patterns: Vec<Regex>,
     sensitive_set: HashSet<String>,
     masking_rules: Vec<CompiledRule>,
+    /// Raw config JSON, kept verbatim to compare instances (see `configure_native`): the
+    /// global `OnceCell` can hold only one config, so a second instance whose config differs
+    /// must be told native is unavailable for it (return `false` → JS fallback), never
+    /// silently masked with the first instance's rules.
+    raw_json: String,
 }
 
 static NATIVE_CONFIG: OnceCell<CompiledConfig> = OnceCell::new();
 
-/// Returns `true` when the config is VALID and native can be used, `false` when the
-/// config cannot be fully honored (unparseable JSON, or a masking rule / redact pattern
-/// whose regex this engine cannot compile). On `false` the JS caller MUST fall back to
-/// the JS pipeline — a rule we cannot compile must never silently let data through.
-/// Validity is independent of whether the global config was already set (idempotent).
+/// Returns `true` when the config is VALID **and** native can serve THIS caller, `false`
+/// otherwise. `false` cases (the JS caller MUST then fall back to the JS pipeline):
+///   1. unparseable JSON, or a masking rule / redact pattern whose regex we cannot compile
+///      — a rule we cannot honor must never silently let data through; and
+///   2. a *different* config is already installed in the process-global `OnceCell`. The
+///      native engine holds exactly one config; a second SyntropyLog instance
+///      (`createSyntropyLog`) whose masking rules differ CANNOT be served natively without
+///      masking its data with the first instance's rules — a cross-tenant PII leak. So we
+///      report `false` and let that instance mask correctly in JS.
+/// An identical config (same rules, e.g. the singleton re-initialized, or two instances
+/// configured the same) returns `true` — sharing the one global config is safe then.
+///
+/// NOTE: this is the interim guard. The real fix is a per-instance native config (a napi
+/// object owning its own `CompiledConfig`) so a divergent second instance keeps native too.
 #[napi]
 pub fn configure_native(config_json: String) -> bool {
+    // If a config is already installed, the only safe answer is exact-match: same config →
+    // usable; different config → not usable for this caller (fall back to JS). Do this BEFORE
+    // compiling so a divergent caller pays nothing.
+    if let Some(existing) = NATIVE_CONFIG.get() {
+        return existing.raw_json == config_json;
+    }
+
     let config: FastSerializeConfig = match serde_json::from_str(&config_json) {
         Ok(c) => c,
         Err(_) => return false,
@@ -241,12 +262,17 @@ pub fn configure_native(config_json: String) -> bool {
         redact_patterns,
         sensitive_set,
         masking_rules,
+        raw_json: config_json.clone(),
     };
 
-    // The config is valid → native is usable. If another instance already set the
-    // global config, keep it (set is a no-op); we still report usable.
-    let _ = NATIVE_CONFIG.set(compiled);
-    true
+    // First writer wins. If we lost a race, fall back to the exact-match rule so the
+    // late writer is served only if its config is identical.
+    match NATIVE_CONFIG.set(compiled) {
+        Ok(()) => true,
+        Err(_) => NATIVE_CONFIG
+            .get()
+            .map_or(false, |existing| existing.raw_json == config_json),
+    }
 }
 
 /// Compile every redact pattern, or `None` if any one cannot be compiled (never drop silently).
@@ -289,10 +315,16 @@ fn apply_redact_patterns(s: &str, patterns: &[Regex]) -> String {
 
 fn truncate(s: &str, max_len: usize) -> String {
     if s.len() <= max_len {
-        s.to_string()
-    } else {
-        format!("{}...", &s[..max_len.saturating_sub(3)])
+        return s.to_string();
     }
+    // Slice by BYTE index would panic when the cut lands inside a multi-byte UTF-8
+    // char (e.g. accented/CJK/emoji text). Walk the cut down to the nearest char
+    // boundary (≤ 3 bytes back) so the result is always valid UTF-8 — never panics.
+    let mut end = max_len.saturating_sub(3);
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}...", &s[..end])
 }
 
 fn is_sensitive_key(key: &str, sensitive_fields_lower: &HashSet<String>) -> bool {
@@ -603,6 +635,7 @@ fn default_config() -> &'static CompiledConfig {
         redact_patterns: Vec::new(),
         sensitive_set: HashSet::new(),
         masking_rules: Vec::new(),
+        raw_json: String::new(),
     })
 }
 
@@ -883,5 +916,44 @@ mod tests {
         let rules = vec![rule_cfg("email|mail", spec(json!({ "unmaskStart": 1 })))];
         assert_eq!(compile_masking_rules(&rules).unwrap().len(), 1);
         assert_eq!(compile_redact_patterns(&["password=\\w+".to_string()]).unwrap().len(), 1);
+    }
+
+    // ── regression: truncate must never panic on multi-byte UTF-8 ──────────
+    #[test]
+    fn truncate_never_panics_on_multibyte() {
+        // Each string is > max_len bytes and lands the byte cut inside a multi-byte char
+        // for at least some alignments; before the fix, `&s[..max_len-3]` panicked.
+        for s in [
+            "é".repeat(200),      // 2-byte chars, 400 bytes
+            "🚀".repeat(100),     // 4-byte chars, 400 bytes
+            "日本語".repeat(120), // 3-byte chars
+            "a".repeat(500),      // pure ASCII (was always safe — stays correct)
+            "abcé".repeat(80),    // mixed ASCII + multi-byte
+        ] {
+            let out = truncate(&s, 300);
+            assert!(out.len() <= 300, "must respect the byte cap: got {}", out.len());
+            // The result is always valid UTF-8 (its end is a char boundary of itself).
+            assert!(out.is_char_boundary(out.len()));
+            assert!(out.ends_with("..."));
+        }
+        // Short strings (≤ cap in bytes) are returned verbatim.
+        assert_eq!(truncate("hola", 300), "hola");
+        assert_eq!(truncate("café", 300), "café"); // 5 bytes ≤ 300 → verbatim
+    }
+
+    #[test]
+    fn mask_value_multibyte_long_value_does_not_panic() {
+        // The realistic configured path (configureNative sends max_string_length=300).
+        let cfg = test_config();
+        let sensitive = HashSet::new();
+        let ctx = MaskCtx {
+            config: &cfg,
+            sensitive_set: &sensitive,
+            redact_patterns: &[],
+            masking_rules: &[],
+        };
+        let input = json!({ "note": "á".repeat(200), "emoji": "🚀".repeat(100) });
+        let out = mask_value(&input, &ctx, 0); // must not panic
+        assert!(out.is_object());
     }
 }
