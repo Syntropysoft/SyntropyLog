@@ -42,6 +42,15 @@ export class AdapterTransport extends Transport {
   }
 
   /**
+   * Adapters persist/forward the structured entry, so they must receive the `LogEntry`
+   * object — including on the native path, where the Logger parses the serialized line
+   * once and hands it here (see {@link Transport.wantsObject}).
+   */
+  public override get wantsObject(): boolean {
+    return true;
+  }
+
+  /**
    * Delegates the log entry to the configured adapter.
    * Fire-and-forget: does not wait for the adapter so it does not return a Promise. Synchronous (void).
    * @param entry - Log entry object or pre-serialized JSON string.

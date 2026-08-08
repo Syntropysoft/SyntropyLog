@@ -12,6 +12,9 @@ import {
   Transport,
   TransportOptions,
 } from '../../src/logger/transports/Transport';
+import { AdapterTransport } from '../../src/logger/transports/AdapterTransport';
+import { DurableAdapterTransport } from '../../src/logger/transports/DurableAdapterTransport';
+import { ConsoleTransport } from '../../src/logger/transports/ConsoleTransport';
 import { MaskingEngine } from '../../src/masking/MaskingEngine';
 import { SerializationManager } from '../../src/serialization/SerializationManager';
 import { IContextManager } from '../../src/context';
@@ -530,6 +533,214 @@ describe('Logger', () => {
         })
       );
       expect(infoOnlyTransport.log).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('native path — object-consuming transports (wantsObject)', () => {
+    const NATIVE_LINE = JSON.stringify({
+      level: 'audit',
+      message: 'pago',
+      service: 'test-logger',
+      timestamp: '2026-08-08T00:00:00+00:00',
+      retention: { years: 10, immediate: true },
+      eventType: 'OrderPaid',
+    });
+
+    const makeTransport = (name: string, wantsObject: boolean) => {
+      const log = vi.fn();
+      const transport = {
+        level: 'trace' as LogLevel,
+        name,
+        isLevelEnabled: () => true,
+        log,
+        flush: vi.fn(),
+        get wantsObject() {
+          return wantsObject;
+        },
+      } as unknown as Transport;
+      return { transport, log };
+    };
+
+    const nativeResult = (line: string) =>
+      ({
+        serializedNative: line,
+        data: null,
+        serializer: 'native',
+        duration: 0,
+        complexity: 'low',
+        sanitized: true,
+        success: true,
+        metadata: null,
+      }) as unknown as ReturnType<
+        (typeof mockSerializationManager)['serializeDirect']
+      >;
+
+    it('hands the parsed OBJECT to wantsObject transports and the STRING to the rest, parsing once', () => {
+      mockSerializationManager.serializeDirect.mockReturnValueOnce(
+        nativeResult(NATIVE_LINE)
+      );
+      const objT = makeTransport('durable', true);
+      const strT = makeTransport('console', false);
+      const log = new Logger(
+        'test-logger',
+        [objT.transport, strT.transport],
+        dependencies
+      );
+
+      log.info('pago');
+
+      // Object-consumer (durable/adapter/OTLP) receives a parsed object with retention.
+      expect(objT.log).toHaveBeenCalledTimes(1);
+      const objArg = objT.log.mock.calls[0][0];
+      expect(typeof objArg).toBe('object');
+      expect(objArg).toMatchObject({
+        eventType: 'OrderPaid',
+        retention: { years: 10 },
+      });
+
+      // Console-style transport keeps the fast path: the raw serialized string.
+      expect(strT.log).toHaveBeenCalledTimes(1);
+      expect(strT.log.mock.calls[0][0]).toBe(NATIVE_LINE);
+    });
+
+    it('falls back to the raw string when the native line is not valid JSON (never drops the log)', () => {
+      mockSerializationManager.serializeDirect.mockReturnValueOnce(
+        nativeResult('not-json{')
+      );
+      const objT = makeTransport('durable', true);
+      const log = new Logger('t', [objT.transport], dependencies);
+
+      log.info('x');
+
+      expect(objT.log).toHaveBeenCalledTimes(1);
+      expect(typeof objT.log.mock.calls[0][0]).toBe('string');
+    });
+  });
+
+  describe('native path — REAL object-consuming transports (functional)', () => {
+    const NATIVE_LINE = JSON.stringify({
+      level: 'audit',
+      message: 'pago',
+      service: 'test-logger',
+      timestamp: '2026-08-08T00:00:00+00:00',
+      retention: { years: 10, immediate: true },
+      eventType: 'OrderPaid',
+    });
+
+    const stubNative = (line: string) =>
+      mockSerializationManager.serializeDirect.mockReturnValueOnce({
+        serializedNative: line,
+        data: null,
+        serializer: 'native',
+        duration: 0,
+        complexity: 'low',
+        sanitized: true,
+        success: true,
+        metadata: null,
+      } as unknown as ReturnType<
+        (typeof mockSerializationManager)['serializeDirect']
+      >);
+
+    it('wantsObject: real adapters are true, console is false', () => {
+      expect(new AdapterTransport({ adapter: { log() {} } }).wantsObject).toBe(
+        true
+      );
+      expect(new DurableAdapterTransport({ executor() {} }).wantsObject).toBe(
+        true
+      );
+      expect(new ConsoleTransport().wantsObject).toBe(false);
+    });
+
+    it('a real AdapterTransport receives the parsed OBJECT on the native path, not the string', () => {
+      stubNative(NATIVE_LINE);
+      const received: unknown[] = [];
+      const transport = new AdapterTransport({
+        name: 'adapter',
+        level: 'trace',
+        adapter: { log: (e: unknown) => received.push(e) },
+      });
+
+      new Logger('test-logger', [transport], dependencies).info('pago');
+
+      expect(received).toHaveLength(1);
+      expect(typeof received[0]).toBe('object');
+      expect(received[0]).toMatchObject({
+        eventType: 'OrderPaid',
+        retention: { years: 10 },
+      });
+    });
+
+    it('a real DurableAdapterTransport routes by retention and its executor receives the OBJECT', async () => {
+      stubNative(NATIVE_LINE);
+      const seen: Array<Record<string, unknown>> = [];
+      const transport = new DurableAdapterTransport({
+        name: 'durable',
+        level: 'trace',
+        durableOnlyForRetention: true,
+        flushTimeoutMs: 200,
+        executor: (e: unknown) => {
+          if (e && typeof e === 'object')
+            seen.push(e as Record<string, unknown>);
+        },
+      });
+
+      new Logger('test-logger', [transport], dependencies).info('pago');
+      await transport.flush();
+
+      const withRetention = seen.filter((e) => 'retention' in e);
+      expect(withRetention).toHaveLength(1);
+      expect(withRetention[0]).toMatchObject({ eventType: 'OrderPaid' });
+    });
+
+    it('parses the native line once and shares the SAME object across object-consumers', () => {
+      stubNative(NATIVE_LINE);
+      const a: unknown[] = [];
+      const b: unknown[] = [];
+      const tA = new AdapterTransport({
+        name: 'a',
+        level: 'trace',
+        adapter: { log: (e: unknown) => a.push(e) },
+      });
+      const tB = new AdapterTransport({
+        name: 'b',
+        level: 'trace',
+        adapter: { log: (e: unknown) => b.push(e) },
+      });
+
+      new Logger('test-logger', [tA, tB], dependencies).info('pago');
+
+      expect(typeof a[0]).toBe('object');
+      expect(a[0]).toBe(b[0]); // same reference → parsed once, shared across consumers
+    });
+
+    it('skips a transport not enabled for the log level (native path)', () => {
+      stubNative(NATIVE_LINE);
+      const received: unknown[] = [];
+      const transport = new AdapterTransport({
+        name: 'errors-only',
+        level: 'error', // above 'info' → the info log must not reach it
+        adapter: { log: (e: unknown) => received.push(e) },
+      });
+
+      new Logger('test-logger', [transport], dependencies).info('pago');
+
+      expect(received).toHaveLength(0);
+    });
+
+    it('a real AdapterTransport falls back to the raw string when the native line is not valid JSON', () => {
+      stubNative('not-json{');
+      const received: unknown[] = [];
+      const transport = new AdapterTransport({
+        name: 'adapter',
+        level: 'trace',
+        adapter: { log: (e: unknown) => received.push(e) },
+      });
+
+      new Logger('test-logger', [transport], dependencies).info('x');
+
+      // Parse failed → the adapter still gets the raw line; a log is never dropped.
+      expect(received).toHaveLength(1);
+      expect(typeof received[0]).toBe('string');
     });
   });
 });

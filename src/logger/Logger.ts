@@ -244,6 +244,37 @@ export class Logger {
   }
 
   /**
+   * Native-path emission. The engine already produced the masked, serialized JSON line.
+   * Console-style transports take it as-is (the fast path). Transports that need the
+   * structured entry ({@link Transport.wantsObject} — adapters, durable/audit, OTLP) get the
+   * parsed object instead, parsed **once** here and shared across all of them. If the parse
+   * fails, they fall back to the raw line so a log is never dropped.
+   */
+  private emitNativeLine(
+    line: string,
+    transports: Transport[],
+    level: LogLevel
+  ): void {
+    let parsed: LogEntry | undefined;
+    let parseFailed = false;
+    for (const transport of transports) {
+      if (!transport.isLevelEnabled(level)) continue;
+      if (transport.wantsObject) {
+        if (parsed === undefined && !parseFailed) {
+          try {
+            parsed = JSON.parse(line) as LogEntry;
+          } catch {
+            parseFailed = true;
+          }
+        }
+        transport.log(parsed ?? line);
+      } else {
+        transport.log(line);
+      }
+    }
+  }
+
+  /**
    * @private
    * Synchronous logging method that runs the full pipeline (does not return a Promise).
    * Handles argument parsing, level filtering, serialization, masking,
@@ -290,11 +321,11 @@ export class Logger {
           );
 
         if (serializationResult.serializedNative) {
-          for (const transport of effectiveTransports) {
-            if (transport.isLevelEnabled(level)) {
-              transport.log(serializationResult.serializedNative);
-            }
-          }
+          this.emitNativeLine(
+            serializationResult.serializedNative,
+            effectiveTransports,
+            level
+          );
           return;
         }
       }
@@ -322,11 +353,11 @@ export class Logger {
 
       // 2. If native path already returned the line, pass it to transports; otherwise mask then pass object.
       if (serializationResult.serializedNative) {
-        for (const transport of effectiveTransports) {
-          if (transport.isLevelEnabled(level)) {
-            transport.log(serializationResult.serializedNative);
-          }
-        }
+        this.emitNativeLine(
+          serializationResult.serializedNative,
+          effectiveTransports,
+          level
+        );
       } else {
         const finalEntry = serializationResult.data;
         const maskedEntry = this.dependencies.maskingEngine.process(

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.2
+
+**The native engine no longer breaks transports that consume the structured entry (durable audit, OTLP, adapters).** Until now, turning the native engine on silently downgraded any object-consuming transport to a useless string — so apps with a durable audit trail had to keep native off entirely. This release makes the native path deliver each transport the shape it needs, so native and structured/compliance transports finally compose.
+
+### Fixed — native path delivers the structured entry to object-consuming transports
+
+- **On the native path the Logger handed the pre-serialized JSON *string* to every transport.** Console transports want that string (it's the fast path — already masked and serialized in Rust). But transports that inspect or persist entry fields — `AdapterTransport`, `DurableAdapterTransport` (which routes by the `retention` field), OTLP/audit adapters — need the structured `LogEntry` **object**. They silently received a string instead: `durableOnlyForRetention` routing broke and executors got an unusable string, so a compliance-grade audit trail could be dropped while `isNativeAddonInUse()` still reported `true`. The practical symptom: an app with structured transports had to keep the native engine **off** (commonly as an accident — a single `customMask` rule disables native), trading away native performance to keep the audit trail working.
+- **Transports now declare what they consume via `Transport.wantsObject`** (default `false`; `AdapterTransport` and `DurableAdapterTransport` override to `true`). On the native path the Logger parses the serialized line **once** — lazily, shared across all object-consumers — and delivers the object to `wantsObject` transports while console transports keep the raw string. The parsed object is already masked (masking ran in Rust); `JSON.parse` in V8 is cheaper than marshaling an object across the N-API boundary, and only transports that need the object pay for it, once. If a native line ever fails to parse, those transports fall back to the string — a log is never dropped.
+- **Additive and non-breaking.** Console transports are unchanged. Adapters now receive on the native path the same object they already received on the JS path — the old "string on native, object on JS" inconsistency is gone. The native Rust addon is **unchanged** (`syntropylog-native` stays at 1.4.1); this is a pure JS-layer fix. Design notes and trade-offs: `docs/DESIGN-native-object-transports.md`.
+
 ## 1.4.1
 
 **Three masking/correctness fixes — one a failsafe-breaking crash — plus the optional-addon contract made observable and CI-proven.** The headline is a critical fix: a non-ASCII log value could abort the process, defeating the "logging can't crash your app" guarantee. Alongside it, masking no longer mutates the object you log, and two independent framework instances no longer cross-contaminate each other's masking rules. Then the optional-addon fallback becomes something you can *see* and CI *proves* on a real Alpine container, and a NestJS bootstrap-ordering fix.
