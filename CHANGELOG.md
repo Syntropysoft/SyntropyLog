@@ -2,7 +2,19 @@
 
 ## 1.4.1
 
-**The optional-addon contract is now explicit, observable — and executed in CI.** The native Rust engine was always optional with a transparent JS fallback; this release makes that failsafe something you can *see* and something CI *proves* on a real Alpine container, instead of a README claim. Plus a NestJS bootstrap-ordering fix.
+**Three masking/correctness fixes — one a failsafe-breaking crash — plus the optional-addon contract made observable and CI-proven.** The headline is a critical fix: a non-ASCII log value could abort the process, defeating the "logging can't crash your app" guarantee. Alongside it, masking no longer mutates the object you log, and two independent framework instances no longer cross-contaminate each other's masking rules. Then the optional-addon fallback becomes something you can *see* and CI *proves* on a real Alpine container, and a NestJS bootstrap-ordering fix.
+
+### Fixed (critical) — a non-ASCII log value no longer crashes the process
+
+- **The native engine truncated over-long string values by slicing at a *byte* index without respecting the UTF-8 character boundary.** A metadata value longer than `maxStringLength` (default 300 bytes) whose multi-byte character (accents, emoji, CJK, cyrillic, percent-encoded URLs) straddled the cut point panicked in Rust, and the panic **aborted the Node process with `SIGABRT`** — *not* catchable by the JS `try/catch`, so it defeated the framework's core failsafe guarantee. It was triggered by the documented, recommended usage (`log.info({ campo }, 'msg')`) on any application that logs multilingual content — no hostile input required. `truncate` now walks the cut down to the nearest character boundary, so the result is always valid UTF-8 and never panics. Regression-locked in Rust (`truncate_never_panics_on_multibyte`, `mask_value_multibyte_long_value_does_not_panic`). Residual (tracked separately): a native panic still aborts rather than falling back to JS — the belt-and-suspenders guard (unwinding + `catch_unwind`) is not yet in place, so any *future* panic path would still bypass the failsafe.
+
+### Fixed — masking no longer mutates the object you log
+
+- **`MaskingEngine.process` (the JS / fallback engine — used on any platform without the native binary, or for custom-function rules) recursively wrote masked values back into the caller's own object.** Logging a structure with nested objects rewrote the caller's nested fields to `[REDACTED]` in place — a side effect the JSDoc explicitly denied (*"returns a new object"*), and a drift from the engine's own documented flatten-and-reconstruct design (which never touched the input). It is now **copy-on-write** with a per-reference memo: it never mutates the input, allocates new structure only for the branches that actually change, masks a shared sub-object once so **every reference gets the same masked result** (no unmasked leak on a second reference to a shared object), and terminates on cycles. Regression-locked (no-mutation, shared-DAG, cycle).
+
+### Fixed (interim) — cross-tenant PII leak with two `createSyntropyLog()` instances
+
+- **The native engine held masking config in a process-global `OnceCell`, so a second independent instance silently inherited the first's rules.** With two `createSyntropyLog()` instances configured with **different** masking rules in one process (the multi-tenant scenario the factory advertises), the second instance's `configureNative` was ignored while `isNativeAddonInUse()` still reported `true` — so it masked with the *first* instance's rules, redacting the wrong fields and emitting its own configured PII in cleartext. `configureNative` now returns `false` when a **different** config is already installed, so the divergent instance falls back to the JS pipeline and masks correctly with its own rules (an identical config still shares native — safe). This is the **interim** guard; the definitive fix — a per-instance native config so the divergent instance keeps native too — is tracked separately.
 
 ### Added — a missing native addon is reported, never silent
 
