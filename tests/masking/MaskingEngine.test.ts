@@ -1,6 +1,6 @@
 /**
  * FILE: tests/masking/MaskingEngine.test.ts
- * DESCRIPTION: Unit tests for the MaskingEngine class with JSON flattening strategy.
+ * DESCRIPTION: Unit tests for the MaskingEngine class (recursive copy-on-write masking).
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -657,6 +657,52 @@ describe('MaskingEngine', () => {
       // 11 digits, last 4 kept → 6789 visible, separators preserved.
       expect(((await engine.process({ cuit: '20-12345678-9' })) as any).cuit)
         .toBe('**-*****678-9');
+    });
+  });
+
+  describe('does not mutate the caller (copy-on-write)', () => {
+    const engine = () =>
+      new MaskingEngine({
+        enableDefaultRules: false,
+        rules: [
+          {
+            pattern: /secreto/i,
+            strategy: MaskingStrategy.CUSTOM,
+            spec: { redact: true },
+          },
+        ],
+      });
+
+    it('leaves the input (including nested) untouched and returns a new object', async () => {
+      const eng = engine();
+      const user = { nombre: 'Ana', nested: { secreto: 'OTRO', ok: 'v' } };
+      const before = JSON.stringify(user);
+      const out = (await eng.process(user)) as any;
+
+      expect(JSON.stringify(user)).toBe(before); // input unchanged
+      expect(out).not.toBe(user); // new object
+      expect(out.nested).not.toBe(user.nested); // changed branch is a new ref
+      expect(out.nested.secreto).toBe('[REDACTED]'); // output masked
+      expect(user.nested.secreto).toBe('OTRO'); // caller's nested still clear
+    });
+
+    it('masks a shared sub-object (DAG) on every reference — no leak on the second', async () => {
+      const eng = engine();
+      const shared = { secreto: 'X' };
+      const dag = { a: shared, b: shared };
+      const out = (await eng.process(dag)) as any;
+
+      expect(out.a.secreto).toBe('[REDACTED]');
+      expect(out.b.secreto).toBe('[REDACTED]'); // would leak 'X' with naive copy-on-write
+      expect(shared.secreto).toBe('X'); // original untouched
+    });
+
+    it('terminates on a cyclic reference instead of recursing forever', async () => {
+      const eng = engine();
+      const cyc: Record<string, unknown> = { secreto: 'Y' };
+      cyc.self = cyc;
+      const out = (await eng.process(cyc)) as any; // must not stack-overflow / hang
+      expect(out.secreto).toBe('[REDACTED]');
     });
   });
 });
