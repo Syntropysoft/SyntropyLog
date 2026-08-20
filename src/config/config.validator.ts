@@ -112,6 +112,7 @@ const validateMasking = object({
   preserveLength: optional(isBoolean),
   enableDefaultRules: optional(isBoolean),
   regexTimeoutMs: optional(isPositiveInt),
+  exemptTransports: optional(arrayOf(isString)),
   onMaskingError: optional(isFunction),
 });
 

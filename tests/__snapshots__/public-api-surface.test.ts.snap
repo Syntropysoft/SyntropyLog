@@ -88,6 +88,7 @@ exports[`Public API surface (src/index.ts) — 1.0 semver contract > locks the e
     "Transport",
     "UniversalAdapter",
     "UniversalLogFormatter",
+    "UnknownExemptTransportError",
     "applyMask",
     "correlationIdMiddleware",
     "createSyntropyLog",

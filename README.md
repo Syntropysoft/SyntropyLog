@@ -30,13 +30,9 @@
 
 ## What's new
 
-- **Fixed — the native engine now composes with structured transports (durable audit, OTLP, adapters).** On the native path the Logger handed the pre-serialized *string* to every transport, so anything that inspects entry fields — `DurableAdapterTransport` (retention routing), OTLP/audit adapters — silently got a string it couldn't use, and a durable audit trail could be dropped while `isNativeAddonInUse()` still said `true`. Transports now declare `wantsObject`; the native path parses the line once and delivers the **object** to those that need it while console keeps the fast string. Native + compliance transports finally work together. (Details in the [CHANGELOG](CHANGELOG.md); design notes in `docs/DESIGN-native-object-transports.md`.)
-- **Fixed (critical) — a non-ASCII log value can no longer crash the process.** The native engine truncated long string values at a raw byte offset without respecting UTF-8 character boundaries, so a metadata value over ~300 bytes whose multi-byte character (accents, emoji, CJK, cyrillic, percent-encoded URLs) straddled the cut aborted the Node process with `SIGABRT` — a hard abort the JS `try/catch` cannot intercept, defeating the *"logging can't crash your app"* guarantee. It was reached by ordinary multilingual content through the recommended `log.info({ field }, 'msg')` — no hostile input. Truncation is now character-boundary-safe. (Two further masking-correctness fixes ship alongside it — see the [CHANGELOG](CHANGELOG.md).)
-- **Observable — a missing native addon is reported, never silent.** The optional Rust engine always fell back to the JS pipeline transparently; now the load failure also *tells you why*, once, through `onSerializationFallback`: `not installed (optional dependency)` — the supported state — versus `failed to load: <detail>` for a present-but-broken binary (the one worth alerting on). `getStats().nativeAddonActive` reflects the outcome. This closes the last silent fallback branch.
-- **Proven — the failsafe is executed in CI, not claimed.** A new job runs both halves on a real Alpine (musl) container against the *packed* tarballs: the cross-compiled musl binary must actually load and mask natively, and a `--omit=optional` install must produce the **same masked output** while reporting the fallback. Cross-compiling proves it links; this proves it loads.
-- **Fixed — `@InjectLogger()` no longer throws before `init()`.** The NestJS decorator resolved its logger at injection time, breaking common bootstrap orderings; it now resolves lazily on first use, matching the already-lazy `SyntropyNestLoggerService`.
+- **New — an audit trail can be a transport: `masking.exemptTransports`.** Masking is global by design (one pass, before the transport loop), which is right for consoles and APMs and wrong for exactly one sink: the audit journal, where `2*****9` proves nothing. Name a transport in `masking.exemptTransports` and it receives the entry **unmasked**, while every other transport keeps the masked one. The exemption is declared by name in *your* config — never by a transport about itself — and an unknown name fails loud at `init()` (`UnknownExemptTransportError`), because a typo here would silently mask the one sink that had to hold the truth. Everything else still applies to the exempt output: ANSI stripping, truncation, depth and size caps. When the native engine is on, both renderings come from a **single** parse (`fastSerializeFromJsonDual`), so apps without exempt transports pay nothing.
 
-Details: [CHANGELOG.md](CHANGELOG.md).
+Earlier releases: [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -380,6 +376,25 @@ masking: {
 > rules on top. Only turn it off when you truly need full control of the rule set.
 
 **Silent Observer:** if masking fails or times out, the pipeline never throws — it returns a safe payload marked `_maskingFailed` with only allowed keys (`level`, `timestamp`, `message`, `service`); the raw metadata never leaks. Full guide: [docs/masking.md](docs/masking.md).
+
+### Exempting an audit sink — `masking.exemptTransports`
+
+Masking runs **once, before the transport loop**, so every sink gets the same obfuscated entry. That is what you want for consoles and APMs, and what you do *not* want for an audit journal: you cannot prove who moved the money against `2*****9`. Name the transport and it receives the entry unmasked — everyone else keeps the masked one:
+
+```typescript
+await syntropyLog.init({
+  logger: { transports: { console: consoleTransport, 'audit-db': auditTransport } },
+  masking: {
+    enableDefaultRules: true,
+    exemptTransports: ['audit-db'],   // ← this one gets the truth
+  },
+});
+```
+
+- **Declared in your config, never by the transport.** A dependency must not be able to ship a transport that exempts itself, and an exception to the masking guarantee belongs in one visible, auditable place.
+- **Fails loud on a typo.** An unknown name throws `UnknownExemptTransportError` at `init()`, listing the transports that *are* configured. Silently masking the sink that had to hold the truth is the one failure you would never notice.
+- **Only the obfuscation is dropped.** ANSI stripping (log-injection safety), string truncation and depth/size caps still apply to the exempt output.
+- **Free when unused.** With the native engine on, both renderings come from a single parse; apps with no exempt transports keep the original single-output path untouched.
 
 ---
 

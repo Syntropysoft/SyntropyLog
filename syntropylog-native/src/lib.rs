@@ -452,6 +452,12 @@ struct MaskCtx<'a> {
     masking_rules: &'a [CompiledRule],
 }
 
+/// Empty sensitive-key set for the raw context (no per-key redaction).
+fn empty_sensitive_set() -> &'static HashSet<String> {
+    static EMPTY: OnceCell<HashSet<String>> = OnceCell::new();
+    EMPTY.get_or_init(HashSet::new)
+}
+
 impl<'a> MaskCtx<'a> {
     fn from_compiled(c: &'a CompiledConfig) -> Self {
         Self {
@@ -459,6 +465,22 @@ impl<'a> MaskCtx<'a> {
             sensitive_set: &c.sensitive_set,
             redact_patterns: &c.redact_patterns,
             masking_rules: &c.masking_rules,
+        }
+    }
+
+    /// Context for the **unmasked** output: same hygiene as the masked one — ANSI strip,
+    /// string truncation, depth limit, key/array caps — with masking, per-key redaction and
+    /// redact patterns switched off. It is the audit truth, not a bypass of the sanitizer:
+    /// log-injection defenses still apply, only the *obfuscation* is dropped.
+    ///
+    /// Only ever reachable for transports the application declared exempt by configuration
+    /// (`masking.exemptTransports`); the JS side never hands this line to any other transport.
+    fn raw_from_compiled(c: &'a CompiledConfig) -> Self {
+        Self {
+            config: &c.config,
+            sensitive_set: empty_sensitive_set(),
+            redact_patterns: &[],
+            masking_rules: &[],
         }
     }
 
@@ -737,6 +759,67 @@ pub fn fast_serialize_from_json(
     let masked_metadata = mask_value(&truncated, &ctx, 0);
 
     build_log_line(level, message, timestamp, service, masked_metadata)
+}
+
+/// The two renderings of one log entry, produced from a single parse + truncate pass.
+#[napi(object)]
+pub struct DualLine {
+    /// The masked line — byte-identical to what `fast_serialize_from_json` returns.
+    pub masked: String,
+    /// The unmasked line, for transports declared exempt in `masking.exemptTransports`.
+    /// Same hygiene (ANSI strip, truncation, caps); no masking or redaction.
+    pub raw: String,
+}
+
+/// Both renderings in ONE pass, for the case where the effective transport set contains
+/// masked *and* exempt transports (an audit journal alongside console/APM).
+///
+/// The expensive work — the N-API crossing, `from_str` and `truncate_value` — happens once;
+/// only the two pure masking passes and the two `build_log_line` differ. Apps without exempt
+/// transports keep calling `fast_serialize_from_json` and pay nothing for this.
+#[napi]
+pub fn fast_serialize_from_json_dual(
+    level: String,
+    message: String,
+    timestamp: f64,
+    service: String,
+    metadata_json: String,
+) -> DualLine {
+    let compiled = active_config();
+    let ctx = MaskCtx::from_compiled(compiled);
+    let raw_ctx = MaskCtx::raw_from_compiled(compiled);
+
+    let trimmed = metadata_json.trim();
+    let parsed: Value = if trimmed.is_empty() || trimmed == "null" {
+        Value::Null
+    } else {
+        match serde_json::from_str(trimmed) {
+            Ok(v) => v,
+            Err(_) => {
+                let err = format!("{}: invalid metadata json", FALLBACK_ERROR_PREFIX);
+                return DualLine { masked: err.clone(), raw: err };
+            }
+        }
+    };
+
+    let truncated = truncate_value(&parsed, MAX_KEYS_PER_OBJECT, MAX_ARRAY_LENGTH);
+
+    DualLine {
+        masked: build_log_line(
+            level.clone(),
+            message.clone(),
+            timestamp,
+            service.clone(),
+            mask_value(&truncated, &ctx, 0),
+        ),
+        raw: build_log_line(
+            level,
+            message,
+            timestamp,
+            service,
+            mask_value(&truncated, &raw_ctx, 0),
+        ),
+    }
 }
 
 #[napi]

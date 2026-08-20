@@ -53,6 +53,29 @@ export class RetentionPolicyNotFoundError extends Error {
   }
 }
 
+/**
+ * Thrown at `init()` when `masking.exemptTransports` names a transport that is not
+ * configured. Exempting a transport removes masking from it, so a typo would silently mask
+ * the very sink that must hold the truth — the failure has to be loud and immediate.
+ */
+export class UnknownExemptTransportError extends Error {
+  public readonly unknown: readonly string[];
+  public readonly available: readonly string[];
+
+  constructor(unknown: readonly string[], available: readonly string[]) {
+    const known = [...available].sort();
+    super(
+      `[SyntropyLog] masking.exemptTransports names unknown transport(s): [${[...unknown].sort().join(', ')}]. ` +
+        (known.length
+          ? `Configured transports: [${known.join(', ')}].`
+          : 'No named transports are configured.')
+    );
+    this.name = 'UnknownExemptTransportError';
+    this.unknown = [...unknown];
+    this.available = known;
+  }
+}
+
 // --- Pure helpers (same inputs → same outputs, no side effects) ---
 
 /** Pure: should this level be logged given the minimum level? Audit always passes. */
@@ -166,6 +189,11 @@ export interface LoggerDependencies {
   onTransportError?: (error: unknown, context?: string) => void;
   /** Optional: registry of retention policies — keys are looked up by `withRetention(name)`. */
   retentionPolicies?: Readonly<Record<string, Record<string, unknown>>>;
+  /**
+   * Transport names that receive the entry unmasked (`masking.exemptTransports`).
+   * Validated at init; empty/absent means every transport gets the masked entry.
+   */
+  exemptTransports?: ReadonlySet<string>;
 }
 
 /**
@@ -253,25 +281,64 @@ export class Logger {
   private emitNativeLine(
     line: string,
     transports: Transport[],
-    level: LogLevel
+    level: LogLevel,
+    rawLine?: string
   ): void {
     let parsed: LogEntry | undefined;
     let parseFailed = false;
+    let parsedRaw: LogEntry | undefined;
+    let parseRawFailed = false;
     for (const transport of transports) {
       if (!transport.isLevelEnabled(level)) continue;
+      // The unmasked line goes ONLY to transports the app declared exempt. The check lives
+      // here, where the transport identity is known — never inside a transport or an adapter.
+      const isExempt =
+        rawLine !== undefined && this.isExemptFromMasking(transport);
+      const effectiveLine = isExempt ? (rawLine as string) : line;
       if (transport.wantsObject) {
+        if (isExempt) {
+          if (parsedRaw === undefined && !parseRawFailed) {
+            try {
+              parsedRaw = JSON.parse(effectiveLine) as LogEntry;
+            } catch {
+              parseRawFailed = true;
+            }
+          }
+          transport.log(parsedRaw ?? effectiveLine);
+          continue;
+        }
         if (parsed === undefined && !parseFailed) {
           try {
-            parsed = JSON.parse(line) as LogEntry;
+            parsed = JSON.parse(effectiveLine) as LogEntry;
           } catch {
             parseFailed = true;
           }
         }
-        transport.log(parsed ?? line);
+        transport.log(parsed ?? effectiveLine);
       } else {
-        transport.log(line);
+        transport.log(effectiveLine);
       }
     }
+  }
+
+  /** True when the app declared this transport exempt from masking (audit sinks). */
+  private isExemptFromMasking(transport: Transport): boolean {
+    const exempt = this.dependencies.exemptTransports;
+    return (
+      exempt !== undefined && exempt.size > 0 && exempt.has(transport.name)
+    );
+  }
+
+  /** True when any transport about to receive this entry is exempt from masking. */
+  private hasExemptTransport(
+    transports: Transport[],
+    level: LogLevel
+  ): boolean {
+    const exempt = this.dependencies.exemptTransports;
+    if (exempt === undefined || exempt.size === 0) return false;
+    return transports.some(
+      (t) => t.isLevelEnabled(level) && exempt.has(t.name)
+    );
   }
 
   /**
@@ -317,14 +384,16 @@ export class Logger {
             message,
             Date.now(),
             this.name,
-            effectiveMetadata
+            effectiveMetadata,
+            this.hasExemptTransport(effectiveTransports, level)
           );
 
         if (serializationResult.serializedNative) {
           this.emitNativeLine(
             serializationResult.serializedNative,
             effectiveTransports,
-            level
+            level,
+            serializationResult.serializedNativeRaw
           );
           return;
         }
@@ -342,13 +411,15 @@ export class Logger {
         ? Object.assign({}, context, this.bindings, metadata)
         : metadata;
 
+      const wantUnmasked = this.hasExemptTransport(effectiveTransports, level);
       const serializationResult =
         this.dependencies.serializationManager.serializeDirect(
           level,
           message,
           Date.now(),
           this.name,
-          effectiveMetadata
+          effectiveMetadata,
+          wantUnmasked
         );
 
       // 2. If native path already returned the line, pass it to transports; otherwise mask then pass object.
@@ -356,7 +427,8 @@ export class Logger {
         this.emitNativeLine(
           serializationResult.serializedNative,
           effectiveTransports,
-          level
+          level,
+          serializationResult.serializedNativeRaw
         );
       } else {
         const finalEntry = serializationResult.data;
@@ -364,9 +436,12 @@ export class Logger {
           finalEntry as Record<string, unknown>
         );
         for (const transport of effectiveTransports) {
-          if (transport.isLevelEnabled(level)) {
-            transport.log(maskedEntry as LogEntry);
-          }
+          if (!transport.isLevelEnabled(level)) continue;
+          // `finalEntry` is the pre-masking object: only exempt transports may see it.
+          const entry = this.isExemptFromMasking(transport)
+            ? finalEntry
+            : maskedEntry;
+          transport.log(entry as LogEntry);
         }
       }
     } catch (err) {

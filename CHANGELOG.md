@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.5.0
+
+**An audit trail can finally be a transport.** Masking is global by design — it runs once, before the transport loop, so every sink gets the same obfuscated entry. That is right for consoles and APMs and wrong for exactly one kind of sink: the audit journal, where `2*****9` proves nothing. Until now the only way out was to bypass the framework entirely and write the audit record yourself, before the pipeline. This release lets the application declare, in its own config, which transports receive the truth.
+
+### Added — `masking.exemptTransports`
+
+- **Transports named in `masking.exemptTransports` receive the entry unmasked**; every other transport keeps receiving the masked one, unchanged. The exemption is declared by **name** (`Transport.name`) in the application's `init()`, never by a transport about itself — a dependency must not be able to ship a transport that exempts itself, and a security decision of this weight belongs in one visible place, not buried in a class. Everything except the obfuscation still applies to the exempt output: ANSI stripping (log-injection safety), string truncation, depth and key/array caps. It is the audit truth, not a raw dump.
+- **Unknown names fail loud at `init()`** with `UnknownExemptTransportError`, listing the transports that *are* configured. A typo here is the worst possible silent failure — it would mask the one sink that had to hold the truth, and nothing would look wrong — so it is a startup error, not a warning.
+- **The split happens in the Logger's transport loop**, where transport identity is known; the unmasked line never travels further down. A transport that consumes the structured entry (`wantsObject`) gets the unmasked **object**; console-style transports get the unmasked string.
+
+### Added — dual output from a single native pass
+
+- **`fastSerializeFromJsonDual` in the native addon returns both renderings — masked and unmasked — from one parse.** The expensive work (the N-API crossing, `serde_json::from_str`, `truncate_value`) happens once; only the two pure masking passes and the two line assemblies differ. The raw rendering reuses the same walker with an empty rule set (`MaskCtx::raw_from_compiled`), so hygiene and limits stay identical between the two outputs by construction rather than by convention.
+- **Apps without exempt transports pay nothing.** The existing `fastSerialize` / `fastSerializeFromJson` entry points and their signatures are untouched, and the Logger only asks for the dual output when an exempt transport is actually among the effective ones for that entry. The addon change is additive: an older addon simply lacks the new function.
+- **Never a masked-only answer for an exempt transport.** When the dual path is unavailable — an addon that predates it, or metadata that cannot be stringified (circular) — serialization falls back to the JS pipeline, which yields the unmasked object. If even that is unavailable the exempt transport receives the masked entry: the failure mode is over-masking, never a leak.
+
 ## 1.4.2
 
 **The native engine no longer breaks transports that consume the structured entry (durable audit, OTLP, adapters).** Until now, turning the native engine on silently downgraded any object-consuming transport to a useless string — so apps with a durable audit trail had to keep native off entirely. This release makes the native path deliver each transport the shape it needs, so native and structured/compliance transports finally compose.
