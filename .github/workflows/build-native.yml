@@ -44,7 +44,7 @@ jobs:
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: 22.x
           cache: "pnpm"
 
       - name: Setup Rust
@@ -155,7 +155,7 @@ jobs:
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          node-version: 22.x
           cache: "pnpm"
 
       - name: Install dependencies
@@ -182,7 +182,7 @@ jobs:
       # from /repo would load the checked-out workspace instead of the packed tarball.
       - name: "Smoke 1: musl binary loads on Alpine (native engine active)"
         run: |
-          docker run --rm -v "$PWD:/repo" -w /smoke node:20-alpine sh -ec '
+          docker run --rm -v "$PWD:/repo" -w /smoke node:22-alpine sh -ec '
             npm init -y >/dev/null
             npm i --no-audit --no-fund /repo/smoke/native/*.tgz /repo/smoke/pkg/*.tgz
             cp /repo/scripts/native-smoke.mjs .
@@ -191,7 +191,7 @@ jobs:
 
       - name: "Smoke 2: addon omitted → JS fallback, same masked output, reported"
         run: |
-          docker run --rm -v "$PWD:/repo" -w /smoke node:20-alpine sh -ec '
+          docker run --rm -v "$PWD:/repo" -w /smoke node:22-alpine sh -ec '
             npm init -y >/dev/null
             npm i --no-audit --no-fund --omit=optional /repo/smoke/pkg/*.tgz
             cp /repo/scripts/native-smoke.mjs .
