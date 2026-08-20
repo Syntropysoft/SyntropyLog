@@ -78,6 +78,14 @@ type NativeAddon = {
     service: string,
     metadataJson: string
   ) => string;
+  /** Masked + unmasked renderings from one parse; used only when a transport is exempt. */
+  fastSerializeFromJsonDual?: (
+    level: string,
+    message: string,
+    timestamp: number,
+    service: string,
+    metadataJson: string
+  ) => { masked: string; raw: string };
   /** Returns false when native cannot honor the config; caller must fall back to JS. */
   configureNative: (config: string) => boolean;
 };
@@ -258,6 +266,63 @@ export class SerializationManager {
   }
 
   /**
+   * Masked + unmasked renderings from a single native pass, for entries that must reach a
+   * transport exempted in `masking.exemptTransports`.
+   *
+   * Returns `null` — meaning "use the JS pipeline" — when the addon predates the dual entry
+   * point or the metadata cannot be stringified (circular). Never returns a masked-only
+   * result: an exempt transport getting a masked line would defeat the whole point.
+   */
+  private serializeDualNative(
+    native: NativeAddon,
+    level: string,
+    message: string,
+    timestamp: number,
+    service: string,
+    metadata?: unknown
+  ): SerializationResult | null {
+    if (typeof native.fastSerializeFromJsonDual !== 'function') {
+      return null;
+    }
+
+    let metadataJson: string;
+    try {
+      metadataJson =
+        metadata === undefined || metadata === null
+          ? 'null'
+          : JSON.stringify(metadata);
+    } catch {
+      return null; // circular / non-serializable → JS pipeline
+    }
+
+    const { masked, raw } = native.fastSerializeFromJsonDual(
+      level,
+      message,
+      timestamp,
+      service,
+      metadataJson
+    );
+    if (
+      masked.startsWith('[SYNTROPYLOG_NATIVE_ERROR]') ||
+      raw.startsWith('[SYNTROPYLOG_NATIVE_ERROR]')
+    ) {
+      return null;
+    }
+
+    return {
+      serializedNative: masked,
+      serializedNativeRaw: raw,
+      data: null,
+      serializer: 'native',
+      duration: 0,
+      complexity: SerializationComplexity.SIMPLE,
+      sanitized: true,
+      success: true,
+      metadata: null as SerializationMetadata | null,
+    };
+  }
+
+  /**
    * 100% synchronous serialization: in-memory pipeline, no Promises or timers.
    * If the native addon is available, it is used (sanitization + masking in Rust) and returns serializedNative.
    * Fast path: avoids creating an intermediate logEntry object in the Logger.
@@ -267,10 +332,31 @@ export class SerializationManager {
     message: string,
     timestamp: number,
     service: string,
-    metadata?: unknown
+    metadata?: unknown,
+    wantUnmasked = false
   ): SerializationResult {
     const native = this.getNativeAddon();
-    if (native) {
+
+    // A transport is exempt from masking: the single-output native path cannot serve it (its
+    // line comes back already masked). Use the dual entry point when the addon has it; if not,
+    // skip native entirely and let the JS pipeline produce the unmasked object.
+    if (native && wantUnmasked) {
+      try {
+        const dual = this.serializeDualNative(
+          native,
+          level,
+          message,
+          timestamp,
+          service,
+          metadata
+        );
+        if (dual) {
+          return dual;
+        }
+      } catch (err) {
+        this.onSerializationFallback?.(err);
+      }
+    } else if (native) {
       try {
         let line: string;
         if (typeof native.fastSerializeFromJson === 'function') {

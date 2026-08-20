@@ -45,6 +45,22 @@ export interface MaskingConfig {
   preserveLength?: boolean;
   enableDefaultRules?: boolean;
   regexTimeoutMs?: number;
+  /**
+   * Transports (by `Transport.name`) that receive the entry **unmasked**.
+   *
+   * For audit/forensic sinks, where masking destroys the evidentiary value: you cannot prove
+   * who did what against `2*****9`. Everything else still applies — ANSI stripping, string
+   * truncation, depth and size caps; only the obfuscation is dropped.
+   *
+   * This is a deliberate hole in the masking guarantee, so it is declared **here**, in the
+   * application's own config, and never by a transport about itself — a dependency must not be
+   * able to ship a transport that exempts itself. Unknown names fail loud at `init()`
+   * (`UnknownExemptTransportError`): a typo must not silently mask an audit trail.
+   *
+   * @example
+   * masking: { rules: [...], exemptTransports: ['audit-db'] }
+   */
+  exemptTransports?: string[];
   /** Called when masking fails (e.g. timeout, error). Never receives raw payload. */
   onMaskingError?: (error: unknown) => void;
 }

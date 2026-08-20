@@ -1,7 +1,11 @@
 import { SyntropyLog } from '../SyntropyLog';
 import { SyntropyLogConfig } from '../config';
 import { DEFAULT_VALUES } from '../constants';
-import { Logger, LoggerDependencies } from './Logger';
+import {
+  Logger,
+  LoggerDependencies,
+  UnknownExemptTransportError,
+} from './Logger';
 import { ILogger } from './ILogger';
 import { IContextManager } from '../context/IContextManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
@@ -69,6 +73,33 @@ function resolveTransportsForEnv(
   }
   return result;
 }
+
+/**
+ * Validates `masking.exemptTransports` against the configured pool and freezes it into a Set.
+ *
+ * Fail-loud on purpose: exempting a transport removes masking from it, so a typo would leave
+ * the audit sink masked — silently, and exactly where the truth was required. An unknown name
+ * is a configuration error, not something to warn about and continue.
+ *
+ * @throws {UnknownExemptTransportError} when a name has no matching transport.
+ */
+export const resolveExemptTransports = (
+  names: string[] | undefined,
+  transportPool: Map<string, Transport>
+): ReadonlySet<string> | undefined => {
+  if (!names || names.length === 0) return undefined;
+
+  const known = new Set<string>(transportPool.keys());
+  for (const transport of transportPool.values()) {
+    known.add(transport.name);
+  }
+
+  const unknown = names.filter((name) => !known.has(name));
+  if (unknown.length > 0) {
+    throw new UnknownExemptTransportError(unknown, [...known]);
+  }
+  return Object.freeze(new Set(names)) as ReadonlySet<string>;
+};
 
 // Pure function: Resolve transports based on configuration
 export const resolveTransports = (
@@ -214,6 +245,8 @@ export class LoggerFactory {
   private readonly retentionPolicies?: Readonly<
     Record<string, Record<string, unknown>>
   >;
+  /** @private Transport names exempt from masking (`masking.exemptTransports`), validated at init. */
+  private readonly exemptTransports?: ReadonlySet<string>;
 
   /** @private A pool to cache logger instances by name for performance. */
   private readonly loggerPool: Map<string, ILogger> = new Map();
@@ -276,6 +309,10 @@ export class LoggerFactory {
     this.retentionPolicies = config.retentionPolicies
       ? Object.freeze({ ...config.retentionPolicies })
       : undefined;
+    this.exemptTransports = resolveExemptTransports(
+      config.masking?.exemptTransports,
+      this.transportPool
+    );
   }
 
   /**
@@ -311,6 +348,7 @@ export class LoggerFactory {
       onLogFailure: this.onLogFailure,
       onTransportError: this.onTransportError,
       retentionPolicies: this.retentionPolicies,
+      exemptTransports: this.exemptTransports,
     };
 
     // Retrieve transports for this specific logger name, or fall back to 'default'

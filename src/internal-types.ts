@@ -224,6 +224,12 @@ export type SerializationResult = {
   error?: string;
   /** When set, the line is already serialized and masked from the native addon; the Logger must pass it as-is to transports. */
   serializedNative?: string;
+  /**
+   * The same entry rendered WITHOUT masking, produced in the same native pass. Only present
+   * when the caller asked for it (there is a transport in `masking.exemptTransports` among the
+   * effective ones). The Logger hands it exclusively to those transports.
+   */
+  serializedNativeRaw?: string;
 };
 
 /**

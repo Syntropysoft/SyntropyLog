@@ -21,7 +21,10 @@ export { extractInboundContext } from './context/extractInboundContext';
 export { defineMatrix } from './logger/defineMatrix';
 export type { MatrixLevel, MatrixFor } from './logger/defineMatrix';
 export { defineRetentionPolicies } from './logger/defineRetentionPolicies';
-export { RetentionPolicyNotFoundError } from './logger/Logger';
+export {
+  RetentionPolicyNotFoundError,
+  UnknownExemptTransportError,
+} from './logger/Logger';
 
 // --- Correlation middlewares (Express, Fastify) and shared resolver ---
 export {
