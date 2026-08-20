@@ -13,6 +13,12 @@ export default defineConfig({
   test: {
     globals: true, // Enable global test functions like describe, it, beforeEach, etc.
     environment: 'node', // Or 'jsdom' if you need to simulate a browser
+    // 20s, not the 5s default: tests/type-exports.test.ts dynamically imports the whole
+    // public surface, so vite compiles the source tree inside the test while 57 other files
+    // compete for workers. It needs well over 8s on a loaded dev machine (CI, less
+    // contended, made it under 5s) — a flake about machine load, not about the assertion.
+    // Still bounded, so a genuine hang fails instead of running forever.
+    testTimeout: 20000,
     // Unit tests only; integration tests run via: pnpm run test:integration
     include: ['tests/**/*.{test,spec}.ts'],
     setupFiles: ['./tests/setup.ts'],

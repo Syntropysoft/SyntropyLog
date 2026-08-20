@@ -269,9 +269,13 @@ export class SerializationManager {
    * Masked + unmasked renderings from a single native pass, for entries that must reach a
    * transport exempted in `masking.exemptTransports`.
    *
-   * Returns `null` — meaning "use the JS pipeline" — when the addon predates the dual entry
-   * point or the metadata cannot be stringified (circular). Never returns a masked-only
-   * result: an exempt transport getting a masked line would defeat the whole point.
+   * Returns `null` — meaning "fall through" — when the addon predates the dual entry point,
+   * the metadata cannot be stringified (circular), or either rendering came back as a native
+   * error marker. It never returns a pair it does not fully trust.
+   *
+   * Falling through still produces a masked line, and the exempt transport receives THAT: the
+   * Logger only treats a transport as exempt while `serializedNativeRaw` is defined. Losing the
+   * dual output therefore costs fidelity in the audit sink, never confidentiality.
    */
   private serializeDualNative(
     native: NativeAddon,
