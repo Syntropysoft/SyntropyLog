@@ -484,6 +484,24 @@ pipeline, and filable by an audit journal — no second emission, no second conf
 | `emitRules` | `boolean` | `false` | Emit `retentionRules`. Leave off when every consumer runs in-process. |
 | `emitUntil` | `boolean` | `true` | Emit `retentionUntil`. No-op for policies without whole `years`. |
 
+### What this actually guarantees
+
+**The rule is frozen at write time, not derived at read time.** That is the whole mechanism. A
+`JOIN` against a policy catalog answers *"what does the catalog say today"*; a `retention` column
+answers *"which rule governed this record"*. Those are different questions, and only the second one
+is evidence — catalogs get re-seeded, and a row written in 2026 and read in 2032 would otherwise
+report the 2032 policy.
+
+**Content is not enough; the rule needs an identity.** `years: 6` is a number with no provenance —
+it does not say *which revision* of the policy said 6. `policyVersion: 'E6-1'` is what turns it into
+a dated fact. That is why bumping the version when the rules change is not bookkeeping: two
+generations of a policy sharing one version breaks exactly the property the stamp exists to provide.
+
+The framework's part is making the record **self-describing**: the class it was filed under, the
+window it runs to, and the revision that decided both. Making it **non-rewritable** is the storage
+tier's part — append-only tables, yearly partitions, S3 Object Lock, immutable containers. Together
+they are what stops a new criterion from being passed off as the criterion that was always there.
+
 ### Both write paths, one registry
 
 Regulated systems write the same table from two places: the technical path through a transport, and
