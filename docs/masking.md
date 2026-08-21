@@ -90,6 +90,41 @@ Masking is **field-name based**: a rule matches the *key* of a field and masks t
 
 ---
 
+## Exempting one sink — `masking.exemptTransports`
+
+Masking runs **once, before the transport loop**, so every sink receives the same obfuscated entry.
+That is right for consoles and APMs and wrong for exactly one sink: the audit journal, where
+`2*****9` proves nothing. Name the transport and it receives the entry **unmasked**; everyone else
+keeps the masked one.
+
+```typescript
+const journal = new AdapterTransport({ name: 'audit-journal', adapter: postgresAdapter });
+
+await syntropyLog.init({
+  logger: { transports: { default: [console, apm], audit: [journal] } },
+  masking: {
+    enableDefaultRules: true,
+    exemptTransports: ['audit-journal'],   // ← this one gets the truth
+  },
+});
+```
+
+- **Matched by `Transport.name`** — the transport's own name (constructor option, else its class
+  name), or the key you used in `logger.transportList`. **Not** the `logger.transports` route key:
+  those keys say which logger writes where, and each value is an array.
+- **Declared in your config, never by the transport.** A dependency must not be able to ship a
+  transport that exempts itself, and an exception to the masking guarantee belongs in one visible,
+  auditable place.
+- **A typo fails loud at `init()`** with `UnknownExemptTransportError`, listing the transports that
+  *are* configured — silently masking the sink that had to hold the truth is the one failure nobody
+  would notice.
+- **Only the obfuscation is dropped.** ANSI stripping, string truncation and depth/key/array caps
+  still apply to the exempt output. It is the audit truth, not a raw dump.
+- **Free when unused.** With the native engine on, both renderings come from a single parse
+  (`fastSerializeFromJsonDual`); apps with no exempt transports keep the original single-output path.
+
+---
+
 ## Mixing defaults with your own rules
 
 Keep the built-in defaults enabled and add your own rules on top — custom rules are appended to the defaults.

@@ -9,7 +9,7 @@
 export * from './internal-types';
 
 // --- Core Types for Configuration and Usage ---
-export type { SyntropyLogConfig } from './config';
+export type { SyntropyLogConfig, RetentionEmissionConfig } from './config';
 export type { ReconfigureTransportsForDebugOptions } from './logger/LoggerFactory';
 export type { ILogger } from './logger/ILogger';
 export type { IContextManager } from './context/IContextManager';
@@ -32,8 +32,10 @@ export { extractInboundContext } from './context/extractInboundContext';
 export { defineMatrix } from './logger/defineMatrix';
 export type { MatrixLevel, MatrixFor } from './logger/defineMatrix';
 export { defineRetentionPolicies } from './logger/defineRetentionPolicies';
+export { retentionUntil } from './logger/retentionUntil';
 export {
   RetentionPolicyNotFoundError,
+  ReservedMetaFieldError,
   UnknownExemptTransportError,
 } from './logger/Logger';
 

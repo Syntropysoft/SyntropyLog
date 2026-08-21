@@ -134,6 +134,12 @@ const validateContext = object({
   customHeaders: optional(arrayOf(isString)),
 });
 
+const validateRetentionEmission = object({
+  version: optional(isString),
+  emitRules: optional(isBoolean),
+  emitUntil: optional(isBoolean),
+});
+
 // ─── Root validator ───────────────────────────────────────────────────────────
 
 const validateSyntropyLogConfig = object({
@@ -143,6 +149,7 @@ const validateSyntropyLogConfig = object({
   context: optional(validateContext),
   shutdownTimeout: optional(isPositiveInt),
   retentionPolicies: optional(recordOf(isRecord)),
+  retention: optional(validateRetentionEmission),
   onLogFailure: optional(isFunction),
   onTransportError: optional(isFunction),
   onStepError: optional(isFunction),

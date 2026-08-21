@@ -63,6 +63,11 @@ export interface ISyntropyLog extends EventEmitter {
   getContextManager(): IContextManager;
   getConfig(): SyntropyLogConfig;
   getFilteredContext(level: LogLevel): Record<string, unknown>;
+  getRetentionPolicy(name: string): Readonly<Record<string, unknown>>;
+  getRetentionUntil(name: string, at: Date): Date | null;
+  getRetentionPolicies(): Readonly<
+    Record<string, Readonly<Record<string, unknown>>>
+  >;
   reconfigureLoggingMatrix(matrix: LoggingMatrix): void;
   reconfigureTransportsForDebug(
     options: ReconfigureTransportsForDebugOptions

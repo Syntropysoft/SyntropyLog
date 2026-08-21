@@ -14,7 +14,10 @@ export const DEFAULT_VALUES = {
   serializeDirectTimeoutMs: 1000,
   /** Pipeline: default operation timeout for DefaultTimeoutStrategy (ms). */
   pipelineOperationTimeoutMs: 5000,
-  /** MaskingEngine: max ms per custom rule regex evaluation (ReDoS guard). */
+  /**
+   * MaskingEngine: kept for config compatibility — **inert**. V8 cannot interrupt a running
+   * regex, so no runtime timeout is possible; ReDoS is prevented statically at `addRule()`.
+   */
   regexTimeoutMs: 100,
   /** LifecycleManager: wait time for shutdown steps (ms). */
   shutdownWaitMs: 5000,

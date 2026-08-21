@@ -1,10 +1,21 @@
 # TODO — SyntropyLog
 
-- [ ] **Retention resolution outside the logger**: `retentionPolicies` is only reachable through
-  `Logger.withRetention(name)`, so a consumer whose write path never touches a logger cannot resolve
-  the policy it must persist — and reading its own `init()` config returns a different object from
-  the factory's frozen copy, with no fail-loud on a miss. Proposal: `getRetentionPolicy(name)` /
-  `getRetentionPolicies()` on the facade. See [DESIGN-retention-resolution-api.md](DESIGN-retention-resolution-api.md).
+- [x] **Retention as a declarative bridge** (major) — **hecho**: the class is decided per record and enforced per
+  container (index / stream / bucket), and the mechanisms downstream consume a low-cardinality
+  **string** — but `withRetention(name)` discards the name and binds the rules object, so every sink
+  gets the one shape only the audit journal can use. Proposal: the name travels by default, the rules
+  travel to the sinks named in `retention.expandTransports` (same mechanism and fail-loud as
+  `masking.exemptTransports`). **Shipped instead:** the name always travels, `retentionUntil` is
+  materialized by the framework, and the rules are a global opt-in (`retention.emitRules`) — the
+  per-transport split was dropped because an in-process sink resolves the name at write time with
+  `getRetentionPolicy()`. See [DESIGN-retention-bridge.md](DESIGN-retention-bridge.md).
+
+- [x] **Retention resolution outside the logger**: `retentionPolicies` was only reachable through
+  `Logger.withRetention(name)`, so a consumer whose write path never touches a logger could not resolve
+  the policy it must persist. **Done:** `getRetentionPolicy(name)` (throws `RetentionPolicyNotFoundError`
+  on a miss, like the fluent path) and `getRetentionPolicies()` (frozen registry) on the facade, both
+  reading the factory's frozen copy. Design: [DESIGN-retention-resolution-api.md](DESIGN-retention-resolution-api.md).
+  Example: `examples/RetentionResolutionExample.ts`.
 
 - [x] **Sonar / aliases**: Do not write literals that Sonar flags (password, token, secret, etc.); use aliases in a single file.
   **Done:**
