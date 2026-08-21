@@ -87,26 +87,43 @@ export interface ILogger {
   withSource(source: string): ILogger;
 
   /**
-   * Attaches arbitrary structured metadata to every log emitted by this logger instance.
-   * The payload is any JSON object — retention policies, compliance tags, routing hints,
-   * business context, or anything your executor needs to route or persist the entry.
-   * Sanitized before reaching any transport. The executor receives it as `logEntry.retention`.
+   * Attaches arbitrary structured metadata to every log from this instance, under the
+   * field **you name**: business context, routing hints, or a retention rule that has to
+   * travel under a column your store already names. The executor receives it as
+   * `logEntry[field]`.
    *
-   * The rules object is stored by reference; do not mutate it after passing if you need consistent logs.
-   * Supports complex JSON (nested objects, arrays); serialized with the entry (shallow in native path).
+   * Naming the field is what keeps the two concerns apart: `withRetention` owns
+   * `retention` — the field `DurableAdapterTransport` routes on — and everything else
+   * lands wherever you say, without opting the entry into the durable path.
    *
-   * @param {LogRetentionRules} payload - Any JSON object to carry on every log from this instance.
-   * @returns {ILogger} A new `ILogger` instance with the `retention` binding.
+   * The payload is stored by reference; do not mutate it afterwards if you need consistent
+   * logs. Supports complex JSON (nested objects, arrays); serialized with the entry (shallow
+   * in the native path — nested values arrive as JSON strings).
+   *
+   * @param {string} field - The entry field to bind the payload to. Empty names and
+   *   framework-owned fields (`level`, `message`, `timestamp`, `service`) throw.
+   * @param {LogRetentionRules} payload - Any JSON object to carry on every log.
+   * @throws {ReservedMetaFieldError} on an empty or framework-owned field name.
    *
    * @example
-   * log.withMeta({ policy: 'GDPR', years: 7 })           // compliance
-   * log.withMeta({ tenant: 'acme', region: 'eu-west' })   // business context
-   * log.withMeta({ destination: 's3-cold', encrypt: true }) // routing hints
+   * log.withMeta('tenant_ctx', { tenant: 'acme', region: 'eu-west' })   // business context
+   * log.withMeta('routing', { destination: 's3-cold', encrypt: true })  // routing hints
+   * log.withMeta('retencion_bcra', syntropyLog.getRetentionPolicy('Operaciones eCheq'))
+   */
+  withMeta(field: string, payload: LogRetentionRules): ILogger;
+  /**
+   * @deprecated Pass the field name — `withMeta('myField', payload)`. The one-argument form
+   * writes the payload to `retention`, which conflates business metadata with compliance
+   * retention and silently opts the entry into `DurableAdapterTransport`'s durable path.
+   * Kept for compatibility; it will be removed in a future major.
    */
   withMeta(payload: LogRetentionRules): ILogger;
 
   /**
-   * Attaches a retention policy to every log from this instance under the `retention` field.
+   * Attaches a retention policy to every log from this instance under the `retention` field —
+   * the one field `DurableAdapterTransport` routes on. To carry a policy under a *different*
+   * field, resolve it with `syntropyLog.getRetentionPolicy(name)` and bind it through
+   * `withMeta(field, policy)`.
    *
    * Two forms:
    *

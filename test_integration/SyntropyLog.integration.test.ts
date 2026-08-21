@@ -382,12 +382,17 @@ describe('SyntropyLog Integration Tests', () => {
 
         // Verify base logger
         expect(standardLog?.retention).toBeUndefined();
+        expect(standardLog?.retentionRules).toBeUndefined();
+        expect(standardLog?.retentionUntil).toBeUndefined();
         expect(standardLog?.source).toBeUndefined();
 
         // Verify child logger
         expect(auditLog?.service).toBe('base-service');
         expect(auditLog?.source).toBe('AuditModule');
-        expect(auditLog?.retention).toEqual({
+        // Inline rules carry no class name to route on, so they bind `retentionRules`;
+        // `retention` stays a string field on every entry the framework emits.
+        expect(auditLog?.retention).toBeUndefined();
+        expect(auditLog?.retentionRules).toEqual({
           policy: 'COMPLIANCE_7_YEARS',
           secure: true,
         });
@@ -435,12 +440,12 @@ describe('SyntropyLog Integration Tests', () => {
         expect(raw).toBeDefined();
         const logObj = typeof raw === 'string' ? JSON.parse(raw) : raw;
         expect(logObj.message).toBe('Audit with complex retention');
-        expect(logObj.retention).toBeDefined();
-        // Con ruta nativa (shallow) retention puede llegar como string JSON; con pipeline JS como objeto
+        expect(logObj.retentionRules).toBeDefined();
+        // Con ruta nativa (shallow) retentionRules puede llegar como string JSON; con pipeline JS como objeto
         const retention =
-          typeof logObj.retention === 'string'
-            ? JSON.parse(logObj.retention)
-            : logObj.retention;
+          typeof logObj.retentionRules === 'string'
+            ? JSON.parse(logObj.retentionRules)
+            : logObj.retentionRules;
         expect(retention.ttl).toBe(86400);
         expect(retention.maxSize).toBe(100_000);
         expect(retention.policy).toEqual({

@@ -5,3 +5,4 @@
  */
 
 export type { SyntropyLogConfig } from './config.schema';
+export type { RetentionEmissionConfig } from './config.schema';

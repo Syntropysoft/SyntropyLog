@@ -66,17 +66,29 @@ auditLog.audit(
 );
 ```
 
-In your transport's `executor`, the `retention.policy` value routes the entry to the long-retention store:
+A write path that never touches a logger resolves the same policy through the facade and stores it on
+the record itself — `syntropyLog.getRetentionPolicy('SOX_AUDIT_TRAIL')`, same registry, same
+`RetentionPolicyNotFoundError` on a miss. Filing the rule *with* the record is what keeps a 2026 entry
+readable in 2030: a catalog table is mutable, the column is not. See
+[fluent-api.md](fluent-api.md#resolving-a-policy-without-a-logger).
+
+In your transport's `executor`, `entry.retention` — the **class name**, a string — routes the entry
+to the long-retention store, and `entry.retentionUntil` gives the store an indexable date:
 
 ```typescript
 async executor(entry) {
-  if (entry.retention?.policy === 'SOX_AUDIT_TRAIL') {
-    await auditDb.insert(entry);  // append-only, immutable, 7-year retention
+  if (entry.retention === 'SOX_AUDIT_TRAIL') {
+    await auditDb.insert({ ...entry, keep_until: entry.retentionUntil });  // append-only, immutable
     return;
   }
   await hotDb.insert(entry);      // standard 30-day retention
 }
 ```
+
+> **Since 2.0:** `entry.retention` is the policy *name*, never the rules object — the low-cardinality
+> string an index filter, a label matcher or an `INSERT` can route on. Need the rules? In-process,
+> call `getRetentionPolicy(entry.retention)`; out of process, emit them with
+> `init({ retention: { emitRules: true } })` and read `entry.retentionRules`.
 
 The audit trail is tamper-evident at the storage layer (append-only, WORM bucket, etc.); SyntropyLog's job is to guarantee the entry **arrives** and carries the policy metadata.
 
@@ -88,7 +100,7 @@ The audit trail is tamper-evident at the storage layer (append-only, WORM bucket
 
 - **Always-on `audit` level** — audit calls emit regardless of the configured threshold. An `info`-level production deployment cannot accidentally silence audit events.
 - **Delivery guarantees via `DurableAdapterTransport`** — retention-tagged entries survive transient backend outages via buffer + retry + DLQ. The headline §404 risk ("the auditor asks for the record and we have nothing") is closed by the durable transport.
-- **Routing via `withRetention({ policy: 'SOX_AUDIT_TRAIL', years: 7 })`** — policy metadata travels with the entry; your executor routes to an immutable store. §802 retention windows live at the storage tier.
+- **Routing via `withRetention('SOX_AUDIT_TRAIL')`** — the class name and its `retentionUntil` travel with the entry; your executor routes to an immutable store. §802 retention windows live at the storage tier.
 - **Reviewable surface** — the Logging Matrix + masking rules + retention registry fit in a single JSON object that an auditor can read end-to-end without touching application code.
 
 **What you still need to do:**
@@ -114,7 +126,11 @@ const gdprLog = log.withRetention({
 gdprLog.audit({ action: 'data-export' }, 'GDPR export performed');
 ```
 
-When an erasure request arrives, your storage layer queries for entries where `retention.subjectId` matches and removes them — without touching unrelated logs.
+When an erasure request arrives, your storage layer queries for entries by retention class
+(`retention = 'GDPR_ARTICLE_17'`) plus the subject key your executor persisted from the policy's
+`subjectIdField` — and removes them without touching unrelated logs. Erasure is resolved **by class**,
+which is also why over-retention is its own compliance failure: the same label finds what must be
+preserved and what must go.
 
 ### Data minimization (Article 5(1)(c))
 
@@ -164,7 +180,9 @@ processingLog.audit(
 
 - Every entry tagged with the `GDPR_ART_30` policy carries the Art. 30 metadata your supervisory authority will ask for.
 - The Logging Matrix ensures `info`/`warn` logs minimize personal data (Art. 5(1)(c)) while keeping the audit trail complete.
-- Your executor can produce the Art. 30 register on demand by aggregating entries by `retention.processingActivity`.
+- Your executor can produce the Art. 30 register on demand by aggregating entries by retention class
+  (`entry.retention`), expanding each class once via `getRetentionPolicy(name)` rather than reading a
+  field off every entry.
 
 **What you still need to do:**
 
@@ -199,7 +217,7 @@ PCI-DSS Req 10 is the most prescriptive of the four regulations covered here. It
 | **10.3** Record at minimum: user identification, type of event, date/time, success/failure indication, origination of event, identity/name of affected data | Per-event fields are non-negotiable | Declare them in the Logging Matrix for `audit` — `userId`, `eventType`, `timestamp` (framework-managed), `success`, `sourceIp`, `affectedResource`. Anything not in the matrix doesn't appear |
 | **10.5** Secure audit trails so they cannot be altered (limit viewing, protect from modification, promptly back up to a centralized log server) | Storage-side controls | Out-of-scope for the logger. Your executor + storage backend (WORM bucket, signed log shipper, restricted IAM) implements this. `withRetention({ policy: 'PCI_DSS_REQ_10' })` routes to that backend |
 | **10.6** Review logs and security events at least daily | Operational process | Out-of-scope for the logger. Your SIEM does the review; the framework guarantees the events arrived |
-| **10.7** Retain audit trail history for at least one year, with three months immediately available | Tiered retention | `withRetention({ policy: 'PCI_DSS_REQ_10', years: 1, hotMonths: 3 })` carries the metadata; your storage tier (hot DB → cold archive) enforces the windows |
+| **10.7** Retain audit trail history for at least one year, with three months immediately available | Tiered retention | `withRetention('PCI_DSS_REQ_10')` carries the class and its `retentionUntil`; your storage tier (hot DB → cold archive) enforces the windows |
 
 ```typescript
 const pciLog = log
@@ -230,7 +248,7 @@ Compliance-grade frameworks have a problem the headline pitch tends to hide: **f
 - **Exponential backoff retry** with configurable budget (`maxRetries` default 5, `initialBackoffMs` default 100, `maxBackoffMs` default 30s).
 - **Dead-letter hook** (`onDrop(entry, reason, cause?)`) that fires when the buffer overflows or an entry exhausts its retry budget. **Operators must handle this hook** — a no-op `onDrop` defeats the compliance purpose of the transport.
 - **Drop strategy** (`'oldest'` default, `'newest'`, `'reject'`) chooses which entry leaves the queue when the buffer is full.
-- **Selective by default** — only entries with `retention` metadata go through the durable path. Plain `info`/`warn` logs stay fire-and-forget, matching `AdapterTransport`. Set `durableOnlyForRetention: false` to make every entry durable (pay attention to memory).
+- **Selective by default** — only entries carrying a retention class (`retention` or `retentionRules`) go through the durable path. Plain `info`/`warn` logs stay fire-and-forget, matching `AdapterTransport`. Set `durableOnlyForRetention: false` to make every entry durable (pay attention to memory).
 - **Shutdown drain** — `flush()` and `shutdown()` wait up to `flushTimeoutMs` (default 5s) for the buffer to empty, then DLQ the rest.
 - **Opt-in disk persistence (`persistPath`, since 1.3.0)** — when set, the undelivered durable backlog is also written to a JSONL file on disk. On restart the file is replayed and delivery resumes; when the queue fully drains, the file deletes itself (a spool, not an archive). Delivery becomes **at-least-once across restarts** — make the executor idempotent. A spool-write failure never throws; the transport degrades to in-memory-only. Uses only `node:fs`; point it at a **local** disk. Without `persistPath`, behavior is unchanged (in-memory only).
 

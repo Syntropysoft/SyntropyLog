@@ -30,6 +30,7 @@
 
 ## What's new
 
+- **Breaking — retention is a bridge, not a payload.** Retention is *enforced* per container (an ES index, a Loki stream, a Datadog index, a bucket) and *decided* per record, and every mechanism downstream matches on a **low-cardinality string** — none of them reads a rules object. So `withRetention('OPERACIONES')` now binds `retention: "OPERACIONES"` (always a string, so no ingest mapping conflict) plus `retentionUntil` — the end of the mandatory window, materialized so a sweep is a range scan instead of a policy interpretation, leap day included. The full rules travel opt-in (`retention: { emitRules: true, version: 'E6-1' }`) for consumers **out of process**; anything in-process resolves the name at write time with `getRetentionPolicy(name)`. `retentionUntil()` / `getRetentionUntil(name, at)` expose the same computation to a write path that persists the date in its own column.
 - **New — an audit trail can be a transport: `masking.exemptTransports`.** Masking is global by design (one pass, before the transport loop), which is right for consoles and APMs and wrong for exactly one sink: the audit journal, where `2*****9` proves nothing. Name a transport in `masking.exemptTransports` and it receives the entry **unmasked**, while every other transport keeps the masked one. The exemption is declared by name in *your* config — never by a transport about itself — and an unknown name fails loud at `init()` (`UnknownExemptTransportError`), because a typo here would silently mask the one sink that had to hold the truth. Everything else still applies to the exempt output: ANSI stripping, truncation, depth and size caps. When the native engine is on, both renderings come from a **single** parse (`fastSerializeFromJsonDual`), so apps without exempt transports pay nothing.
 
 Earlier releases: [CHANGELOG.md](CHANGELOG.md).
@@ -78,7 +79,7 @@ It is scoped on purpose: SyntropyLog owns the **log pipeline up to the moment of
 Four pillars:
 
 - **Logging Matrix** — a declarative whitelist of context fields per log level. If a field isn't in the matrix for that level, it never reaches a transport. Field control by config, not by code review.
-- **Retention-aware audit trail with delivery guarantees** — `withRetention(...)` travels with each entry so your transport routes it by policy. `DurableAdapterTransport` adds buffer + exponential-backoff retry + dead-letter queue so audit-tagged entries survive transient backend outages — and, with opt-in `persistPath`, process restarts too.
+- **Retention bridge** — the retention class is decided per record (only the app knows) and enforced per container (only the storage tier can). `withRetention('NAME')` puts the class name and the end of its mandatory window on the entry, so a label matcher, an index filter or an audit journal can each act on it without re-deriving anything. `DurableAdapterTransport` adds buffer + exponential-backoff retry + dead-letter queue so audit-tagged entries survive transient backend outages — and, with opt-in `persistPath`, process restarts too.
 - **Universal Adapter** — one `executor` function sends logs to Postgres, Mongo, Elasticsearch, S3, anything. You write the executor; the framework stays agnostic of client libraries.
 - **Silent Observer pipeline** — masking, sanitization, serialization with timeout and depth limits, prototype-pollution defense. Logging cannot crash your app; failures surface through hooks and counters (`getStats()`).
 
@@ -86,27 +87,20 @@ An optional Rust native addon does serialize + mask + sanitize in a single pass 
 
 ---
 
-## How it compares to Pino & Winston
+## Where it sits next to Pino, Winston and OpenTelemetry
 
-Pino and Winston are excellent, fast **loggers**. SyntropyLog is a different category — an **observability pipeline** that does *in the framework* what a logger leaves to you, and runs the heavy work in a native engine:
+Pino and Winston are fast **loggers**; OpenTelemetry is the **transport and instrumentation
+standard** for telemetry. Neither governs the *content* of a log — which fields get masked, what
+context each level may emit, what retention class an audit event carries, how correlation crosses
+HTTP and a broker. That governance layer is what SyntropyLog is, and it **composes** with the other
+two: its logs can flow out through OTel, and the correlation middleware understands `traceparent`.
 
-| | Pino / Winston | SyntropyLog |
-|---|---|---|
-| **Category** | logger | observability pipeline (matrix → masking → sanitization → serialization → routing) |
-| **PII masking** | Pino: `redact` paths in JS (fast-redact); Winston: bring your own | built in, by field name, in a **native Rust pass** (declarative `MaskSpec`) |
-| **Correlation IDs** | you thread them, per service | automatic via `AsyncLocalStorage`, declared once |
-| **Per-level field control** | manual | declarative **Logging Matrix** |
-| **Retention / audit routing** | DIY | first-class — `withRetention` + a delivery-guaranteed durable transport (optionally restart-surviving) |
-| **If logging throws** | can bubble into your code | **Silent Observer** — logging never throws, can't crash your app |
-| **Engine** | JS | native **Rust** (serialize + mask + sanitize in one pass), transparent JS fallback |
+Choose Pino + OTel alone when PII, audit and retention are thin requirements you can afford to
+hand-roll. Choose SyntropyLog when they are first-class — and keep OTel for traces either way.
 
-**On speed — honestly:** the only apples-to-apples comparison is *minimal logging* (plain JSON, no masking), and there SyntropyLog is competitive — fastest on M2, competitive on x64 (CI-noisy). Above that they aren't comparable: Pino/Winston don't mask, correlate or filter, so their numbers are a no-masking reference, not a race. Decomposition shows most of the full-pipeline cost is the Rust engine doing the actual masking work — the framework layer itself is nearly free. Numbers, machines and method: [benchmark report](docs/benchmark-report.md).
-
-### And "Pino + OpenTelemetry"?
-
-Different layers — **they compose, they don't compete.** Pino is the logger; OpenTelemetry is the transport and instrumentation *standard* for telemetry (traces, metrics, logs). Neither governs the **content** of a log: which fields get masked, what context each level may emit, what retention an audit event carries, how correlation crosses HTTP and a message broker. That governance layer is what SyntropyLog is — the part you would otherwise hand-roll on top of Pino, in every service. SyntropyLog is **not an APM** and does not replace traces or metrics; its logs can flow *out through* OTel (a formatter + executor, with per-call routing — [docs/opentelemetry-integration.md](docs/opentelemetry-integration.md)), and the correlation middleware understands `traceparent`, so it sits comfortably next to OTel tracing.
-
-Rule of thumb: choose Pino + OTel alone when PII, audit and retention are thin requirements you can afford to hand-roll. Choose SyntropyLog when they are first-class — and keep OTel for traces either way.
+Feature-by-feature comparison, benchmark method and a migration path:
+[docs/migration-from-pino.md](docs/migration-from-pino.md) ·
+[docs/opentelemetry-integration.md](docs/opentelemetry-integration.md)
 
 ---
 
@@ -257,7 +251,7 @@ auditLog.audit('Card charged', { amount: 299, currency: 'USD' });
 | `child({ k: v })` | arbitrary key/value | foundation of all builders |
 | `withSource('X')` | `source: 'X'` | module / component name |
 | `withTransactionId('id')` | `transactionId: 'id'` | cross-service trace |
-| `withMeta({ ... })` | `retention: { ... }` | any JSON — sanitized, routable by executor |
+| `withMeta('field', { ... })` | `field: { ... }` | any JSON — sanitized, routable by executor |
 | `withRetention(name \| rules)` | `retention: { ... }` | registry lookup by name, or inline rules |
 
 Full guide: [docs/fluent-api.md](docs/fluent-api.md).
@@ -382,14 +376,40 @@ masking: {
 Masking runs **once, before the transport loop**, so every sink gets the same obfuscated entry. That is what you want for consoles and APMs, and what you do *not* want for an audit journal: you cannot prove who moved the money against `2*****9`. Name the transport and it receives the entry unmasked — everyone else keeps the masked one:
 
 ```typescript
+const apm = new AdapterTransport({ name: 'apm', adapter: datadogAdapter });
+const journal = new AdapterTransport({ name: 'audit-journal', adapter: postgresAdapter });
+
 await syntropyLog.init({
-  logger: { transports: { console: consoleTransport, 'audit-db': auditTransport } },
+  logger: {
+    serviceName: 'payments',
+    transports: {
+      default: [new ConsoleTransport({ name: 'console' }), apm],  // routes for the default logger
+      audit: [journal],                                           // routes for getLogger('audit')
+    },
+  },
   masking: {
     enableDefaultRules: true,
-    exemptTransports: ['audit-db'],   // ← this one gets the truth
+    rules: [{ pattern: 'account', strategy: MaskingStrategy.CREDIT_CARD }],
+    exemptTransports: ['audit-journal'],   // ← this one gets the truth
   },
 });
+
+syntropyLog.getLogger('audit').audit({ account: '1234567890', email: 'ana@acme.com' }, 'transfer');
+syntropyLog.getLogger().info({ account: '1234567890', email: 'ana@acme.com' }, 'transfer');
 ```
+
+Same two fields, two renderings — one entry, one masking pass, split at the transport loop:
+
+```text
+[audit-journal] { msg: 'transfer', account: '1234567890', email: 'ana@acme.com'  }   ← exempt: the truth
+[apm]           { msg: 'transfer', account: '******7890', email: 'a**@acme.com'  }   ← masked
+[console]       { msg: 'transfer', account: '******7890', email: 'a**@acme.com'  }   ← masked
+```
+
+**Two different keys are at play in that config, and mixing them up is the usual mistake:**
+
+- The keys of `logger.transports` (`default`, `audit`) are **logger routes** — which transports a given `getLogger(name)` writes to. Each value is an **array**.
+- `exemptTransports` matches the **transport's own `name`** (`new AdapterTransport({ name: 'audit-journal' })`, or the key you used in `logger.transportList`) — not the route key. A transport without an explicit `name` falls back to its class name, which is why naming the sinks you intend to exempt is worth the two seconds.
 
 - **Declared in your config, never by the transport.** A dependency must not be able to ship a transport that exempts itself, and an exception to the masking guarantee belongs in one visible, auditable place.
 - **Fails loud on a typo.** An unknown name throws `UnknownExemptTransportError` at `init()`, listing the transports that *are* configured. Silently masking the sink that had to hold the truth is the one failure you would never notice.
@@ -398,33 +418,124 @@ await syntropyLog.init({
 
 ---
 
-## Compliance routing — retention as data
+## Retention — the bridge between where the class is known and where it is enforced
 
-The `audit` level is **always emitted**, regardless of the configured log level — for compliance events that must always be recorded. `withRetention(...)` attaches policy metadata that your executor reads to route by table / bucket / cold store.
+Retention is **enforced per container**: an Elasticsearch index, a Loki stream, a Datadog index, a
+Cloud Logging bucket, an S3 prefix under Object Lock. It is **decided per record**: this transfer is a
+six-year regulatory event, that health check is noise for thirty days. Nothing downstream can tell
+them apart, and the application — at the moment of writing — is the only place where the answer
+exists. That is the gap SyntropyLog closes.
+
+| Where it lands | Granularity | What it routes on |
+| --- | --- | --- |
+| Elasticsearch ILM | index | index name / rollover alias |
+| Grafana Loki | stream | label matchers |
+| Datadog | index (3–15 days) + archives | query over attributes |
+| Cloud Logging | bucket | sink filter over the entry |
+
+Every one of them matches on a **low-cardinality string**. None of them reads a rules object. So the
+class name is what travels.
+
+### What lands on the entry
 
 ```typescript
 import { defineRetentionPolicies } from 'syntropylog';
 
 const retentionPolicies = defineRetentionPolicies({
-  SOX_AUDIT_TRAIL: { years: 5 },
-  GDPR_ARTICLE_17: { years: 7, subjectIdField: 'userId' },
-  PCI_DSS_REQ_10:  { years: 1, immediate: true },
+  OPERACIONES: { years: 6, standard: 'BCRA A7724 9.1' },
+  SEGURIDAD:   { years: 6, standard: 'BCRA A7724 9.1' },
+  EFIMERO:     { ttl: 86_400 },
 });
 
-await syntropyLog.init({ logger: { serviceName: 'payments' }, retentionPolicies });
+await syntropyLog.init({
+  logger: { serviceName: 'payments' },
+  retentionPolicies,
+  retention: { version: 'E6-1', emitRules: true },
+});
 
-const audit = syntropyLog.getLogger().withRetention('SOX_AUDIT_TRAIL');
-audit.audit({ userId: 123, action: 'payment.approve' }, 'Manager override');
-// entry.retention = { years: 5 }
+syntropyLog.getLogger('audit').withRetention('OPERACIONES').audit({ echeqId }, 'eCheq emitido');
+```
 
-// In your executor:
-async function executor(entry) {
-  const table = entry.retention?.years >= 5 ? 'audit_long_term' : 'logs_hot';
-  await db.insert(table, entry);
+```json
+{
+  "level": "audit",
+  "message": "eCheq emitido",
+  "service": "payments",
+  "timestamp": "2026-08-20T12:00:00.000Z",
+  "echeqId": "…",
+  "retention": "OPERACIONES",
+  "retentionUntil": "2032-08-20T12:00:00.000Z",
+  "retentionRules": { "years": 6, "standard": "BCRA A7724 9.1", "policyVersion": "E6-1" }
 }
 ```
 
-`withRetention('NAME')` looks the name up in the registry and throws `RetentionPolicyNotFoundError` (listing the registered names) on a miss; `withRetention({ ... })` with an object bypasses the registry. `withMeta({ ... })` is the freeform equivalent — any JSON, no lookup. Control-by-control mapping for HIPAA / SOX / GDPR / PCI-DSS: [docs/compliance.md](docs/compliance.md).
+One entry, one pass. The same line is readable by a human tailing a pod, routable by an ingestion
+pipeline, and filable by an audit journal — no second emission, no second configuration.
+
+| Field | Type | Emitted | Purpose |
+| --- | --- | --- | --- |
+| `retention` | `string` | always, for a registered policy | The class name. The routing key for labels, index filters and sink queries. **Always a string** — a field that is a string on some entries and an object on others is a mapping conflict at ingest, and the record is rejected. |
+| `retentionUntil` | `string` (ISO 8601) | when the policy declares whole `years` | End of the mandatory window, materialized so a sweep is a range scan, not a policy interpretation. **Not an expiry**: reaching it ends the obligation, it does not authorize deletion. |
+| `retentionRules` | `object` | `retention.emitRules === true` | The rules as filed, stamped with `policyVersion`. For consumers **out of process** that have no registry to resolve against. |
+
+| Config (`init({ retention })`) | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `version` | `string` | — | Stamped onto `retentionRules` as `policyVersion`. Registries get re-seeded; without it a persisted rule cannot say which revision it was filed under. |
+| `emitRules` | `boolean` | `false` | Emit `retentionRules`. Leave off when every consumer runs in-process. |
+| `emitUntil` | `boolean` | `true` | Emit `retentionUntil`. No-op for policies without whole `years`. |
+
+### Both write paths, one registry
+
+Regulated systems write the same table from two places: the technical path through a transport, and
+a domain path that never touches a logger. Both must file the record under the same rule.
+
+```typescript
+// 1. Technical path — the record IS the log entry.
+syntropyLog.getLogger('audit').withRetention('OPERACIONES').audit({ echeqId }, 'eCheq emitido');
+
+// 2. Domain path — no logger anywhere in this function.
+const at = new Date();
+await auditRepo.insert({
+  ...record,
+  retention: 'OPERACIONES',                                        // same class name
+  retention_until: syntropyLog.getRetentionUntil('OPERACIONES', at), // same computation
+  retention_rules: syntropyLog.getRetentionPolicy('OPERACIONES'),    // the rule as filed
+});
+```
+
+`getRetentionPolicy(name)` and `getRetentionUntil(name, at)` resolve against the **factory's frozen
+registry** — the same object `withRetention` resolves against — and throw
+`RetentionPolicyNotFoundError` on a miss, listing the registered names. A compliance column that
+silently lands `NULL` is worse than a failure at the call site.
+
+`retentionUntil(at, years)` is exported as a pure function for callers that already hold the rules.
+A leap-day record lands on 1-Mar and is kept **one day longer, never one day short** — ending a
+window early is the failure an auditor punishes.
+
+### In your executor
+
+```typescript
+// ✅ Route on the class name — a string, present on every tagged entry.
+async function executor(entry) {
+  await db.insert(entry.retention === 'OPERACIONES' ? 'audit_long_term' : 'logs_hot', entry);
+}
+
+// ✅ Need the rules and you are in-process? Resolve them; no config required.
+const rules = syntropyLog.getRetentionPolicy(entry.retention);
+
+// ❌ WRONG: retention is the class name, not the rules. undefined >= 5 is always false.
+if (entry.retention?.years >= 5) { /* never runs */ }
+```
+
+**Migrating from 1.x:** `entry.retention` used to be the rules object; it is now the class name.
+A transport that read fields off it either turns on `emitRules` and reads `entry.retentionRules`, or
+resolves in the sink with `getRetentionPolicy(entry.retention)`. `DurableAdapterTransport` routing is
+unaffected — it recognizes a policy under either field.
+
+The `audit` level is **always emitted**, regardless of the configured log level. The framework labels
+and routes; archiving and deletion stay with the storage tier — see [docs/compliance.md](docs/compliance.md)
+for the control-by-control mapping (HIPAA / SOX / GDPR / PCI-DSS) and
+[docs/DESIGN-retention-bridge.md](docs/DESIGN-retention-bridge.md) for why the model is shaped this way.
 
 ---
 
@@ -734,7 +845,7 @@ Full details: [SECURITY.md](./SECURITY.md).
 | Feature | One-liner | Docs |
 |---|---|---|
 | **Logging Matrix** | Whitelist of context fields per level; `defineMatrix()` for typed keys | [logging-matrix.md](docs/logging-matrix.md) |
-| **MaskingEngine** | Redact PII before transport; `getDefaultMaskingRules`, `maskEnum`, ReDoS-safe | [masking.md](docs/masking.md) |
+| **MaskingEngine** | Redact PII before transport; `getDefaultMaskingRules`, `maskEnum`, ReDoS-safe; `exemptTransports` gives one sink the unmasked truth | [masking.md](docs/masking.md) |
 | **Universal Adapter** | One `executor` → any backend; framework stays agnostic | [transports.md](docs/transports.md) |
 | **DurableAdapterTransport** | Buffer + backoff retry + DLQ; delivery guarantees for retention-tagged audit entries; opt-in `persistPath` disk spool survives restarts | [compliance.md](docs/compliance.md) |
 | **Transport pool & per-env routing** | `transportList` + `env`; per-call `override`/`add`/`remove` | [transports.md](docs/transports.md) |
@@ -742,7 +853,7 @@ Full details: [SECURITY.md](./SECURITY.md).
 | **Context propagation** | Correlation + transaction IDs via `AsyncLocalStorage`; inbound/outbound wire-name translation | [context.md](docs/context.md) |
 | **Express / Fastify** | `correlationIdMiddleware()` / `fastifyCorrelationHook()` — multi-header + W3C `traceparent` + response echo | [context.md](docs/context.md) |
 | **NestJS module** | `syntropylog/nestjs`: `SyntropyLogModule`, `SyntropyNestLoggerService`, `@InjectLogger()` | [#nestjs](#nestjs) |
-| **Audit & retention routing** | Always-on `audit` level + `withRetention` payload routed by executor | [compliance.md](docs/compliance.md) |
+| **Retention bridge** | Always-on `audit` level; `withRetention('NAME')` puts the class name + `retentionUntil` on the entry; `getRetentionPolicy` / `getRetentionUntil` for write paths without a logger | [DESIGN-retention-bridge.md](docs/DESIGN-retention-bridge.md) |
 | **Lifecycle, hooks & serialization** | `init`/`shutdown`, `onLogFailure`, timeout/depth limits, circular-ref immunity | [lifecycle.md](docs/lifecycle.md) |
 | **Self-observability** | `getStats()` — failure counters, fallbacks, uptime, native-addon state | [lifecycle.md](docs/lifecycle.md) |
 | **Testing toolkit** | `syntropylog/testing`: `SpyTransport`, `createTestHelper`, `createServiceWithMock` | [testing-mocks.md](docs/testing-mocks.md) |

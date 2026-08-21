@@ -44,6 +44,11 @@ export interface MaskingConfig {
   maskChar?: string;
   preserveLength?: boolean;
   enableDefaultRules?: boolean;
+  /**
+   * Accepted for compatibility and **has no effect**: V8 cannot interrupt a running regex, so
+   * the JS path has no runtime timeout. Explosive custom patterns are rejected statically at
+   * `init()`; the native engine's `regex` crate is linear-time. See docs/masking.md.
+   */
   regexTimeoutMs?: number;
   /**
    * Transports (by `Transport.name`) that receive the entry **unmasked**.
@@ -100,6 +105,13 @@ export interface SyntropyLogConfig {
    * 'GDPR_ARTICLE_17', 'PCI_DSS_REQ_10').
    */
   retentionPolicies?: Readonly<Record<string, Record<string, unknown>>>;
+  /**
+   * How a resolved retention policy travels on the entry. Retention is decided per record and
+   * enforced per container (an index, a stream, a bucket), and every mechanism downstream —
+   * Loki label matchers, Datadog index filters, sink routing — matches on a **low-cardinality
+   * string**. So the class name always travels; the rest is opt-in.
+   */
+  retention?: RetentionEmissionConfig;
   /** Called when logging fails (serialization or transport). Optional; for observability. */
   onLogFailure?: (error: unknown, entry?: unknown) => void;
   /** Called when a transport fails (flush, shutdown, or log write). Optional; single handler from config. */
@@ -108,6 +120,28 @@ export interface SyntropyLogConfig {
   onStepError?: (step: string, error: unknown) => void;
   /** Called when native addon fails and the framework falls back to the JS pipeline. Optional; for observability. */
   onSerializationFallback?: (reason?: unknown) => void;
+}
+
+/**
+ * Controls what `withRetention()` puts on the entry.
+ *
+ * - `retention` — the policy name. Always emitted, always a string: the routing key.
+ * - `retentionUntil` — the end of the mandatory window, materialized so a sweep is a range
+ *   scan. On by default when the policy declares whole `years`.
+ * - `retentionRules` — the full rules object, stamped with `policyVersion`. Off by default:
+ *   an in-process consumer resolves it with `getRetentionPolicy(name)`; turn it on when the
+ *   consumer is **out of process** (a shipper reading JSON) and has no registry to resolve against.
+ */
+export interface RetentionEmissionConfig {
+  /**
+   * Version of the policy set in force, stamped onto `retentionRules`. Registries are re-seeded
+   * over time; without this stamp a record cannot say which revision it was filed under.
+   */
+  version?: string;
+  /** Emit the full rules object as `retentionRules`. Default `false`. */
+  emitRules?: boolean;
+  /** Emit `retentionUntil`. Default `true` (no-op for policies with no whole `years`). */
+  emitUntil?: boolean;
 }
 
 // Re-export for convenience

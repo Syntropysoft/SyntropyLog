@@ -39,7 +39,9 @@ The `executor` signature is `(data: unknown) => Promise<void> | void` — the en
 | `correlationId` | `string \| undefined`         | from `ContextManager` (if mounted)           |
 | `transactionId` | `string \| undefined`         | from `withTransactionId(...)` or context     |
 | `source`        | `string \| undefined`         | from `withSource(...)`                       |
-| `retention`     | `unknown`                     | from `withRetention(...)`                    |
+| `retention`     | `string`                      | policy class name, from `withRetention('NAME')` |
+| `retentionUntil`| `string` (ISO 8601)          | end of the mandatory window, when the policy declares whole `years` |
+| `retentionRules`| `object`                      | the rules, with `init({ retention: { emitRules: true } })` or inline `withRetention({…})` |
 | (any other key) | `unknown`                     | from `child({...})`, context, or log call    |
 
 A minimal typed wrapper:

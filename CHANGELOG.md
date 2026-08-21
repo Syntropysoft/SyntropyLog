@@ -1,5 +1,38 @@
 # Changelog
 
+## Unreleased — 2.0.0 (breaking)
+
+**Retention stops being a payload and becomes a bridge.** Retention is *enforced* per container — an Elasticsearch index, a Loki stream, a Datadog index, a Cloud Logging bucket, an S3 prefix under Object Lock — and *decided* per record. Nothing downstream can tell a six-year regulatory event from a health check; the application, at the moment of writing, is the only place where the answer exists. Every mechanism on the receiving end (Loki label matchers, Datadog index filters, sink routing) matches on a **low-cardinality string**, and none of them reads a rules object. So the class name is what travels now, plus the one derived field that lets anything downstream act without understanding policies at all.
+
+### Changed (breaking) — `withRetention(name)` binds the class name, not the rules object
+
+- **`retention` is now the policy name, always a string.** Previously the resolved rules object was bound to every transport — the shape only an audit journal could use, and the documented anti-pattern for APM ingest (nested attributes inflate cardinality; the guidance is to flatten essentials to the top level). One field, one type, forever: a field that is a string on some entries and an object on others is a mapping conflict at ingest, and the record is rejected.
+- **`retentionUntil` is emitted alongside it** — the end of the mandatory window, materialized so a sweep is a range scan instead of a policy interpretation. It is *not* an expiry: reaching it ends the obligation, it does not authorize deletion. Computed from whole `years`; a leap-day record lands on 1-Mar and is kept one day longer, never one day short — ending a window early is the failure an auditor punishes. Policies with no whole `years` get no date: the framework never guesses one into a compliance column.
+- **`retentionRules` carries the full object, opt-in** via `retention: { emitRules: true }`, stamped with `policyVersion` from `retention: { version }`. In-process consumers do not need it — they resolve the name with `getRetentionPolicy(name)` against the same frozen registry, **at write time**, which is the rule in force at that moment. Turn it on when the consumer is *out of process* (a shipper reading JSON) and has no registry to resolve against. Registries get re-seeded over time, so without the version stamp a persisted rule cannot say which revision it was filed under.
+- **`withRetention` is the primary API — this supersedes the `1.0.0-rc.1` note that deprecated it in favour of `withMeta`.** That direction is reversed: a policy *name* is what routes, so `withRetention('NAME')` owns the `retention` field, and `withMeta(field, payload)` is the freeform carrier for everything else (its one-argument form is the deprecated one now).
+- **Inline rules (`withRetention({ … })`) bind `retentionRules`, never `retention`.** They have no name to route on, and `retention` stays a string on every entry the framework emits.
+- **Migration:** a transport that read `entry.retention` as an object now reads `entry.retentionRules` — either turn on `emitRules`, or resolve in the sink with `getRetentionPolicy(entry.retention)`. `DurableAdapterTransport` routing is unchanged in effect: it now recognizes a policy under either field.
+
+### Added — `retentionUntil()` and `getRetentionUntil(name, at)`
+
+- **The same date computation the framework puts on the entry, for the write path that persists it in a column of its own.** `syntropyLog.getRetentionUntil(name, at)` resolves the policy (throwing `RetentionPolicyNotFoundError` like every other resolution path) and returns a `Date`; the pure `retentionUntil(at, years)` is exported for callers that already hold the rules. It replaces the hand-rolled year arithmetic every audit-writing application ends up reimplementing — including the leap-day case most of them get wrong.
+
+### Added — `retention` emission config
+
+- `retention: { version?, emitRules?, emitUntil? }` in `init()`. Validated like the rest of the config; unknown shapes fail at startup.
+
+### Added — a retention policy can be resolved without a logger
+
+**A retention policy can now be resolved without a logger.** Retention policies are declared once at `init({ retentionPolicies })` and, until now, were reachable only through `logger.withRetention(name)` — the right entry point when the record *is* the log entry, and nothing at all when the rule has to be stored as a field of a record the framework never sees. An audit journal with two write paths into the same table (the technical one through a transport, the domain one straight to the database) had no way to file both rows under the same rule. Resolving it later from a catalog table does not close the gap: the catalog is mutable, so a record written in 2026 and read in 2030 would report the 2030 policy. The rule has to land in a column, at write time, on both paths.
+
+### Added — `getRetentionPolicy(name)` / `getRetentionPolicies()`
+
+- **`syntropyLog.getRetentionPolicy(name)` resolves a registered policy against the same frozen registry `withRetention(name)` resolves against** — one source, one answer, whichever way it is asked. The workaround it replaces, `getConfig().retentionPolicies?.[name]`, reads the *caller's* live config object, not the factory's frozen copy: mutate the config after `init()` and what gets persisted and what the framework tags diverge, with nothing to detect it.
+- **An unknown name throws `RetentionPolicyNotFoundError`**, identical to the fluent path, with the sorted list of registered names. The config accessor returned `undefined` — one lookup, two failure modes, and the silent one is the one that reaches a compliance column as `NULL`. Loud at the call site is the cheaper failure.
+- **`getRetentionPolicies()` returns the frozen registry** for listing, diagnostics, or seeding a catalog table — an empty frozen object when no registry was declared, never `undefined`. Both accessors are `ensureReady()`-gated like `getContextManager()` and `getConfig()`: before `init()` there is nothing to resolve.
+- **Nothing changes on the fluent path.** `withRetention` stays the entry point when the record is the entry; this adds a reader, it does not move the writer. The framework still tags and routes — archiving and deleting remain with the storage tier. Additive, no behavior change: a minor release.
+- **Payload shape matters once a policy is persisted rather than only tagged:** keep policies flat and JSON-serializable. The accessor returns the object intact, but the same policy read off `entry.retention` in a transport is shallow on the native path (nested values arrive as JSON strings), and a `Date` or a class instance that survives the tag path will break a `jsonb` insert or an OTLP export. Design notes: `docs/DESIGN-retention-resolution-api.md`. Runnable example: `examples/RetentionResolutionExample.ts` (`npm run example:retention`).
+
 ## 1.5.0
 
 **An audit trail can finally be a transport.** Masking is global by design — it runs once, before the transport loop, so every sink gets the same obfuscated entry. That is right for consoles and APMs and wrong for exactly one kind of sink: the audit journal, where `2*****9` proves nothing. Until now the only way out was to bypass the framework entirely and write the audit record yourself, before the pipeline. This release lets the application declare, in its own config, which transports receive the truth.

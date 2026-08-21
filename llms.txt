@@ -1,0 +1,290 @@
+# SyntropyLog
+
+> Observability framework for Node.js (>=22). One declarative `init()` governs every log:
+> correlation context, per-level field whitelisting, PII masking, sanitization, serialization,
+> retention classification and delivery guarantees. Serialize + mask + sanitize run in a single
+> native Rust pass when the optional addon is present, with a transparent pure-JS fallback.
+> Logging never throws: failures surface through hooks and `getStats()`.
+
+This file is the compact contract for code-generating agents. Prose, rationale and comparisons
+live in README.md; every fact below is the API as it ships.
+
+## Install & entry points
+
+```bash
+npm install syntropylog
+```
+
+```ts
+import { syntropyLog } from 'syntropylog';            // process-wide singleton (default)
+import { createSyntropyLog } from 'syntropylog';      // independent instance (multi-tenant, tests)
+
+await syntropyLog.init({ logger: { serviceName: 'payments', level: 'info' } });
+const log = syntropyLog.getLogger();                  // after init resolves
+await syntropyLog.shutdown();                         // flushes transports
+```
+
+- `init()` is async and must resolve before `getLogger()`. Accessors below assert readiness and
+  throw if called earlier.
+- Both entry points implement `ISyntropyLog`. Type against it to stay agnostic.
+- The package is ESM+CJS, types included. Node >= 22 is enforced by `engines`.
+
+## Log levels
+
+`audit(70) > fatal(60) > error(50) > warn(40) > info(30) > debug(20) > trace(10) > silent(0)`
+
+`audit` is **always emitted**, regardless of the configured level. Every level takes both
+Pino-style signatures: `log.info('msg')` and `log.info({ field }, 'msg')`.
+
+## Facade API (`ISyntropyLog`)
+
+| Method | Returns | Notes |
+| --- | --- | --- |
+| `init(config)` | `Promise<void>` | Validates config; throws `ConfigValidationError` on a bad shape. |
+| `shutdown()` | `Promise<void>` | Flushes and drains transports. |
+| `getLogger(name?, bindings?)` | `ILogger` | `name` selects the transport route; defaults to `'default'`. |
+| `getContextManager()` | `IContextManager` | Correlation store. |
+| `getConfig()` | `SyntropyLogConfig` | The caller's config object. Not the frozen registry — see below. |
+| `getFilteredContext(level)` | `Record<string, unknown>` | Context after matrix filtering. |
+| `getRetentionPolicy(name)` | `Readonly<Record<string, unknown>>` | Frozen registry lookup. Throws `RetentionPolicyNotFoundError`. |
+| `getRetentionPolicies()` | frozen registry | `{}` when none declared, never `undefined`. |
+| `getRetentionUntil(name, at)` | `Date \| null` | End of the mandatory window. `null` when the policy has no whole `years`. |
+| `reconfigureLoggingMatrix(matrix)` | `void` | Hot-swap field whitelists; masking and levels untouched. |
+| `reconfigureTransportsForDebug({ add })` | `void` | Add console transports at runtime; `resetTransports()` undoes it. |
+| `getMasker()` / `getSerializer()` | engine | Advanced use. |
+| `isNativeAddonInUse()` | `boolean` | Reliable after `init()`. |
+| `getStats()` | `SyntropyLogStats` | State, uptime, failure counters. Safe before `init()`. |
+
+## Fluent API (`ILogger`)
+
+Every builder returns a **new** logger; chains are independent.
+
+```ts
+log.child({ k: v })                    // arbitrary bindings
+log.withSource('PaymentService')       // -> source
+log.withTransactionId(id)              // -> transactionId
+log.withMeta('field', payload)         // -> entry[field]; throws ReservedMetaFieldError on
+                                       //    '' | 'level' | 'message' | 'timestamp' | 'service'
+log.withRetention('OPERACIONES')       // registered policy name (recommended)
+log.withRetention({ years: 2 })        // inline rules, bypasses the registry
+log.override('t1').info('x')           // next call only: exactly these transports (by name)
+log.add('t2').remove('t3').info('x')   // next call only: adjust the set
+```
+
+`withMeta(payload)` with a single argument is **deprecated**: it writes to `retention`, conflating
+business metadata with the retention class. Pass the field name.
+
+## Retention (the differentiator)
+
+Retention is enforced per container (index, stream, bucket) and decided per record. The entry
+carries the class **name** — the low-cardinality string every downstream mechanism routes on.
+
+```ts
+await syntropyLog.init({
+  retentionPolicies: defineRetentionPolicies({
+    OPERACIONES: { years: 6, standard: 'BCRA A7724 9.1' },
+  }),
+  retention: { version: 'E6-1', emitRules: false },
+});
+log.withRetention('OPERACIONES').audit({ echeqId }, 'issued');
+```
+
+Emitted entry:
+
+```json
+{ "level": "audit", "message": "issued", "retention": "OPERACIONES",
+  "retentionUntil": "2032-08-20T12:00:00.000Z" }
+```
+
+| Field | Type | When |
+| --- | --- | --- |
+| `retention` | `string` | always, for a registered policy. **Never an object** — a polymorphic field is a mapping conflict at ingest. |
+| `retentionUntil` | ISO 8601 `string` | when the policy declares whole `years`. Not an expiry: it ends the obligation, it does not authorize deletion. |
+| `retentionRules` | `object` | only with `retention.emitRules: true`; stamped `policyVersion` from `retention.version`. Inline rules always land here. |
+
+| `init({ retention })` | Default |
+| --- | --- |
+| `version?: string` | — |
+| `emitRules?: boolean` | `false` |
+| `emitUntil?: boolean` | `true` |
+
+Out-of-logger resolution (a domain path that writes straight to the database):
+
+```ts
+const rules = syntropyLog.getRetentionPolicy('OPERACIONES');
+const until = syntropyLog.getRetentionUntil('OPERACIONES', at);
+import { retentionUntil } from 'syntropylog';   // pure: (at: Date, years: number) => Date | null
+```
+
+`retentionUntil` returns `null` for non-integer, zero, negative years or an invalid date — the
+framework never guesses a date into a compliance column. A leap-day record lands on 1-Mar: kept one
+day longer, never one day short.
+
+## Masking
+
+```ts
+await syntropyLog.init({
+  masking: {
+    enableDefaultRules: true,                                   // default: true
+    rules: [{ pattern: 'account', strategy: MaskingStrategy.CREDIT_CARD }],
+    exemptTransports: ['audit-journal'],
+    maskChar: '*', preserveLength: false,
+  },
+});
+```
+
+- `MaskingStrategy`: `CREDIT_CARD | SSN | EMAIL | PHONE | PASSWORD | TOKEN | CUSTOM`. There is no
+  `PARTIAL`. `spec` gives a declarative custom mask that also runs in the native engine;
+  `customMask` (a JS function) forces the JS path for that logger.
+- `exemptTransports` names transports that receive the entry **unmasked** — declared in app config,
+  never by a transport about itself. An unknown name throws `UnknownExemptTransportError` at
+  `init()`. ANSI stripping, truncation and depth caps still apply to the exempt output.
+- Custom key patterns are ReDoS-checked at `init()`; nested unbounded quantifiers throw `TypeError`.
+  `masking.regexTimeoutMs` is accepted but **inert** — V8 cannot interrupt a running regex, so the
+  guard is static, not a timeout.
+- Sensitive-word constants (`MASK_KEY_PWD`, `MASK_KEYS_ALL`, …) are exported so custom rules avoid
+  writing the literals.
+
+## Transports
+
+```ts
+logger: {
+  transports: {
+    default: [new ConsoleTransport({ name: 'console' }), apm],  // route for getLogger()
+    audit: [journal],                                            // route for getLogger('audit')
+  },
+}
+```
+
+- The **keys** of `logger.transports` are logger routes; each value is an **array**. A transport's
+  own `name` (constructor option, else its class name) is what `exemptTransports` and
+  `override`/`add`/`remove` match on. These two namespaces are distinct.
+- Built-ins: `ConsoleTransport`, `PrettyConsoleTransport`, `CompactConsoleTransport`,
+  `ClassicConsoleTransport`, `ColorfulConsoleTransport`, `SpyTransport` (tests),
+  `AdapterTransport`, `DurableAdapterTransport`.
+- Custom transport: extend `Transport`, implement `log(entry: LogEntry | string): void`. Override
+  `get wantsObject()` to `true` to always receive the structured object (the native path otherwise
+  hands console-style transports the pre-serialized string).
+- `AdapterTransport({ adapter, name })` wraps an `ILogTransportAdapter` (`log`, optional `flush`,
+  `shutdown`). `UniversalAdapter` + `UniversalLogFormatter` map entries to any backend shape.
+
+### DurableAdapterTransport
+
+Buffer + exponential backoff + DLQ for entries that must not be lost.
+
+| Option | Default |
+| --- | --- |
+| `executor` | required (`DurableExecutor`); a non-function throws at construction |
+| `bufferSize` | `1000` |
+| `maxRetries` | `5` (i.e. up to 6 attempts) |
+| `initialBackoffMs` / `maxBackoffMs` | `100` / `30000` |
+| `dropStrategy` | `'oldest'` |
+| `durableOnlyForRetention` | `true` — only entries carrying a retention class take the durable path |
+| `flushTimeoutMs` | `5000` |
+| `persistPath` | unset; set it to survive process restarts |
+| `onDrop(entry, reason)` | unset (`DurableDropReason`) |
+
+## Logging Matrix & context
+
+```ts
+loggingMatrix: defineMatrix({ default: ['correlationId'], error: ['*'] })
+```
+
+A per-level whitelist of context fields: a field absent from the level's list never reaches a
+transport. `'*'` allows all. Context propagates through async chains via the context manager;
+`correlationIdMiddleware` (Express) and `fastifyCorrelationHook` (Fastify) populate it from inbound
+headers, with `resolveCorrelationId`, `traceIdFromTraceparent` and `extractInboundContext` exported
+for other frameworks.
+
+## Observability hooks (all optional, on `init()`)
+
+`onLogFailure(error, entry)` · `onTransportError(error, context)` · `onStepError(step, error)` ·
+`onSerializationFallback(reason)` — the last one fires once when the native addon is missing or
+fails to load, distinguishing "not installed (optional dependency)" from "failed to load: <detail>".
+
+## Defaults (`DEFAULT_VALUES`)
+
+`serializerTimeoutMs: 5000` · `serializeDirectTimeoutMs: 1000` · `pipelineOperationTimeoutMs: 5000` ·
+`regexTimeoutMs: 100` · `shutdownWaitMs: 5000` · `maxLoggerPoolSize: 1000` · `maxDepth: 10` ·
+`maxStringLength: 300` · `maskDefaultCapLength: 8` · `maxKeyLengthForRegex: 256`
+
+## Errors
+
+| Class | Thrown when |
+| --- | --- |
+| `RetentionPolicyNotFoundError` | `withRetention('X')` / `getRetentionPolicy('X')` and `X` is not registered. Carries `policy` and a sorted `available`. |
+| `UnknownExemptTransportError` | `masking.exemptTransports` names a transport that is not configured. At `init()`. |
+| `ReservedMetaFieldError` | `withMeta(field, …)` with an empty or framework-owned field name. |
+| `ConfigValidationError` | `init()` receives a malformed config. **Not exported** — match on `err.name`, not on the class. |
+
+## Common mistakes
+
+```ts
+// ❌ entry.retention is the class NAME (string), not the rules object.
+if (entry.retention?.years >= 5) { /* undefined >= 5 → never runs */ }
+// ✅
+const rules = syntropyLog.getRetentionPolicy(entry.retention);
+
+// ❌ transports values must be arrays, and the keys are logger routes, not transport names.
+transports: { console: consoleTransport }
+// ✅
+transports: { default: [new ConsoleTransport({ name: 'console' })] }
+
+// ❌ getConfig() returns the caller's live object; a miss is a silent undefined.
+const p = syntropyLog.getConfig().retentionPolicies?.[name];
+// ✅ frozen registry, loud on a miss
+const p2 = syntropyLog.getRetentionPolicy(name);
+
+// ❌ getLogger() before init() resolves.
+// ✅ await syntropyLog.init(...) first, or listen for the 'ready' event.
+
+// ❌ SYNTROPYLOG_NATIVE_DISABLE=1 — the package reads no environment variables.
+// ✅ init({ logger: { disableNativeAddon: true } })
+```
+
+## Testing
+
+`SpyTransport` collects entries in memory (`(spy as any).entries`). `SyntropyLog.resetInstance()`
+and `_resetForTesting()` isolate the singleton between tests; `createSyntropyLog()` avoids the
+singleton entirely.
+
+Subpath exports: `syntropylog/testing`, `syntropylog/testing/mock` (`SyntropyLogMock`).
+
+## NestJS (`syntropylog/nestjs`)
+
+NestJS is an **optional peer dependency** — install `@nestjs/common`, `@nestjs/core`,
+`reflect-metadata` and `rxjs` only if you import this entry point.
+
+```ts
+import { SyntropyLogModule, SyntropyNestLoggerService, InjectLogger } from 'syntropylog/nestjs';
+
+@Module({ imports: [SyntropyLogModule.forRoot({ loggerName: 'nest', defaultContext: 'nest' })] })
+export class AppModule {}
+
+@Injectable()
+class OrdersService {
+  constructor(@InjectLogger() private readonly log: ILogger) {}  // source = 'OrdersService'
+}
+```
+
+| `forRoot(options)` | Default | Effect |
+| --- | --- | --- |
+| `syntropyLog?: ISyntropyLog` | global singleton | Pass a `createSyntropyLog()` instance for multi-tenant apps or isolated tests. |
+| `loggerName?: string` | `'nest'` | Which SyntropyLog logger emits Nest's own messages (route it to its own transport). |
+| `defaultContext?: string` | `'nest'` | `nestContext` metadata when Nest passes no context string. |
+
+- `@InjectLogger()` is **transient-scoped** and binds `source` to the injecting class name (via
+  Nest's `INQUIRER`), and resolves **lazily** — a consumer constructed before `init()` resolves does
+  not throw at bootstrap.
+- Nest levels map to SyntropyLog levels; `verbose` → `trace`. `error(msg, stack)` preserves the
+  message and stack instead of serializing an `Error` to `{}`.
+- Also exported: `SYNTROPYLOG_INSTANCE_TOKEN`, `SYNTROPYLOG_LOGGER_TOKEN`,
+  `SyntropyLogModuleOptions`, `SyntropyNestLoggerServiceOptions`.
+
+## Docs
+
+- README.md — full guide, comparisons, NestJS and OpenTelemetry integration
+- docs/fluent-api.md · docs/masking.md · docs/transports.md · docs/compliance.md · docs/context.md
+- docs/DESIGN-retention-bridge.md — why retention is modelled as a class name plus a materialized window
+- docs/native-addon.md · docs/stability.md — the optional Rust addon and its fallback contract
+- CHANGELOG.md — breaking changes, per release

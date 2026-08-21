@@ -4,6 +4,7 @@ import {
   defineRetentionPolicies,
   RetentionPolicyNotFoundError,
 } from '../../src/index';
+import { SpyTransport } from '../../src/logger/transports/SpyTransport';
 
 describe('Retention policy registry', () => {
   let syntropyLog: SyntropyLog;
@@ -152,6 +153,140 @@ describe('Retention policy registry', () => {
       expect(() =>
         log.withRetention({ ttl: 86_400, policy: 'inline' })
       ).not.toThrow();
+    });
+  });
+
+  // The registry is reachable outside the logging pipeline: a consumer whose write
+  // path never touches a logger (an audit journal writing straight to Postgres) must
+  // be able to resolve the very policy the framework would tag with, and store it on
+  // the record. See docs/DESIGN-retention-resolution-api.md.
+  describe('getRetentionPolicy(name) / getRetentionPolicies() — resolution outside the logger', () => {
+    it('returns the registered policy, identical to what withRetention(name) binds', async () => {
+      const spy = new SpyTransport();
+      await syntropyLog.init({
+        logger: {
+          serviceName: 'retention-test',
+          level: 'info',
+          transports: { default: [spy] },
+        },
+        retentionPolicies: {
+          'Operaciones eCheq': { years: 6, standard: 'BCRA A7724 9.1' },
+        },
+      });
+
+      const resolved = syntropyLog.getRetentionPolicy('Operaciones eCheq');
+      expect(resolved).toEqual({ years: 6, standard: 'BCRA A7724 9.1' });
+
+      // The entry carries the class NAME — the low-cardinality string every downstream
+      // mechanism routes on. The rules are what the resolution path hands the caller to
+      // persist, resolved in-process from the same frozen registry.
+      await syntropyLog
+        .getLogger()
+        .withRetention('Operaciones eCheq')
+        .info('tagged');
+
+      const entries = (spy as unknown as { entries: Record<string, unknown>[] })
+        .entries;
+      const tagged = entries.find((e) => e.message === 'tagged');
+      expect(tagged?.retention).toBe('Operaciones eCheq');
+      expect(
+        syntropyLog.getRetentionPolicy(tagged?.retention as string)
+      ).toEqual(resolved);
+    });
+
+    it('throws RetentionPolicyNotFoundError on an unknown name, with the sorted available list', async () => {
+      await syntropyLog.init({
+        logger: { serviceName: 'retention-test', level: 'info' },
+        retentionPolicies: {
+          SOX_AUDIT_TRAIL: { years: 5 },
+          PCI_DSS_REQ_10: { years: 1 },
+        },
+      });
+
+      try {
+        syntropyLog.getRetentionPolicy('UNKNOWN');
+        expect.fail('expected throw');
+      } catch (err) {
+        expect(err).toBeInstanceOf(RetentionPolicyNotFoundError);
+        const e = err as RetentionPolicyNotFoundError;
+        expect(e.policy).toBe('UNKNOWN');
+        expect(e.available).toEqual(['PCI_DSS_REQ_10', 'SOX_AUDIT_TRAIL']);
+      }
+    });
+
+    it('throws the "no policies registered" variant when no registry was configured', async () => {
+      await syntropyLog.init({
+        logger: { serviceName: 'retention-test', level: 'info' },
+      });
+
+      try {
+        syntropyLog.getRetentionPolicy('ANYTHING');
+        expect.fail('expected throw');
+      } catch (err) {
+        const e = err as RetentionPolicyNotFoundError;
+        expect(e.available).toEqual([]);
+        expect(e.message).toContain('No retention policies are registered');
+      }
+      expect(syntropyLog.getRetentionPolicies()).toEqual({});
+    });
+
+    it('lists the whole registry, frozen', async () => {
+      await syntropyLog.init({
+        logger: { serviceName: 'retention-test', level: 'info' },
+        retentionPolicies: { FOO: { years: 1 }, BAR: { years: 2 } },
+      });
+
+      const registry = syntropyLog.getRetentionPolicies();
+      expect(Object.keys(registry).sort()).toEqual(['BAR', 'FOO']);
+      expect(Object.isFrozen(registry)).toBe(true);
+      expect(() => {
+        (registry as Record<string, unknown>).BAZ = { years: 3 };
+      }).toThrow();
+    });
+
+    it('fails like every other ready-gated accessor when called before init()', () => {
+      expect(() => syntropyLog.getRetentionPolicy('FOO')).toThrow();
+      expect(() => syntropyLog.getRetentionPolicies()).toThrow();
+    });
+
+    it('ignores mutations the caller makes to its own config object after init()', async () => {
+      const policies = defineRetentionPolicies({ AUDIT: { years: 6 } });
+      const config = {
+        logger: { serviceName: 'retention-test', level: 'info' as const },
+        retentionPolicies: policies,
+      };
+
+      await syntropyLog.init(config);
+
+      // The caller mutates the object it passed; the framework resolves against its
+      // own frozen copy, so registry additions after init() are not visible.
+      (config.retentionPolicies as Record<string, unknown>).LATE = {
+        years: 99,
+      };
+
+      expect(() => syntropyLog.getRetentionPolicy('LATE')).toThrow(
+        RetentionPolicyNotFoundError
+      );
+      expect(() => syntropyLog.getLogger().withRetention('LATE')).toThrow(
+        RetentionPolicyNotFoundError
+      );
+      expect(Object.keys(syntropyLog.getRetentionPolicies())).toEqual([
+        'AUDIT',
+      ]);
+    });
+
+    it('returns a nested policy intact — no normalization on the resolution path', async () => {
+      await syntropyLog.init({
+        logger: { serviceName: 'retention-test', level: 'info' },
+        retentionPolicies: {
+          NESTED: { years: 6, store: { tier: 'cold', region: 'sa-east-1' } },
+        },
+      });
+
+      expect(syntropyLog.getRetentionPolicy('NESTED')).toEqual({
+        years: 6,
+        store: { tier: 'cold', region: 'sa-east-1' },
+      });
     });
   });
 

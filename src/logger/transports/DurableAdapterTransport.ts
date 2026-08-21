@@ -145,6 +145,10 @@ interface QueueItem {
 }
 
 /**
+ * Routing keys on the `retention` field, and only `withRetention()` writes it —
+ * `withMeta(field, payload)` binds wherever the caller names, so business metadata no
+ * longer opts an entry into the durable path by accident.
+ *
  * Type guard: does the entry carry retention metadata that signals it must
  * be delivered durably? Accepts both parsed `LogEntry` objects and the
  * pre-serialized JSON string the native pipeline produces.
@@ -155,10 +159,11 @@ function hasRetention(entry: unknown): boolean {
     // `wantsObject = true`, so the Logger parses the native line and calls log()
     // with an OBJECT (the branch below). A string only reaches here if that parse
     // failed — never drop a retention entry over a parse hiccup, so still route it durably.
-    return entry.includes('"retention"');
+    return entry.includes('"retention"') || entry.includes('"retentionRules"');
   }
   if (entry !== null && typeof entry === 'object') {
-    return 'retention' in (entry as Record<string, unknown>);
+    const record = entry as Record<string, unknown>;
+    return 'retention' in record || 'retentionRules' in record;
   }
   return false;
 }

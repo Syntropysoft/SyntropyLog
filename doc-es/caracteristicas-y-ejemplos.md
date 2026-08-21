@@ -17,7 +17,7 @@ SyntropyLog está pensado para **alta demanda** y entornos regulados. Las cifras
 7. **Contexto / headers** — propagación de correlation ID y transaction ID; única fuente de verdad desde la config.
 8. **API fluida** — `withRetention`, `withSource`, `withTransactionId`.
 9. **Control de transports por llamada** — `.override()`, `.add()`, `.remove()` sin crear nuevas instancias de logger.
-10. **Audit y retention** — nivel `audit`; `withRetention(anyJson)` para compliance (SOX, GDPR); enrutar por política a transports dedicados.
+10. **Audit y retention** — nivel `audit`; `withRetention('NOMBRE')` pone la clase de retención y su ventana en el entry, para rutear por política a transports o tablas dedicadas.
 11. **Ciclo de vida** — `init()` / `shutdown()`; flush graceful en SIGTERM/SIGINT.
 12. **Hooks de observabilidad** — `onLogFailure`, `onTransportError`, `onSerializationFallback`, `onStepError`, `masking.onMaskingError`; `isNativeAddonInUse()`.
 13. **Matrix en runtime** — `reconfigureLoggingMatrix()` sin reiniciar; frontera de seguridad: solo cambia qué campos se ven.
@@ -197,10 +197,11 @@ const log = syntropyLog.getLogger();
 
 const auditLogger = log
   .withSource('PaymentService')
-  .withRetention({ policy: 'SOX_AUDIT_TRAIL', years: 5 });
+  .withRetention('SOX_AUDIT_TRAIL');   // nombre registrado en init({ retentionPolicies })
 
 auditLogger.audit({ userId: 123, action: 'payment' }, 'Payment processed');
-// El entry incluye source: 'PaymentService' y retention: { policy: 'SOX_AUDIT_TRAIL', years: 5 }
+// El entry incluye source: 'PaymentService', retention: 'SOX_AUDIT_TRAIL'
+// y retentionUntil: '2031-…' (la ventana obligatoria, ya resuelta a fecha)
 ```
 
 ---
@@ -231,14 +232,21 @@ Cada método aplica solo al **siguiente** log; el siguiente sin override/add/rem
 
 **Qué es:**  
 - **Audit:** nivel `audit` que se loguea siempre, independiente del level configurado (bypass del filtro por nivel).  
-- **Retention:** `withRetention(anyJson)` adjunta metadatos de política (p. ej. GDPR, SOX, PCI-DSS) a cada log; el `executor` del Universal Adapter puede enrutar por `retention.policy` a tablas o buckets dedicados.
+- **Retention:** la retención se **decide por registro** (solo la app sabe si un evento es regulatorio) y se **aplica por contenedor** (índice, stream, bucket, tabla). `withRetention('NOMBRE')` pone en el entry la **clase** como string —`retention`— y la fecha en que termina la ventana obligatoria —`retentionUntil`—, que es lo que un label matcher, un index filter o un `INSERT` pueden rutear. Las reglas completas viajan solo si las pedís (`init({ retention: { emitRules: true } })`); en proceso se resuelven con `getRetentionPolicy(nombre)`.
 
 **Ejemplo:**
 
 ```ts
-const auditLogger = log.withRetention({ policy: 'GDPR_ARTICLE_17', years: 7, region: 'eu-west-1' });
+await syntropyLog.init({
+  retentionPolicies: { GDPR_ARTICLE_17: { years: 7, region: 'eu-west-1' } },
+  retention: { version: 'v1' },
+});
+
+const auditLogger = log.withRetention('GDPR_ARTICLE_17');
 auditLogger.audit({ userId: 123, action: 'data-export' }, 'GDPR export');
-// Siempre se escribe; retention viaja en el entry para que el executor lo enrute.
+// Siempre se escribe. En el entry: retention: 'GDPR_ARTICLE_17' + retentionUntil: '2033-…'.
+// En el executor: if (entry.retention === 'GDPR_ARTICLE_17') { ... }
+// Un nombre no registrado tira RetentionPolicyNotFoundError, listando los que sí existen.
 ```
 
 ---

@@ -232,6 +232,30 @@ process.on('SIGINT', async () => {
 
 ---
 
+## Category comparison — what the framework does for you
+
+Pino and Winston are excellent, fast **loggers**. SyntropyLog is a different category — an **observability pipeline** that does *in the framework* what a logger leaves to you, and runs the heavy work in a native engine:
+
+| | Pino / Winston | SyntropyLog |
+|---|---|---|
+| **Category** | logger | observability pipeline (matrix → masking → sanitization → serialization → routing) |
+| **PII masking** | Pino: `redact` paths in JS (fast-redact); Winston: bring your own | built in, by field name, in a **native Rust pass** (declarative `MaskSpec`) |
+| **Correlation IDs** | you thread them, per service | automatic via `AsyncLocalStorage`, declared once |
+| **Per-level field control** | manual | declarative **Logging Matrix** |
+| **Retention / audit routing** | DIY | first-class — `withRetention('NAME')` puts the retention class and its window on the entry, plus a delivery-guaranteed durable transport (optionally restart-surviving) |
+| **If logging throws** | can bubble into your code | **Silent Observer** — logging never throws, can't crash your app |
+| **Engine** | JS | native **Rust** (serialize + mask + sanitize in one pass), transparent JS fallback |
+
+**On speed — honestly:** the only apples-to-apples comparison is *minimal logging* (plain JSON, no masking), and there SyntropyLog is competitive — fastest on M2, competitive on x64 (CI-noisy). Above that they aren't comparable: Pino/Winston don't mask, correlate or filter, so their numbers are a no-masking reference, not a race. Decomposition shows most of the full-pipeline cost is the Rust engine doing the actual masking work — the framework layer itself is nearly free. Numbers, machines and method: [benchmark report](benchmark-report.md).
+
+### And "Pino + OpenTelemetry"?
+
+Different layers — **they compose, they don't compete.** Pino is the logger; OpenTelemetry is the transport and instrumentation *standard* for telemetry (traces, metrics, logs). Neither governs the **content** of a log: which fields get masked, what context each level may emit, what retention an audit event carries, how correlation crosses HTTP and a message broker. That governance layer is what SyntropyLog is — the part you would otherwise hand-roll on top of Pino, in every service. SyntropyLog is **not an APM** and does not replace traces or metrics; its logs can flow *out through* OTel (a formatter + executor, with per-call routing — [opentelemetry-integration.md](opentelemetry-integration.md)), and the correlation middleware understands `traceparent`, so it sits comfortably next to OTel tracing.
+
+Rule of thumb: choose Pino + OTel alone when PII, audit and retention are thin requirements you can afford to hand-roll. Choose SyntropyLog when they are first-class — and keep OTel for traces either way.
+
+---
+
 ## What Pino does that SyntropyLog does NOT
 
 - **Streaming transports in worker threads.** Pino's headline performance number comes from offloading transport work to a worker. SyntropyLog stays in-process. If your bottleneck is log throughput in a CPU-bound system, measure carefully before switching.

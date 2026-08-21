@@ -1,12 +1,15 @@
 import { SyntropyLog } from '../SyntropyLog';
 import { SyntropyLogConfig } from '../config';
+import type { RetentionEmissionConfig } from '../config';
 import { DEFAULT_VALUES } from '../constants';
 import {
   Logger,
   LoggerDependencies,
+  RetentionPolicyNotFoundError,
   UnknownExemptTransportError,
 } from './Logger';
 import { ILogger } from './ILogger';
+import { retentionUntil } from './retentionUntil';
 import { IContextManager } from '../context/IContextManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SerializationManager } from '../serialization/SerializationManager';
@@ -34,6 +37,11 @@ export interface ReconfigureTransportsForDebugOptions {
   /** Add these transports to the default set (existing transports stay; for visual help when debugging in a POD). */
   add: Transport[];
 }
+
+/** Returned by `getRetentionPolicies()` when no registry was declared at init() — a stable frozen empty object, never null. */
+const EMPTY_RETENTION_REGISTRY: Readonly<
+  Record<string, Readonly<Record<string, unknown>>>
+> = Object.freeze({});
 
 /** Built-in console transport classes allowed for debug reconfigure (console only, developer clarity in a POD). */
 const ALLOWED_DEBUG_TRANSPORT_CLASSES = [
@@ -241,6 +249,8 @@ export class LoggerFactory {
     error: unknown,
     context?: string
   ) => void;
+  /** @private How a resolved policy travels on the entry (`retention` config). */
+  private readonly retentionEmission?: RetentionEmissionConfig;
   /** @private Frozen registry of retention policies — used by Logger.withRetention(name). */
   private readonly retentionPolicies?: Readonly<
     Record<string, Record<string, unknown>>
@@ -306,6 +316,9 @@ export class LoggerFactory {
     });
     this.onLogFailure = config.onLogFailure;
     this.onTransportError = config.onTransportError;
+    this.retentionEmission = config.retention
+      ? Object.freeze({ ...config.retention })
+      : undefined;
     this.retentionPolicies = config.retentionPolicies
       ? Object.freeze({ ...config.retentionPolicies })
       : undefined;
@@ -313,6 +326,45 @@ export class LoggerFactory {
       config.masking?.exemptTransports,
       this.transportPool
     );
+  }
+
+  /**
+   * Resolves a registered retention policy by name against the same frozen registry
+   * `Logger.withRetention(name)` resolves against — one source, one answer, whichever
+   * way it is asked. For callers that must *persist* the policy on a record the
+   * framework never sees, instead of tagging a log entry with it.
+   *
+   * @throws {RetentionPolicyNotFoundError} if the name is not registered. Loud by
+   *   design: a compliance field that silently lands `NULL` is worse than a failure
+   *   at the call site.
+   */
+  public getRetentionPolicy(name: string): Readonly<Record<string, unknown>> {
+    const rules = this.retentionPolicies?.[name];
+    if (!rules) {
+      throw new RetentionPolicyNotFoundError(name, this.retentionPolicies);
+    }
+    return rules;
+  }
+
+  /**
+   * The end of the mandatory window for a registered policy — `at` plus its whole `years`.
+   * `null` when the policy declares no usable `years`.
+   *
+   * @throws {RetentionPolicyNotFoundError} if the name is not registered.
+   */
+  public getRetentionUntil(name: string, at: Date): Date | null {
+    const years = this.getRetentionPolicy(name).years;
+    return typeof years === 'number' ? retentionUntil(at, years) : null;
+  }
+
+  /**
+   * The frozen retention registry, for listing, diagnostics, or seeding a catalog
+   * table. Empty (and frozen) when `init()` declared no `retentionPolicies`.
+   */
+  public getRetentionPolicies(): Readonly<
+    Record<string, Readonly<Record<string, unknown>>>
+  > {
+    return this.retentionPolicies ?? EMPTY_RETENTION_REGISTRY;
   }
 
   /**
@@ -348,6 +400,7 @@ export class LoggerFactory {
       onLogFailure: this.onLogFailure,
       onTransportError: this.onTransportError,
       retentionPolicies: this.retentionPolicies,
+      retentionEmission: this.retentionEmission,
       exemptTransports: this.exemptTransports,
     };
 

@@ -146,6 +146,49 @@ export class SyntropyLog extends EventEmitter implements ISyntropyLog {
   }
 
   /**
+   * Resolves a registered retention policy by name — the same registry and the same
+   * failure mode as `logger.withRetention(name)`, for callers that persist the policy
+   * on a record instead of tagging a log entry with it (e.g. an audit journal whose
+   * write path never touches a logger).
+   *
+   * Reads the factory's frozen registry, not the config object the caller passed to
+   * `init()`: one source, one answer, whichever way it is asked. The object comes back
+   * exactly as registered — no normalization.
+   *
+   * The framework tags and routes; archiving and deleting stay with the store. This
+   * accessor resolves the rule, it does not enforce it.
+   *
+   * @throws {RetentionPolicyNotFoundError} if the name is not registered, with the
+   *   sorted list of registered names.
+   */
+  public getRetentionPolicy(name: string): Readonly<Record<string, unknown>> {
+    this.lifecycleManager.ensureReady();
+    return this.lifecycleManager.loggerFactory!.getRetentionPolicy(name);
+  }
+
+  /**
+   * The date a record filed under `name` at `at` must be kept until — the same computation
+   * the framework puts on the entry as `retentionUntil`, for a write path that persists the
+   * date in a column of its own so the sweep is a range scan.
+   *
+   * Not an expiry: reaching it ends the mandatory window, it does not authorize deletion.
+   *
+   * @throws {RetentionPolicyNotFoundError} if the name is not registered.
+   */
+  public getRetentionUntil(name: string, at: Date): Date | null {
+    this.lifecycleManager.ensureReady();
+    return this.lifecycleManager.loggerFactory!.getRetentionUntil(name, at);
+  }
+
+  /** The frozen retention registry, for listing, diagnostics, or seeding a catalog table. */
+  public getRetentionPolicies(): Readonly<
+    Record<string, Readonly<Record<string, unknown>>>
+  > {
+    this.lifecycleManager.ensureReady();
+    return this.lifecycleManager.loggerFactory!.getRetentionPolicies();
+  }
+
+  /**
    * Reconfigures the logging matrix dynamically.
    * This method allows changing which context fields are included in logs
    * without affecting security configurations like masking or log levels.

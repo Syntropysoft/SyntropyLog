@@ -15,11 +15,13 @@ import type {
   JsonValue,
 } from '../types';
 import type { LogLevel } from './levels';
+import type { RetentionEmissionConfig } from '../config';
 import { IContextManager } from '../context';
 import { SerializationManager } from '../serialization/SerializationManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
 import { ILogger } from './ILogger';
+import { retentionUntilIso } from './retentionUntil';
 
 /** Per-call routing: override (only these) or add/remove from default. */
 type PendingRouting =
@@ -50,6 +52,39 @@ export class RetentionPolicyNotFoundError extends Error {
     this.name = 'RetentionPolicyNotFoundError';
     this.policy = policy;
     this.available = available;
+  }
+}
+
+/**
+ * Entry fields the framework itself writes. A metadata field may not shadow them:
+ * a binding named `level` or `timestamp` would corrupt every entry from that logger
+ * and look like a transport bug, so the collision fails at the call site instead.
+ */
+const RESERVED_META_FIELDS: ReadonlySet<string> = new Set([
+  'level',
+  'message',
+  'timestamp',
+  'service',
+]);
+
+/**
+ * Thrown when `logger.withMeta(field, payload)` is called with a field name that is
+ * empty or that would shadow a framework-owned entry field.
+ */
+export class ReservedMetaFieldError extends Error {
+  public readonly field: string;
+  public readonly reserved: readonly string[];
+
+  constructor(field: string) {
+    const reserved = [...RESERVED_META_FIELDS].sort();
+    super(
+      field
+        ? `[SyntropyLog] withMeta() field '${field}' is reserved by the framework. Reserved: [${reserved.join(', ')}].`
+        : `[SyntropyLog] withMeta() requires a non-empty field name: withMeta('myField', payload).`
+    );
+    this.name = 'ReservedMetaFieldError';
+    this.field = field;
+    this.reserved = reserved;
   }
 }
 
@@ -150,6 +185,29 @@ function hasContextOrBindings(
   return false;
 }
 
+/**
+ * Pure: the whole years of retention bound to this logger, or `undefined`.
+ *
+ * Reads the bound policy name against the frozen registry — the same lookup `withRetention`
+ * did — or the inline rules when there is no name. Anything that is not a whole positive
+ * number yields `undefined`: a TTL expressed in some other unit is the caller's to compute,
+ * and guessing would put a wrong date in a compliance column.
+ */
+function resolveRetentionYears(
+  bindings: LogBindings,
+  dependencies: LoggerDependencies
+): number | undefined {
+  const name = bindings.retention;
+  const rules =
+    typeof name === 'string'
+      ? dependencies.retentionPolicies?.[name]
+      : (bindings.retentionRules as Record<string, unknown> | undefined);
+  const years = rules?.years;
+  return typeof years === 'number' && Number.isInteger(years) && years > 0
+    ? years
+    : undefined;
+}
+
 /** Pure: resolve effective transports from default list + pool and routing (no mutation). */
 function resolveEffectiveTransports(
   defaultTransports: Transport[],
@@ -189,6 +247,8 @@ export interface LoggerDependencies {
   onTransportError?: (error: unknown, context?: string) => void;
   /** Optional: registry of retention policies — keys are looked up by `withRetention(name)`. */
   retentionPolicies?: Readonly<Record<string, Record<string, unknown>>>;
+  /** How a resolved policy travels on the entry (`retention` config). */
+  retentionEmission?: RetentionEmissionConfig;
   /**
    * Transport names that receive the entry unmasked (`masking.exemptTransports`).
    * Validated at init; empty/absent means every transport gets the masked entry.
@@ -210,6 +270,11 @@ export class Logger {
   private dependencies: LoggerDependencies;
   /** Applied to the next log call only; then cleared. */
   private pendingRouting: PendingRouting | null = null;
+  /**
+   * Whole years of the retention policy bound to this logger, if any. Resolved once at
+   * construction so the per-entry cost is one date computation, not a registry lookup.
+   */
+  private readonly retentionYears?: number;
 
   constructor(
     name: string,
@@ -222,6 +287,17 @@ export class Logger {
     this.dependencies = dependencies;
     this.bindings = (options.bindings ?? {}) as LogBindings;
     this.level = options.level ?? 'info';
+    this.retentionYears = resolveRetentionYears(this.bindings, dependencies);
+  }
+
+  /**
+   * The fields the framework derives per entry from the bound retention policy. Empty unless
+   * this logger carries one — an untagged logger pays a single truthiness check.
+   */
+  private retentionFields(atMs: number): Record<string, string> | undefined {
+    if (this.retentionYears === undefined) return undefined;
+    const until = retentionUntilIso(atMs, this.retentionYears);
+    return until ? { retentionUntil: until } : undefined;
   }
 
   /**
@@ -374,9 +450,11 @@ export class Logger {
           context as Record<string, unknown>,
           this.bindings
         );
-        const effectiveMetadata = hasExtra
-          ? Object.assign({}, context, this.bindings)
-          : undefined;
+        const derived = this.retentionFields(Date.now());
+        const effectiveMetadata =
+          hasExtra || derived
+            ? Object.assign({}, context, this.bindings, derived)
+            : undefined;
 
         const serializationResult =
           this.dependencies.serializationManager.serializeDirect(
@@ -407,9 +485,11 @@ export class Logger {
         context as Record<string, unknown>,
         this.bindings
       );
-      const effectiveMetadata = hasExtra
-        ? Object.assign({}, context, this.bindings, metadata)
-        : metadata;
+      const derived = this.retentionFields(Date.now());
+      const effectiveMetadata =
+        hasExtra || derived
+          ? Object.assign({}, context, this.bindings, derived, metadata)
+          : metadata;
 
       const wantUnmasked = this.hasExemptTransport(effectiveTransports, level);
       const serializationResult =
@@ -561,16 +641,41 @@ export class Logger {
   }
 
   /**
-   * Attaches arbitrary structured metadata to every log emitted by this logger instance.
-   * Any JSON — retention policies, compliance tags, routing hints, business context.
-   * Sanitized before reaching any transport. The executor receives it as `logEntry.retention`.
+   * Attaches arbitrary structured metadata to every log from this instance, under the
+   * field **you name**. Business context, routing hints, or a retention rule that has to
+   * travel somewhere other than `retention` — the field is the caller's decision, not the
+   * framework's. Sanitized before reaching any transport; the executor receives it as
+   * `logEntry[field]`.
+   *
+   * @throws {ReservedMetaFieldError} on an empty field name or one the framework owns.
    */
-  withMeta(payload: LogRetentionRules): ILogger {
-    return this.child({ retention: payload } as LogBindings);
+  withMeta(field: string, payload: LogRetentionRules): ILogger;
+  /**
+   * @deprecated Pass the field name: `withMeta('myField', payload)`. The one-argument form
+   * writes to `retention`, which conflates business metadata with compliance retention and
+   * opts the entry into `DurableAdapterTransport`'s durable path. Kept for compatibility.
+   */
+  withMeta(payload: LogRetentionRules): ILogger;
+  withMeta(
+    fieldOrPayload: string | LogRetentionRules,
+    payload?: LogRetentionRules
+  ): ILogger {
+    if (typeof fieldOrPayload !== 'string') {
+      // Legacy one-argument form: the payload lands on `retention`.
+      return this.child({ retention: fieldOrPayload } as LogBindings);
+    }
+    const field = fieldOrPayload;
+    if (!field || RESERVED_META_FIELDS.has(field)) {
+      throw new ReservedMetaFieldError(field);
+    }
+    return this.child({ [field]: payload } as LogBindings);
   }
 
   /**
-   * Attaches a retention policy under the `retention` field on every log from this instance.
+   * Attaches a retention policy under the `retention` field on every log from this instance —
+   * the field `DurableAdapterTransport` routes on. To carry a policy under a different field
+   * (a column your journal already names), resolve it with
+   * `syntropyLog.getRetentionPolicy(name)` and bind it with `withMeta(field, policy)`.
    * Accepts a registered policy name (looked up in `init({ retentionPolicies: ... })`) or an
    * inline `LogRetentionRules` object. See the {@link ILogger.withRetention} JSDoc for details.
    *
@@ -579,15 +684,30 @@ export class Logger {
    *   fall back to an unknown bucket.
    */
   withRetention(input: string | LogRetentionRules): ILogger {
+    const emission = this.dependencies.retentionEmission;
+
     if (typeof input === 'string') {
       const registry = this.dependencies.retentionPolicies;
       const rules = registry?.[input];
       if (!rules) {
         throw new RetentionPolicyNotFoundError(input, registry);
       }
-      return this.withMeta(rules as LogRetentionRules);
+      // `retention` is the class name and nothing else: one field, one type, forever. A field
+      // that is a string on some entries and an object on others is a mapping conflict at
+      // ingest — the record is rejected, which is a worse outcome than a verbose entry.
+      const bindings: LogBindings = { retention: input };
+      if (emission?.emitRules) {
+        bindings.retentionRules = {
+          ...rules,
+          ...(emission.version ? { policyVersion: emission.version } : {}),
+        } as LogBindings[string];
+      }
+      return this.child(bindings);
     }
-    return this.withMeta(input);
+
+    // Inline rules have no name to route on, so they travel as the object alone — never
+    // under `retention`, which stays a string for every entry the framework emits.
+    return this.child({ retentionRules: input } as LogBindings);
   }
 
   /**

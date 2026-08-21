@@ -22,7 +22,11 @@ async function runExample() {
       app_id: { value: 'PAYMENT-GATEWAY-01' }, // Static value
       tx_id: ['transactionId', 'correlationId', { value: 'N/A' }], // Cascading fallbacks
       user: 'user.id', // Deep path (if present in metadata)
-      retention_days: 'retention.days',
+      // The framework owns `retention` (the policy class name, a string) and `retentionUntil`.
+      // Ad-hoc archival metadata of your own goes under a key of your choosing — shadowing
+      // `retention` with an object would make the field polymorphic on the wire.
+      retention_class: 'retention',
+      retention_days: 'archival.days',
     },
   });
 
@@ -68,7 +72,7 @@ async function runExample() {
   await logger.withTransactionId('TX-999555').info('Processing card payment', {
     user: { id: 'usr_4422', email: 'test@example.com' },
     amount: 1500.5,
-    retention: { days: 90, policy: 'FINANCIAL_RECORDS' },
+    archival: { days: 90, tier: 'FINANCIAL_RECORDS' },
   });
 
   await syntropyLog.shutdown();

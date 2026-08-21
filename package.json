@@ -135,6 +135,7 @@
     "dist",
     "LICENSE",
     "README.md",
+    "llms.txt",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "NOTICE"
@@ -148,6 +149,7 @@
     "bench": "pnpm -C benchmark run bench",
     "bench:memory": "pnpm -C benchmark run bench:memory",
     "example:transport-pool": "npx tsx examples/TransportPoolExample.ts",
+    "example:retention": "npx tsx examples/RetentionResolutionExample.ts",
     "setup": "node scripts/setup-env.js",
     "build": "npm run clean && npm run build:types && rollup -c",
     "build:types": "tsc -p src/tsconfig.json && npx rimraf dist/tsconfig.tsbuildinfo",

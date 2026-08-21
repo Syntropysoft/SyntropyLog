@@ -325,11 +325,16 @@ describe('Logger', () => {
       expect((loggerWithSource as any).bindings.source).toBe('auth-module');
     });
 
-    it('should support withRetention fluent method', () => {
+    it('binds inline rules under retentionRules, leaving retention free for the class name', () => {
       const rules = { days: 30 };
       const loggerWithRetention = logger.withRetention(rules as any);
       expect(loggerWithRetention).toBeInstanceOf(Logger);
-      expect((loggerWithRetention as any).bindings.retention).toEqual(rules);
+      // Inline rules have no name to route on: they travel as the object alone, and
+      // `retention` stays a string field on every entry the framework emits.
+      expect((loggerWithRetention as any).bindings.retentionRules).toEqual(
+        rules
+      );
+      expect((loggerWithRetention as any).bindings.retention).toBeUndefined();
     });
 
     it('should store retention by reference (no deep clone)', () => {
@@ -346,9 +351,9 @@ describe('Logger', () => {
       const entry =
         typeof secondCall === 'string' ? JSON.parse(secondCall) : secondCall;
       const retention =
-        typeof entry?.retention === 'string'
-          ? JSON.parse(entry.retention)
-          : entry?.retention;
+        typeof entry?.retentionRules === 'string'
+          ? JSON.parse(entry.retentionRules)
+          : entry?.retentionRules;
       expect(retention?.ttl).toBe(7200);
     });
 
