@@ -116,6 +116,9 @@ const until = syntropyLog.getRetentionUntil('OPERACIONES', at);
 import { retentionUntil } from 'syntropylog';   // pure: (at: Date, years: number) => Date | null
 ```
 
+Policy names are label values: use identifiers (`OPERACIONES`, `PCI_DSS_REQ_10`), not captions —
+`[A-Za-z0-9_.:-]`, no spaces/commas/slashes. Captions belong inside the rules as a `label` field.
+
 `retentionUntil` returns `null` for non-integer, zero, negative years or an invalid date — the
 framework never guesses a date into a compliance column. A leap-day record lands on 1-Mar: kept one
 day longer, never one day short.

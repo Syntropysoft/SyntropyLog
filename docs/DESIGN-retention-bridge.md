@@ -48,6 +48,31 @@ query in four years will run it against **the class name**, so:
   are never recycled; when the *rules* behind a name change, the change is recorded by stamping the
   policy set with a version (§4) rather than by minting a new name.
 
+### What makes a good class name
+
+The name is a **label value**, so it should read like an identifier, not like a sentence:
+`[A-Za-z0-9_.:-]`, no spaces, commas, slashes or accents.
+
+Nothing rejects a prettier name — Loki label *values* accept arbitrary UTF-8 and an Elasticsearch
+keyword takes any string. The cost shows up later and quietly: every LogQL matcher and query needs
+quoting, and **Datadog normalizes tags** (lowercasing, restricted charset, `:` splitting key from
+value), so `'Consultas/exportaciones'` can arrive rewritten and the mismatch surfaces as an alert
+that silently stops matching.
+
+A registry keyed by human-readable labels has the identifier and the caption fused into one string.
+Split them: the **key** routes, the caption travels **inside** the rules, where an auditor still
+reads it and `emitRules` still files it with the record.
+
+```ts
+// ❌ the caption as the name — hostile as a label value, and it changes when wording changes
+{ 'Usuarios, roles y permisos': { years: 6 } }
+
+// ✅ identifier as the name, caption as data
+{ USUARIOS: { years: 6, label: 'Usuarios, roles y permisos', standard: 'BCRA A7724 §9.1' } }
+```
+
+This also protects §2's contract: a caption gets reworded, an identifier does not.
+
 ## 3. What SyntropyLog did before 2.0
 
 `withRetention(name)` resolved the name against the registry and bound the **rules object**. The
