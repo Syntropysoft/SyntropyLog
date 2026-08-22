@@ -156,6 +156,7 @@
     "dev": "rollup -c -w",
     "clean": "npx rimraf dist",
     "lint": "eslint . --fix",
+    "lint:check": "eslint . --max-warnings=0",
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "vitest --run --reporter=verbose --config vitest.config.mjs",
     "test:coverage": "vitest run --coverage --config vitest.config.mjs",
@@ -245,9 +246,6 @@
     "typescript": "5.9.3",
     "typescript-eslint": "8.63.0",
     "vitest": "4.1.10"
-  },
-  "lint-staged": {
-    "src/**/*.ts": "eslint --fix --max-warnings=0"
   },
   "pnpm": {
     "overrides": {

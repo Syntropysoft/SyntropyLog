@@ -31,7 +31,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Lint code
-        run: pnpm run lint
+        # lint:check, not lint: `lint` runs eslint --fix, which repairs the issue inside the
+        # runner, exits 0 and throws the repair away — the step could never fail.
+        run: pnpm run lint:check
 
       - name: Build TypeScript
         run: pnpm run build

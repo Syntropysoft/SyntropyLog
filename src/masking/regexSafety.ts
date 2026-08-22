@@ -41,7 +41,11 @@ function readQuantifier(src: string, i: number): Quantifier | null {
     if (!m) return null; // literal '{'
     const lo = parseInt(m[1], 10);
     const unbounded = m[2] === ''; // `{n,}`
-    const max = unbounded ? Infinity : m[2] === undefined ? lo : parseInt(m[2], 10);
+    const max = unbounded
+      ? Infinity
+      : m[2] === undefined
+        ? lo
+        : parseInt(m[2], 10);
     return { unbounded, max, end: skipLazy(src, i + m[0].length) };
   }
   return null;
