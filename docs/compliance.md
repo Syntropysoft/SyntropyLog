@@ -12,6 +12,42 @@ The five primitives that do the work:
 
 ---
 
+## Where this framework's job ends
+
+Stated once, up front, because every regulation section below assumes it.
+
+**SyntropyLog prepares the record and hands it over.** It decides the retention class per record —
+the application is the only place that knows an authorization from a health check — computes the
+end of the mandatory window from the policy in force **at write time**, stamps both onto the entry
+as `retention` and `retentionUntil`, and delivers it durably if you asked it to.
+
+**It never sweeps, archives, or deletes anything, and never checks whether anything did.** That is
+not a missing feature. Retention is *enforced* per container — an index, a stream, a bucket, a
+table — and only the storage tier can act at that level. What the framework owes you is a record
+that the tools which *can* act need no policy knowledge to act on:
+
+```sql
+DELETE FROM audit_log WHERE retention_until < now()
+```
+
+One range scan. It works across records filed under different revisions of the same policy, because
+each one carries the window it was filed under — a revision from 3 years to 42 months does not
+rewrite history, and the sweep never has to reconstruct which revision applied.
+
+Point an Elasticsearch ILM policy, an S3 lifecycle rule, a Loki retention stream or a cron at
+`retentionUntil` and it has everything it needs. Two consequences worth being explicit about:
+
+- **`retentionUntil` is not an expiry.** Reaching it ends the *mandatory* window. It does not
+  authorize deletion — a legal hold, an open dispute, or a longer obligation elsewhere all outrank
+  it, and none of them are things this framework can see.
+- **A policy that declares no window gets no date**, and that is the correct answer rather than a
+  gap: there is nothing to compute, and inventing a date for a compliance column is the one thing
+  this design refuses to do. If your window is not expressible as whole years or months, compute it
+  yourself — [`retentionUntil(at, window)`](fluent-api.md) and `getRetentionUntil(name, at)` are
+  exported for exactly that, and a date you computed is as good as one we did.
+
+---
+
 ## HIPAA — data minimization
 
 The Logging Matrix is the framework's answer to data minimization (45 CFR §164.502(b)). Define which PHI-related fields are eligible at each level:

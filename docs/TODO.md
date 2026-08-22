@@ -1,26 +1,9 @@
 # TODO — SyntropyLog
 
-- [ ] **Reject a retention policy that cannot materialize a window — deferred, it is breaking.**
-  A registered policy with no usable unit (`{ standard: 'SOX 802' }`), with both units
-  (`{ years: 3, months: 6 }`), or with a non-integer count, registers today without complaint and
-  then emits no `retentionUntil`. Those records are written, kept, and **invisible to every
-  range-scan sweep** — the failure is silent, which is the expensive kind.
-
-  The fix is to validate the registry in `init()` and refuse to start, the same way
-  `masking.exemptTransports` refuses an unknown name. It is **not shippable as a minor**:
-  `retentionPolicies` is typed `Record<string, Record<string, unknown>>`, the rules are explicitly
-  freeform, and apps legitimately keep arbitrary metadata there. An app that boots today would
-  stop booting — that is a major (2026-08-22, deferred out of 2.1.0).
-
-  Three ways out, in order of preference:
-  1. **Ship it in the next major.** Arguably a fix wearing a major's clothes: those apps are
-     already broken, they just have not been told.
-  2. **Opt-in first** — `retention: { strictPolicies: true }`, additive and therefore minor, made
-     the default in the major. Downside: the people who most need it are the ones who do not know
-     they have the problem, and they will not turn it on.
-  3. **Warn without throwing.** Cheapest, and contradicts the reason the check exists.
-
-- [ ] **`resolveUntil` callback for windows the library cannot express** — fiscal calendars,
+- [ ] **`resolveUntil` callback for windows the library cannot express** — worth it because the
+  framework's job is to compute the date well and hand it over, not to be the only thing that can
+  compute it. A developer can already do this with the exported helpers; a callback just puts their
+  answer on the entry alongside everyone else's. — fiscal calendars,
   quarter-end alignment, jurisdiction rules, "until the dispute closes". Additive (minor), lives in
   `retention: {}` and not inside the policy rules, so `getRetentionPolicies()` keeps returning data
   and never functions. Mirrors the `spec` / `customMask` pair in masking: declarative first, escape
