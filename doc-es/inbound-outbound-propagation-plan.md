@@ -1,6 +1,8 @@
 # Plan de Propagación de Contexto: Inbound / Outbound
 
-**Estado:** Planificación
+**Estado:** Implementado. Este documento es el registro de diseño, no el estado actual — dice
+"versión objetivo 1.1.0" porque es cuando se escribió. La documentación de uso está en
+[context.md § Propagating across processes](../docs/context.md#propagating-across-processes).
 **Versión objetivo:** 1.0.0-rc.2 (solo adiciones — sin cambios que rompan compatibilidad)
 **Implementación de referencia:** [slpy v0.3.2 (Python)](https://github.com/Syntropysoft/syntropylog.py)
 

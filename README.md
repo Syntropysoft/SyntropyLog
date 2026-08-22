@@ -139,7 +139,9 @@ Masking runs **once**, before the transport loop, so every sink receives the sam
 That is right for consoles and APMs and wrong for exactly one: the audit journal, where `2*****9`
 proves nothing. `masking.exemptTransports` names the sinks that get the truth — declared in *your*
 config, never by a transport about itself, and an unknown name fails loud at `init()` rather than
-silently masking the one sink that had to hold evidence.
+silently masking the one sink that had to hold evidence. With the native engine on, the masked and
+the unmasked rendering come out of a **single** parse (`fastSerializeFromJsonDual`), so an app with
+no exempt transport pays nothing for the feature existing.
 
 Two things worth knowing before writing a rule: masking is keyed on the **field name**, and
 `masking.regexTimeoutMs` is **inert** — V8 cannot interrupt a running regex, so explosive patterns
@@ -157,6 +159,12 @@ mechanism downstream (a Loki label matcher, a Datadog index filter, sink routing
 low-cardinality string, and a field that is a string on some entries and an object on others is a
 mapping conflict at ingest. Alongside it travels `retentionUntil`, the end of the mandatory window,
 materialized so a sweep is a range scan instead of a policy interpretation.
+
+An in-process consumer needs nothing else: it resolves the name at write time with
+`getRetentionPolicy(name)` against the same frozen registry (`getRetentionPolicies()` lists it). A
+consumer **out of process** — a shipper reading JSON, with no registry to resolve against — can have
+the full rules travel on the entry with `retention: { emitRules: true, version: 'E6-1' }`; off by
+default, and the version stamp is what lets a persisted record say which revision it was filed under.
 
 The details are the point: `retentionUntil` is **not an expiry** — reaching it ends the obligation,
 it does not authorize deletion. A leap-day record lands on 1-Mar, kept one day longer, never one day
