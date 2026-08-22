@@ -8,6 +8,8 @@
   <strong>The observability framework for Node.js — powered by a native Rust engine.</strong>
   <br />
   Correlation IDs, PII masking, per-level field control and retention — declared <strong>once</strong> and enforced on every log, serialized + masked + sanitized in a single <strong>native Rust pass</strong> (with a transparent pure-JS fallback). <strong>Failsafe by design:</strong> logging can never crash your app — and audit entries can survive backend outages <strong>and process restarts</strong> (opt-in disk spool).
+  <br /><br />
+  <strong>Zero runtime dependencies</strong> and <strong>backend-agnostic</strong>: one <code>executor</code> function sends entries to Postgres, Elasticsearch, S3, an OTLP collector or anything else — no client libraries in the core. It <strong>composes with OpenTelemetry</strong> rather than replacing it.
 </p>
 
 <p align="center">
@@ -19,14 +21,25 @@
   <a href="https://socket.dev/npm/package/syntropylog"><img src="https://socket.dev/api/badge/npm/package/syntropylog" alt="Socket Badge"></a>
 </p>
 
-<p align="center">
-  Not on Node.js? The same framework exists for other ecosystems — same concepts (Logging Matrix, masking by field name, retention, durable delivery), each built idiomatically:
-  <br />
-  <strong>.NET</strong> → <a href="https://www.nuget.org/packages/sl4n/"><strong>sl4n</strong></a> on <code>Microsoft.Extensions.Logging</code> ·
-  <strong>Python</strong> → <a href="https://pypi.org/project/slpy-log/"><strong>slpy</strong></a> on <code>contextvars</code>/asyncio, with its own optional Rust masking engine
-</p>
+---
+
+## At a glance
+
+| | |
+|---|---|
+| **Runtime** | Node.js **>= 22** · ESM + CJS · TypeScript types included |
+| **Install** | `npm install syntropylog` — **zero runtime dependencies**. The Rust addon is an *optional* dependency; without it the pure-JS pipeline runs, with identical output |
+| **HTTP frameworks** | Express (`correlationIdMiddleware`), Fastify (`fastifyCorrelationHook`), NestJS (`syntropylog/nestjs`). For anything else — Koa, Hono, a bare server — the resolver is framework-agnostic |
+| **Destinations** | Any. You write a one-function `executor`; the framework stays independent of client-library versions |
+| **Interop** | Composes with OpenTelemetry: W3C `traceparent` understood on the way in, OTLP export on the way out |
+| **Testing** | `syntropylog/testing` — `SpyTransport`, mocks and helpers, so assertions run without a live backend |
+| **Self-observability** | `getStats()` — failure counters, fallbacks, uptime, native-addon state |
+| **Bundle** | `sideEffects: false`, tree-shakeable |
+| **Other runtimes** | Same model, built idiomatically per platform: **.NET** → [sl4n](https://www.nuget.org/packages/sl4n/) on `Microsoft.Extensions.Logging` · **Python** → [slpy](https://pypi.org/project/slpy-log/) on `contextvars`/asyncio, with its own optional Rust masking engine |
+| **License** | Apache-2.0 |
 
 ---
+
 ## Install
 
 ```bash
