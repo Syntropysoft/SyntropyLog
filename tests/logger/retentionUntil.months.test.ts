@@ -29,9 +29,20 @@ describe('retentionUntil — months', () => {
     );
   });
 
-  // The unit is exclusive. Both, or neither, is not a window.
+  /**
+   * A policy carrying BOTH units keeps the date it already had. Before `months` was read at
+   * all, `{ years: 3, months: 6 }` produced a date from `years` and ignored the rest — so
+   * refusing to compute would silently take a date away from records that get one today.
+   * Removing a compliance date in a minor is a worse failure than resolving an ambiguity the
+   * way it has always been resolved.
+   */
+  it('prefers years when both units are declared, as it always did', () => {
+    expect(retentionUntil(at, { years: 3, months: 6 })?.toISOString()).toBe(
+      retentionUntil(at, { years: 3 })?.toISOString()
+    );
+  });
+
   it.each([
-    ['both units', { years: 3, months: 6 }],
     ['neither unit', {}],
     ['non-integer months', { months: 3.5 }],
     ['zero months', { months: 0 }],

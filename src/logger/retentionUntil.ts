@@ -15,11 +15,12 @@
  */
 
 /**
- * How long a record must be kept. Exactly one unit — years **or** months, never both.
+ * How long a record must be kept: years **or** months. A policy states one unit.
  *
- * Two units in one declaration have no single obvious reading, and picking one by precedence
- * would put a date nobody chose into a compliance column. A registered policy that declares
- * both is rejected at `init()`; here it simply yields no date.
+ * A declaration carrying both is not rejected — `years` wins, which is exactly what happened
+ * before `months` existed, when `months` was simply an unread key. Refusing to compute would
+ * silently *remove* a date from records that get one today, and taking a date away is a worse
+ * failure than resolving an ambiguity the way it has always been resolved.
  */
 export type RetentionWindow = { years: number } | { months: number };
 
@@ -57,10 +58,13 @@ export function retentionUntil(
   const hasYears = isWholePositive(years);
   const hasMonths = isWholePositive(months);
 
-  // Exactly one unit. `hasYears === hasMonths` covers both of the rejected cases at once:
-  // two units declared together, and no usable unit at all.
-  if (hasYears === hasMonths) return null;
+  // No usable unit at all: nothing to compute, and guessing one would put a date nobody
+  // chose into a compliance column.
+  if (!hasYears && !hasMonths) return null;
 
+  // Both declared: `years` wins. Before `months` existed this key was simply unread, so a
+  // policy carrying both already produced a date from `years` — keeping that is not a guess,
+  // it is not taking away something that already works.
   const until = new Date(at.getTime());
   if (hasYears) {
     until.setUTCFullYear(until.getUTCFullYear() + (years as number));
@@ -83,7 +87,9 @@ export function resolveRetentionWindow(rules: unknown): RetentionWindow | null {
   const { years, months } = rules as { years?: unknown; months?: unknown };
   const hasYears = isWholePositive(years);
   const hasMonths = isWholePositive(months);
-  if (hasYears === hasMonths) return null;
+  if (!hasYears && !hasMonths) return null;
+  // `years` first — see retentionUntil: a policy declaring both got its date from `years`
+  // before `months` was read at all, and that must not change under it.
   return hasYears ? { years: years as number } : { months: months as number };
 }
 

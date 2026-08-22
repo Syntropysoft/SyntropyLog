@@ -9,10 +9,13 @@ that is the expensive kind of silence: the record is written, carries no `retent
 no range-scan sweep ever finds it again. A policy revised from 3 years to 42 months hit exactly
 that, which is not an exotic case; regulatory windows are written in months as often as in years.
 
-A policy now declares `{ years: N }` **or** `{ months: N }` — exactly one unit. Two units in one
-declaration have no single obvious reading, and picking one by precedence would put a date nobody
-chose into a compliance column, so a declaration carrying both yields no window rather than a
-guess. The pure helper widens to `retentionUntil(at, number | { years } | { months })`, where a
+A policy now declares `{ years: N }` **or** `{ months: N }`. A declaration carrying **both** keeps
+the behavior it already had: `years` wins. Before this release `months` was simply an unread key, so
+such a policy already produced a date from `years` — refusing to compute would silently *remove* a
+date from records that get one today, and taking a compliance date away in a minor is worse than
+resolving an ambiguity the way it has always been resolved. A policy declaring **neither** still
+gets no date: there is nothing to compute, and inventing one is the thing this design refuses to do.
+The pure helper widens to `retentionUntil(at, number | { years } | { months })`, where a
 bare number still means years exactly as before; `RetentionWindow` is exported for callers that
 need to name the type.
 

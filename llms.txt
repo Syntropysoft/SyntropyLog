@@ -157,10 +157,12 @@ import { retentionUntil } from 'syntropylog';
 // A bare number still means years.
 ```
 
-A policy declares `years` **or** `months`, not both. A declaration carrying both, or neither, or a
-non-integer count, yields **no** window and therefore no `retentionUntil` — the framework does not
-pick one by precedence. Month arithmetic rolls forward on a short month (31-Jan + 1 month lands in
-March), which errs the same way the leap-day rule does: longer, never shorter.
+A policy declares `years` or `months`. Carrying **both** is not an error — `years` wins, which is
+what happened when `months` was an unread key, so no record loses a date it already had. Carrying
+**neither**, or a non-integer count, yields no window and therefore no `retentionUntil`: there is
+nothing to compute and the framework will not invent one. Month arithmetic rolls forward on a short
+month (31-Jan + 1 month lands in March), erring the same way the leap-day rule does: longer, never
+shorter.
 
 Policy names are label values: use identifiers (`OPERACIONES`, `PCI_DSS_REQ_10`), not captions —
 `[A-Za-z0-9_.:-]`, no spaces/commas/slashes. Captions belong inside the rules as a `label` field.
