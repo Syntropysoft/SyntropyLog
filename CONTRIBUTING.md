@@ -26,11 +26,17 @@ We're always looking for ways to improve SyntropyLog. If you have an idea for a 
 We welcome code contributions! To contribute code, please follow these steps:
 
 1. **Fork the repository:** Click the "Fork" button on the top right of our GitHub repository page.
-2. **Clone your forked repository:**
+2. **Clone your fork, install, and wire the git hooks:**
    ```bash
    git clone https://github.com/YOUR_USERNAME/syntropylog.git
    cd syntropylog
+   pnpm install
+   pnpm run prepare     # installs the husky hooks
    ```
+   `prepare` is what wires `.husky/pre-commit` (lint-staged, both test suites, and the build). It
+   does **not** run under `pnpm install --ignore-scripts`, and a clone without it will commit
+   anything without complaining — including a failing test. Verify before you rely on it:
+   `git config core.hooksPath` must print `.husky/_`.
 3. **Create a new branch:**
    ```bash
    git checkout -b feature/your-feature-name
@@ -85,6 +91,19 @@ We welcome code contributions! To contribute code, please follow these steps:
 - Add inline documentation for complex logic
 - Keep API documentation current
 - Include usage examples
+- English docs live in `docs/`; some have a Spanish twin in `doc-es/`. When a doc has a twin,
+  change both in the same commit — a twin nobody maintains drifts and misleads.
+
+### `llms.txt` is a published contract, not a summary
+`llms.txt` ships inside the package (see `files` in `package.json`) and is what a code-generating
+agent reads to write code against this library, so a wrong line there becomes wrong code in
+somebody else's repository. Treat it like the `.d.ts`:
+- Every change to the public surface, to a default, or to an emitted entry's shape updates
+  `llms.txt` **in the same commit** that introduces it.
+- Never document a private member there, even one reachable through a cast. The reader copies what
+  it says. If the only way to do something is `as any`, the bug is the missing public API.
+- Every fact in it — a default, an enum, a signature — must be traceable to a line in `src/`.
+  If you cannot point at the line, it does not go in.
 
 ## Release process (maintainers)
 
