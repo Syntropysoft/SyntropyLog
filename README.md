@@ -31,6 +31,7 @@
 | **Install** | `npm install syntropylog` — **zero runtime dependencies**. The Rust addon is an *optional* dependency; without it the pure-JS pipeline runs, with identical output |
 | **HTTP frameworks** | Express (`correlationIdMiddleware`), Fastify (`fastifyCorrelationHook`), NestJS (`syntropylog/nestjs`). For anything else — Koa, Hono, a bare server — the resolver is framework-agnostic |
 | **Destinations** | Any. You write a one-function `executor`; the framework stays independent of client-library versions |
+| **Propagation** | One correlation-id across processes. Per-target wire-name maps (`outbound: { http, kafka, … }`) + `getPropagationHeaders(target)`, so services need not agree on header names |
 | **Interop** | Composes with OpenTelemetry: W3C `traceparent` understood on the way in, OTLP export on the way out |
 | **Testing** | `syntropylog/testing` — `SpyTransport`, mocks and helpers, so assertions run without a live backend |
 | **Self-observability** | `getStats()` — failure counters, fallbacks, uptime, native-addon state |
@@ -92,19 +93,47 @@ Feature-by-feature comparison, benchmark method and a migration path:
 ---
 ---
 
-## Four things a logger doesn't do
+## Five things a logger doesn't do
 
 This is where SyntropyLog earns its place. Each one is a mechanism, not a feature bullet — and each
 carries a subtlety that only shows up in production.
 
-### 1. Field control that is a whitelist, not a convention
+### 1. One correlation-id that survives a broker and a language boundary
+
+Inside a process, context rides `AsyncLocalStorage`, so it reaches every log in scope without being
+threaded through function signatures. Across processes it travels through **wire-name maps you
+declare per target**:
+
+```typescript
+// { contextField: wireName } per target — the same id, named per the convention of each hop
+context: {
+  outbound: {
+    http:  { correlationId: 'x-correlation-id', tenantId: 'x-tenant-id' },
+    kafka: { correlationId: 'correlationId',    tenantId: 'tenantId'    },
+  },
+}
+
+contextManager.getPropagationHeaders('kafka')  // → { correlationId: '…', tenantId: '…' }
+```
+
+The point is that services **do not have to agree on header names**. Each declares its own, and the
+maps translate — which is what makes the id survive a hop into a system you do not control. Inbound,
+`correlationIdMiddleware` / `fastifyCorrelationHook` accept a configurable list of headers plus W3C
+`traceparent`.
+
+Example [`22-distributed-orders-kafka`](https://github.com/Syntropysoft/syntropylog-examples/tree/main/22-distributed-orders-kafka)
+threads **one** id through Express → NestJS → Kafka → a Python service → a worker: seven services,
+a message broker and a language boundary, with the card number and CVV masked the whole way.
+→ [context.md](docs/context.md)
+
+### 2. Field control that is a whitelist, not a convention
 
 The **Logging Matrix** declares, per level, which context fields may be emitted. A field absent from
 that level's list *never reaches a transport* — it is not filtered downstream, it is not there.
 `error` can take `['*']` while `info` takes `['correlationId']`, so a debug field cannot leak into
 production logs because somebody forgot to remove it. → [logging-matrix.md](docs/logging-matrix.md)
 
-### 2. Masking that one sink is allowed to opt out of
+### 3. Masking that one sink is allowed to opt out of
 
 Masking runs **once**, before the transport loop, so every sink receives the same obfuscated entry.
 That is right for consoles and APMs and wrong for exactly one: the audit journal, where `2*****9`
@@ -117,7 +146,7 @@ Two things worth knowing before writing a rule: masking is keyed on the **field 
 are rejected statically at `init()` instead of being timed out at runtime. The library says so
 instead of implying a guarantee it cannot keep. → [masking.md](docs/masking.md)
 
-### 3. Retention as a bridge, not a payload
+### 4. Retention as a bridge, not a payload
 
 Retention is *decided* per record — only the application can tell a payment authorization from a
 health check — and *enforced* per container: an index, a stream, a bucket. Those two facts live in
@@ -135,7 +164,7 @@ short, because ending a window early is the failure an auditor punishes. And a p
 `years` gets `null` rather than a guessed date in a compliance column.
 → [compliance.md](docs/compliance.md) · [DESIGN-retention-bridge.md](docs/DESIGN-retention-bridge.md)
 
-### 4. Logging that cannot take your process down
+### 5. Logging that cannot take your process down
 
 A transport that throws, a serializer that exceeds its timeout, a circular reference, a native addon
 that fails to load — none of them reach your call site. Failures surface through hooks
@@ -203,7 +232,8 @@ Full details: [SECURITY.md](./SECURITY.md).
 - **[Native addon (Rust)](docs/native-addon.md)** · **[Building it from source](docs/building-native-addon.md)** · **[OpenTelemetry](docs/opentelemetry-integration.md)** · **[Stability & compatibility](docs/stability.md)**
 - **[Migrating from Pino](docs/migration-from-pino.md)** — practical side-by-side
 - **[Benchmark report (throughput + memory)](docs/benchmark-report.md)** — SyntropyLog vs Pino vs Winston, three machines
-- **[Examples repository](https://github.com/Syntropysoft/syntropylog-examples)** — 22 runnable examples (`00`–`21`): fundamentals (`00`–`09`), integration (`10`–`12`), testing (`13`–`16`), benchmark (`17`), compliance & observability (`18` durable transport, `19` retention policies, `20` getStats, `21` correlation middleware)
+- **[Examples repository](https://github.com/Syntropysoft/syntropylog-examples)** — 23 runnable examples (`00`–`22`): fundamentals (`00`–`09`), integration (`10`–`12`), testing (`13`–`16`), benchmark (`17`), compliance & observability (`18` durable transport, `19` retention policies, `20` getStats, `21` correlation middleware)
+- **[`22-distributed-orders-kafka`](https://github.com/Syntropysoft/syntropylog-examples/tree/main/22-distributed-orders-kafka)** — the end-to-end one: seven services, Express + NestJS + a Python service + a worker, HTTP **and** Kafka, one correlation-id and one distributed trace across all of it, with a live dashboard. Also the example that surfaced the bugs in [KNOWN-ISSUES.md](KNOWN-ISSUES.md) — a single-process demo never exercises these paths
 - **[sl4n — SyntropyLog for .NET](https://www.nuget.org/packages/sl4n/)** — the same declarative model (Logging Matrix, field-name masking, retention, durable delivery) built on `Microsoft.Extensions.Logging` for .NET 8+
 - **[slpy — SyntropyLog for Python](https://pypi.org/project/slpy-log/)** — the same declarative model on `contextvars`/asyncio for Python 3.7+, with FastAPI middleware and its own optional Rust masking engine (`pip install slpy-log`)
 - **[Documentación en Español](doc-es/caracteristicas-y-ejemplos.md)**
