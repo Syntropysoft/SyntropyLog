@@ -52,6 +52,14 @@ Todo lo demás en el registro es **tu metadata estructurada**, pasada tal cual l
 diste (luego del masking/sanitización). Solo agregamos campos de forma
 retrocompatible.
 
+**Quitar un campo de registros que hoy lo llevan es romper**, sea cual sea el
+motivo — incluido "la entrada resultó ambigua y preferimos no adivinar". Negarse a
+computar es defendible para una entrada que nadie usó todavía; aplicado a una que ya
+está en producción, borra en silencio un dato del que alguien depende, y un campo de
+compliance es el peor lugar para enterarse. Cuando una forma existente se vuelve
+ambigua por una feature nueva, gana la lectura existente y la nueva aplica solo
+donde antes no había nada.
+
 ## Addon nativo (Rust) — una optimización, no un contrato
 
 El addon nativo acelera serialización + masking + sanitización. Es una

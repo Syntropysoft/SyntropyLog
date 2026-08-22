@@ -51,6 +51,14 @@ Everything else in the record is **your structured metadata**, passed through as
 provided (after masking/sanitization). We add fields only in a
 backwards-compatible way.
 
+**Removing a field from records that carry it today is breaking**, whatever the
+reason — including "the input turned out to be ambiguous and we would rather not
+guess". Refusing to compute is defensible for an input nobody has used yet; applied
+to one already in production it silently deletes data someone depends on, and a
+compliance field is the worst place to discover that. When an existing shape becomes
+ambiguous under a new feature, the existing reading wins and the new one applies
+only where there was nothing before.
+
 ## Native addon (Rust) — an optimization, not a contract
 
 The native addon accelerates serialization + masking + sanitization. It is a

@@ -71,8 +71,23 @@ We welcome code contributions! To contribute code, please follow these steps:
 ### Code Style
 - Follow TypeScript best practices
 - Use meaningful variable and function names
-- Add JSDoc comments for public APIs
 - Keep functions small and focused (Single Responsibility Principle)
+
+### Comments: one line, and never history
+
+The code explains how. A comment exists for the one thing the code cannot say about itself.
+
+- **A pure function gets one line** saying what it computes. Not a paragraph, not `@param` /
+  `@returns` restating the signature.
+- **A file header says what the file is for**, generally, and stops.
+- **Never put history in a comment** — why something changed, what it did before, which issue it
+  came from. That is the commit message, and git keeps it accurately. In the file it goes stale the
+  first time someone changes the behavior without rewriting the paragraph, and then it lies.
+- **An inline comment earns its place only where correct code looks wrong.** `setUTCMonth` rolling a
+  short month forward reads like an off-by-one until you know it is deliberate; that one gets a line.
+- **A warning is a test, not a comment.** "Do not change this to clamp backwards" in a comment is a
+  plea. The same thing as a test name — `rolls a short month forward, keeping the record longer` —
+  fails when someone contradicts it.
 
 ### Testing
 - Write unit tests for new features
