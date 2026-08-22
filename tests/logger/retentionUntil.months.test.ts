@@ -1,9 +1,6 @@
 /**
  * FILE: tests/logger/retentionUntil.months.test.ts
- * DESCRIPTION: A retention window declared in months. Years and months are mutually
- * exclusive — a policy states one unit or the other, never both — because a mixed
- * declaration has no single obvious reading and guessing one lands a wrong date in a
- * compliance column.
+ * DESCRIPTION: Retention windows declared in months, and the roundings that must err long.
  */
 import { describe, it, expect } from 'vitest';
 import { retentionUntil } from '../../src/logger/retentionUntil';
@@ -29,13 +26,6 @@ describe('retentionUntil — months', () => {
     );
   });
 
-  /**
-   * A policy carrying BOTH units keeps the date it already had. Before `months` was read at
-   * all, `{ years: 3, months: 6 }` produced a date from `years` and ignored the rest — so
-   * refusing to compute would silently take a date away from records that get one today.
-   * Removing a compliance date in a minor is a worse failure than resolving an ambiguity the
-   * way it has always been resolved.
-   */
   it('prefers years when both units are declared, as it always did', () => {
     expect(retentionUntil(at, { years: 3, months: 6 })?.toISOString()).toBe(
       retentionUntil(at, { years: 3 })?.toISOString()
@@ -52,12 +42,6 @@ describe('retentionUntil — months', () => {
     expect(retentionUntil(at, window as never)).toBeNull();
   });
 
-  /**
-   * Month arithmetic overflows: 31-Jan + 1 month has no 31-Feb to land on, and JS rolls
-   * forward into March. That is KEPT ON PURPOSE — it errs on keeping the record longer,
-   * the same direction the leap-day rule already chose. Ending a window early is the
-   * failure an auditor punishes. Do not "fix" this to clamp at the end of February.
-   */
   it('rolls a short month forward, keeping the record longer — never shorter', () => {
     const endOfJanuary = new Date('2026-01-31T00:00:00.000Z');
     const until = retentionUntil(endOfJanuary, { months: 1 })!;

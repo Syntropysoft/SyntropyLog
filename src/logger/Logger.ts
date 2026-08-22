@@ -189,16 +189,7 @@ function hasContextOrBindings(
   return false;
 }
 
-/**
- * Pure: the retention window bound to this logger — `{ years }` or `{ months }` — or
- * `undefined` when the rules declare none.
- *
- * Reads the bound policy name against the frozen registry — the same lookup `withRetention`
- * did — or the inline rules when there is no name. A registered policy has already been
- * checked at `init()`, so `undefined` here means inline rules that declare no usable unit:
- * a TTL expressed some other way is the caller's to compute, and guessing would put a wrong
- * date in a compliance column.
- */
+/** Pure: the retention window bound to this logger, from the registry or inline rules. */
 function resolveRetentionBinding(
   bindings: LogBindings,
   dependencies: LoggerDependencies
