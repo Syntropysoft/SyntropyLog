@@ -97,4 +97,4 @@ await syntropyLog.init({ logger: { /* … */ disableNativeAddon: true } });
 
 ## Runtime support
 
-- **Node.js** `>= 20`.
+- **Node.js** `>= 22` (enforced by `engines`).

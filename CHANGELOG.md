@@ -1,6 +1,22 @@
 # Changelog
 
-## Unreleased — 2.0.0 (breaking)
+## Unreleased — 2.1.0
+
+### Added — `SyntropyLogState` is exported
+
+`getState()` returns the lifecycle state and `SyntropyLogStats.state` carries it, but the union itself was never exported — a consumer could read the value and never name it. No annotation on a helper that takes one, no exhaustive `switch` over the six states, no way to declare a variable that holds one. It is now part of the public surface: `'NOT_INITIALIZED' | 'INITIALIZING' | 'READY' | 'ERROR' | 'SHUTTING_DOWN' | 'SHUTDOWN'`. Additive — one type export, no runtime change, no new value on the surface.
+
+### Fixed — the docs said Node ≥20 while `engines` rejects anything below 22
+
+`engines` has required `>=22.0.0` since the Node 22 baseline landed, but six documents still told readers 20 was enough — or 18, in the addon's own README — and one of them was `docs/stability.md`, the document whose entire job is to state what the project commits to at runtime. `pnpm-lock.yaml` also still recorded `>=20.0.0` for the self-referenced package, so the lockfile disagreed with `package.json`. Corrected in `README.md`, `docs/stability.md`, `docs/native-addon.md`, `docs/building-native-addon.md`, `syntropylog-native/README.md`, the `doc-es/` twins, and the lockfile. No code change: the requirement never moved, the documentation drifted behind it. Historical mentions (HISTORY, past releases, the machines a benchmark ran on, the Node version an issue reproduced under) are left alone — those are records, not claims about today.
+
+### Fixed — `llms.txt` pointed agents at a private field, and omitted part of the surface
+
+`llms.txt` ships in the package and is the contract a code-generating agent reads, so a wrong line there becomes wrong code in somebody else's repository. It taught `(spy as any).entries` as the way to read what `SpyTransport` captured — a **private** field, reached through a cast that also throws away the types, while `getEntries()`, `findEntries()`, `getFirstEntry()`, `getLastEntry()` and `clear()` are public and were documented nowhere.
+
+Also added, all of it already shipping and none of it previously described: the whole `SyntropyLogConfig` shape in a single block (it was spread across five sections, and `context` and `shutdownTimeout` appeared in none of them); `getState()` and `resetTransports()` in the facade table, each with whether it is readiness-gated — `getState()` is not, which makes it the way to check readiness without a `try`/`catch`; the `MaskSpec` shape together with `getDefaultMaskingRules()`, `strategyToSpec()` and `applyMask()`, so a custom rule can be written as data instead of guessed at; the values of `DEFAULT_INCOMING_HEADERS` and `DEFAULT_RESPONSE_HEADERS`; and the plain `TypeError` the static ReDoS check throws at `init()`, which was in the prose but missing from the table that claims to be the error contract.
+
+## 2.0.0 (breaking)
 
 **Retention stops being a payload and becomes a bridge.** Retention is *enforced* per container — an Elasticsearch index, a Loki stream, a Datadog index, a Cloud Logging bucket, an S3 prefix under Object Lock — and *decided* per record. Nothing downstream can tell a six-year regulatory event from a health check; the application, at the moment of writing, is the only place where the answer exists. Every mechanism on the receiving end (Loki label matchers, Datadog index filters, sink routing) matches on a **low-cardinality string**, and none of them reads a rules object. So the class name is what travels now, plus the one derived field that lets anything downstream act without understanding policies at all.
 

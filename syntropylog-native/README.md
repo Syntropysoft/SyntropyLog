@@ -6,7 +6,7 @@ Native Rust addon for SyntropyLog (fast serialization + masking). Phase 0: build
 
 ## Requirements
 
-- Node ≥18
+- Node ≥22 (same as the main package `engines`)
 - Rust (rustup) and target for your platform (e.g. `x86_64-pc-windows-msvc` on Windows)
 
 ## Build (from this folder)

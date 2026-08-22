@@ -34,6 +34,7 @@ exports[`Public API surface (src/index.ts) — 1.0 semver contract > locks the e
     "StatsFailureCounts",
     "StatsSnapshot",
     "SyntropyLogConfig",
+    "SyntropyLogState",
     "SyntropyLogStats",
   ],
   "values": [

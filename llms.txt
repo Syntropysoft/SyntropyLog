@@ -18,16 +18,52 @@ npm install syntropylog
 ```ts
 import { syntropyLog } from 'syntropylog';            // process-wide singleton (default)
 import { createSyntropyLog } from 'syntropylog';      // independent instance (multi-tenant, tests)
+import { SyntropyLog } from 'syntropylog';            // the class itself — statics, e.g. resetInstance()
 
 await syntropyLog.init({ logger: { serviceName: 'payments', level: 'info' } });
 const log = syntropyLog.getLogger();                  // after init resolves
 await syntropyLog.shutdown();                         // flushes transports
 ```
 
-- `init()` is async and must resolve before `getLogger()`. Accessors below assert readiness and
-  throw if called earlier.
+- `init()` is async and must resolve before `getLogger()`. Most accessors assert readiness and
+  throw if called earlier; the exceptions are `getState()` and `getStats()`, which are safe before
+  `init()` and are how you check readiness without a `try`/`catch`.
 - Both entry points implement `ISyntropyLog`. Type against it to stay agnostic.
 - The package is ESM+CJS, types included. Node >= 22 is enforced by `engines`.
+
+### `SyntropyLogConfig` — the whole shape
+
+Every key is optional; `init({})` is valid. The sections below expand each one.
+
+```ts
+await syntropyLog.init({
+  logger: {
+    serviceName: 'payments',        // -> `service` on every entry
+    level: 'info',                  // audit|fatal|error|warn|info|debug|trace|silent
+    transports: { default: [ /* … */ ] },   // route name -> Transport[]
+    serializerTimeoutMs: 5000,
+    disableNativeAddon: false,      // true forces the JS pipeline
+    prettyPrint: { enabled: false },
+  },
+  loggingMatrix: defineMatrix({ default: ['correlationId'], error: ['*'] }),
+  masking: { enableDefaultRules: true, rules: [], exemptTransports: [] },
+  context: {                        // header names the context manager reads/writes
+    correlationIdHeader: 'x-correlation-id',
+    transactionIdHeader: 'x-transaction-id',
+    customHeaders: [],
+  },
+  retentionPolicies: defineRetentionPolicies({ /* NAME: { years: 6 } */ }),
+  retention: { version: 'E6-1', emitRules: false, emitUntil: true },
+  shutdownTimeout: 5000,
+  onLogFailure: (error, entry) => {},
+  onTransportError: (error, context) => {},
+  onStepError: (step, error) => {},
+  onSerializationFallback: (reason) => {},
+});
+```
+
+`context` and `shutdownTimeout` have no section of their own below — the shape above is their
+whole contract.
 
 ## Log levels
 
@@ -42,6 +78,7 @@ Pino-style signatures: `log.info('msg')` and `log.info({ field }, 'msg')`.
 | --- | --- | --- |
 | `init(config)` | `Promise<void>` | Validates config; throws `ConfigValidationError` on a bad shape. |
 | `shutdown()` | `Promise<void>` | Flushes and drains transports. |
+| `getState()` | `SyntropyLogState` | `'NOT_INITIALIZED' \| 'INITIALIZING' \| 'READY' \| 'ERROR' \| 'SHUTTING_DOWN' \| 'SHUTDOWN'`. **Not** readiness-gated — safe before `init()`, and the way to check readiness without a `try`/`catch`. |
 | `getLogger(name?, bindings?)` | `ILogger` | `name` selects the transport route; defaults to `'default'`. |
 | `getContextManager()` | `IContextManager` | Correlation store. |
 | `getConfig()` | `SyntropyLogConfig` | The caller's config object. Not the frozen registry — see below. |
@@ -50,7 +87,8 @@ Pino-style signatures: `log.info('msg')` and `log.info({ field }, 'msg')`.
 | `getRetentionPolicies()` | frozen registry | `{}` when none declared, never `undefined`. |
 | `getRetentionUntil(name, at)` | `Date \| null` | End of the mandatory window. `null` when the policy has no whole `years`. |
 | `reconfigureLoggingMatrix(matrix)` | `void` | Hot-swap field whitelists; masking and levels untouched. |
-| `reconfigureTransportsForDebug({ add })` | `void` | Add console transports at runtime; `resetTransports()` undoes it. |
+| `reconfigureTransportsForDebug({ add })` | `void` | Add console transports at runtime. Console transports only — no `AdapterTransport`, no custom. |
+| `resetTransports()` | `void` | Undoes `reconfigureTransportsForDebug`. Readiness-gated: throws before `init()` resolves. |
 | `getMasker()` / `getSerializer()` | engine | Advanced use. |
 | `isNativeAddonInUse()` | `boolean` | Reliable after `init()`. |
 | `getStats()` | `SyntropyLogStats` | State, uptime, failure counters. Safe before `init()`. |
@@ -139,6 +177,25 @@ await syntropyLog.init({
 - `MaskingStrategy`: `CREDIT_CARD | SSN | EMAIL | PHONE | PASSWORD | TOKEN | CUSTOM`. There is no
   `PARTIAL`. `spec` gives a declarative custom mask that also runs in the native engine;
   `customMask` (a JS function) forces the JS path for that logger.
+- `getDefaultMaskingRules(options?)` returns the built-in rules so you can **spread and extend**
+  instead of replacing them: `rules: [...getDefaultMaskingRules(), { pattern: /myKey/i, strategy:
+  MaskingStrategy.PASSWORD }]`. It accepts `{ maskChar?, preserveLength? }`.
+- `MaskSpec` is the declarative mask, and it is the shape `spec` takes:
+
+  ```ts
+  interface MaskSpec {
+    redact?: boolean;          // replace the whole value; wins over everything else
+    unmaskStart?: number;      // keep the first N units
+    unmaskEnd?: number;        // keep the last N units
+    scope?: 'all' | 'digits';  // 'digits' masks only digits, separators kept
+    keepAfter?: string;        // keep everything from this delimiter on (e.g. an email domain)
+    maskChar?: string;         // default '*'
+    preserveLength?: boolean;  // default true; when false the masked run is capped
+  }
+  ```
+
+  `strategyToSpec(strategy)` converts a built-in strategy into its `MaskSpec`, and `applyMask(value,
+  spec)` applies one directly — both exported for building rules as data.
 - `exemptTransports` names transports that receive the entry **unmasked** — declared in app config,
   never by a transport about itself. An unknown name throws `UnknownExemptTransportError` at
   `init()`. ANSI stripping, truncation and depth caps still apply to the exempt output.
@@ -199,6 +256,13 @@ transport. `'*'` allows all. Context propagates through async chains via the con
 headers, with `resolveCorrelationId`, `traceIdFromTraceparent` and `extractInboundContext` exported
 for other frameworks.
 
+The header lists are exported too, so you can see (and override) what is read and echoed:
+
+| Constant | Value |
+| --- | --- |
+| `DEFAULT_INCOMING_HEADERS` | `['x-trace-id', 'x-correlation-id', 'x-request-id', 'request-id']` — checked in order, first hit wins |
+| `DEFAULT_RESPONSE_HEADERS` | `['X-Trace-Id', 'X-Correlation-ID', 'X-Request-ID']` — the resolved ID is echoed into each |
+
 ## Observability hooks (all optional, on `init()`)
 
 `onLogFailure(error, entry)` · `onTransportError(error, context)` · `onStepError(step, error)` ·
@@ -219,6 +283,7 @@ fails to load, distinguishing "not installed (optional dependency)" from "failed
 | `UnknownExemptTransportError` | `masking.exemptTransports` names a transport that is not configured. At `init()`. |
 | `ReservedMetaFieldError` | `withMeta(field, …)` with an empty or framework-owned field name. |
 | `ConfigValidationError` | `init()` receives a malformed config. **Not exported** — match on `err.name`, not on the class. |
+| `TypeError` | A custom masking key pattern fails the static ReDoS check at `init()` (nested unbounded quantifiers). Plain `TypeError`, no dedicated class. |
 
 ## Common mistakes
 
@@ -247,9 +312,20 @@ const p2 = syntropyLog.getRetentionPolicy(name);
 
 ## Testing
 
-`SpyTransport` collects entries in memory (`(spy as any).entries`). `SyntropyLog.resetInstance()`
-and `_resetForTesting()` isolate the singleton between tests; `createSyntropyLog()` avoids the
-singleton entirely.
+`SpyTransport` collects entries in memory. Read them through its **public** accessors — `entries`
+is a private field and casting to reach it will break without notice:
+
+```ts
+const spy = new SpyTransport({ name: 'spy' });
+spy.getEntries();            // LogEntry[] — a copy
+spy.findEntries(predicate);  // Partial<LogEntry> object, or (entry) => boolean
+spy.getFirstEntry();         // LogEntry | undefined
+spy.getLastEntry();          // LogEntry | undefined
+spy.clear();
+```
+
+`SyntropyLog.resetInstance()` and `_resetForTesting()` isolate the singleton between tests;
+`createSyntropyLog()` avoids the singleton entirely.
 
 Subpath exports: `syntropylog/testing`, `syntropylog/testing/mock` (`SyntropyLogMock`).
 
