@@ -47,11 +47,10 @@ export function resolveRetentionWindow(rules: unknown): RetentionWindow | null {
   return null;
 }
 
-/** Pure: the window as the ISO string the entry carries, or `undefined` when there is none. */
+/** Pure: the window as the ISO string the entry carries; the caller supplies a window or skips. */
 export function retentionUntilIso(
   atMs: number,
-  window: RetentionWindow | undefined
+  window: RetentionWindow
 ): string | undefined {
-  if (!window) return undefined;
   return retentionUntil(new Date(atMs), window)?.toISOString();
 }

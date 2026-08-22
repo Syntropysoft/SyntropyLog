@@ -38,6 +38,8 @@ describe('retentionUntil — months', () => {
     ['zero months', { months: 0 }],
     ['negative months', { months: -12 }],
     ['months of the wrong type', { months: '42' }],
+    ['a window that is not an object', null],
+    ['a window that is a string', 'three years'],
   ])('yields null for %s', (_label, window) => {
     expect(retentionUntil(at, window as never)).toBeNull();
   });
