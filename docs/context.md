@@ -15,11 +15,14 @@ await syntropyLog.init({
 });
 ```
 
-These header names are the **single source of truth**. They are used to:
+They default to `x-correlation-id` and `x-trace-id`. They are used to:
 
 - Read the correlation/transaction ID from incoming requests.
-- Propagate them on outgoing HTTP/broker calls (when using a SyntropyLog adapter).
 - Resolve `correlationId` / `transactionId` in the [Logging Matrix](logging-matrix.md).
+
+They are **not** what propagates context on the way out. Outgoing propagation is a separate,
+per-target mechanism — see [Propagating across processes](#propagating-across-processes) below. If
+you configure only these two and then call `getPropagationHeaders()`, you get `{}`.
 
 ---
 
@@ -92,6 +95,57 @@ app.addHook('onRequest', fastifyCorrelationHook({
 
 The hook uses the `done`-callback form intentionally — calling `done()` synchronously inside the context scope schedules Fastify's next step while the scope is still active, so every subsequent hook, validator, and handler observes the same correlation context.
 
+## Propagating across processes
+
+`correlationIdHeader` names the header this service *reads*. Sending the context onward is declared
+separately, per **target**, because the same field is spelled differently on each wire: an HTTP hop
+wants `x-correlation-id`, a Kafka message header is conventionally `correlationId`, and a system you
+do not own may want something else entirely.
+
+```typescript
+await syntropyLog.init({
+  context: {
+    // { contextField: wireName } — the key is the field in your context,
+    // the value is what it is called on that wire.
+    outbound: {
+      http:  { correlationId: 'x-correlation-id', tenantId: 'x-tenant-id' },
+      kafka: { correlationId: 'correlationId',    tenantId: 'tenantId'    },
+    },
+    inbound: {
+      kafka: { correlationId: 'correlationId', tenantId: 'tenantId' },
+    },
+  },
+});
+```
+
+Then, at the call site:
+
+```typescript
+const cm = syntropyLog.getContextManager();
+
+await fetch(url, { headers: { ...cm.getPropagationHeaders('http') } });     // or just ()
+await producer.send({ headers: cm.getPropagationHeaders('kafka'), /* … */ });
+```
+
+Worth knowing:
+
+- **`target` defaults to `'http'`.** `getPropagationHeaders()` with no argument reads `outbound.http`.
+- **An unconfigured target returns `{}`**, silently — it is not an error. If a hop is losing the id,
+  check that the target name at the call site matches a key under `outbound`.
+- **`inbound` and `outbound` start empty.** They are not derived from `correlationIdHeader`; a
+  service that declares neither propagates nothing.
+- **Only fields present in the current context are emitted.** A mapped field with no value in scope
+  is left out rather than sent empty.
+- **The two ends do not have to agree on names.** Each service declares its own map; that is what
+  lets the id survive a hop into a system whose header conventions you do not control.
+- `getOutboundHeaderName(field, target?)` returns the wire name for a single field, when you need to
+  set one header by hand.
+
+A full working setup — seven services, HTTP and Kafka, one id across a language boundary — is
+[`22-distributed-orders-kafka`](https://github.com/Syntropysoft/syntropylog-examples/tree/main/22-distributed-orders-kafka).
+
+---
+
 ## Custom integrations
 
 If you're not using Express or Fastify, the same resolver is exported on its own:
@@ -112,7 +166,7 @@ const id = resolveCorrelationId(ctx.request.headers, {
 
 If your platform team runs an OpenTelemetry collector, incoming requests usually carry a `traceparent` header (RFC 9110). The middleware above extracts the 32-hex trace-id from `traceparent` and uses it as SyntropyLog's correlation ID, so a single trace ID propagates through both your traces and your logs without extra plumbing.
 
-If you need to **propagate** trace context on outgoing HTTP calls, build the `traceparent` value yourself in your HTTP client (or use the OpenTelemetry SDK alongside SyntropyLog) — the framework intentionally stays out of the wire format.
+If you need to **propagate `traceparent` itself** on outgoing calls, build that value in your HTTP client or let the OpenTelemetry SDK do it — SyntropyLog reads `traceparent` inbound but does not construct it outbound. This is specifically about the W3C wire format; propagating *your own* context fields outward is [Propagating across processes](#propagating-across-processes), which the framework does handle.
 
 To **export logs** to an OTLP collector (so traces and logs land in the same backend correlated by `traceId`), see [opentelemetry-integration.md](opentelemetry-integration.md) — it covers the formatter, severity mapping, and the executor that emits `LogRecord` via `@opentelemetry/api-logs`.
 
