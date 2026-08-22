@@ -2,6 +2,30 @@
 
 ## Unreleased — 2.1.0
 
+### Added — a retention window can be declared in months
+
+`retentionUntil` only ever materialized whole `years`. Anything else got no date at all — and
+that is the expensive kind of silence: the record is written, carries no `retentionUntil`, and
+no range-scan sweep ever finds it again. A policy revised from 3 years to 42 months hit exactly
+that, which is not an exotic case; regulatory windows are written in months as often as in years.
+
+A policy now declares `{ years: N }` **or** `{ months: N }` — exactly one unit. Two units in one
+declaration have no single obvious reading, and picking one by precedence would put a date nobody
+chose into a compliance column, so a declaration carrying both yields no window rather than a
+guess. The pure helper widens to `retentionUntil(at, number | { years } | { months })`, where a
+bare number still means years exactly as before; `RetentionWindow` is exported for callers that
+need to name the type.
+
+**Both roundings err long, never short.** 31-Jan plus one month has no 31-Feb to land on and rolls
+into March; a leap day plus N years lands on 1-Mar. Neither is clamped backwards, for the same
+reason: ending a window early is the failure an auditor punishes, and a record kept a day too long
+costs storage rather than a finding.
+
+Because the date is computed **at write time**, a policy revised later does not rewrite history.
+Records filed under the old window keep it, records filed after get the new one, and the sweep
+stays one range scan — `WHERE retention_until < now()` — across all of them, however many
+revisions there have been.
+
 ### Added — `SyntropyLogState` is exported
 
 `getState()` returns the lifecycle state and `SyntropyLogStats.state` carries it, but the union itself was never exported — a consumer could read the value and never name it. No annotation on a helper that takes one, no exhaustive `switch` over the six states, no way to declare a variable that holds one. It is now part of the public surface: `'NOT_INITIALIZED' | 'INITIALIZING' | 'READY' | 'ERROR' | 'SHUTTING_DOWN' | 'SHUTDOWN'`. Additive — one type export, no runtime change, no new value on the surface.

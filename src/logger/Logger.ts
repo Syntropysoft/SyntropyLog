@@ -21,7 +21,11 @@ import { SerializationManager } from '../serialization/SerializationManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SyntropyLog } from '../SyntropyLog';
 import { ILogger } from './ILogger';
-import { retentionUntilIso } from './retentionUntil';
+import {
+  retentionUntilIso,
+  resolveRetentionWindow,
+  type RetentionWindow,
+} from './retentionUntil';
 
 /** Per-call routing: override (only these) or add/remove from default. */
 type PendingRouting =
@@ -186,26 +190,25 @@ function hasContextOrBindings(
 }
 
 /**
- * Pure: the whole years of retention bound to this logger, or `undefined`.
+ * Pure: the retention window bound to this logger — `{ years }` or `{ months }` — or
+ * `undefined` when the rules declare none.
  *
  * Reads the bound policy name against the frozen registry — the same lookup `withRetention`
- * did — or the inline rules when there is no name. Anything that is not a whole positive
- * number yields `undefined`: a TTL expressed in some other unit is the caller's to compute,
- * and guessing would put a wrong date in a compliance column.
+ * did — or the inline rules when there is no name. A registered policy has already been
+ * checked at `init()`, so `undefined` here means inline rules that declare no usable unit:
+ * a TTL expressed some other way is the caller's to compute, and guessing would put a wrong
+ * date in a compliance column.
  */
-function resolveRetentionYears(
+function resolveRetentionBinding(
   bindings: LogBindings,
   dependencies: LoggerDependencies
-): number | undefined {
+): RetentionWindow | undefined {
   const name = bindings.retention;
   const rules =
     typeof name === 'string'
       ? dependencies.retentionPolicies?.[name]
       : (bindings.retentionRules as Record<string, unknown> | undefined);
-  const years = rules?.years;
-  return typeof years === 'number' && Number.isInteger(years) && years > 0
-    ? years
-    : undefined;
+  return resolveRetentionWindow(rules) ?? undefined;
 }
 
 /** Pure: resolve effective transports from default list + pool and routing (no mutation). */
@@ -274,7 +277,7 @@ export class Logger {
    * Whole years of the retention policy bound to this logger, if any. Resolved once at
    * construction so the per-entry cost is one date computation, not a registry lookup.
    */
-  private readonly retentionYears?: number;
+  private readonly retentionWindow?: RetentionWindow;
 
   constructor(
     name: string,
@@ -287,7 +290,7 @@ export class Logger {
     this.dependencies = dependencies;
     this.bindings = (options.bindings ?? {}) as LogBindings;
     this.level = options.level ?? 'info';
-    this.retentionYears = resolveRetentionYears(this.bindings, dependencies);
+    this.retentionWindow = resolveRetentionBinding(this.bindings, dependencies);
   }
 
   /**
@@ -295,8 +298,8 @@ export class Logger {
    * this logger carries one — an untagged logger pays a single truthiness check.
    */
   private retentionFields(atMs: number): Record<string, string> | undefined {
-    if (this.retentionYears === undefined) return undefined;
-    const until = retentionUntilIso(atMs, this.retentionYears);
+    if (this.retentionWindow === undefined) return undefined;
+    const until = retentionUntilIso(atMs, this.retentionWindow);
     return until ? { retentionUntil: until } : undefined;
   }
 

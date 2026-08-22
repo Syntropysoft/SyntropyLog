@@ -151,8 +151,16 @@ Out-of-logger resolution (a domain path that writes straight to the database):
 ```ts
 const rules = syntropyLog.getRetentionPolicy('OPERACIONES');
 const until = syntropyLog.getRetentionUntil('OPERACIONES', at);
-import { retentionUntil } from 'syntropylog';   // pure: (at: Date, years: number) => Date | null
+import { retentionUntil } from 'syntropylog';
+// pure: (at: Date, window: number | RetentionWindow) => Date | null
+// RetentionWindow = { years: number } | { months: number } — exactly one unit, never both.
+// A bare number still means years.
 ```
+
+A policy declares `years` **or** `months`, not both. A declaration carrying both, or neither, or a
+non-integer count, yields **no** window and therefore no `retentionUntil` — the framework does not
+pick one by precedence. Month arithmetic rolls forward on a short month (31-Jan + 1 month lands in
+March), which errs the same way the leap-day rule does: longer, never shorter.
 
 Policy names are label values: use identifiers (`OPERACIONES`, `PCI_DSS_REQ_10`), not captions —
 `[A-Za-z0-9_.:-]`, no spaces/commas/slashes. Captions belong inside the rules as a `label` field.
