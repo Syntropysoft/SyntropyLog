@@ -1,6 +1,6 @@
 {
   "name": "syntropylog",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "packageManager": "pnpm@10.34.5",
   "engines": {
     "node": ">=22.0.0"
