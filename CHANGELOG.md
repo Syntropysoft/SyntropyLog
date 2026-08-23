@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 2.1.0
+## 2.1.0
 
 ### Added — a retention window can be declared in months
 
