@@ -9,7 +9,7 @@ import {
   UnknownExemptTransportError,
 } from './Logger';
 import { ILogger } from './ILogger';
-import { retentionUntil } from './retentionUntil';
+import { retentionUntil, resolveRetentionWindow } from './retentionUntil';
 import { IContextManager } from '../context/IContextManager';
 import { MaskingEngine } from '../masking/MaskingEngine';
 import { SerializationManager } from '../serialization/SerializationManager';
@@ -353,8 +353,8 @@ export class LoggerFactory {
    * @throws {RetentionPolicyNotFoundError} if the name is not registered.
    */
   public getRetentionUntil(name: string, at: Date): Date | null {
-    const years = this.getRetentionPolicy(name).years;
-    return typeof years === 'number' ? retentionUntil(at, years) : null;
+    const window = resolveRetentionWindow(this.getRetentionPolicy(name));
+    return window ? retentionUntil(at, window) : null;
   }
 
   /**

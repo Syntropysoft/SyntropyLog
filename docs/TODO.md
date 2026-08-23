@@ -1,5 +1,16 @@
 # TODO — SyntropyLog
 
+- [ ] **`resolveUntil` callback for windows the library cannot express** — worth it because the
+  framework's job is to compute the date well and hand it over, not to be the only thing that can
+  compute it. A developer can already do this with the exported helpers; a callback just puts their
+  answer on the entry alongside everyone else's. — fiscal calendars,
+  quarter-end alignment, jurisdiction rules, "until the dispute closes". Additive (minor), lives in
+  `retention: {}` and not inside the policy rules, so `getRetentionPolicies()` keeps returning data
+  and never functions. Mirrors the `spec` / `customMask` pair in masking: declarative first, escape
+  hatch second, with its cost stated — it runs per retention-tagged entry, on the hot path. Must
+  never throw to the caller: route failures through `onStepError` and emit no date, which keeps the
+  record rather than sweeping it early.
+
 - [x] **Retention as a declarative bridge** (major) — **hecho**: the class is decided per record and enforced per
   container (index / stream / bucket), and the mechanisms downstream consume a low-cardinality
   **string** — but `withRetention(name)` discards the name and binds the rules object, so every sink

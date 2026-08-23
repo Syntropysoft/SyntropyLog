@@ -62,6 +62,13 @@ npm view syntropylog dist-tags          # latest should be 1.0.0
 npm view syntropylog-native version     # 1.0.0
 ```
 
+- **Close the `## Unreleased` heading in `CHANGELOG.md`.** Because `"changelog": false`, the Version
+  PR bumps `package.json` and never touches the CHANGELOG — so the entry you hand-wrote as
+  `## Unreleased — X.Y.Z` stays saying "Unreleased" after the version is live on npm, and the next
+  person writes the following release underneath a heading that is already lying. Drop the
+  `Unreleased — ` prefix as part of the post-release pass. (2.0.0 shipped while its heading still
+  said Unreleased; that is what this check exists to prevent.)
+
 - Confirm a fresh install on Linux arm64 (Graviton) and Alpine/musl resolves a
   native `.node` (no JS-fallback log line) — that's the new server coverage.
 - Tag the release in git and write the GitHub release notes from the CHANGELOG.

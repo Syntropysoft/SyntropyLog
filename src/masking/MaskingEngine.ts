@@ -346,7 +346,10 @@ export class MaskingEngine {
    * value — no unmasked leak on the second reference — and (b) a cyclic reference returns
    * the original object instead of recursing forever.
    */
-  private applyMaskingRules(data: unknown, memo: Map<object, unknown>): unknown {
+  private applyMaskingRules(
+    data: unknown,
+    memo: Map<object, unknown>
+  ): unknown {
     if (data === null || typeof data !== 'object') {
       return data;
     }
@@ -390,7 +393,9 @@ export class MaskingEngine {
         // (no descent → nested PII can't leak under a sensitive-named parent). This
         // mirrors the native engine's `resolve_key_action` exactly.
         newValue =
-          typeof value === 'string' ? this.applyStrategy(value, rule) : REDACTED;
+          typeof value === 'string'
+            ? this.applyStrategy(value, rule)
+            : REDACTED;
       } else if (typeof value === 'object' && value !== null) {
         newValue = this.applyMaskingRules(value, memo);
       }

@@ -22,7 +22,7 @@ The output is the same canonical log entry the JS pipeline produces, so transpor
 npm install syntropylog
 ```
 
-Prebuilt addons for Linux, macOS, and Windows on Node ≥20 are pulled in as an optional dependency. If your platform has no prebuilt binary or your installer can't fetch it, the JS pipeline is used and nothing else changes.
+Prebuilt addons for Linux, macOS, and Windows on Node ≥22 are pulled in as an optional dependency. If your platform has no prebuilt binary or your installer can't fetch it, the JS pipeline is used and nothing else changes.
 
 ---
 

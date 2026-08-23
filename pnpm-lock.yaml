@@ -2326,7 +2326,7 @@ packages:
 
   'syntropylog@file:':
     resolution: {directory: '', type: directory}
-    engines: {node: '>=20.0.0'}
+    engines: {node: '>=22.0.0'}
     peerDependencies:
       '@nestjs/common': ^10.0.0 || ^11.0.0
       '@nestjs/core': ^10.0.0 || ^11.0.0

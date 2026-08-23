@@ -22,6 +22,7 @@ export type { LogFormatter } from './logger/transports/formatters/LogFormatter';
 // --- Main Framework Exports ---
 export { SyntropyLog, syntropyLog, createSyntropyLog } from './SyntropyLog';
 export type { ISyntropyLog, SyntropyLogStats } from './ISyntropyLog';
+export type { SyntropyLogState } from './core/LifecycleManager';
 export type {
   StatsSnapshot,
   StatsFailureCounts,
@@ -33,6 +34,7 @@ export { defineMatrix } from './logger/defineMatrix';
 export type { MatrixLevel, MatrixFor } from './logger/defineMatrix';
 export { defineRetentionPolicies } from './logger/defineRetentionPolicies';
 export { retentionUntil } from './logger/retentionUntil';
+export type { RetentionWindow } from './logger/retentionUntil';
 export {
   RetentionPolicyNotFoundError,
   ReservedMetaFieldError,

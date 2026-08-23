@@ -7,6 +7,9 @@
 // --- Main Framework Class ---
 export { syntropyLog, SyntropyLog, createSyntropyLog } from './SyntropyLog';
 export type { ISyntropyLog, SyntropyLogStats } from './ISyntropyLog';
+// The lifecycle state `getState()` returns and `SyntropyLogStats.state` carries. Both are public;
+// without this the consumer can read the value but cannot name the type.
+export type { SyntropyLogState } from './core/LifecycleManager';
 // Re-exported so the `syntropylog/nestjs` subpath can import it from the package entry
 // (external at build) instead of bundling a second copy — see KNOWN-ISSUES #1. It is
 // already part of the public type surface via type-exports.ts.
@@ -22,6 +25,7 @@ export { defineMatrix } from './logger/defineMatrix';
 export type { MatrixLevel, MatrixFor } from './logger/defineMatrix';
 export { defineRetentionPolicies } from './logger/defineRetentionPolicies';
 export { retentionUntil } from './logger/retentionUntil';
+export type { RetentionWindow } from './logger/retentionUntil';
 export {
   RetentionPolicyNotFoundError,
   ReservedMetaFieldError,

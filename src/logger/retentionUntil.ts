@@ -1,48 +1,56 @@
 /**
  * @file src/logger/retentionUntil.ts
- * @description The date a retention obligation runs to — materialized so a sweep is a range
- * scan instead of a policy interpretation.
- *
- * Retention is enforced per container (index, stream, bucket) and decided per record. The
- * class name is what routes the record; this date is what lets anything downstream — an ILM
- * policy, a lifecycle rule, a cron, a legal-hold query — act on it **without understanding
- * policies at all**. It is the other half of the bridge: the first half keeps the record long
- * enough, this one makes it findable when the window ends.
+ * @description Computes the end of a retention window from the policy's declared unit, so the
+ * date travels on the entry and downstream tooling can act on it without reading policies.
  */
 
-/**
- * Pure: the date until which the record must be kept — `at` plus `years`.
- *
- * **Not an expiry.** Reaching this date ends the mandatory window; it does not authorize
- * deletion. Legal hold, an open dispute, or a longer policy elsewhere can all extend it.
- *
- * Leap day: 29-Feb + N years lands on 1-Mar of a non-leap year, which keeps the record one
- * day longer — never one day short. Erring the other way would end the window early, which
- * is the failure an auditor actually punishes.
- *
- * @param at - When the record was written.
- * @param years - Whole years of retention. Non-integers and values <= 0 return `null`.
- * @returns The end of the mandatory window, or `null` when either input is unusable.
- */
-export function retentionUntil(at: Date, years: number): Date | null {
-  if (!(at instanceof Date) || Number.isNaN(at.getTime())) return null;
-  if (!Number.isInteger(years) || years <= 0) return null;
+/** How long a record must be kept: years or months. */
+export type RetentionWindow = { years: number } | { months: number };
 
-  const until = new Date(at.getTime());
-  until.setUTCFullYear(until.getUTCFullYear() + years);
-  return until;
+/** Pure: a usable count is a whole number above zero. */
+function isWholePositive(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
 }
 
-/**
- * @internal Pure: the ISO string the framework puts on the entry, or `undefined` when the
- * policy carries no usable `years`. Kept separate so the public helper stays `Date`-typed —
- * a caller filling a `timestamptz` column wants a Date, an entry field wants a string.
- */
+/** Pure: `at` plus the window; `years` wins if both are declared, `null` if neither is usable. */
+export function retentionUntil(
+  at: Date,
+  window: number | RetentionWindow
+): Date | null {
+  if (!(at instanceof Date) || Number.isNaN(at.getTime())) return null;
+
+  const declared = typeof window === 'number' ? { years: window } : window;
+  if (declared === null || typeof declared !== 'object') return null;
+
+  const years = (declared as { years?: unknown }).years;
+  const months = (declared as { months?: unknown }).months;
+
+  const until = new Date(at.getTime());
+  if (isWholePositive(years)) {
+    until.setUTCFullYear(until.getUTCFullYear() + years);
+    return until;
+  }
+  if (isWholePositive(months)) {
+    // Short target month rolls forward, keeping the record longer — never shorter.
+    until.setUTCMonth(until.getUTCMonth() + months);
+    return until;
+  }
+  return null;
+}
+
+/** Pure: the window a policy's rules declare, or `null` when they declare none. */
+export function resolveRetentionWindow(rules: unknown): RetentionWindow | null {
+  if (rules === null || typeof rules !== 'object') return null;
+  const { years, months } = rules as { years?: unknown; months?: unknown };
+  if (isWholePositive(years)) return { years };
+  if (isWholePositive(months)) return { months };
+  return null;
+}
+
+/** Pure: the window as the ISO string the entry carries; the caller supplies a window or skips. */
 export function retentionUntilIso(
   atMs: number,
-  years: unknown
+  window: RetentionWindow
 ): string | undefined {
-  if (typeof years !== 'number') return undefined;
-  const until = retentionUntil(new Date(atMs), years);
-  return until ? until.toISOString() : undefined;
+  return retentionUntil(new Date(atMs), window)?.toISOString();
 }

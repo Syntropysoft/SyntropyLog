@@ -26,6 +26,27 @@ The rules come from **one source** (the MaskingEngine); the native engine is con
 
 A non-string value under a matched key (object, array, number) is fully redacted to `[REDACTED]` — masking never descends into it, so nested PII can't leak under a sensitive-named parent.
 
+### Which keys the defaults match
+
+`enableDefaultRules: true` (the default) installs these. Each pattern is tested against the field
+**key** with `.test()` and the `i` flag — a **case-insensitive substring**, so `userEmail` matches
+`email` and `creditCard` matches `creditcard`. A key that does not *contain* the pattern is not
+matched: `mail` on its own is **not** an email match, and `tel` is not a phone match.
+
+| Pattern (source) | Strategy | Result |
+|---|---|---|
+| `email` | `EMAIL` | `j***@example.com` |
+| `phone`, `phone_number`, `mobile_number` | `PHONE` | `***-***-4567` |
+| `credit_card`, `creditcard`, `card_number`, `cardnumber`, `payment_number` | `CREDIT_CARD` | `****-****-****-1234` |
+| `ssn`, `social_security`, `security_number` | `SSN` | `***-**-6789` |
+| `password`, `pass`, `pwd`, `secret` (`MASK_KEYS_PASSWORD`) | `PASSWORD` | `[REDACTED]` |
+| `token`, `api_key`, `auth_token`, `jwt`, `bearer`, `access_token`, `refresh_token`, `accesstoken`, `refreshtoken`, `apikey`, `key`, `private_key`, `privatekey` (`MASK_KEYS_TOKEN`) | `TOKEN` | `[REDACTED]` |
+| everything in `MASK_KEYS_ALL` not already covered — `auth`, `authorization`, `credential`, `connection_string`, `session_id`, … | `PASSWORD` | `[REDACTED]` |
+
+The literals live in one file, `src/sensitiveKeys.ts`, exported as `MASK_KEY_*` / `MASK_KEYS_*` (and
+bundled as `maskEnum`). Build your own rules from those constants rather than retyping the strings —
+it keeps the words out of your source, which is also what keeps Sonar's S2068 quiet.
+
 ---
 
 ## Basic configuration

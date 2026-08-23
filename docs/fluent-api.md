@@ -62,6 +62,13 @@ const auditLogger = syntropyLog.getLogger()
 auditLogger.audit({ userId: 123, action: 'manager.override' }, 'Approval');
 ```
 
+**Name them like identifiers, not captions.** The name is emitted as `retention` and used as a
+label value downstream, so keep it to `[A-Za-z0-9_.:-]` — no spaces, commas or slashes. A caption
+(`'Usuarios, roles y permisos'`) works today and bites later: queries need quoting and Datadog
+normalizes tags, so the value can arrive rewritten. Put the caption **inside** the policy
+(`{ USUARIOS: { years: 6, label: 'Usuarios, roles y permisos' } }`) — an auditor still reads it, and
+it is filed with the record when `emitRules` is on.
+
 For full compile-time autocomplete on the policy name, derive a string union from the helper's return value:
 
 ```typescript

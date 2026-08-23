@@ -4,7 +4,7 @@ SyntropyLog puede usar un **addon nativo en Rust** opcional (`syntropylog-native
 
 ## Requisitos previos
 
-- **Node.js** ≥ 18 (se recomienda ≥ 20; el paquete principal usa 20)
+- **Node.js** ≥ 22 (el paquete principal y el addon declaran `engines: >=22.0.0`)
 - **pnpm** (instalar con `npm install -g pnpm` o ver [pnpm.io](https://pnpm.io))
 - **Rust** (instalar con [rustup](https://rustup.rs))
 

@@ -1,6 +1,8 @@
 # Inbound / Outbound Context Propagation — Design Plan
 
-**Status:** Planning
+**Status:** Shipped. This is the design record, not the current state — it says "Target version
+1.1.0" because that is when it was written. User-facing documentation is
+[context.md § Propagating across processes](context.md#propagating-across-processes).
 **Target version:** 1.1.0 (additive — no breaking changes)
 **Reference implementation:** [slpy v0.3.2 (Python)](https://github.com/Syntropysoft/syntropylog.py)
 

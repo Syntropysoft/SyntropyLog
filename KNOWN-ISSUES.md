@@ -12,10 +12,12 @@ The **documentation** has already been corrected to steer users onto the safe pa
 (README NestJS + masking sections, `docs/masking.md`, `docs/context.md`, `docs/migration-from-pino.md`).
 **This file tracks the underlying code fixes that still need to happen.**
 
-Status: **all FIXED on `develop`** — Issue 1 (nestjs subpath now shares the one runtime singleton
-and references the same nominal types) and Issue 2 (native engine honors explicit rules
-unconditionally), both surfaced at **1.2.0**; and Issue 3 (`@InjectLogger()` no longer resolves
-eagerly, so it can't throw before `init()`), at **1.4.0**. See the resolution note under each.
+Status: **all three are fixed and released.** Issue 1 (nestjs subpath now shares the one runtime
+singleton and references the same nominal types) and Issue 2 (native engine honors explicit rules
+unconditionally) surfaced at **1.2.0** and shipped in **1.3.0**; Issue 3 (`@InjectLogger()` no
+longer resolves eagerly, so it can't throw before `init()`) surfaced at **1.4.0** and shipped in
+**1.4.1**. Nothing here is outstanding — the file is kept as the record of what these were and how
+they were resolved. See the note under each.
 
 ---
 
@@ -23,7 +25,7 @@ eagerly, so it can't throw before `init()`), at **1.4.0**. See the resolution no
 
 **Labels:** `bug`, `nestjs`, `build/bundling`
 **Severity:** high — the documented "no-arg" setup throws at startup in any real app.
-**Status: ✅ FIXED on `develop`** (changeset `nestjs-shared-singleton`, minor). The `syntropylog/nestjs`
+**Status: ✅ Fixed, released in 1.3.0** (changeset `nestjs-shared-singleton`, minor). The `syntropylog/nestjs`
 build now treats the core package (`syntropylog`) as **external** instead of inlining it, so the subpath
 `require('syntropylog')`s the one shared runtime singleton and its `.d.ts` references the same nominal
 types. Verified: the no-arg `SyntropyNestLoggerService` works after a single `syntropyLog.init()`, and
@@ -114,7 +116,7 @@ no `SyntropyLogModule`. See README → NestJS section.
 
 **Labels:** `bug`, `masking`, `native-addon`, `security`
 **Severity:** high — silent PII leak under the **default** engine.
-**Status: ✅ FIXED on `develop`** (changeset `native-masking-rules-failsafe`, minor). Root cause and
+**Status: ✅ Fixed, released in 1.3.0** (changeset `native-masking-rules-failsafe`, minor). Root cause and
 fix below; the native addon was re-released. Verified: `{ enableDefaultRules: false, rules:
 [...getDefaultMaskingRules()] }` now masks byte-for-byte identically under the native and JS engines.
 
@@ -187,7 +189,7 @@ against the spread pattern explicitly.
 
 **Labels:** `bug`, `nestjs`, `ergonomics`
 
-**Status: ✅ FIXED on `develop`** (`src/nestjs/SyntropyLogModule.ts`). The `@InjectLogger()` transient
+**Status: ✅ Fixed, released in 1.4.1** (`src/nestjs/SyntropyLogModule.ts`). The `@InjectLogger()` transient
 provider now returns a **lazily-resolved `ILogger`** (a proxy that fetches `getLogger(source)` on first
 use and memoizes it), so a consumer can be constructed before `init()` has run without throwing at
 bootstrap. Regression test: `tests/nestjs/nestjs-integration.test.ts` → "no throw before init" (fails
@@ -212,4 +214,5 @@ non-breaking (public signature unchanged); brings `@InjectLogger()` in line with
 
 ---
 
-_Last updated: 2026-07-13. Issues 1–2 run against syntropylog@1.2.0; Issue 3 against @1.4.0, Node 20._
+_Reproduced against syntropylog@1.2.0 (Issues 1–2) and @1.4.0 (Issue 3), on Node 20 — the
+conditions at the time, kept as provenance. Status refreshed 2026-08-22: all three released._
