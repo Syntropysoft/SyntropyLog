@@ -47,7 +47,7 @@ jobs:
           cache: "pnpm"
 
       - name: Setup Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
           # Pinned, not `stable`. Rust 1.98.0 (2026-08-18) started passing
           # `-Wl,--fix-cortex-a53-843419` on aarch64-linux targets, and zig's linker
